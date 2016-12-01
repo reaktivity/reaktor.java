@@ -1,4 +1,4 @@
-Steps for creating a new Java repository in Reaktivity.
+## Creating a new Java repository in Reaktivity
 
 1. Name the new repository `[repository-name].java` with `README` only
 2. Create a new branch called `develop`
