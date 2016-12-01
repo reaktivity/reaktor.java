@@ -6,7 +6,7 @@ $ git remote add --track develop build https://github.com/reaktivity/build-templ
 $ git fetch build develop
 $ git merge build/develop --no-commit
 ```
-...then review the changes, modify the `pom.xml` to reflect your project name, description, artifact id, and so on.
+...then review the changes, modify the `pom.xml` to reflect your project name, description, and artifact id.
 
 Finally, commit the changes.
 ```
