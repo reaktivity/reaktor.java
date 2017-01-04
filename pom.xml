@@ -1,0 +1,66 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>org.reaktivity</groupId>
+  <artifactId>reaktor</artifactId>
+  <version>develop-SNAPSHOT</version>
+  <name>Reaktor for Java Nuklei</name>
+  <url>https://github.com/reaktivity/reaktor.java</url>
+  <inceptionYear>2016</inceptionYear>
+
+  <licenses>
+    <license>
+      <name>The Apache Software License, Version 2.0</name>
+      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <developers>
+    <developer>
+      <id>reaktivity.org</id>
+      <name>The Reaktivity Project Contributors</name>
+      <url>http://reaktivity.org/</url>
+      <organization>The Reaktivity Project</organization>
+      <organizationUrl>http://reaktivity.org/</organizationUrl>
+    </developer>
+  </developers>
+
+  <scm>
+    <connection>scm:git:https://github.com/reaktivity/reaktor.java</connection>
+    <developerConnection>scm:git:https://github.com/reaktivity/reaktor.java</developerConnection>
+    <url>https://github.com/reaktivity/reaktor.java</url>
+  </scm>
+
+  <properties>
+    <maven.compiler.source>1.8</maven.compiler.source>
+    <maven.compiler.target>1.8</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+
+  <build>
+    <plugins>
+      <plugin>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <version>2.17</version>
+        <executions>
+          <execution>
+            <phase>validate</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+            <configuration>
+              <configLocation>.checkstyle/configuration.xml</configLocation>
+              <suppressionsLocation>.checkstyle/suppressions.xml</suppressionsLocation>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+</project>
+
