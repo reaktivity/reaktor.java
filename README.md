@@ -15,6 +15,7 @@ $ git merge build/develop --no-commit
 ```
 ... review the changes, modify the `pom.xml` to reflect your project `name`, `description`, and `artifactId` before committing the changes and push them back.
 ```
+$ git add pom.xml
 $ git commit
 $ git push origin develop
 ```
