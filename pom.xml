@@ -9,7 +9,6 @@
   <version>develop-SNAPSHOT</version>
   <name>Build Template for Java Projects</name>
   <url>https://github.com/reaktivity/build-template.java</url>
-  <inceptionYear>2016</inceptionYear>
 
   <licenses>
     <license>
@@ -43,6 +42,20 @@
 
   <build>
     <plugins>
+      <plugin>
+        <groupId>com.mycila</groupId>
+        <artifactId>license-maven-plugin</artifactId>
+        <version>3.0</version>
+        <configuration>
+          <header>COPYRIGHT</header>
+          <properties>
+            <copyrightYears>2016-2017</copyrightYears>
+          </properties>
+          <includes>
+            <include>src/**</include>
+          </includes>
+        </configuration>
+      </plugin>
       <plugin>
         <artifactId>maven-checkstyle-plugin</artifactId>
         <version>2.17</version>
