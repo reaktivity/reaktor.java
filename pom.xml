@@ -38,8 +38,8 @@
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <checkstyle.config.location>checkstyle/configuration.xml</checkstyle.config.location>
-    <checkstyle.suppressions.location>checkstyle/suppressions.xml</checkstyle.suppressions.location>
+    <checkstyle.config.location>src/conf/checkstyle/configuration.xml</checkstyle.config.location>
+    <checkstyle.suppressions.location>src/conf/checkstyle/suppressions.xml</checkstyle.suppressions.location>
   </properties>
 
   <build>
