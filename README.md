@@ -13,9 +13,12 @@ $ git remote add --track develop build https://github.com/reaktivity/build-templ
 $ git fetch build develop
 $ git merge build/develop --no-commit
 ```
-... review the changes, modify the `pom.xml` to reflect your project `name`, `description`, and `artifactId` before committing the changes and push them back.
+Review the changes, modify the `pom.xml` to reflect your project `name`, `description`, and `artifactId`.
+Activate the new repository in Travis CI.
+Commit the changes and push them back.
 ```
 $ git add pom.xml
 $ git commit
 $ git push origin develop
 ```
+Verify the Travis CI build success, then further protect the `develop` branch by requiring the `continuous-integration/travis-ci` status check.
