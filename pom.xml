@@ -8,7 +8,7 @@
   <artifactId>reaktor</artifactId>
   <version>develop-SNAPSHOT</version>
   <name>Reaktor for Java Nuklei</name>
-  <description>iReaktor for Java Nuklei</description>
+  <description>Reaktor for Java Nuklei</description>
   <url>https://github.com/reaktivity/reaktor.java</url>
 
   <licenses>
