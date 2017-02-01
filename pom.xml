@@ -57,7 +57,18 @@
           <includes>
             <include>src/**</include>
           </includes>
+          <excludes>
+            <include>src/conf/**</include>
+          </excludes>
         </configuration>
+        <executions>
+          <execution>
+            <phase>validate</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <artifactId>maven-checkstyle-plugin</artifactId>
