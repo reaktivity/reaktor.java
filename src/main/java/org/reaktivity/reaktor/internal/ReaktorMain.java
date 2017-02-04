@@ -54,7 +54,7 @@ public final class ReaktorMain
         }
         else
         {
-            String directory = cmdline.getOptionValue("directory", format("%s/org.reaktivity.nukleus.reaktor", tmpDirName()));
+            String directory = cmdline.getOptionValue("directory", format("%s/org.reaktivity.reaktor", tmpDirName()));
             String[] nuklei = cmdline.getOptionValues("nukleus");
 
             Properties properties = new Properties();
