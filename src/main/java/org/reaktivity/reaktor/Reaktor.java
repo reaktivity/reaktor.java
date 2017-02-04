@@ -71,6 +71,13 @@ public final class Reaktor implements AutoCloseable
         return kind.cast(controllersByKind.get(kind));
     }
 
+    public <T extends Nukleus> T nukleus(
+        String name,
+        Class<T> kind)
+    {
+        return kind.cast(nukleiByName.get(name));
+    }
+
     public void attach(
         Nukleus nukleus)
     {
