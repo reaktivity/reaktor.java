@@ -20,6 +20,7 @@ import static org.agrona.concurrent.AgentRunner.startOnThread;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import java.util.function.IntSupplier;
 
 import org.agrona.ErrorHandler;
@@ -108,6 +109,11 @@ public final class Reaktor implements AutoCloseable
         {
             this.worker = supplyWorker();
         }
+    }
+
+    public void visit(Consumer<Controller> action)
+    {
+        this.controllersByKind.values().forEach(action);
     }
 
     public Reaktor start()
