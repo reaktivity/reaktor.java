@@ -7,13 +7,16 @@
 
 ## Nukleus `stream` Transport
 Flow control with `WINDOW` update frames are managed inside the transport.
+
 Requires external configuration of directory where streams are discovered.
 
 ```
-# expect new streams from "source"
+# expect new streams from "source" to "nukleus"
+# on explicit partition "part0" (optional: default to any partition)
 # set initial window size to 8192
-accept nukleus://stream/source
+accept nukleus://stream/nukleus/source
        option window 8192
+       option partition "part0"
 
 # receive BEGIN w/ extension
 accepted
@@ -35,11 +38,11 @@ closed extension [0x...]
 ```
 
 ```
-# send BEGIN w/ extension
-# on explicit partition "part0" (optional)
+# send BEGIN w/ extension for new stream from "nukleus" to "target"
+# on explicit partition "part0" (optional: default to no partition)
 # and initial window size to 2048 (optional: default 0 before first WINDOW frame)
-connect nukleus://stream/target#partition
-        option parition "part0"
+connect nukleus://stream/nukleus/target
+        option partition "part0"
         option window 2048
 write extension [0x...]
 
