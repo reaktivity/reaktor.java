@@ -19,7 +19,7 @@ Requires external configuration of directory where streams are discovered.
 # with explicit correlation ${correlationId} (optional: default to any correlation)
 #
 # note: throttle (default "on") is not relevant on accept for "simplex" transmission (not writing)
-accept nukleus://streams/receiver
+accept "nukleus://streams/receiver"
        option nukleus:route ${routedRef}
        option nukleus:source "sender"
        option nukleus:window 8192
@@ -57,7 +57,7 @@ read flush
 # on explicit partition "part0" (optional: default to any partition)
 # with explicit correlation ${correlationId} (optional: default to any correlation)
 # with throttle "off" (allows negative testing of flow control)
-connect nukleus://streams/receiver
+connect "nukleus://streams/receiver"
         option nukleus:route ${routedRef}
         option nukleus:source "sender"
         option nukleus:partition "part0"
@@ -96,7 +96,7 @@ write flush
 # with "duplex" transmission for bidirectional (optional: default "simplex")
 #
 # note: partition, correlationId not supported for "duplex" transmission
-accept nukleus://streams/receiver
+accept "nukleus://streams/receiver"
        option nukleus:route ${routedRef}
        option nukleus:source "sender"
        option nukleus:window 8192
@@ -158,7 +158,7 @@ write flush
 # with "duplex" transmission for bidirectional (optional: default "simplex")
 #
 # note: partition, correlationId not supported for "duplex" transmission
-connect nukleus://streams/receiver
+connect "nukleus://streams/receiver"
         option nukleus:route ${routedRef}
         option nukleus:source "sender"
         option nukleus:window 8192
