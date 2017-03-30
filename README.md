@@ -1,11 +1,11 @@
-# Reaktivity K3PO Extensions
+# Nukleus K3PO Extensions
 
 [![Build Status][build-status-image]][build-status]
 
 [build-status-image]: https://travis-ci.org/reaktivity/nukleus-k3po-ext.java.svg?branch=develop
 [build-status]: https://travis-ci.org/reaktivity/nukleus-k3po-ext.java
 
-## Reaktivity `streams` Transport
+## Nukleus `streams` Transport
 Flow control with `WINDOW` update frames are managed inside the transport.
 
 Requires external configuration of directory where streams are discovered.
@@ -19,26 +19,26 @@ Requires external configuration of directory where streams are discovered.
 # with explicit correlation ${correlationId} (optional: default to any correlation)
 #
 # note: throttle (default "on") is not relevant on accept for "simplex" transmission (not writing)
-accept reaktivity://streams/receiver
-       option reaktivity:route ${routedRef}
-       option reaktivity:source "sender"
-       option reaktivity:window 8192
-       option reaktivity:partition "part0"
-       option reaktivity:correlation ${correlationId}
+accept nukleus://streams/receiver
+       option nukleus:route ${routedRef}
+       option nukleus:source "sender"
+       option nukleus:window 8192
+       option nukleus:partition "part0"
+       option nukleus:correlation ${correlationId}
 
 # receive BEGIN w/ extension
 accepted
-read reaktivity:extension [0x...]
+read nukleus:extension [0x...]
 
 # correlated streams
-read reaktivity:correlation ([0..8]:captured)
+read nukleus:correlation ([0..8]:captured)
 
 # expect data on explicit partition (optional)
-read option reaktivity:partition "part1"
+read option nukleus:partition "part1"
 
 # receive DATA w/ extension
 read [0x...]
-read reaktivity:extension [0x...]
+read nukleus:extension [0x...]
 read flush
 
 # send RESET
@@ -46,7 +46,7 @@ abort
 
 # receive END w/ extension
 read closed
-read reaktivity:extension [0x...]
+read nukleus:extension [0x...]
 read flush
 ```
 
@@ -57,33 +57,33 @@ read flush
 # on explicit partition "part0" (optional: default to any partition)
 # with explicit correlation ${correlationId} (optional: default to any correlation)
 # with throttle "off" (allows negative testing of flow control)
-connect reaktivity://streams/receiver
-        option reaktivity:route ${routedRef}
-        option reaktivity:source "sender"
-        option reaktivity:partition "part0"
-        option reaktivity:correlation ${correlationId}
-        option reaktivity:throttle "off"
+connect nukleus://streams/receiver
+        option nukleus:route ${routedRef}
+        option nukleus:source "sender"
+        option nukleus:partition "part0"
+        option nukleus:correlation ${correlationId}
+        option nukleus:throttle "off"
 
 # send BEGIN w/ extension
-write reaktivity:extension [0x...]
+write nukleus:extension [0x...]
 
 # switch writes to explicit partition (optional)
-write option reaktivity:partition "part1"
+write option nukleus:partition "part1"
 
 # send DATA w/ extension
 write [0x...]
-write reaktivity:extension [0x...]
+write nukleus:extension [0x...]
 write flush
 
 # flow control
-read reaktivity:window ([0..4]:update)
+read nukleus:window ([0..4]:update)
 
 # receive RESET
 aborted
 
 # END w/ extension
 write close
-write reaktivity:extension [0x...]
+write nukleus:extension [0x...]
 write flush
 ```
 
@@ -96,26 +96,26 @@ write flush
 # with "duplex" transmission for bidirectional (optional: default "simplex")
 #
 # note: partition, correlationId not supported for "duplex" transmission
-accept reaktivity://streams/receiver
-       option reaktivity:route ${routedRef}
-       option reaktivity:source "sender"
-       option reaktivity:window 8192
-       option reaktivity:throttle "off"
-       option reaktivity:transmission "duplex"
+accept nukleus://streams/receiver
+       option nukleus:route ${routedRef}
+       option nukleus:source "sender"
+       option nukleus:window 8192
+       option nukleus:throttle "off"
+       option nukleus:transmission "duplex"
 
 # receive BEGIN w/ extension
 accepted
-read reaktivity:extension [0x...]
+read nukleus:extension [0x...]
 
 # correlated streams
-read reaktivity:correlation ([0..8]:captured)
+read nukleus:correlation ([0..8]:captured)
 
 # expect data on explicit partition (optional)
-read option reaktivity:partition "part1"
+read option nukleus:partition "part1"
 
 # receive DATA w/ extension
 read [0x...]
-read reaktivity:extension [0x...]
+read nukleus:extension [0x...]
 read flush
 
 # send RESET
@@ -123,29 +123,29 @@ abort
 
 # receive END w/ extension
 read closed
-read reaktivity:extension [0x...]
+read nukleus:extension [0x...]
 read flush
 
 # send BEGIN w/ extension
 write extension [0x...]
 
 # switch writes to explicit partition (optional)
-write option reaktivity:partition "part1"
+write option nukleus:partition "part1"
 
 # send DATA w/ extension
 write [0x...]
-write reaktivity:extension [0x...]
+write nukleus:extension [0x...]
 write flush
 
 # flow control
-read reaktivity:window ([0..4]:update)
+read nukleus:window ([0..4]:update)
 
 # receive RESET
 aborted
 
 # END w/ extension
 write close
-write reaktivity:extension [0x...]
+write nukleus:extension [0x...]
 write flush
 ```
 
@@ -158,49 +158,49 @@ write flush
 # with "duplex" transmission for bidirectional (optional: default "simplex")
 #
 # note: partition, correlationId not supported for "duplex" transmission
-connect reaktivity://streams/receiver
-        option reaktivity:route ${routedRef}
-        option reaktivity:source "sender"
-        option reaktivity:window 8192
-        option reaktivity:throttle "off"
-        option reaktivity:transmission "duplex"
+connect nukleus://streams/receiver
+        option nukleus:route ${routedRef}
+        option nukleus:source "sender"
+        option nukleus:window 8192
+        option nukleus:throttle "off"
+        option nukleus:transmission "duplex"
 
 connected
 
 # send BEGIN w/ extension
-write reaktivity:extension [0x...]
+write nukleus:extension [0x...]
 
 # switch writes to explicit partition (optional)
-write option reaktivity:partition "part1"
+write option nukleus:partition "part1"
 
 # send DATA w/ extension
 write [0x...]
-write reaktivity:extension [0x...]
+write nukleus:extension [0x...]
 write flush
 
 # flow control
-read reaktivity:window ([0..4]:update)
+read nukleus:window ([0..4]:update)
 
 # receive RESET
 aborted
 
 # END w/ extension
 write close
-write reaktivity:extension [0x...]
+write nukleus:extension [0x...]
 write flush
 
 # receive BEGIN w/ extension
-read reaktivity:extension [0x...]
+read nukleus:extension [0x...]
 
 # correlated streams
-read reaktivity:correlation ([0..8]:captured)
+read nukleus:correlation ([0..8]:captured)
 
 # expect data on explicit partition (optional)
-read option reaktivity:partition "part1"
+read option nukleus:partition "part1"
 
 # receive DATA w/ extension
 read [0x...]
-read reaktivity:extension [0x...]
+read nukleus:extension [0x...]
 read flush
 
 # send RESET
@@ -208,6 +208,6 @@ abort
 
 # receive END w/ extension
 read closed
-read reaktivity:extension [0x...]
+read nukleus:extension [0x...]
 read flush
 ```
