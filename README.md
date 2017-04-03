@@ -39,7 +39,6 @@ read option nukleus:partition "part1"
 # receive DATA w/ extension
 read [0x...]
 read nukleus:extension [0x...]
-read flush
 
 # send RESET
 abort
@@ -47,7 +46,6 @@ abort
 # receive END w/ extension
 read closed
 read nukleus:extension [0x...]
-read flush
 ```
 
 ```
@@ -116,7 +114,6 @@ read option nukleus:partition "part1"
 # receive DATA w/ extension
 read [0x...]
 read nukleus:extension [0x...]
-read flush
 
 # send RESET
 abort
@@ -124,10 +121,9 @@ abort
 # receive END w/ extension
 read closed
 read nukleus:extension [0x...]
-read flush
 
 # send BEGIN w/ extension
-write extension [0x...]
+write nukleus:extension [0x...]
 
 # switch writes to explicit partition (optional)
 write option nukleus:partition "part1"
@@ -201,7 +197,6 @@ read option nukleus:partition "part1"
 # receive DATA w/ extension
 read [0x...]
 read nukleus:extension [0x...]
-read flush
 
 # send RESET
 abort
@@ -209,5 +204,4 @@ abort
 # receive END w/ extension
 read closed
 read nukleus:extension [0x...]
-read flush
 ```
