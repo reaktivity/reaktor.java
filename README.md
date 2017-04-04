@@ -28,7 +28,7 @@ accept "nukleus://streams/receiver"
 
 # receive BEGIN w/ extension
 accepted
-read nukleus:extension [0x...]
+read nukleus:begin.ext [0x...]
 
 # correlated streams
 read nukleus:correlation ([0..8]:captured)
@@ -38,14 +38,14 @@ read option nukleus:partition "part1"
 
 # receive DATA w/ extension
 read [0x...]
-read nukleus:extension [0x...]
+read nukleus:data.ext [0x...]
 
 # send RESET
 abort
 
 # receive END w/ extension
+read nukleus:end.ext [0x...]
 read closed
-read nukleus:extension [0x...]
 ```
 
 ```
@@ -63,14 +63,14 @@ connect "nukleus://streams/receiver"
         option nukleus:throttle "off"
 
 # send BEGIN w/ extension
-write nukleus:extension [0x...]
+write nukleus:begin.ext [0x...]
 
 # switch writes to explicit partition (optional)
 write option nukleus:partition "part1"
 
 # send DATA w/ extension
 write [0x...]
-write nukleus:extension [0x...]
+write nukleus:data.ext [0x...]
 write flush
 
 # flow control
@@ -80,9 +80,8 @@ read nukleus:window ([0..4]:update)
 aborted
 
 # END w/ extension
+write nukleus:end.ext [0x...]
 write close
-write nukleus:extension [0x...]
-write flush
 ```
 
 ```
@@ -103,7 +102,7 @@ accept "nukleus://streams/receiver"
 
 # receive BEGIN w/ extension
 accepted
-read nukleus:extension [0x...]
+read nukleus:begin.ext [0x...]
 
 # correlated streams
 read nukleus:correlation ([0..8]:captured)
@@ -113,24 +112,24 @@ read option nukleus:partition "part1"
 
 # receive DATA w/ extension
 read [0x...]
-read nukleus:extension [0x...]
+read nukleus:data.ext [0x...]
 
 # send RESET
 abort
 
 # receive END w/ extension
+read nukleus:end.ext [0x...]
 read closed
-read nukleus:extension [0x...]
 
 # send BEGIN w/ extension
-write nukleus:extension [0x...]
+write nukleus:begin.ext [0x...]
 
 # switch writes to explicit partition (optional)
 write option nukleus:partition "part1"
 
 # send DATA w/ extension
 write [0x...]
-write nukleus:extension [0x...]
+write nukleus:data.ext [0x...]
 write flush
 
 # flow control
@@ -140,9 +139,8 @@ read nukleus:window ([0..4]:update)
 aborted
 
 # END w/ extension
+write nukleus:end.ext [0x...]
 write close
-write nukleus:extension [0x...]
-write flush
 ```
 
 ```
@@ -164,14 +162,14 @@ connect "nukleus://streams/receiver"
 connected
 
 # send BEGIN w/ extension
-write nukleus:extension [0x...]
+write nukleus:begin.ext [0x...]
 
 # switch writes to explicit partition (optional)
 write option nukleus:partition "part1"
 
 # send DATA w/ extension
 write [0x...]
-write nukleus:extension [0x...]
+write nukleus:data.ext [0x...]
 write flush
 
 # flow control
@@ -181,12 +179,11 @@ read nukleus:window ([0..4]:update)
 aborted
 
 # END w/ extension
+write nukleus:end.ext [0x...]
 write close
-write nukleus:extension [0x...]
-write flush
 
 # receive BEGIN w/ extension
-read nukleus:extension [0x...]
+read nukleus:begin.ext [0x...]
 
 # correlated streams
 read nukleus:correlation ([0..8]:captured)
@@ -196,12 +193,12 @@ read option nukleus:partition "part1"
 
 # receive DATA w/ extension
 read [0x...]
-read nukleus:extension [0x...]
+read nukleus:data.ext [0x...]
 
 # send RESET
 abort
 
 # receive END w/ extension
+read nukleus:end.ext [0x...]
 read closed
-read nukleus:extension [0x...]
 ```
