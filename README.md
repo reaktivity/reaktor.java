@@ -13,7 +13,6 @@ Requires external configuration of directory where streams are discovered.
 ```
 # accept new unidirectional (simplex) streams at "receiver" from source "sender"
 # for routed reference ${routedRef} (required)
-# from source "sender" (required)
 # set initial window size to 8192 (required)
 # on explicit partition "part0" (optional: default to any partition)
 # with explicit correlation ${correlationId} (optional: default to any correlation)
@@ -91,7 +90,6 @@ write close
 # note: partition, correlationId not supported for "duplex" transmission
 accept "nukleus://receiver/streams/sender"
        option nukleus:route ${routedRef}
-       option nukleus:source "sender"
        option nukleus:window 8192
        option nukleus:throttle "off"
        option nukleus:transmission "duplex"
