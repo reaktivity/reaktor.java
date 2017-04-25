@@ -1,4 +1,4 @@
-# Nukleus K3PO Extensions
+# K3PO Nukleus Extension
 
 [![Build Status][build-status-image]][build-status]
 
