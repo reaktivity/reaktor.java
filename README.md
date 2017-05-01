@@ -2,8 +2,8 @@
 
 [![Build Status][build-status-image]][build-status]
 
-[build-status-image]: https://travis-ci.org/reaktivity/nukleus-k3po-ext.java.svg?branch=develop
-[build-status]: https://travis-ci.org/reaktivity/nukleus-k3po-ext.java
+[build-status-image]: https://travis-ci.org/reaktivity/k3po-nukleus-ext.java.svg?branch=develop
+[build-status]: https://travis-ci.org/reaktivity/k3po-nukleus-ext.java
 
 ## Nukleus `streams` Transport
 Flow control with `WINDOW` update frames are managed inside the transport.
