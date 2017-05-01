@@ -17,6 +17,7 @@ package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 
 import static org.jboss.netty.channel.Channels.fireChannelBound;
 import static org.jboss.netty.channel.Channels.fireChannelConnected;
+import static org.jboss.netty.channel.Channels.future;
 import static org.jboss.netty.channel.Channels.succeededFuture;
 
 import java.nio.file.Path;
@@ -29,6 +30,7 @@ import org.agrona.concurrent.MessageHandler;
 import org.agrona.concurrent.ringbuffer.RingBuffer;
 import org.jboss.netty.channel.ChannelFactory;
 import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.layout.StreamsLayout;
@@ -164,24 +166,38 @@ final class NukleusPartition implements AutoCloseable
             final long correlationId = begin.correlationId();
             NukleusChildChannel childChannel = doAccept(serverChannel, correlationId);
 
-            final ChannelFuture correlatedFuture = succeededFuture(childChannel);
-            final MessageHandler newStream = streamFactory.newStream(childChannel, this, correlatedFuture);
+            final ChannelFuture handshakeFuture = future(childChannel);
+            final ChannelFuture windowFuture = future(childChannel);
+            final MessageHandler newStream = streamFactory.newStream(childChannel, this, windowFuture, handshakeFuture);
             registerStream.accept(sourceId, newStream);
             newStream.onMessage(begin.typeId(), (MutableDirectBuffer) begin.buffer(), begin.offset(), begin.sizeof());
 
             fireChannelBound(childChannel, childChannel.getLocalAddress());
 
-            NukleusChannelConfig childConfig = childChannel.getConfig();
+            final NukleusChannelConfig childConfig = childChannel.getConfig();
             if (childConfig.isDuplex())
             {
                 NukleusChannelAddress remoteAddress = childChannel.getRemoteAddress();
                 String remoteName = remoteAddress.getReceiverName();
                 String partitionName = childConfig.getWritePartition();
                 NukleusTarget remoteTarget = supplyTarget.apply(remoteName, partitionName);
-                remoteTarget.onAccepted(childChannel, correlationId);
+
+                remoteTarget.onAccepted(childChannel, correlationId, windowFuture, handshakeFuture);
+            }
+            else
+            {
+                windowFuture.setSuccess();
             }
 
-            fireChannelConnected(childChannel, childChannel.getRemoteAddress());
+            windowFuture.addListener(new ChannelFutureListener()
+            {
+                @Override
+                public void operationComplete(
+                    ChannelFuture future)throws Exception
+                {
+                    fireChannelConnected(childChannel, childChannel.getRemoteAddress());
+                }
+            });
         }
         else
         {
@@ -198,9 +214,10 @@ final class NukleusPartition implements AutoCloseable
 
         if (correlation != null)
         {
-            final ChannelFuture correlatedFuture = correlation.correlatedFuture();
-            final NukleusClientChannel clientChannel = (NukleusClientChannel) correlatedFuture.getChannel();
-            final MessageHandler newStream = streamFactory.newStream(clientChannel, this, correlatedFuture);
+            final ChannelFuture handshakeFuture = correlation.correlatedFuture();
+            final NukleusClientChannel clientChannel = (NukleusClientChannel) handshakeFuture.getChannel();
+            final ChannelFuture windowFuture = succeededFuture(clientChannel);
+            final MessageHandler newStream = streamFactory.newStream(clientChannel, this, windowFuture, handshakeFuture);
             registerStream.accept(sourceId, newStream);
             newStream.onMessage(begin.typeId(), (MutableDirectBuffer) begin.buffer(), begin.offset(), begin.sizeof());
         }

@@ -159,6 +159,11 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
         return targetId;
     }
 
+    public int targetWindow()
+    {
+        return targetWindow;
+    }
+
     public boolean targetWritable()
     {
         return targetWindow > 0 || !getConfig().hasThrottle();

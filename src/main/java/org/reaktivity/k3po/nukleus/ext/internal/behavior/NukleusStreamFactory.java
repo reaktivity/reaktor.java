@@ -30,6 +30,7 @@ import org.agrona.concurrent.MessageHandler;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.ChannelFutureListener;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.OctetsFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.BeginFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.DataFW;
@@ -52,25 +53,29 @@ public final class NukleusStreamFactory
     public MessageHandler newStream(
         NukleusChannel channel,
         NukleusPartition partition,
-        ChannelFuture correlatedFuture)
+        ChannelFuture windowFuture,
+        ChannelFuture handshakeFuture)
     {
-        return new Stream(channel, partition, correlatedFuture)::handleStream;
+        return new Stream(channel, partition, windowFuture, handshakeFuture)::handleStream;
     }
 
     private final class Stream
     {
         private final NukleusChannel channel;
         private final NukleusPartition partition;
-        private final ChannelFuture correlatedFuture;
+        private final ChannelFuture windowFuture;
+        private final ChannelFuture handshakeFuture;
 
         private Stream(
             NukleusChannel channel,
             NukleusPartition partition,
-            ChannelFuture correlatedFuture)
+            ChannelFuture windowFuture,
+            ChannelFuture handshakeFuture)
         {
             this.channel = channel;
             this.partition = partition;
-            this.correlatedFuture = correlatedFuture;
+            this.windowFuture = windowFuture;
+            this.handshakeFuture = handshakeFuture;
         }
 
         private void handleStream(
@@ -120,9 +125,17 @@ public final class NukleusStreamFactory
 
             channel.sourceId(streamId);
 
-            correlatedFuture.setSuccess();
+            handshakeFuture.setSuccess();
 
-            partition.doWindow(channel, initialWindow);
+            windowFuture.addListener(new ChannelFutureListener()
+            {
+                @Override
+                public void operationComplete(
+                    ChannelFuture future) throws Exception
+                {
+                    partition.doWindow(channel, initialWindow);
+                }
+            });
         }
 
         private void onData(
@@ -151,9 +164,9 @@ public final class NukleusStreamFactory
                     channel.readExtBuffer().writeBytes(dataExtCopy);
                 }
 
-                fireMessageReceived(channel, message);
-
                 partition.doWindow(channel, readableBytes);
+
+                fireMessageReceived(channel, message);
             }
             else
             {

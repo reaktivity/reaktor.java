@@ -74,7 +74,8 @@ write nukleus:data.ext [0x...]
 write [0x...]
 
 # flow control
-read nukleus:window ([0..4]:update)
+read nukleus:source.window ([0..4]:readableBytes)
+read nukleus:target.window ([0..4]:writableBytes)
 
 # receive RESET
 aborted
@@ -133,7 +134,8 @@ write nukleus:data.ext [0x...]
 write [0x...]
 
 # flow control
-read nukleus:window ([0..4]:update)
+read nukleus:source.window ([0..4]:readableBytes)
+read nukleus:target.window ([0..4]:writableBytes)
 
 # receive RESET
 aborted
@@ -173,7 +175,8 @@ write [0x...]
 write nukleus:data.ext [0x...]
 
 # flow control
-read nukleus:window ([0..4]:update)
+read nukleus:source.window ([0..4]:readableBytes)
+read nukleus:target.window ([0..4]:writableBytes)
 
 # receive RESET
 aborted

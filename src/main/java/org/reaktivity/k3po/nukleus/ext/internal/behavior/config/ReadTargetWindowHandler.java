@@ -16,16 +16,20 @@
 package org.reaktivity.k3po.nukleus.ext.internal.behavior.config;
 
 import static java.lang.String.format;
+import static org.jboss.netty.buffer.ChannelBuffers.buffer;
 
+import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.ChannelHandlerContext;
+import org.kaazing.k3po.driver.internal.behavior.ScriptProgressException;
 import org.kaazing.k3po.driver.internal.behavior.handler.codec.MessageDecoder;
 import org.kaazing.k3po.driver.internal.behavior.handler.command.AbstractCommandHandler;
+import org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusChannel;
 
-public class ReadWindowHandler extends AbstractCommandHandler
+public class ReadTargetWindowHandler extends AbstractCommandHandler
 {
     private final MessageDecoder decoder;
 
-    public ReadWindowHandler(
+    public ReadTargetWindowHandler(
         MessageDecoder decoder)
     {
         this.decoder = decoder;
@@ -35,7 +39,25 @@ public class ReadWindowHandler extends AbstractCommandHandler
     protected void invokeCommand(
         ChannelHandlerContext ctx) throws Exception
     {
-        // TODO
+        try
+        {
+            NukleusChannel channel = (NukleusChannel) ctx.getChannel();
+            int window = channel.targetWindow();
+
+            ChannelBuffer buffer = buffer(Integer.BYTES);
+            buffer.writeInt(window);
+
+            if (decoder.decodeLast(buffer) == null)
+            {
+                throw new ScriptProgressException(decoder.getRegionInfo(), Integer.toString(window));
+            }
+
+            getHandlerFuture().setSuccess();
+        }
+        catch (Exception ex)
+        {
+            getHandlerFuture().setFailure(ex);
+        }
     }
 
     @Override

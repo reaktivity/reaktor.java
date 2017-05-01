@@ -219,4 +219,44 @@ public class DuplexIT
     {
         k3po.finish();
     }
+
+    @Test
+    @Specification({
+        "client.read.source.window/client",
+        "client.read.source.window/server"
+    })
+    public void shouldReadClientSourceWindow() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "client.read.target.window/client",
+        "client.read.target.window/server"
+    })
+    public void shouldReadClientTargetWindow() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "server.read.source.window/client",
+        "server.read.source.window/server"
+    })
+    public void shouldReadServerSourceWindow() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "server.read.target.window/client",
+        "server.read.target.window/server"
+    })
+    public void shouldReadServerTargetWindow() throws Exception
+    {
+        k3po.finish();
+    }
 }

@@ -178,7 +178,7 @@ final class NukleusTarget implements AutoCloseable
                 }
             });
 
-            final ClientThrottle throttle = new ClientThrottle(clientChannel, windowFuture, handshakeFuture);
+            final Throttle throttle = new Throttle(clientChannel, windowFuture, handshakeFuture);
             registerThrottle.accept(begin.streamId(), throttle::handleThrottle);
 
             streamsBuffer.write(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
@@ -194,7 +194,9 @@ final class NukleusTarget implements AutoCloseable
 
     public void onAccepted(
         NukleusChildChannel childChannel,
-        long correlationId)
+        long correlationId,
+        ChannelFuture windowFuture,
+        ChannelFuture handshakeFuture)
     {
         ChannelBuffer beginExt = childChannel.writeExtBuffer();
         final int writableExtBytes = beginExt.readableBytes();
@@ -209,7 +211,7 @@ final class NukleusTarget implements AutoCloseable
                 .extension(p -> p.set(beginExtCopy))
                 .build();
 
-        final ChildThrottle throttle = new ChildThrottle(childChannel);
+        final Throttle throttle = new Throttle(childChannel, windowFuture, handshakeFuture);
         registerThrottle.accept(begin.streamId(), throttle::handleThrottle);
 
         streamsBuffer.write(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
@@ -375,22 +377,29 @@ final class NukleusTarget implements AutoCloseable
     private final MutableDirectBuffer resetBuffer = new UnsafeBuffer(new byte[SIZE_OF_LONG]);
     private final ResetFW.Builder resetRW = new ResetFW.Builder();
 
-    private abstract class Throttle
+    private final class Throttle
     {
-        protected final NukleusChannel channel;
+        private final NukleusChannel channel;
+        private final ChannelFuture windowFuture;
 
-        protected Consumer<WindowFW> windowHandler;
-        protected Consumer<ResetFW> resetHandler;
+        private Consumer<WindowFW> windowHandler;
+        private Consumer<ResetFW> resetHandler;
+        private boolean resetPending;
 
         private Throttle(
-            NukleusChannel channel)
+            NukleusChannel channel,
+            ChannelFuture windowFuture,
+            ChannelFuture handshakeFuture)
         {
             this.channel = channel;
-            this.windowHandler = this::processWindow;
-            this.resetHandler = this::processReset;
+            this.windowFuture = windowFuture;
+            this.windowHandler = this::processInitialWindow;
+            this.resetHandler = this::processResetBeforeHandshake;
+
+            handshakeFuture.addListener(this::onHandshakeCompleted);
         }
 
-        protected void handleThrottle(
+        private void handleThrottle(
             int msgTypeId,
             DirectBuffer buffer,
             int index,
@@ -411,7 +420,7 @@ final class NukleusTarget implements AutoCloseable
             }
         }
 
-        protected final void processWindow(
+        private void processWindow(
             WindowFW window)
         {
             final int update = window.update();
@@ -421,50 +430,13 @@ final class NukleusTarget implements AutoCloseable
             flushThrottledWrites(channel);
         }
 
-        protected final void processReset(
+        private void processReset(
             ResetFW reset)
         {
             fireChannelAborted(channel);
 
             final long streamId = reset.streamId();
             unregisterThrottle.accept(streamId);
-        }
-    }
-
-    private final class ChildThrottle extends Throttle
-    {
-        private ChildThrottle(
-            NukleusChildChannel childChannel)
-        {
-            super(childChannel);
-            this.windowHandler = this::processInitialWindow;
-        }
-
-        private void processInitialWindow(
-            WindowFW window)
-        {
-            processWindow(window);
-
-            this.windowHandler = this::processWindow;
-        }
-    }
-
-    private final class ClientThrottle extends Throttle
-    {
-        private final ChannelFuture windowFuture;
-        private boolean resetPending;
-
-        private ClientThrottle(
-            NukleusClientChannel clientChannel,
-            ChannelFuture windowFuture,
-            ChannelFuture handshakeFuture)
-        {
-            super(clientChannel);
-            this.windowFuture = windowFuture;
-            this.windowHandler = this::processInitialWindow;
-            this.resetHandler = this::processResetBeforeHandshake;
-
-            handshakeFuture.addListener(this::onHandshakeCompleted);
         }
 
         private void processInitialWindow(
