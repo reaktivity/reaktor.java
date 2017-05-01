@@ -8,6 +8,7 @@
   <artifactId>k3po-nukleus-ext</artifactId>
   <version>develop-SNAPSHOT</version>
   <name>K3PO Nukleus Extension</name>
+  <description>K3PO Nukleus Extension</description>
   <url>https://github.com/reaktivity/k3po-nukleus-ext.java</url>
 
   <licenses>
