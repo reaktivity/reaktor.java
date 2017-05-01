@@ -5,10 +5,10 @@
 
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.reaktivity</groupId>
-  <artifactId>nukleus-k3po-ext</artifactId>
+  <artifactId>k3po-nukleus-ext</artifactId>
   <version>develop-SNAPSHOT</version>
-  <name>Nukleus K3PO Extensions</name>
-  <url>https://github.com/reaktivity/nukleus-k3po-ext.java</url>
+  <name>K3PO Nukleus Extension</name>
+  <url>https://github.com/reaktivity/k3po-nukleus-ext.java</url>
 
   <licenses>
     <license>
@@ -29,9 +29,9 @@
   </developers>
 
   <scm>
-    <connection>scm:git:https://github.com/reaktivity/nukleus-k3po-ext.java</connection>
-    <developerConnection>scm:git:https://github.com/reaktivity/nukleus-k3po-ext.java</developerConnection>
-    <url>https://github.com/reaktivity/nukleus-k3po-ext.java</url>
+    <connection>scm:git:https://github.com/reaktivity/k3po-nukleus-ext.java</connection>
+    <developerConnection>scm:git:https://github.com/reaktivity/k3po-nukleus-ext.java</developerConnection>
+    <url>https://github.com/reaktivity/k3po-nukleus-ext.java</url>
   </scm>
 
   <properties>
@@ -41,10 +41,76 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <checkstyle.config.location>src/conf/checkstyle/configuration.xml</checkstyle.config.location>
     <checkstyle.suppressions.location>src/conf/checkstyle/suppressions.xml</checkstyle.suppressions.location>
+
+    <junit.version>4.12</junit.version>
+    <k3po.version>3.0.0-alpha-69</k3po.version>
+    <nukleus.version>0.2</nukleus.version>
+    <nukleus.spec.version>develop-snapshot</nukleus.spec.version>
+    <nukleus.plugin.version>0.7.6</nukleus.plugin.version>
   </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.reaktivity</groupId>
+      <artifactId>nukleus.spec</artifactId>
+      <version>${nukleus.spec.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.kaazing</groupId>
+      <artifactId>k3po.driver</artifactId>
+      <version>${k3po.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.kaazing</groupId>
+      <artifactId>k3po.lang</artifactId>
+      <version>${k3po.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.reaktivity</groupId>
+      <artifactId>nukleus</artifactId>
+      <version>${nukleus.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.kaazing</groupId>
+      <artifactId>k3po.junit</artifactId>
+      <version>${k3po.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.hamcrest</groupId>
+      <artifactId>hamcrest-library</artifactId>
+      <version>1.3</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
 
   <build>
     <plugins>
+      <plugin>
+        <groupId>org.reaktivity</groupId>
+        <artifactId>nukleus-maven-plugin</artifactId>
+        <version>${nukleus.plugin.version}</version>
+        <configuration>
+          <scopeNames>core</scopeNames>
+          <packageName>org.reaktivity.k3po.nukleus.ext.internal.behavior.types</packageName>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>generate</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>com.mycila</groupId>
         <artifactId>license-maven-plugin</artifactId>
@@ -60,6 +126,9 @@
           <excludes>
             <exclude>src/conf/**</exclude>
           </excludes>
+          <mapping>
+            <rpt>SCRIPT_STYLE</rpt>
+          </mapping>
           <failIfUnknown>true</failIfUnknown>
         </configuration>
         <executions>
@@ -82,6 +151,39 @@
             <phase>validate</phase>
             <goals>
               <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.kaazing</groupId>
+        <artifactId>k3po-maven-plugin</artifactId>
+        <version>${k3po.version}</version>
+        <dependencies>
+          <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>${project.artifactId}</artifactId>
+            <version>${project.version}</version>
+          </dependency>
+        </dependencies>
+        <executions>
+          <execution>
+            <goals>
+              <goal>start</goal>
+              <goal>stop</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <version>2.19.1</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>integration-test</goal>
+              <goal>verify</goal>
             </goals>
           </execution>
         </executions>
