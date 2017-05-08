@@ -28,7 +28,9 @@ public final class StreamsLayoutTest
     @Test
     public void shouldUnlockStreamsFile()
     {
-        File streams = new File("target\\nukleus-itests\\client\\streams\\server");
+        String fileName = "target" + File.separator + "nukleus-itests" + File.separator +
+                        "client" + File.separator + "streams" + File.separator + "server";
+        File streams = new File(fileName);
         StreamsLayout streamsLayout = new StreamsLayout.Builder()
                 .path(streams.toPath())
                 .streamsCapacity(8192)
