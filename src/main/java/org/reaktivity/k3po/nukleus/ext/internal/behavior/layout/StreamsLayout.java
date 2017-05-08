@@ -21,8 +21,10 @@ import static org.agrona.IoUtil.unmap;
 
 import java.io.File;
 import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 
+import org.agrona.CloseHelper;
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.agrona.concurrent.ringbuffer.OneToOneRingBuffer;
@@ -33,13 +35,15 @@ public final class StreamsLayout extends Layout
 {
     private final RingBuffer streamsBuffer;
     private final RingBuffer throttleBuffer;
+    private final FileChannel fileChannel;
 
     private StreamsLayout(
         RingBuffer streamsBuffer,
-        RingBuffer throttleBuffer)
+        RingBuffer throttleBuffer, FileChannel fileChannel)
     {
         this.streamsBuffer = streamsBuffer;
         this.throttleBuffer = throttleBuffer;
+        this.fileChannel = fileChannel;
     }
 
     public RingBuffer streamsBuffer()
@@ -57,6 +61,10 @@ public final class StreamsLayout extends Layout
     {
         unmap(streamsBuffer.buffer().byteBuffer());
         unmap(throttleBuffer.buffer().byteBuffer());
+        if (fileChannel != null)
+        {
+            CloseHelper.close(fileChannel);
+        }
     }
 
     public static final class Builder extends Layout.Builder<StreamsLayout>
@@ -100,10 +108,11 @@ public final class StreamsLayout extends Layout
             final File streams = path.toFile();
             final long streamsSize = streamsCapacity + RingBufferDescriptor.TRAILER_LENGTH;
             final long throttleSize = throttleCapacity + RingBufferDescriptor.TRAILER_LENGTH;
+            FileChannel fileChannel = null;
 
             if (!readonly)
             {
-                createEmptyFile(streams, streamsSize + throttleSize);
+                fileChannel = createEmptyFile(streams, streamsSize + throttleSize);
             }
 
             final MappedByteBuffer mappedStreams = mapExistingFile(streams, "streams", 0, streamsSize);
@@ -112,7 +121,9 @@ public final class StreamsLayout extends Layout
             final AtomicBuffer atomicStreams = new UnsafeBuffer(mappedStreams);
             final AtomicBuffer atomicThrottle = new UnsafeBuffer(mappedThrottle);
 
-            return new StreamsLayout(new OneToOneRingBuffer(atomicStreams), new OneToOneRingBuffer(atomicThrottle));
+            return new StreamsLayout(new OneToOneRingBuffer(atomicStreams),
+                                     new OneToOneRingBuffer(atomicThrottle),
+                                     fileChannel);
         }
     }
 }
