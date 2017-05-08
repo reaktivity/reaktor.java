@@ -17,29 +17,29 @@ package org.reaktivity.k3po.nukleus.ext.internal.behavior.layout;
 
 import static org.junit.Assert.assertTrue;
 
-import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
-import org.agrona.IoUtil;
 import org.junit.Test;
 
 public final class StreamsLayoutTest
 {
 
     @Test
-    public void shouldUnlockStreamsFile()
+    public void shouldUnlockStreamsFile() throws Exception
     {
-        String fileName = "target" + File.separator + "nukleus-itests" + File.separator +
-                        "client" + File.separator + "streams" + File.separator + "server";
-        File streams = new File(fileName);
+        String fileName = "target/nukleus-itests/client/streams/server";
+        Path streams = Paths.get(fileName);
         StreamsLayout streamsLayout = new StreamsLayout.Builder()
-                .path(streams.toPath())
+                .path(streams)
                 .streamsCapacity(8192)
                 .throttleCapacity(8192)
                 .readonly(false)
                 .build();
         streamsLayout.close();
-        assertTrue(streams.exists());
-        IoUtil.delete(streams, false);
+        assertTrue(streams.toFile().exists());
+        Files.delete(streams);
     }
 
 }
