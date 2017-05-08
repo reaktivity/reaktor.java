@@ -19,6 +19,7 @@ import static org.agrona.IoUtil.createEmptyFile;
 import static org.agrona.IoUtil.mapExistingFile;
 import static org.agrona.IoUtil.unmap;
 
+import java.io.Closeable;
 import java.io.File;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
@@ -35,15 +36,16 @@ public final class StreamsLayout extends Layout
 {
     private final RingBuffer streamsBuffer;
     private final RingBuffer throttleBuffer;
-    private final FileChannel fileChannel;
+    private final Closeable cleanUp;
 
     private StreamsLayout(
         RingBuffer streamsBuffer,
-        RingBuffer throttleBuffer, FileChannel fileChannel)
+        RingBuffer throttleBuffer,
+        Closeable cleanUp)
     {
         this.streamsBuffer = streamsBuffer;
         this.throttleBuffer = throttleBuffer;
-        this.fileChannel = fileChannel;
+        this.cleanUp = cleanUp;
     }
 
     public RingBuffer streamsBuffer()
@@ -61,9 +63,9 @@ public final class StreamsLayout extends Layout
     {
         unmap(streamsBuffer.buffer().byteBuffer());
         unmap(throttleBuffer.buffer().byteBuffer());
-        if (fileChannel != null)
+        if (cleanUp != null)
         {
-            CloseHelper.close(fileChannel);
+            CloseHelper.close(cleanUp);
         }
     }
 
