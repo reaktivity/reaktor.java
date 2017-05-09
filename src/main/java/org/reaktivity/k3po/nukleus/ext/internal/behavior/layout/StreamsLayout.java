@@ -21,7 +21,6 @@ import static org.agrona.IoUtil.unmap;
 
 import java.io.File;
 import java.nio.MappedByteBuffer;
-import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 
 import org.agrona.CloseHelper;
@@ -102,17 +101,15 @@ public final class StreamsLayout extends Layout
             final File streams = path.toFile();
             final long streamsSize = streamsCapacity + RingBufferDescriptor.TRAILER_LENGTH;
             final long throttleSize = throttleCapacity + RingBufferDescriptor.TRAILER_LENGTH;
-            FileChannel fileChannel = null;
 
             if (!readonly)
             {
-                fileChannel = createEmptyFile(streams, streamsSize + throttleSize);
+                CloseHelper.close(createEmptyFile(streams, streamsSize + throttleSize));
             }
 
             final MappedByteBuffer mappedStreams = mapExistingFile(streams, "streams", 0, streamsSize);
             final MappedByteBuffer mappedThrottle = mapExistingFile(streams, "throttle", streamsSize, throttleSize);
 
-            CloseHelper.close(fileChannel);
 
             final AtomicBuffer atomicStreams = new UnsafeBuffer(mappedStreams);
             final AtomicBuffer atomicThrottle = new UnsafeBuffer(mappedThrottle);
