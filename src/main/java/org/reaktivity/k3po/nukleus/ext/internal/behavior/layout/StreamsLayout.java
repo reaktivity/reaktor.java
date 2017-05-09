@@ -110,7 +110,6 @@ public final class StreamsLayout extends Layout
             final MappedByteBuffer mappedStreams = mapExistingFile(streams, "streams", 0, streamsSize);
             final MappedByteBuffer mappedThrottle = mapExistingFile(streams, "throttle", streamsSize, throttleSize);
 
-
             final AtomicBuffer atomicStreams = new UnsafeBuffer(mappedStreams);
             final AtomicBuffer atomicThrottle = new UnsafeBuffer(mappedThrottle);
 
