@@ -23,6 +23,7 @@ import java.io.File;
 import java.nio.MappedByteBuffer;
 import java.nio.file.Path;
 
+import org.agrona.CloseHelper;
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.agrona.concurrent.ringbuffer.OneToOneRingBuffer;
@@ -103,7 +104,7 @@ public final class StreamsLayout extends Layout
 
             if (!readonly)
             {
-                createEmptyFile(streams, streamsSize + throttleSize);
+                CloseHelper.close(createEmptyFile(streams, streamsSize + throttleSize));
             }
 
             final MappedByteBuffer mappedStreams = mapExistingFile(streams, "streams", 0, streamsSize);
@@ -112,7 +113,8 @@ public final class StreamsLayout extends Layout
             final AtomicBuffer atomicStreams = new UnsafeBuffer(mappedStreams);
             final AtomicBuffer atomicThrottle = new UnsafeBuffer(mappedThrottle);
 
-            return new StreamsLayout(new OneToOneRingBuffer(atomicStreams), new OneToOneRingBuffer(atomicThrottle));
+            return new StreamsLayout(new OneToOneRingBuffer(atomicStreams),
+                                     new OneToOneRingBuffer(atomicThrottle));
         }
     }
 }
