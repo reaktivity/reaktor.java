@@ -302,8 +302,6 @@ final class NukleusTarget implements AutoCloseable
             if (writeBuf.readable() || writeExt.readable())
             {
                 final int writableBytes = channel.targetWriteableBytes(writeBuf.readableBytes());
-                final byte[] writeArray = writeBuf.array();
-                final int writeArrayOffset = writeBuf.arrayOffset();
                 final int writeReaderIndex = writeBuf.readerIndex();
 
                 final int writableExtBytes = writeExt.readableBytes();
@@ -311,7 +309,7 @@ final class NukleusTarget implements AutoCloseable
 
                 // TODO: avoid allocation
                 final byte[] writeCopy = new byte[writableBytes];
-                System.arraycopy(writeArray, writeArrayOffset + writeReaderIndex, writeCopy, 0, writeCopy.length);
+                writeBuf.getBytes(writeReaderIndex, writeCopy);
 
                 final long streamId = channel.targetId();
                 final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())

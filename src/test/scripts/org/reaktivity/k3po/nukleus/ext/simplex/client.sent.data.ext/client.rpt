@@ -19,4 +19,4 @@ connect "nukleus://server/streams/client"
         option nukleus:window 8192
 connected
 
-write "Hello, world"
+write "Hello" ", " "world"

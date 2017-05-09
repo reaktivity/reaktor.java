@@ -34,9 +34,6 @@ write nukleus:begin.ext [0x...]
 
 connected
 
-# correlated streams
-read nukleus:correlation ([0..8]:captured)
-
 # expect data on explicit partition (optional)
 read option nukleus:partition "part1"
 
@@ -108,9 +105,6 @@ read nukleus:begin.ext [0x...]
 write nukleus:begin.ext [0x...]
 
 connected
-
-# correlated streams
-read nukleus:correlation ([0..8]:captured)
 
 # expect data on explicit partition (optional)
 read option nukleus:partition "part1"
@@ -184,9 +178,6 @@ aborted
 # END w/ extension
 write nukleus:end.ext [0x...]
 write close
-
-# correlated streams
-read nukleus:correlation ([0..8]:captured)
 
 # expect data on explicit partition (optional)
 read option nukleus:partition "part1"
