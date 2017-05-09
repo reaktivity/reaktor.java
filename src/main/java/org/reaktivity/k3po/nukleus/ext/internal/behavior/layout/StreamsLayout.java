@@ -112,10 +112,10 @@ public final class StreamsLayout extends Layout
             final MappedByteBuffer mappedStreams = mapExistingFile(streams, "streams", 0, streamsSize);
             final MappedByteBuffer mappedThrottle = mapExistingFile(streams, "throttle", streamsSize, throttleSize);
 
+            CloseHelper.close(fileChannel);
+
             final AtomicBuffer atomicStreams = new UnsafeBuffer(mappedStreams);
             final AtomicBuffer atomicThrottle = new UnsafeBuffer(mappedThrottle);
-
-            CloseHelper.close(fileChannel);
 
             return new StreamsLayout(new OneToOneRingBuffer(atomicStreams),
                                      new OneToOneRingBuffer(atomicThrottle));

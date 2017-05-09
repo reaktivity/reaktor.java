@@ -38,7 +38,7 @@ public final class StreamsLayoutTest
                 .readonly(false)
                 .build();
         streamsLayout.close();
-        assertTrue(streams.toFile().exists());
+        assertTrue(Files.exists(streams));
         Files.delete(streams);
     }
 
