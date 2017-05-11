@@ -30,7 +30,6 @@ import org.agrona.concurrent.MessageHandler;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.ChannelFuture;
-import org.jboss.netty.channel.ChannelFutureListener;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.OctetsFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.BeginFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.DataFW;
@@ -53,28 +52,24 @@ public final class NukleusStreamFactory
     public MessageHandler newStream(
         NukleusChannel channel,
         NukleusPartition partition,
-        ChannelFuture windowFuture,
         ChannelFuture handshakeFuture)
     {
-        return new Stream(channel, partition, windowFuture, handshakeFuture)::handleStream;
+        return new Stream(channel, partition, handshakeFuture)::handleStream;
     }
 
     private final class Stream
     {
         private final NukleusChannel channel;
         private final NukleusPartition partition;
-        private final ChannelFuture windowFuture;
         private final ChannelFuture handshakeFuture;
 
         private Stream(
             NukleusChannel channel,
             NukleusPartition partition,
-            ChannelFuture windowFuture,
             ChannelFuture handshakeFuture)
         {
             this.channel = channel;
             this.partition = partition;
-            this.windowFuture = windowFuture;
             this.handshakeFuture = handshakeFuture;
         }
 
@@ -127,15 +122,7 @@ public final class NukleusStreamFactory
 
             handshakeFuture.setSuccess();
 
-            windowFuture.addListener(new ChannelFutureListener()
-            {
-                @Override
-                public void operationComplete(
-                    ChannelFuture future) throws Exception
-                {
-                    partition.doWindow(channel, initialWindow);
-                }
-            });
+            partition.doWindow(channel, initialWindow);
         }
 
         private void onData(

@@ -17,7 +17,6 @@ package org.reaktivity.k3po.nukleus.ext.internal.types;
 
 import static java.lang.Integer.MAX_VALUE;
 import static java.util.Collections.emptyList;
-import static java.util.Collections.singletonList;
 import static java.util.Collections.unmodifiableSet;
 
 import java.util.LinkedHashSet;
@@ -43,10 +42,6 @@ public final class NukleusTypeSystem implements TypeSystemSpi
             new StructuredTypeInfo("nukleus", "data.ext", emptyList(), MAX_VALUE);
     public static final StructuredTypeInfo CONFIG_END_EXT =
             new StructuredTypeInfo("nukleus", "end.ext", emptyList(), MAX_VALUE);
-    public static final StructuredTypeInfo CONFIG_SOURCE_WINDOW =
-            new StructuredTypeInfo("nukleus", "source.window", singletonList(OPTION_WINDOW), 0);
-    public static final StructuredTypeInfo CONFIG_TARGET_WINDOW =
-            new StructuredTypeInfo("nukleus", "target.window", singletonList(OPTION_WINDOW), 0);
 
     private final Set<TypeInfo<?>> acceptOptions;
     private final Set<TypeInfo<?>> connectOptions;
@@ -89,8 +84,6 @@ public final class NukleusTypeSystem implements TypeSystemSpi
         readConfigs.add(CONFIG_BEGIN_EXT);
         readConfigs.add(CONFIG_DATA_EXT);
         readConfigs.add(CONFIG_END_EXT);
-        readConfigs.add(CONFIG_SOURCE_WINDOW);
-        readConfigs.add(CONFIG_TARGET_WINDOW);
         this.readConfigs = readConfigs;
 
         Set<StructuredTypeInfo> writeConfigs = new LinkedHashSet<>();
