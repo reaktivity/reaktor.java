@@ -70,10 +70,6 @@ write option nukleus:partition "part1"
 write nukleus:data.ext [0x...]
 write [0x...]
 
-# flow control
-read nukleus:source.window ([0..4]:readableBytes)
-read nukleus:target.window ([0..4]:writableBytes)
-
 # receive RESET
 aborted
 
@@ -127,10 +123,6 @@ write option nukleus:partition "part1"
 write nukleus:data.ext [0x...]
 write [0x...]
 
-# flow control
-read nukleus:source.window ([0..4]:readableBytes)
-read nukleus:target.window ([0..4]:writableBytes)
-
 # receive RESET
 aborted
 
@@ -167,10 +159,6 @@ write option nukleus:partition "part1"
 # send DATA w/ extension
 write [0x...]
 write nukleus:data.ext [0x...]
-
-# flow control
-read nukleus:source.window ([0..4]:readableBytes)
-read nukleus:target.window ([0..4]:writableBytes)
 
 # receive RESET
 aborted

@@ -21,8 +21,6 @@ import static java.util.stream.Collectors.toList;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.CONFIG_BEGIN_EXT;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.CONFIG_DATA_EXT;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.CONFIG_END_EXT;
-import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.CONFIG_SOURCE_WINDOW;
-import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.CONFIG_TARGET_WINDOW;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_PARTITION;
 
 import java.util.LinkedHashMap;
@@ -54,8 +52,6 @@ import org.reaktivity.k3po.nukleus.ext.internal.behavior.config.NukleusExtension
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.config.ReadBeginExtHandler;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.config.ReadDataExtHandler;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.config.ReadEndExtHandler;
-import org.reaktivity.k3po.nukleus.ext.internal.behavior.config.ReadSourceWindowHandler;
-import org.reaktivity.k3po.nukleus.ext.internal.behavior.config.ReadTargetWindowHandler;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.option.ReadPartitionHandler;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.option.WritePartitionHandler;
 
@@ -76,8 +72,6 @@ public class NukleusBehaviorSystem implements BehaviorSystemSpi
         readConfigFactories.put(CONFIG_BEGIN_EXT, NukleusBehaviorSystem::newReadBeginExtHandler);
         readConfigFactories.put(CONFIG_DATA_EXT, NukleusBehaviorSystem::newReadDataExtHandler);
         readConfigFactories.put(CONFIG_END_EXT, NukleusBehaviorSystem::newReadEndExtHandler);
-        readConfigFactories.put(CONFIG_SOURCE_WINDOW, NukleusBehaviorSystem::newReadSourceWindowHandler);
-        readConfigFactories.put(CONFIG_TARGET_WINDOW, NukleusBehaviorSystem::newReadTargetWindowHandler);
         this.readConfigFactories = unmodifiableMap(readConfigFactories);
 
         Map<StructuredTypeInfo, WriteConfigFactory> writeConfigFactories = new LinkedHashMap<>();
@@ -157,28 +151,6 @@ public class NukleusBehaviorSystem implements BehaviorSystemSpi
         Supplier<String> partition = ((AstValue<String>) node.getOptionValue())::getValue;
 
         WritePartitionHandler handler = new WritePartitionHandler(partition);
-        handler.setRegionInfo(node.getRegionInfo());
-        return handler;
-    }
-
-    private static ReadSourceWindowHandler newReadSourceWindowHandler(
-        AstReadConfigNode node,
-        Function<AstValueMatcher, MessageDecoder> decoderFactory)
-    {
-        MessageDecoder decoder = decoderFactory.apply(node.getMatcher("window"));
-
-        ReadSourceWindowHandler handler = new ReadSourceWindowHandler(decoder);
-        handler.setRegionInfo(node.getRegionInfo());
-        return handler;
-    }
-
-    private static ReadTargetWindowHandler newReadTargetWindowHandler(
-        AstReadConfigNode node,
-        Function<AstValueMatcher, MessageDecoder> decoderFactory)
-    {
-        MessageDecoder decoder = decoderFactory.apply(node.getMatcher("window"));
-
-        ReadTargetWindowHandler handler = new ReadTargetWindowHandler(decoder);
         handler.setRegionInfo(node.getRegionInfo());
         return handler;
     }
