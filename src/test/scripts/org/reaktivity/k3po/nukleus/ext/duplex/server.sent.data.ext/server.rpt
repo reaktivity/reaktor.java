@@ -22,5 +22,5 @@ accept "nukleus://server/streams/client"
 accepted
 connected
 
-write nukleus:end.ext [0x12 0x34] [0x0c] "Hello, world"
+write nukleus:data.ext [0x12 0x34] [0x0c] "Hello, world"
 write "Hello" ", " "world"

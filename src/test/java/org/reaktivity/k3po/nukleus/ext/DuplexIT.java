@@ -219,4 +219,24 @@ public class DuplexIT
     {
         k3po.finish();
     }
+
+    @Test
+    @Specification({
+        "client.flush.data.ext/client",
+        "client.flush.data.ext/server"
+    })
+    public void shouldReceiveClientFlushedEmptyDataWithExtension() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "server.flush.data.ext/client",
+        "server.flush.data.ext/server"
+    })
+    public void shouldReceiveServerFlushedEmptyDataWithExtension() throws Exception
+    {
+        k3po.finish();
+    }
 }

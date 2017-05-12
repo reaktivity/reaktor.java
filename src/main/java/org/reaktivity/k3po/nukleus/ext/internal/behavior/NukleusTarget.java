@@ -24,6 +24,7 @@ import static org.jboss.netty.channel.Channels.fireChannelUnbound;
 import static org.jboss.netty.channel.Channels.fireWriteComplete;
 import static org.jboss.netty.channel.Channels.succeededFuture;
 import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireChannelAborted;
+import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireFlushed;
 import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireOutputShutdown;
 
 import java.nio.file.Path;
@@ -39,9 +40,11 @@ import org.agrona.concurrent.MessageHandler;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.agrona.concurrent.ringbuffer.RingBuffer;
 import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.Channels;
+import org.jboss.netty.channel.DownstreamMessageEvent;
 import org.jboss.netty.channel.MessageEvent;
 import org.kaazing.k3po.driver.internal.netty.channel.ChannelAddress;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.layout.Layout;
@@ -226,6 +229,17 @@ final class NukleusTarget implements AutoCloseable
         flushThrottledWrites(channel);
     }
 
+    public void doFlush(
+        NukleusChannel channel,
+        ChannelFuture flushFuture)
+    {
+        Object message = ChannelBuffers.EMPTY_BUFFER;
+        MessageEvent newWriteRequest = new DownstreamMessageEvent(channel, flushFuture, message, null);
+        channel.writeRequests.addLast(newWriteRequest);
+
+        flushThrottledWrites(channel);
+    }
+
     public void doShutdownOutput(
         NukleusChannel channel,
         ChannelFuture handlerFuture)
@@ -298,6 +312,7 @@ final class NukleusTarget implements AutoCloseable
 
             if (writeBuf.readable() || writeExt.readable())
             {
+                final boolean flushing = !writeBuf.readable();
                 final int writableBytes = channel.targetWriteableBytes(writeBuf.readableBytes());
                 final int writeReaderIndex = writeBuf.readerIndex();
 
@@ -324,7 +339,14 @@ final class NukleusTarget implements AutoCloseable
                 writeExt.skipBytes(writableExtBytes);
                 writeExt.discardReadBytes();
 
-                fireWriteComplete(channel, writableBytes);
+                if (flushing)
+                {
+                    fireFlushed(channel);
+                }
+                else
+                {
+                    fireWriteComplete(channel, writableBytes);
+                }
             }
 
             if (!writeBuf.readable())

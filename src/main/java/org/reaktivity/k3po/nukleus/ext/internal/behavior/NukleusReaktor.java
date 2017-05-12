@@ -477,21 +477,41 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
     private final class FlushTask implements Runnable
     {
         private final NukleusChannel channel;
-        private final ChannelFuture handlerFuture;
+        private final ChannelFuture flushFuture;
 
         private FlushTask(
             NukleusChannel channel,
             ChannelFuture future)
         {
             this.channel = channel;
-            this.handlerFuture = future;
+            this.flushFuture = future;
         }
 
         @Override
         public void run()
         {
-            handlerFuture.setSuccess();
-            fireFlushed(channel);
+            if (channel.writeExtBuffer().readable())
+            {
+                try
+                {
+                    NukleusReaktor reaktor = channel.reaktor;
+                    NukleusChannelAddress remoteAddress = channel.getRemoteAddress();
+                    String senderName = remoteAddress.getSenderName();
+                    Path scopePath = scopePath(senderName);
+
+                    NukleusScope scope = reaktor.scopesByPath.computeIfAbsent(scopePath, reaktor::newScope);
+                    scope.doFlush(channel, flushFuture);
+                }
+                catch (Exception ex)
+                {
+                    flushFuture.setFailure(ex);
+                }
+            }
+            else
+            {
+                flushFuture.setSuccess();
+                fireFlushed(channel);
+            }
         }
     }
 

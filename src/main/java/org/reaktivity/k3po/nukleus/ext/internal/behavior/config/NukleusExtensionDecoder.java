@@ -65,32 +65,35 @@ public final class NukleusExtensionDecoder implements ConfigDecoder
     {
         final ChannelBuffer readExtBuffer = channel.readExtBuffer();
 
-        final int lastIndex = decoders.size() - 1;
-        for (int index=0; index < decoders.size(); index++)
+        if (readExtBuffer.readable())
         {
-            MessageDecoder decoder = decoders.get(index);
-
-            ChannelBuffer remainingExtBuffer;
-
-            if (index == lastIndex)
+            final int lastIndex = decoders.size() - 1;
+            for (int index=0; index < decoders.size(); index++)
             {
-                remainingExtBuffer = decoder.decodeLast(readExtBuffer);
-            }
-            else
-            {
-                remainingExtBuffer = decoder.decode(readExtBuffer);
-            }
+                MessageDecoder decoder = decoders.get(index);
 
-            if (remainingExtBuffer == null)
-            {
-                throw new ScriptProgressException(decoder.getRegionInfo(), "[]");
-            }
+                ChannelBuffer remainingExtBuffer;
 
-            // rewind as needed
-            final int remainingExtBytes = remainingExtBuffer.readableBytes();
-            if (remainingExtBytes > 0)
-            {
-                readExtBuffer.skipBytes(-remainingExtBytes);
+                if (index == lastIndex)
+                {
+                    remainingExtBuffer = decoder.decodeLast(readExtBuffer);
+                }
+                else
+                {
+                    remainingExtBuffer = decoder.decode(readExtBuffer);
+                }
+
+                if (remainingExtBuffer == null)
+                {
+                    throw new ScriptProgressException(decoder.getRegionInfo(), "[]");
+                }
+
+                // rewind as needed
+                final int remainingExtBytes = remainingExtBuffer.readableBytes();
+                if (remainingExtBytes > 0)
+                {
+                    readExtBuffer.skipBytes(-remainingExtBytes);
+                }
             }
         }
     }
