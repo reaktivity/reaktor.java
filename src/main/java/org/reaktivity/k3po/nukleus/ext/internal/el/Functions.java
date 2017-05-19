@@ -46,12 +46,6 @@ public final class Functions
     }
 
     @Function
-    public static long newStreamId()
-    {
-        return nextLongNonZero();
-    }
-
-    @Function
     public static long newCorrelationId()
     {
         final ThreadLocalRandom random = ThreadLocalRandom.current();
