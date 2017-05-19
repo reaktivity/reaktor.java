@@ -44,21 +44,6 @@ public final class FunctionsTest
     }
 
     @Test
-    public void shouldInvokeNewStreamId() throws Exception
-    {
-        ExpressionFactory factory = newExpressionFactory();
-        ExpressionContext environment = new ExpressionContext();
-
-        String expressionText = "${nukleus:newStreamId()}";
-        ValueExpression expression = factory.createValueExpression(environment, expressionText, long.class);
-
-        Object streamId = expression.getValue(environment);
-
-        assertThat(streamId, instanceOf(Long.class));
-        assertNotEquals(0L, Long.class.cast(streamId).longValue());
-    }
-
-    @Test
     public void shouldInvokeNewCorrelationId() throws Exception
     {
         ExpressionFactory factory = newExpressionFactory();
