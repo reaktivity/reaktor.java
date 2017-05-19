@@ -12,14 +12,18 @@ Requires external configuration of directory where streams are discovered.
 
 ```
 # accept new unidirectional (simplex) streams at "receiver" from source "sender"
-# for routed reference ${routedRef} (required)
+# for route reference ${routeRef} (required)
 # set initial window size to 8192 (required)
 # on explicit partition "part0" (optional: default to any partition)
 # with explicit correlation ${correlationId} (optional: default to any correlation)
 #
 # note: throttle (default "on") is not relevant on accept for "simplex" transmission (not writing)
+
+property routeRef ${nukleus:newRouteRef()}
+property correlationId ${nukleus:newRouteRef()}
+
 accept "nukleus://receiver/streams/sender"
-       option nukleus:route ${routedRef}
+       option nukleus:route ${routeRef}
        option nukleus:window 8192
        option nukleus:partition "part0"
        option nukleus:correlation ${correlationId}
@@ -51,12 +55,16 @@ read closed
 
 ```
 # connect new unidirectional stream at "receiver" from source "sender"
-# for routed reference ${routedRef} (required)
+# for route reference ${routeRef} (required)
 # on explicit partition "part0" (optional: default to any partition)
 # with explicit correlation ${correlationId} (optional: default to any correlation)
 # with throttle "off" (allows negative testing of flow control)
+
+property routeRef ${nukleus:newRouteRef()}
+property correlationId ${nukleus:newRouteRef()}
+
 connect "nukleus://receiver/streams/sender"
-        option nukleus:route ${routedRef}
+        option nukleus:route ${routeRef}
         option nukleus:partition "part0"
         option nukleus:correlation ${correlationId}
         option nukleus:throttle "off"
@@ -80,14 +88,18 @@ write close
 
 ```
 # accept new bidirectional streams at "receiver" from source "sender"
-# for routed reference ${routedRef} (required)
+# for route reference ${routeRef} (required)
 # with initial window size to 8192 (required)
 # with throttle "off" (optional: default "on")
 # with "duplex" transmission for bidirectional (optional: default "simplex")
 #
 # note: partition, correlationId not supported for "duplex" transmission
+
+property routeRef ${nukleus:newRouteRef()}
+property correlationId ${nukleus:newRouteRef()}
+
 accept "nukleus://receiver/streams/sender"
-       option nukleus:route ${routedRef}
+       option nukleus:route ${routeRef}
        option nukleus:window 8192
        option nukleus:throttle "off"
        option nukleus:transmission "duplex"
@@ -133,14 +145,17 @@ write close
 
 ```
 # connect new bidirectional stream at "receiver" from source "sender"
-# for routed reference ${routedRef} (required)
+# for route reference ${routeRef} (required)
 # with initial window size to 8192 (required)
 # with throttle "off" (optional: default "on")
 # with "duplex" transmission for bidirectional (optional: default "simplex")
 #
 # note: partition, correlationId not supported for "duplex" transmission
+
+property routeRef ${nukleus:newRouteRef()}
+
 connect "nukleus://receiver/streams/sender"
-        option nukleus:route ${routedRef}
+        option nukleus:route ${routeRef}
         option nukleus:window 8192
         option nukleus:throttle "off"
         option nukleus:transmission "duplex"
