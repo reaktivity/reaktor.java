@@ -121,6 +121,14 @@ public final class NukleusScope implements AutoCloseable
         target.doWrite(channel, writeRequest);
     }
 
+    public void doFlush(
+        NukleusChannel channel,
+        ChannelFuture flushFuture)
+    {
+        NukleusTarget target = supplyTarget(channel);
+        target.doFlush(channel, flushFuture);
+    }
+
     public void doShutdownOutput(
         NukleusChannel channel,
         ChannelFuture shutdownFuture)

@@ -129,4 +129,14 @@ public class SimplexIT
     {
         k3po.finish();
     }
+
+    @Test
+    @Specification({
+        "client.flush.data.ext/client",
+        "client.flush.data.ext/server"
+    })
+    public void shouldReceiveClientFlushedEmptyDataWithExtension() throws Exception
+    {
+        k3po.finish();
+    }
 }
