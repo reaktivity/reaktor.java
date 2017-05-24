@@ -20,7 +20,7 @@ Requires external configuration of directory where streams are discovered.
 # note: throttle (default "on") is not relevant on accept for "simplex" transmission (not writing)
 
 property routeRef ${nukleus:newRouteRef()}
-property correlationId ${nukleus:newRouteRef()}
+property correlationId ${nukleus:newCorrelationId()}
 
 accept "nukleus://receiver/streams/sender"
        option nukleus:route ${routeRef}
@@ -61,7 +61,7 @@ read closed
 # with throttle "off" (allows negative testing of flow control)
 
 property routeRef ${nukleus:newRouteRef()}
-property correlationId ${nukleus:newRouteRef()}
+property correlationId ${nukleus:newCorrelationId()}
 
 connect "nukleus://receiver/streams/sender"
         option nukleus:route ${routeRef}
@@ -96,7 +96,6 @@ write close
 # note: partition, correlationId not supported for "duplex" transmission
 
 property routeRef ${nukleus:newRouteRef()}
-property correlationId ${nukleus:newRouteRef()}
 
 accept "nukleus://receiver/streams/sender"
        option nukleus:route ${routeRef}
