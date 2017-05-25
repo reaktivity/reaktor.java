@@ -19,8 +19,8 @@ import static org.agrona.LangUtil.rethrowUnchecked;
 import static org.agrona.concurrent.AgentRunner.startOnThread;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
 import java.util.function.IntSupplier;
 
 import org.agrona.ErrorHandler;
@@ -111,9 +111,14 @@ public final class Reaktor implements AutoCloseable
         }
     }
 
-    public void visit(Consumer<Controller> action)
+    public Set<Class<? extends Controller>> controllerKinds()
     {
-        this.controllersByKind.values().forEach(action);
+        return controllersByKind.keySet();
+    }
+
+    public Set<String> nukleusNames()
+    {
+        return nukleiByName.keySet();
     }
 
     public Reaktor start()
