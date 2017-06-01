@@ -133,14 +133,7 @@ final class NukleusPartition implements AutoCloseable
         if (msgTypeId == BeginFW.TYPE_ID)
         {
             final BeginFW begin = beginRO.wrap(buffer, index, index + length);
-            if (begin.referenceId() != 0L)
-            {
-                handleBeginInitial(begin);
-            }
-            else
-            {
-                handleBeginReply(begin);
-            }
+            handleBegin(begin);
         }
         else
         {
@@ -152,42 +145,57 @@ final class NukleusPartition implements AutoCloseable
         }
     }
 
-    private void handleBeginInitial(
+    private void handleBegin(
         BeginFW begin)
     {
-        final long sourceId = begin.streamId();
         final long routeRef = begin.referenceId();
         final NukleusServerChannel serverChannel = lookupRoute.apply(routeRef);
 
         if (serverChannel != null)
         {
-            final long correlationId = begin.correlationId();
-            NukleusChildChannel childChannel = doAccept(serverChannel, correlationId);
-
-            final ChannelFuture handshakeFuture = future(childChannel);
-            final MessageHandler newStream = streamFactory.newStream(childChannel, this, handshakeFuture);
-            registerStream.accept(sourceId, newStream);
-            newStream.onMessage(begin.typeId(), (MutableDirectBuffer) begin.buffer(), begin.offset(), begin.sizeof());
-
-            fireChannelBound(childChannel, childChannel.getLocalAddress());
-
-            final NukleusChannelConfig childConfig = childChannel.getConfig();
-            if (childConfig.isDuplex())
-            {
-                NukleusChannelAddress remoteAddress = childChannel.getRemoteAddress();
-                String remoteName = remoteAddress.getReceiverName();
-                String partitionName = childConfig.getWritePartition();
-                NukleusTarget remoteTarget = supplyTarget.apply(remoteName, partitionName);
-
-                remoteTarget.onAccepted(childChannel, correlationId, handshakeFuture);
-            }
-
-            fireChannelConnected(childChannel, childChannel.getRemoteAddress());
+            handleBeginInitial(begin, serverChannel);
         }
         else
         {
-            doReset(sourceId);
+            if (begin.referenceId() == 0L)
+            {
+                handleBeginReply(begin);
+            }
+            else
+            {
+                final long sourceId = begin.streamId();
+                doReset(sourceId);
+            }
         }
+    }
+
+    private void handleBeginInitial(
+        final BeginFW begin,
+        final NukleusServerChannel serverChannel)
+    {
+        final long sourceId = begin.streamId();
+        final long correlationId = begin.correlationId();
+        NukleusChildChannel childChannel = doAccept(serverChannel, correlationId);
+
+        final ChannelFuture handshakeFuture = future(childChannel);
+        final MessageHandler newStream = streamFactory.newStream(childChannel, this, handshakeFuture);
+        registerStream.accept(sourceId, newStream);
+        newStream.onMessage(begin.typeId(), (MutableDirectBuffer) begin.buffer(), begin.offset(), begin.sizeof());
+
+        fireChannelBound(childChannel, childChannel.getLocalAddress());
+
+        final NukleusChannelConfig childConfig = childChannel.getConfig();
+        if (childConfig.isDuplex())
+        {
+            NukleusChannelAddress remoteAddress = childChannel.getRemoteAddress();
+            String remoteName = remoteAddress.getReceiverName();
+            String partitionName = childConfig.getWritePartition();
+            NukleusTarget remoteTarget = supplyTarget.apply(remoteName, partitionName);
+
+            remoteTarget.onAccepted(childChannel, correlationId, handshakeFuture);
+        }
+
+        fireChannelConnected(childChannel, childChannel.getRemoteAddress());
     }
 
     private void handleBeginReply(
