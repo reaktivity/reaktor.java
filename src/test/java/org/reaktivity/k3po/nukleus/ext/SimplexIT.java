@@ -42,6 +42,16 @@ public class SimplexIT
 
     @Test
     @Specification({
+        "correlated.handshake/client",
+        "correlated.handshake/server"
+    })
+    public void shouldCorrelateHandshake() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "handshake/client",
         "handshake/server"
     })
