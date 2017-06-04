@@ -31,7 +31,9 @@ import org.kaazing.k3po.driver.internal.netty.channel.ChannelAddress;
 public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfig>
 {
     private int sourceWindow;
+    private int sourceFrames;
     private int targetWindow;
+    private int targetFrames;
     private long sourceId;
     private long targetId;
 
@@ -131,16 +133,18 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
         return String.format("%s [sourceId=%d, targetId=%d]", description, sourceId, targetId);
     }
 
-    public int sourceWindow(int update)
+    public void sourceWindow(
+        int update,
+        int frames)
     {
         sourceWindow += update;
-        assert sourceWindow >= 0;
-        return sourceWindow;
+        sourceFrames += frames;
+        assert sourceFrames >=0 && sourceWindow >= 0;
     }
 
     public int sourceWindow()
     {
-        return sourceWindow;
+        return sourceFrames > 0 ? sourceWindow : 0;
     }
 
     public void sourceId(
@@ -161,36 +165,40 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
 
     public int targetWindow()
     {
-        return targetWindow;
+        return targetFrames > 0 ? targetWindow : 0;
     }
 
     public boolean targetWritable()
     {
-        return targetWindow > 0 || !getConfig().hasThrottle();
+        return (targetFrames > 0 && targetWindow > 0) || !getConfig().hasThrottle();
     }
 
     public int targetWriteableBytes(
         int writableBytes)
     {
-        return getConfig().hasThrottle() ? Math.min(targetWindow, writableBytes) : writableBytes;
+        return getConfig().hasThrottle() ? Math.min(targetWindow(), writableBytes) : writableBytes;
     }
 
-    public void targetWrittenBytes(
-        int writtenBytes)
+    public void targetWritten(
+        int writtenBytes,
+        int writtenFrames)
     {
         if (getConfig().hasThrottle())
         {
             targetWindow -= writtenBytes;
-            assert targetWindow >= 0;
+            targetFrames -= writtenFrames;
+            assert targetFrames >= 0 && targetWindow >= 0;
         }
     }
 
     public void targetWindowUpdate(
-        int update)
+        int update,
+        int frames)
     {
         if (getConfig().hasThrottle())
         {
             targetWindow += update;
+            targetFrames += frames;
         }
     }
 

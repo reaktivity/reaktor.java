@@ -125,6 +125,7 @@ final class NukleusTarget implements AutoCloseable
     {
         try
         {
+            final String senderName = remoteAddress.getSenderName();
             final long routeRef = remoteAddress.getRoute();
             final long streamId = clientChannel.targetId();
             final long correlationId = new Random().nextLong();
@@ -144,7 +145,8 @@ final class NukleusTarget implements AutoCloseable
 
             final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                    .streamId(streamId)
-                   .referenceId(routeRef)
+                   .source(senderName)
+                   .sourceRef(routeRef)
                    .correlationId(correlationId)
                    .extension(p -> p.set(beginExtCopy))
                    .build();
@@ -198,7 +200,9 @@ final class NukleusTarget implements AutoCloseable
         long correlationId,
         ChannelFuture handshakeFuture)
     {
-        ChannelBuffer beginExt = childChannel.writeExtBuffer();
+        final NukleusChannelAddress remoteAddress = childChannel.getRemoteAddress();
+        final String senderName = remoteAddress.getSenderName();
+        final ChannelBuffer beginExt = childChannel.writeExtBuffer();
         final int writableExtBytes = beginExt.readableBytes();
         final byte[] beginExtCopy = writeExtCopy(beginExt);
 
@@ -206,7 +210,8 @@ final class NukleusTarget implements AutoCloseable
 
         final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .streamId(streamId)
-                .referenceId(0L)
+                .source(senderName)
+                .sourceRef(0L)
                 .correlationId(correlationId)
                 .extension(p -> p.set(beginExtCopy))
                 .build();
@@ -330,9 +335,9 @@ final class NukleusTarget implements AutoCloseable
                         .extension(p -> p.set(writeExtCopy))
                         .build();
 
-                channel.targetWrittenBytes(writableBytes);
-
                 streamsBuffer.write(data.typeId(), data.buffer(), data.offset(), data.sizeof());
+
+                channel.targetWritten(writableBytes, 1);
 
                 writeBuf.skipBytes(writableBytes);
 
@@ -438,8 +443,9 @@ final class NukleusTarget implements AutoCloseable
             WindowFW window)
         {
             final int update = window.update();
+            final int frames = window.frames();
 
-            channel.targetWindowUpdate(update);
+            channel.targetWindowUpdate(update, frames);
 
             flushThrottledWrites(channel);
         }
