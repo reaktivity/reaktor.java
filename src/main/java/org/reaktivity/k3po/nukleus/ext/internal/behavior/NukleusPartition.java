@@ -148,8 +148,9 @@ final class NukleusPartition implements AutoCloseable
     private void handleBegin(
         BeginFW begin)
     {
-        final long routeRef = begin.referenceId();
-        final NukleusServerChannel serverChannel = lookupRoute.apply(routeRef);
+        final long sourceRef = begin.sourceRef();
+        final long sourceId = begin.streamId();
+        final NukleusServerChannel serverChannel = lookupRoute.apply(sourceRef);
 
         if (serverChannel != null)
         {
@@ -157,13 +158,12 @@ final class NukleusPartition implements AutoCloseable
         }
         else
         {
-            if (begin.referenceId() == 0L)
+            if (sourceRef == 0L)
             {
                 handleBeginReply(begin);
             }
             else
             {
-                final long sourceId = begin.streamId();
                 doReset(sourceId);
             }
         }
@@ -221,14 +221,18 @@ final class NukleusPartition implements AutoCloseable
 
     void doWindow(
         final NukleusChannel channel,
-        final int update)
+        final int update,
+        final int frames)
     {
         final long streamId = channel.sourceId();
 
         final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                .streamId(streamId).update(update).build();
+                .streamId(streamId)
+                .update(update)
+                .frames(frames)
+                .build();
 
-        channel.sourceWindow(window.update());
+        channel.sourceWindow(window.update(), window.frames());
 
         throttleBuffer.write(window.typeId(), window.buffer(), window.offset(), window.sizeof());
     }

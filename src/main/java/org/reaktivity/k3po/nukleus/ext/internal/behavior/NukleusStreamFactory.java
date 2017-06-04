@@ -122,7 +122,7 @@ public final class NukleusStreamFactory
 
             handshakeFuture.setSuccess();
 
-            partition.doWindow(channel, initialWindow);
+            partition.doWindow(channel, initialWindow, initialWindow);
         }
 
         private void onData(
@@ -136,7 +136,7 @@ public final class NukleusStreamFactory
 
             if (channel.sourceWindow() >= readableBytes)
             {
-                channel.sourceWindow(-readableBytes);
+                channel.sourceWindow(-readableBytes, -1);
 
                 int dataExtBytes = dataExt.sizeof();
                 if (dataExtBytes != 0)
@@ -151,7 +151,7 @@ public final class NukleusStreamFactory
                     channel.readExtBuffer().writeBytes(dataExtCopy);
                 }
 
-                partition.doWindow(channel, readableBytes);
+                partition.doWindow(channel, readableBytes, 1);
 
                 fireMessageReceived(channel, message);
             }
