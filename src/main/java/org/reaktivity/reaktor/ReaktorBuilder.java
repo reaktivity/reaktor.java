@@ -31,20 +31,23 @@ import org.reaktivity.nukleus.Configuration;
 import org.reaktivity.nukleus.Controller;
 import org.reaktivity.nukleus.ControllerFactory;
 import org.reaktivity.nukleus.Nukleus;
+import org.reaktivity.nukleus.NukleusBuilder;
 import org.reaktivity.nukleus.NukleusFactory;
-import org.reaktivity.reaktor.matchers.ControllerMatcher;
-import org.reaktivity.reaktor.matchers.NukleusMatcher;
+import org.reaktivity.reaktor.internal.ControllerBuilderImpl;
+import org.reaktivity.reaktor.internal.NukleusBuilderImpl;
 
 public class ReaktorBuilder
 {
     private Configuration config;
-    private Predicate<String> includeNukleus;
-    private Predicate<Class<? extends Controller>> includeController;
+    private Predicate<String> nukleusMatcher;
+    private Predicate<Class<? extends Controller>> controllerMatcher;
     private IdleStrategy idleStrategy;
     private ErrorHandler errorHandler;
 
     ReaktorBuilder()
     {
+        this.nukleusMatcher = x -> false;
+        this.controllerMatcher = x -> false;
     }
 
     public ReaktorBuilder config(
@@ -54,17 +57,17 @@ public class ReaktorBuilder
         return this;
     }
 
-    public ReaktorBuilder discover(
-        NukleusMatcher include)
+    public ReaktorBuilder nukleus(
+        Predicate<String> matcher)
     {
-        this.includeNukleus = requireNonNull(include);
+        this.nukleusMatcher = requireNonNull(matcher);
         return this;
     }
 
-    public ReaktorBuilder discover(
-        ControllerMatcher include)
+    public ReaktorBuilder controller(
+        Predicate<Class<? extends Controller>> matcher)
     {
-        this.includeController = requireNonNull(include);
+        this.controllerMatcher = requireNonNull(matcher);
         return this;
     }
 
@@ -88,15 +91,13 @@ public class ReaktorBuilder
         final NukleusFactory nukleusFactory = NukleusFactory.instantiate();
 
         Nukleus[] nuklei = new Nukleus[0];
-        if (includeNukleus != null)
+        for (String name : nukleusFactory.names())
         {
-            for (String name : nukleusFactory.names())
+            if (nukleusMatcher.test(name))
             {
-                if (includeNukleus.test(name))
-                {
-                    Nukleus nukleus = nukleusFactory.create(name, config);
-                    nuklei = ArrayUtil.add(nuklei, nukleus);
-                }
+                NukleusBuilder builder = new NukleusBuilderImpl(config, name);
+                Nukleus nukleus = nukleusFactory.create(name, config, builder);
+                nuklei = ArrayUtil.add(nuklei, nukleus);
             }
         }
 
@@ -104,17 +105,14 @@ public class ReaktorBuilder
 
         Controller[] controllers = new Controller[0];
         Map<Class<? extends Controller>, Controller> controllersByKind = new HashMap<>();
-
-        if (includeController != null)
+        for (Class<? extends Controller> kind : controllerFactory.kinds())
         {
-            for (Class<? extends Controller> kind : controllerFactory.kinds())
+            if (controllerMatcher.test(kind))
             {
-                if (includeController.test(kind))
-                {
-                    Controller controller = controllerFactory.create(kind, config);
-                    controllersByKind.put(kind, controller);
-                    controllers = ArrayUtil.add(controllers, controller);
-                }
+                ControllerBuilderImpl<? extends Controller> builder = new ControllerBuilderImpl<>(config, kind);
+                Controller controller = controllerFactory.create(config, builder);
+                controllersByKind.put(kind, controller);
+                controllers = ArrayUtil.add(controllers, controller);
             }
         }
 
@@ -123,7 +121,7 @@ public class ReaktorBuilder
         {
             idleStrategy = new BackoffIdleStrategy(64, 64, NANOSECONDS.toNanos(64L), MILLISECONDS.toNanos(1L));
         }
-        ErrorHandler errorHandler = requireNonNull(this.errorHandler);
+        ErrorHandler errorHandler = requireNonNull(this.errorHandler, "errorHandler");
 
         return new Reaktor(idleStrategy, errorHandler, nuklei, controllers);
     }
