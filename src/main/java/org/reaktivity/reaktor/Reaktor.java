@@ -29,8 +29,6 @@ import org.agrona.concurrent.AgentRunner;
 import org.agrona.concurrent.IdleStrategy;
 import org.reaktivity.nukleus.Controller;
 import org.reaktivity.nukleus.Nukleus;
-import org.reaktivity.reaktor.matchers.ControllerMatcher;
-import org.reaktivity.reaktor.matchers.NukleusMatcher;
 
 public final class Reaktor implements AutoCloseable
 {
@@ -79,36 +77,10 @@ public final class Reaktor implements AutoCloseable
         return kind.cast(nukleiByName.get(name));
     }
 
-    public void attach(
-        Nukleus nukleus)
+    public Nukleus nukleus(
+        String name)
     {
-        this.nukleiByName.put(nukleus.name(), nukleus);
-        this.worker = supplyWorker();
-    }
-
-    public void attach(
-        Controller controller)
-    {
-        this.controllersByKind.put(controller.kind(), controller);
-        this.worker = supplyWorker();
-    }
-
-    public void detach(
-        NukleusMatcher matcher)
-    {
-        if (this.nukleiByName.keySet().removeIf(matcher))
-        {
-            this.worker = supplyWorker();
-        }
-    }
-
-    public void detach(
-        ControllerMatcher matcher)
-    {
-        if (this.controllersByKind.keySet().removeIf(matcher))
-        {
-            this.worker = supplyWorker();
-        }
+        return nukleiByName.get(name);
     }
 
     public Set<Class<? extends Controller>> controllerKinds()

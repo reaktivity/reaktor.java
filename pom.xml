@@ -42,10 +42,18 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <checkstyle.config.location>src/conf/checkstyle/configuration.xml</checkstyle.config.location>
     <checkstyle.suppressions.location>src/conf/checkstyle/suppressions.xml</checkstyle.suppressions.location>
-    <nukleus.version>0.2</nukleus.version>
+    <nukleus.plugin.version>0.7.8</nukleus.plugin.version>
+    <nukleus.spec.version>0.7</nukleus.spec.version>
+    <nukleus.version>0.3</nukleus.version>
   </properties>
 
   <dependencies>
+    <dependency>
+      <groupId>org.reaktivity</groupId>
+      <artifactId>nukleus.spec</artifactId>
+      <version>${nukleus.spec.version}</version>
+      <scope>provided</scope>
+    </dependency>
     <dependency>
       <groupId>org.reaktivity</groupId>
       <artifactId>nukleus</artifactId>
@@ -60,6 +68,22 @@
 
   <build>
     <plugins>
+      <plugin>
+        <groupId>org.reaktivity</groupId>
+        <artifactId>nukleus-maven-plugin</artifactId>
+        <version>${nukleus.plugin.version}</version>
+        <configuration>
+          <scopeNames>core</scopeNames>
+          <packageName>org.reaktivity.reaktor.internal.types</packageName>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>generate</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>com.mycila</groupId>
         <artifactId>license-maven-plugin</artifactId>

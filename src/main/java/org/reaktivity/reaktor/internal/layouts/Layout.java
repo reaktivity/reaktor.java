@@ -13,13 +13,16 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.reaktor.matchers;
+package org.reaktivity.reaktor.internal.layouts;
 
-import java.util.function.Predicate;
 
-import org.reaktivity.nukleus.Controller;
-
-@FunctionalInterface
-public interface ControllerMatcher extends Predicate<Class<? extends Controller>>
+public abstract class Layout implements AutoCloseable
 {
+    @Override
+    public abstract void close();
+
+    public abstract static class Builder<T extends Layout>
+    {
+        public abstract T build();
+    }
 }
