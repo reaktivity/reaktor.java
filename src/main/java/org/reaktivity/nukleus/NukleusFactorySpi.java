@@ -15,10 +15,11 @@
  */
 package org.reaktivity.nukleus;
 
-
 public interface NukleusFactorySpi
 {
     String name();
 
-    Nukleus create(Configuration config);
+    Nukleus create(
+        Configuration config,
+        NukleusBuilder builder);
 }

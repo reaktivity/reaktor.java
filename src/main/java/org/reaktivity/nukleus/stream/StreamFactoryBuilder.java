@@ -13,16 +13,26 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.nukleus;
+package org.reaktivity.nukleus.stream;
 
+import java.util.function.LongSupplier;
 
-public interface ControllerFactorySpi<T extends Controller>
+import org.agrona.MutableDirectBuffer;
+import org.reaktivity.nukleus.route.RouteHandler;
+
+public interface StreamFactoryBuilder
 {
-    String name();
+    StreamFactoryBuilder setRouteHandler(
+        RouteHandler router);
 
-    Class<T> kind();
+    StreamFactoryBuilder setStreamIdSupplier(
+        LongSupplier supplyStreamId);
 
-    T create(
-        Configuration config,
-        ControllerBuilder<T> builder);
+    StreamFactoryBuilder setCorrelationIdSupplier(
+        LongSupplier supplyCorrelationId);
+
+    StreamFactoryBuilder setWriteBuffer(
+        MutableDirectBuffer writeBuffer);
+
+    StreamFactory build();
 }

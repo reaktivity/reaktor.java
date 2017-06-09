@@ -13,16 +13,17 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.nukleus;
+package org.reaktivity.nukleus.stream;
 
+import org.agrona.DirectBuffer;
+import org.reaktivity.nukleus.function.MessageConsumer;
 
-public interface ControllerFactorySpi<T extends Controller>
+public interface StreamFactory
 {
-    String name();
-
-    Class<T> kind();
-
-    T create(
-        Configuration config,
-        ControllerBuilder<T> builder);
+    MessageConsumer newStream(
+        int msgTypeId,
+        DirectBuffer buffer,
+        int index,
+        int length,
+        MessageConsumer throttle);
 }

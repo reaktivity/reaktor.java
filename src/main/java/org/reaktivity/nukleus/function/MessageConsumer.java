@@ -13,16 +13,29 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.nukleus;
+package org.reaktivity.nukleus.function;
 
+import org.agrona.DirectBuffer;
+import org.agrona.MutableDirectBuffer;
+import org.agrona.concurrent.MessageHandler;
 
-public interface ControllerFactorySpi<T extends Controller>
+@FunctionalInterface
+public interface MessageConsumer extends MessageHandler, AutoCloseable
 {
-    String name();
+    void accept(int msgTypeId, DirectBuffer buffer, int index, int length);
 
-    Class<T> kind();
+    @Override
+    default void onMessage(
+        int msgTypeId,
+        MutableDirectBuffer buffer,
+        int index,
+        int length)
+    {
+        accept(msgTypeId, buffer, index, length);
+    }
 
-    T create(
-        Configuration config,
-        ControllerBuilder<T> builder);
+    @Override
+    default void close() throws Exception
+    {
+    }
 }

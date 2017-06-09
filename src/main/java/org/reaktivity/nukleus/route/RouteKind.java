@@ -13,16 +13,11 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.nukleus;
+package org.reaktivity.nukleus.route;
 
-
-public interface ControllerFactorySpi<T extends Controller>
+public enum RouteKind
 {
-    String name();
-
-    Class<T> kind();
-
-    T create(
-        Configuration config,
-        ControllerBuilder<T> builder);
+    SERVER,
+    CLIENT,
+    PROXY;
 }

@@ -13,15 +13,12 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.nukleus;
+package org.reaktivity.nukleus.function;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import org.agrona.DirectBuffer;
 
-@Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.TYPE)
-public @interface Reaktive
+@FunctionalInterface
+public interface MessageFunction<R>
 {
+    R apply(int msgTypeId, DirectBuffer buffer, int index, int length);
 }

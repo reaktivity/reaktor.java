@@ -15,14 +15,17 @@
  */
 package org.reaktivity.nukleus;
 
+import java.util.function.Function;
 
-public interface ControllerFactorySpi<T extends Controller>
+public interface ControllerBuilder<T>
 {
-    String name();
-
     Class<T> kind();
 
-    T create(
-        Configuration config,
-        ControllerBuilder<T> builder);
+    ControllerBuilder<T> setName(
+        String name);
+
+    ControllerBuilder<T> setFactory(
+        Function<ControllerSpi, T> factory);
+
+    T build();
 }
