@@ -21,6 +21,8 @@ import static org.junit.Assert.assertThat;
 import java.io.IOException;
 
 import org.junit.Test;
+import org.reaktivity.nukleus.route.RouteKind;
+import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 
 public final class NukleusFactoryTest
 {
@@ -28,8 +30,27 @@ public final class NukleusFactoryTest
     @Test
     public void shouldLoadAndCreate() throws IOException
     {
+        Configuration config = new Configuration();
         NukleusFactory factory = NukleusFactory.instantiate();
-        Nukleus nukleus = factory.create("test", new Configuration());
+        NukleusBuilder builder = new NukleusBuilder()
+        {
+            @Override
+            public NukleusBuilder streamFactory(
+                RouteKind kind,
+                StreamFactoryBuilder supplier)
+            {
+                return this;
+            }
+
+            @Override
+            public Nukleus build()
+            {
+                return null;
+            }
+        };
+
+        Nukleus nukleus = factory.create("test", config, builder);
+
         assertThat(nukleus, instanceOf(TestNukleus.class));
     }
 
@@ -42,13 +63,15 @@ public final class NukleusFactoryTest
         }
 
         @Override
-        public Nukleus create(Configuration options)
+        public Nukleus create(
+            Configuration config,
+            NukleusBuilder builder)
         {
             return new TestNukleus();
         }
     }
 
-    static final class TestNukleus implements Nukleus
+    private static final class TestNukleus implements Nukleus
     {
         @Override
         public int process()

@@ -40,11 +40,12 @@ public final class ControllerFactory
         return factorySpisByName.keySet();
     }
 
-    public <T extends Controller> String name(Class<T> kind)
+    public <T extends Controller> String name(
+        Class<T> kind)
     {
         requireNonNull(kind, "kind");
 
-        ControllerFactorySpi factorySpi = factorySpisByName.get(kind);
+        ControllerFactorySpi<?> factorySpi = factorySpisByName.get(kind);
         if (factorySpi == null)
         {
             throw new IllegalArgumentException("Unregonized controller kind: " + kind.getName());
@@ -53,31 +54,42 @@ public final class ControllerFactory
         return factorySpi.name();
     }
 
-    public <T extends Controller> T create(Class<T> kind, Configuration config)
+    public <T extends Controller> T create(
+        Configuration config,
+        ControllerBuilder<T> builder)
     {
-        requireNonNull(kind, "kind");
         requireNonNull(config, "config");
+        requireNonNull(builder, "builder");
 
-        ControllerFactorySpi factorySpi = factorySpisByName.get(kind);
+        Class<T> kind = builder.kind();
+
+        @SuppressWarnings("unchecked")
+        ControllerFactorySpi<T> factorySpi = factorySpisByName.get(kind);
         if (factorySpi == null)
         {
             throw new IllegalArgumentException("Unregonized controller kind: " + kind.getName());
         }
 
-        return factorySpi.create(kind, config);
+        return factorySpi.create(config, builder);
     }
 
-    private static ControllerFactory instantiate(ServiceLoader<ControllerFactorySpi> factories)
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    private static ControllerFactory instantiate(
+        ServiceLoader<ControllerFactorySpi> factories)
     {
-        Map<Class<? extends Controller>, ControllerFactorySpi> factorySpisByName = new HashMap<>();
+        Map<Class<? extends Controller>, ControllerFactorySpi<?>> factorySpisByName = new HashMap<>();
         factories.forEach((factorySpi) -> factorySpisByName.put(factorySpi.kind(), factorySpi));
 
         return new ControllerFactory(unmodifiableMap(factorySpisByName));
     }
 
+    @SuppressWarnings("rawtypes")
     private final Map<Class<? extends Controller>, ControllerFactorySpi> factorySpisByName;
 
-    private ControllerFactory(Map<Class<? extends Controller>, ControllerFactorySpi> factorySpisByName)
+    @SuppressWarnings("rawtypes")
+    private ControllerFactory(
+        Map<Class<? extends Controller>,
+        ControllerFactorySpi> factorySpisByName)
     {
         this.factorySpisByName = factorySpisByName;
     }

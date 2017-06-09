@@ -13,16 +13,23 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.nukleus;
+package org.reaktivity.nukleus.route;
 
+import org.reaktivity.nukleus.function.MessageConsumer;
+import org.reaktivity.nukleus.function.MessageFunction;
+import org.reaktivity.nukleus.function.MessagePredicate;
 
-public interface ControllerFactorySpi<T extends Controller>
+public interface RouteHandler
 {
-    String name();
+    <R> R resolve(
+        MessagePredicate filter,
+        MessageFunction<R> mapper);
 
-    Class<T> kind();
+    MessageConsumer supplyTarget(
+        String targetName);
 
-    T create(
-        Configuration config,
-        ControllerBuilder<T> builder);
+    void setThrottle(
+        String targetName,
+        long streamId,
+        MessageConsumer throttle);
 }

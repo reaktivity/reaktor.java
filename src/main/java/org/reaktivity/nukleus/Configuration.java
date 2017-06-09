@@ -20,6 +20,7 @@ import static java.util.Objects.requireNonNull;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Properties;
+import java.util.function.BiFunction;
 
 public class Configuration
 {
@@ -43,24 +44,24 @@ public class Configuration
 
     public static final int THROTTLE_BUFFER_CAPACITY_DEFAULT = 64 * 1024;
 
-    public static final int CONTROL_COMMAND_BUFFER_CAPACITY_DEFAULT = 1024 * 1024;
+    public static final int COMMAND_BUFFER_CAPACITY_DEFAULT = 1024 * 1024;
 
-    public static final int CONTROL_RESPONSE_BUFFER_CAPACITY_DEFAULT = 1024 * 1024;
+    public static final int RESPONSE_BUFFER_CAPACITY_DEFAULT = 1024 * 1024;
 
-    public static final int CONTROL_COUNTERS_BUFFER_CAPACITY_DEFAULT = 1024 * 1024;
+    public static final int COUNTERS_BUFFER_CAPACITY_DEFAULT = 1024 * 1024;
 
-    private final Properties properties;
+    private final BiFunction<String, String, String> getProperty;
 
     public Configuration()
     {
-        // use System.getProperty(...)
-        this.properties = null;
+        this.getProperty = System::getProperty;
     }
 
-    public Configuration(Properties properties)
+    public Configuration(
+        Properties properties)
     {
         requireNonNull(properties, "properties");
-        this.properties = properties;
+        this.getProperty = properties::getProperty;
     }
 
     public Path directory()
@@ -85,51 +86,36 @@ public class Configuration
 
     public int commandBufferCapacity()
     {
-        return getInteger(COMMAND_BUFFER_CAPACITY_PROPERTY_NAME, CONTROL_COMMAND_BUFFER_CAPACITY_DEFAULT);
+        return getInteger(COMMAND_BUFFER_CAPACITY_PROPERTY_NAME, COMMAND_BUFFER_CAPACITY_DEFAULT);
     }
 
     public int responseBufferCapacity()
     {
-        return getInteger(RESPONSE_BUFFER_CAPACITY_PROPERTY_NAME, CONTROL_RESPONSE_BUFFER_CAPACITY_DEFAULT);
+        return getInteger(RESPONSE_BUFFER_CAPACITY_PROPERTY_NAME, RESPONSE_BUFFER_CAPACITY_DEFAULT);
     }
 
     public int counterValuesBufferCapacity()
     {
-        return getInteger(COUNTERS_BUFFER_CAPACITY_PROPERTY_NAME, CONTROL_COUNTERS_BUFFER_CAPACITY_DEFAULT);
+        return getInteger(COUNTERS_BUFFER_CAPACITY_PROPERTY_NAME, COUNTERS_BUFFER_CAPACITY_DEFAULT);
     }
 
     public int counterLabelsBufferCapacity()
     {
-        return getInteger(COUNTERS_BUFFER_CAPACITY_PROPERTY_NAME, CONTROL_COUNTERS_BUFFER_CAPACITY_DEFAULT) * 2;
+        return getInteger(COUNTERS_BUFFER_CAPACITY_PROPERTY_NAME, COUNTERS_BUFFER_CAPACITY_DEFAULT) * 2;
     }
 
     private String getProperty(String key, String defaultValue)
     {
-        if (properties == null)
-        {
-            return System.getProperty(key, defaultValue);
-        }
-        else
-        {
-            return properties.getProperty(key, defaultValue);
-        }
+        return getProperty.apply(key, defaultValue);
     }
 
-    private Integer getInteger(String key, int defaultValue)
+    private int getInteger(String key, int defaultValue)
     {
-        if (properties == null)
+        String value = getProperty.apply(key, null);
+        if (value == null)
         {
-            return Integer.getInteger(key, defaultValue);
+            return defaultValue;
         }
-        else
-        {
-            String value = properties.getProperty(key);
-            if (value == null)
-            {
-                return defaultValue;
-            }
-            return Integer.valueOf(value);
-        }
+        return Integer.decode(value);
     }
-
 }

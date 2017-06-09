@@ -40,18 +40,28 @@ public final class NukleusFactory
         return factorySpisByName.keySet();
     }
 
-    public Nukleus create(String name, Configuration config)
+    public Nukleus create(
+        String name,
+        Configuration config,
+        NukleusBuilder builder)
     {
         requireNonNull(name, "name");
-        requireNonNull(config, "config");
+        //requireNonNull(builder, "builder");
 
+        NukleusFactorySpi factorySpi = resolveFactory(name);
+
+        return factorySpi.create(config, builder);
+    }
+
+    private NukleusFactorySpi resolveFactory(
+        String name)
+    {
         NukleusFactorySpi factorySpi = factorySpisByName.get(name);
         if (factorySpi == null)
         {
             throw new IllegalArgumentException("Unregonized nukleus name: " + name);
         }
-
-        return factorySpi.create(config);
+        return factorySpi;
     }
 
     private static NukleusFactory instantiate(ServiceLoader<NukleusFactorySpi> factories)
