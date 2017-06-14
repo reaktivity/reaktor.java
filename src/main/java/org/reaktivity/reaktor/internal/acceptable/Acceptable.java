@@ -23,6 +23,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 
+import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.agrona.concurrent.status.AtomicCounter;
@@ -45,6 +46,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteHandler
     private final Router router;
     private final String sourceName;
     private final AtomicBuffer writeBuffer;
+    private final Long2ObjectHashMap<MessageConsumer> streams;
     private final Map<String, Source> sourcesByPartitionName;
     private final Map<String, Target> targetsByName;
     private final Function<RouteKind, StreamFactory> supplyStreamFactory;
@@ -59,6 +61,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteHandler
         this.router = router;
         this.sourceName = sourceName;
         this.writeBuffer = new UnsafeBuffer(new byte[context.maxMessageLength()]);
+        this.streams = new Long2ObjectHashMap<>();
         this.sourcesByPartitionName = new HashMap<>();
         this.targetsByName = new HashMap<>();
 
@@ -137,7 +140,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteHandler
             .readonly(true)
             .build();
 
-        return include(new Source(sourceName, partitionName, layout, writeBuffer,
+        return include(new Source(sourceName, partitionName, layout, writeBuffer, streams,
                                   this::supplyTargetInternal, supplyStreamFactory));
     }
 

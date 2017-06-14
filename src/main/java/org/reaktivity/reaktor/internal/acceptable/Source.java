@@ -59,6 +59,7 @@ public final class Source implements Nukleus
         String partitionName,
         StreamsLayout layout,
         AtomicBuffer writeBuffer,
+        Long2ObjectHashMap<MessageConsumer> streams,
         Function<String, Target> supplyTarget,
         Function<RouteKind, StreamFactory> supplyStreamFactory)
     {
@@ -69,7 +70,7 @@ public final class Source implements Nukleus
         this.supplyStreamFactory = supplyStreamFactory;
         this.streamsBuffer = layout.streamsBuffer();
         this.throttleBuffer = layout.throttleBuffer();
-        this.streams = new Long2ObjectHashMap<>();
+        this.streams = streams;
         this.readHandler = this::handleRead;
         this.writeHandler = this::handleWrite;
     }
