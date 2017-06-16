@@ -19,20 +19,23 @@ import java.io.Closeable;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 import org.reaktivity.nukleus.Configuration;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.NukleusBuilder;
+import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.route.RouteKind;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 import org.reaktivity.reaktor.internal.acceptor.Acceptor;
+import org.reaktivity.reaktor.internal.buffer.Slab;
 import org.reaktivity.reaktor.internal.conductor.Conductor;
 import org.reaktivity.reaktor.internal.router.Router;
 import org.reaktivity.reaktor.internal.watcher.Watcher;
 
 public class NukleusBuilderImpl implements NukleusBuilder
 {
-    private final Configuration config;
+    private final ReaktorConfiguration config;
     private final String name;
     private final Map<RouteKind, StreamFactoryBuilder> streamFactoryBuilders;
 
@@ -40,7 +43,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
         Configuration config,
         String name)
     {
-        this.config = config;
+        this.config = new ReaktorConfiguration(config, name);
         this.name = name;
         this.streamFactoryBuilders = new EnumMap<>(RouteKind.class);
     }
@@ -63,6 +66,10 @@ public class NukleusBuilderImpl implements NukleusBuilder
         Context context = new Context();
         context.name(name).conclude(config);
 
+        final int bufferPoolSize = config.bufferPoolSize();
+        final int bufferSlotSize = config.bufferSlotSize();
+        Supplier<BufferPool> supplyBufferPool = () -> new Slab(bufferPoolSize, bufferSlotSize);
+
         Conductor conductor = new Conductor(context);
         Watcher watcher = new Watcher(context);
         Router router = new Router(context);
@@ -72,7 +79,8 @@ public class NukleusBuilderImpl implements NukleusBuilder
         watcher.setAcceptor(acceptor);
         acceptor.setConductor(conductor);
         acceptor.setRouter(router);
-        acceptor.setStreamFactoryBuilder(streamFactoryBuilders::get);
+        acceptor.setBufferPoolSupplier(supplyBufferPool);
+        acceptor.setStreamFactoryBuilderSupplier(streamFactoryBuilders::get);
 
         return new NukleusImpl(name, conductor, watcher, router, acceptor, context);
     }

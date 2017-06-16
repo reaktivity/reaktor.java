@@ -22,12 +22,14 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
+import java.util.function.Supplier;
 
 import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.agrona.concurrent.status.AtomicCounter;
 import org.reaktivity.nukleus.Nukleus;
+import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessageFunction;
 import org.reaktivity.nukleus.function.MessagePredicate;
@@ -55,6 +57,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteHandler
         Context context,
         Router router,
         String sourceName,
+        Supplier<BufferPool> supplyBufferPool,
         Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder)
     {
         this.context = context;
@@ -81,6 +84,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteHandler
                         .setWriteBuffer(writeBuffer)
                         .setStreamIdSupplier(supplyStreamId)
                         .setCorrelationIdSupplier(supplyCorrelationId)
+                        .setBufferPoolSupplier(supplyBufferPool)
                         .build();
                 streamFactories.put(kind, streamFactory);
             }
