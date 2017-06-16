@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.reaktivity</groupId>
   <artifactId>reaktor</artifactId>
-  <version>0.4</version>
+  <version>0.5</version>
   <name>Reaktor for Java Nuklei</name>
   <description>Reaktor for Java Nuklei</description>
   <url>https://github.com/reaktivity/reaktor.java</url>
@@ -42,9 +42,10 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <checkstyle.config.location>src/conf/checkstyle/configuration.xml</checkstyle.config.location>
     <checkstyle.suppressions.location>src/conf/checkstyle/suppressions.xml</checkstyle.suppressions.location>
+
     <nukleus.plugin.version>0.7.8</nukleus.plugin.version>
     <nukleus.spec.version>0.7</nukleus.spec.version>
-    <nukleus.version>0.3</nukleus.version>
+    <nukleus.version>0.4</nukleus.version>
   </properties>
 
   <dependencies>

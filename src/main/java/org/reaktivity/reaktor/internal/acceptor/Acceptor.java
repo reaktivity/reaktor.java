@@ -20,6 +20,7 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -27,6 +28,7 @@ import org.agrona.MutableDirectBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.agrona.concurrent.status.AtomicCounter;
 import org.reaktivity.nukleus.Nukleus;
+import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.route.RouteKind;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 import org.reaktivity.reaktor.internal.Context;
@@ -53,6 +55,7 @@ public final class Acceptor extends Nukleus.Composite
 
     private Conductor conductor;
     private Router router;
+    private Supplier<BufferPool> supplyBufferPool;
     private Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder;
 
     public Acceptor(
@@ -76,7 +79,13 @@ public final class Acceptor extends Nukleus.Composite
         this.router = router;
     }
 
-    public void setStreamFactoryBuilder(
+    public void setBufferPoolSupplier(
+        Supplier<BufferPool> supplyBufferPool)
+    {
+        this.supplyBufferPool = supplyBufferPool;
+    }
+
+    public void setStreamFactoryBuilderSupplier(
         Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder)
     {
         this.supplyStreamFactoryBuilder = supplyStreamFactoryBuilder;
@@ -172,7 +181,7 @@ public final class Acceptor extends Nukleus.Composite
     private Acceptable newAcceptable(
         String sourceName)
     {
-        return include(new Acceptable(context, router, sourceName, supplyStreamFactoryBuilder));
+        return include(new Acceptable(context, router, sourceName, supplyBufferPool, supplyStreamFactoryBuilder));
     }
 
     private RouteFW generateSourceRefIfNecessary(
