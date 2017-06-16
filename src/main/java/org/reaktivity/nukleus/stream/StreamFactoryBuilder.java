@@ -16,8 +16,10 @@
 package org.reaktivity.nukleus.stream;
 
 import java.util.function.LongSupplier;
+import java.util.function.Supplier;
 
 import org.agrona.MutableDirectBuffer;
+import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.route.RouteHandler;
 
 public interface StreamFactoryBuilder
@@ -33,6 +35,9 @@ public interface StreamFactoryBuilder
 
     StreamFactoryBuilder setWriteBuffer(
         MutableDirectBuffer writeBuffer);
+
+    StreamFactoryBuilder setBufferPoolSupplier(
+        Supplier<BufferPool> supplyBufferPool);
 
     StreamFactory build();
 }
