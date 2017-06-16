@@ -21,6 +21,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Properties;
 import java.util.function.BiFunction;
+import java.util.function.IntSupplier;
+import java.util.function.Supplier;
 
 public class Configuration
 {
@@ -64,6 +66,12 @@ public class Configuration
         this.getProperty = properties::getProperty;
     }
 
+    protected Configuration(
+        Configuration config)
+    {
+        this.getProperty = config.getProperty;
+    }
+
     public Path directory()
     {
         return Paths.get(getProperty(DIRECTORY_PROPERTY_NAME, "./"));
@@ -104,17 +112,37 @@ public class Configuration
         return getInteger(COUNTERS_BUFFER_CAPACITY_PROPERTY_NAME, COUNTERS_BUFFER_CAPACITY_DEFAULT) * 2;
     }
 
-    private String getProperty(String key, String defaultValue)
+    protected String getProperty(String key, String defaultValue)
     {
         return getProperty.apply(key, defaultValue);
     }
 
-    private int getInteger(String key, int defaultValue)
+    protected int getInteger(String key, int defaultValue)
     {
         String value = getProperty.apply(key, null);
         if (value == null)
         {
             return defaultValue;
+        }
+        return Integer.decode(value);
+    }
+
+    protected String getProperty(String key, Supplier<String> defaultValue)
+    {
+        String value = getProperty.apply(key, null);
+        if (value == null)
+        {
+            return defaultValue.get();
+        }
+        return value;
+    }
+
+    protected int getInteger(String key, IntSupplier defaultValue)
+    {
+        String value = getProperty.apply(key, null);
+        if (value == null)
+        {
+            return defaultValue.getAsInt();
         }
         return Integer.decode(value);
     }
