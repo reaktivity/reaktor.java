@@ -15,6 +15,7 @@
  */
 package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 
+import static java.lang.Math.min;
 import static org.agrona.BitUtil.SIZE_OF_LONG;
 import static org.jboss.netty.channel.Channels.fireChannelBound;
 import static org.jboss.netty.channel.Channels.fireChannelClosed;
@@ -318,7 +319,7 @@ final class NukleusTarget implements AutoCloseable
             if (writeBuf.readable() || writeExt.readable())
             {
                 final boolean flushing = !writeBuf.readable();
-                final int writableBytes = channel.targetWriteableBytes(writeBuf.readableBytes());
+                final int writableBytes = min(channel.targetWriteableBytes(writeBuf.readableBytes()), (1 << Short.SIZE) - 1);
                 final int writeReaderIndex = writeBuf.readerIndex();
 
                 final int writableExtBytes = writeExt.readableBytes();
