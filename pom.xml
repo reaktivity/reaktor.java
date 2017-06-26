@@ -45,7 +45,7 @@
 
     <nukleus.plugin.version>0.7.8</nukleus.plugin.version>
     <nukleus.spec.version>0.7</nukleus.spec.version>
-    <nukleus.version>0.4</nukleus.version>
+    <nukleus.version>0.5</nukleus.version>
   </properties>
 
   <dependencies>

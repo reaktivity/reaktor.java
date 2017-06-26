@@ -41,8 +41,7 @@ public class Slab implements BufferPool
     private final MutableDirectBuffer slabBuffer;
     private final ByteBuffer slotByteBuffer;
     private final BitSet used;
-
-    private int availableSlots;
+    private final int[] availableSlots;
 
     public Slab(int totalCapacity, int slotCapacity)
     {
@@ -65,13 +64,13 @@ public class Slab implements BufferPool
         this.slabBuffer = new UnsafeBuffer(ByteBuffer.allocateDirect(totalCapacity));
         this.slotByteBuffer = slabBuffer.byteBuffer().duplicate();
         this.used = new BitSet(totalSlots);
-        this.availableSlots = totalSlots;
+        this.availableSlots = new int[] { totalSlots };
     }
 
     @Override
     public int acquire(long streamId)
     {
-        if (availableSlots == 0)
+        if (availableSlots[0] == 0)
         {
             return NO_SLOT;
         }
@@ -81,7 +80,7 @@ public class Slab implements BufferPool
             slot = ++slot & mask;
         }
         used.set(slot);
-        availableSlots--;
+        availableSlots[0]--;
 
         return slot;
     }
@@ -124,6 +123,24 @@ public class Slab implements BufferPool
     {
         assert used.get(slot);
         used.clear(slot);
-        availableSlots++;
+        availableSlots[0]++;
+    }
+
+    @Override
+    public BufferPool duplicate()
+    {
+        return new Slab(this);
+    }
+
+    private Slab(
+        Slab that)
+    {
+        this.availableSlots = that.availableSlots;
+        this.bitsPerSlot = that.bitsPerSlot;
+        this.mask = that.mask;
+        this.slabBuffer = that.slabBuffer;
+        this.slotCapacity = that.slotCapacity;
+        this.used = that.used;
+        this.slotByteBuffer = that.slotByteBuffer.duplicate();
     }
 }
