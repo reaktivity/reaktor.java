@@ -25,7 +25,7 @@ public class ReaktorConfiguration extends Configuration
 
     public static final String NUKLEUS_BUFFER_SLOT_SIZE_PROPERTY_FORMAT = "nukleus.%s.buffer.slot.size";
 
-    public static final int NUKLEUS_BUFFER_SLOT_SIZE_DEFAULT = 8192;
+    public static final int NUKLEUS_BUFFER_SLOT_SIZE_DEFAULT = 65536;
 
     private final String bufferPoolSizePropertyName;
     private final String bufferSlotSizePropertyName;
