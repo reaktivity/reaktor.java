@@ -66,4 +66,12 @@ public interface BufferPool
      * @param slot  reference to a previously acquired slot
      */
     void release(int slot);
+
+    /**
+     * Returns a {@code BufferPool} backed by the same storage but that can reference a different
+     * slot in parallel with the original {@code BufferPool}.
+     *
+     * @return a duplicate {@code BufferPool}
+     */
+    BufferPool duplicate();
 }
