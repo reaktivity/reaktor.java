@@ -24,6 +24,13 @@ public interface BufferPool
     int NO_SLOT = -1;
 
     /**
+     * Returns the capacity of each slot in the buffer pool
+     *
+     * @return the slot capacity
+     */
+    int slotCapacity();
+
+    /**
      * Reserves a slot for use by the given stream
      *
      * @param streamId  the stream identifier
