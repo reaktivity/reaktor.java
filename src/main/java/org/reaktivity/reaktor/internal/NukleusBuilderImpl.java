@@ -66,9 +66,9 @@ public class NukleusBuilderImpl implements NukleusBuilder
         Context context = new Context();
         context.name(name).conclude(config);
 
-        final int bufferPoolSize = config.bufferPoolSize();
-        final int bufferSlotSize = config.bufferSlotSize();
-        Supplier<BufferPool> supplyBufferPool = () -> new Slab(bufferPoolSize, bufferSlotSize);
+        final int bufferPoolCapacity = config.bufferPoolCapacity();
+        final int bufferSlotCapacity = config.bufferSlotCapacity();
+        Supplier<BufferPool> supplyBufferPool = () -> new Slab(bufferPoolCapacity, bufferSlotCapacity);
 
         Conductor conductor = new Conductor(context);
         Watcher watcher = new Watcher(context);
