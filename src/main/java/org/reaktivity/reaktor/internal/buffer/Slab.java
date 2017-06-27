@@ -68,6 +68,12 @@ public class Slab implements BufferPool
     }
 
     @Override
+    public int slotCapacity()
+    {
+        return slotCapacity;
+    }
+
+    @Override
     public int acquire(long streamId)
     {
         if (availableSlots[0] == 0)

@@ -21,14 +21,14 @@ import org.reaktivity.nukleus.Configuration;
 
 public class ReaktorConfiguration extends Configuration
 {
-    public static final String NUKLEUS_BUFFER_POOL_SIZE_PROPERTY_FORMAT = "nukleus.%s.buffer.pool.size";
+    public static final String NUKLEUS_BUFFER_POOL_CAPACITY_PROPERTY_FORMAT = "nukleus.%s.buffer.pool.capacity";
 
-    public static final String NUKLEUS_BUFFER_SLOT_SIZE_PROPERTY_FORMAT = "nukleus.%s.buffer.slot.size";
+    public static final String NUKLEUS_BUFFER_SLOT_CAPACITY_PROPERTY_FORMAT = "nukleus.%s.buffer.slot.capacity";
 
-    public static final int NUKLEUS_BUFFER_SLOT_SIZE_DEFAULT = 65536;
+    public static final int NUKLEUS_BUFFER_SLOT_CAPACITY_DEFAULT = 65536;
 
-    private final String bufferPoolSizePropertyName;
-    private final String bufferSlotSizePropertyName;
+    private final String bufferPoolCapacityPropertyName;
+    private final String bufferSlotCapacityPropertyName;
 
     public ReaktorConfiguration(
         Configuration config,
@@ -36,24 +36,24 @@ public class ReaktorConfiguration extends Configuration
     {
         super(config);
 
-        this.bufferPoolSizePropertyName = String.format(NUKLEUS_BUFFER_POOL_SIZE_PROPERTY_FORMAT, name);
-        this.bufferSlotSizePropertyName = String.format(NUKLEUS_BUFFER_SLOT_SIZE_PROPERTY_FORMAT, name);
+        this.bufferPoolCapacityPropertyName = String.format(NUKLEUS_BUFFER_POOL_CAPACITY_PROPERTY_FORMAT, name);
+        this.bufferSlotCapacityPropertyName = String.format(NUKLEUS_BUFFER_SLOT_CAPACITY_PROPERTY_FORMAT, name);
     }
 
-    public int bufferPoolSize()
+    public int bufferPoolCapacity()
     {
-        return getInteger(bufferPoolSizePropertyName, this::calculateBufferPoolSize);
+        return getInteger(bufferPoolCapacityPropertyName, this::calculateBufferPoolCapacity);
     }
 
-    public int bufferSlotSize()
+    public int bufferSlotCapacity()
     {
-        return getInteger(bufferSlotSizePropertyName, NUKLEUS_BUFFER_SLOT_SIZE_DEFAULT);
+        return getInteger(bufferSlotCapacityPropertyName, NUKLEUS_BUFFER_SLOT_CAPACITY_DEFAULT);
     }
 
-    private int calculateBufferPoolSize()
+    private int calculateBufferPoolCapacity()
     {
         final int maximumStreamsCount = maximumStreamsCount();
         final int maximumBufferedStreams = maximumStreamsCount < 1024 ? maximumStreamsCount : maximumStreamsCount / 8;
-        return findNextPositivePowerOfTwo(bufferSlotSize() * maximumBufferedStreams / 2);
+        return findNextPositivePowerOfTwo(bufferSlotCapacity() * maximumBufferedStreams / 2);
     }
 }
