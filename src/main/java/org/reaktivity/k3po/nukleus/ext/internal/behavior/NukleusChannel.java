@@ -16,6 +16,7 @@
 package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 
 import static org.jboss.netty.buffer.ChannelBuffers.dynamicBuffer;
+import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusThrottleMode.MESSAGE;
 
 import java.util.Deque;
 import java.util.LinkedList;
@@ -30,18 +31,25 @@ import org.kaazing.k3po.driver.internal.netty.channel.ChannelAddress;
 
 public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfig>
 {
-    private int sourceWindow;
-    private int sourceFrames;
-    private int targetWindow;
-    private int targetFrames;
+    private int sourceWindowBytes;
+    private int sourceWindowFrames;
+    private int targetWindowBytes;
+    private int targetWindowFrames;
+
+    private int targetWrittenBytes;
+    private int targetAcknowledgedBytes;
+
     private long sourceId;
     private long targetId;
+
+    private int targetAcknowlegedBytesCheckpoint = -1;
 
     final NukleusReaktor reaktor;
     final Deque<MessageEvent> writeRequests;
 
     private ChannelBuffer readExtBuffer;
     private ChannelBuffer writeExtBuffer;
+    private boolean targetWriteRequestInProgress;
 
     NukleusChannel(
         NukleusServerChannel parent,
@@ -137,14 +145,14 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
         int update,
         int frames)
     {
-        sourceWindow += update;
-        sourceFrames += frames;
-        assert sourceFrames >=0 && sourceWindow >= 0;
+        sourceWindowBytes += update;
+        sourceWindowFrames += frames;
+        assert sourceWindowFrames >=0 && sourceWindowBytes >= 0;
     }
 
     public int sourceWindow()
     {
-        return sourceFrames > 0 ? sourceWindow : 0;
+        return sourceWindowFrames > 0 ? sourceWindowBytes : 0;
     }
 
     public void sourceId(
@@ -165,12 +173,12 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
 
     public int targetWindow()
     {
-        return targetFrames > 0 ? targetWindow : 0;
+        return targetWindowFrames > 0 ? targetWindowBytes : 0;
     }
 
     public boolean targetWritable()
     {
-        return (targetFrames > 0 && targetWindow > 0) || !getConfig().hasThrottle();
+        return (targetWindowFrames > 0 && targetWindowBytes > 0) || !getConfig().hasThrottle();
     }
 
     public int targetWriteableBytes(
@@ -183,22 +191,37 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
         int writtenBytes,
         int writtenFrames)
     {
-        if (getConfig().hasThrottle())
-        {
-            targetWindow -= writtenBytes;
-            targetFrames -= writtenFrames;
-            assert targetFrames >= 0 && targetWindow >= 0;
-        }
+        targetWrittenBytes += writtenBytes;
+        targetWindowBytes -= writtenBytes;
+        targetWindowFrames -= writtenFrames;
+        assert targetWindowFrames >= 0 && targetWindowBytes >= 0;
     }
 
     public void targetWindowUpdate(
         int update,
         int frames)
     {
-        if (getConfig().hasThrottle())
+        targetWindowBytes += update;
+        targetWindowFrames += frames;
+        targetAcknowledgedBytes += update;
+
+        if (getConfig().getThrottle() == MESSAGE && targetWriteRequestInProgress)
         {
-            targetWindow += update;
-            targetFrames += frames;
+            if (targetAcknowledgedBytes >= targetAcknowlegedBytesCheckpoint)
+            {
+                completeWriteRequestIfFullyWritten();
+            }
+        }
+    }
+
+    public void targetWriteRequestProgressing()
+    {
+        if (getConfig().getThrottle() == MESSAGE)
+        {
+            final MessageEvent writeRequest = writeRequests.peekFirst();
+            final ChannelBuffer message = (ChannelBuffer) writeRequest.getMessage();
+            targetAcknowlegedBytesCheckpoint = targetWrittenBytes + message.readableBytes();
+            targetWriteRequestInProgress = true;
         }
     }
 
@@ -210,5 +233,38 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
     public ChannelBuffer readExtBuffer()
     {
         return readExtBuffer;
+    }
+
+    public void targetWriteRequestProgress()
+    {
+        switch (getConfig().getThrottle())
+        {
+        case MESSAGE:
+            if (targetWriteRequestInProgress && targetAcknowledgedBytes >= targetAcknowlegedBytesCheckpoint)
+            {
+                completeWriteRequestIfFullyWritten();
+            }
+            break;
+        default:
+            completeWriteRequestIfFullyWritten();
+            break;
+        }
+    }
+
+    public boolean isTargetWriteRequestInProgress()
+    {
+        return targetWriteRequestInProgress;
+    }
+
+    private void completeWriteRequestIfFullyWritten()
+    {
+        final MessageEvent writeRequest = writeRequests.peekFirst();
+        final ChannelBuffer message = (ChannelBuffer) writeRequest.getMessage();
+        if (!message.readable())
+        {
+            targetWriteRequestInProgress = false;
+            writeRequests.removeFirst();
+            writeRequest.getFuture().setSuccess();
+        }
     }
 }

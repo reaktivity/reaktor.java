@@ -122,6 +122,16 @@ public class SimplexIT
 
     @Test
     @Specification({
+        "server.sent.throttle.message/client",
+        "server.sent.throttle.message/server"
+    })
+    public void shouldThrottleClientSentDataPerMessage() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "client.close/client",
         "client.close/server"
     })

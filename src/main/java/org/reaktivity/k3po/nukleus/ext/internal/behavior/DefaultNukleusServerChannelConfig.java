@@ -15,6 +15,9 @@
  */
 package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 
+import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusThrottleMode.NONE;
+import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusThrottleMode.STREAM;
+
 import java.util.Objects;
 
 import org.jboss.netty.channel.DefaultServerChannelConfig;
@@ -26,7 +29,7 @@ public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfi
     private String writePartition;
     private boolean duplex = false;
     private int window;
-    private boolean throttle = true;
+    private NukleusThrottleMode throttle = STREAM;
 
     @Override
     public void setCorrelation(
@@ -92,13 +95,19 @@ public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfi
 
     @Override
     public void setThrottle(
-        boolean throttle)
+        NukleusThrottleMode throttle)
     {
         this.throttle = throttle;
     }
 
     @Override
     public boolean hasThrottle()
+    {
+        return throttle != NONE;
+    }
+
+    @Override
+    public NukleusThrottleMode getThrottle()
     {
         return throttle;
     }
@@ -135,7 +144,7 @@ public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfi
         }
         else if ("throttle".equals(key))
         {
-            setThrottle("on".equals(value));
+            setThrottle(NukleusThrottleMode.decode(Objects.toString(value, "stream")));
         }
         else
         {
