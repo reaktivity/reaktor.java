@@ -203,7 +203,13 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
     {
         targetWindowBytes += update;
         targetWindowFrames += frames;
-        targetAcknowledgedBytes += update;
+
+        // approximation for window acknowledgment
+        // does not account for any change to total available window after initial window
+        if (targetWrittenBytes > 0)
+        {
+            targetAcknowledgedBytes += update;
+        }
 
         if (getConfig().getThrottle() == MESSAGE && targetWriteRequestInProgress)
         {
