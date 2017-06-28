@@ -310,6 +310,7 @@ final class NukleusTarget implements AutoCloseable
     {
         final Deque<MessageEvent> writeRequests = channel.writeRequests;
 
+        loop:
         while (channel.targetWritable() && !writeRequests.isEmpty())
         {
             MessageEvent writeRequest = writeRequests.peekFirst();
@@ -320,47 +321,54 @@ final class NukleusTarget implements AutoCloseable
             {
                 final boolean flushing = !writeBuf.readable();
                 final int writableBytes = min(channel.targetWriteableBytes(writeBuf.readableBytes()), (1 << Short.SIZE) - 1);
-                final int writeReaderIndex = writeBuf.readerIndex();
 
-                final int writableExtBytes = writeExt.readableBytes();
-                final byte[] writeExtCopy = writeExtCopy(writeExt);
+                if (writableBytes > 0)
+                {
+                    final int writeReaderIndex = writeBuf.readerIndex();
 
-                // TODO: avoid allocation
-                final byte[] writeCopy = new byte[writableBytes];
-                writeBuf.getBytes(writeReaderIndex, writeCopy);
+                    if (writeReaderIndex == 0)
+                    {
+                        channel.targetWriteRequestProgressing();
+                    }
 
-                final long streamId = channel.targetId();
-                final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                        .streamId(streamId)
-                        .payload(p -> p.set(writeCopy))
-                        .extension(p -> p.set(writeExtCopy))
-                        .build();
+                    final int writableExtBytes = writeExt.readableBytes();
+                    final byte[] writeExtCopy = writeExtCopy(writeExt);
 
-                streamsBuffer.write(data.typeId(), data.buffer(), data.offset(), data.sizeof());
+                    // TODO: avoid allocation
+                    final byte[] writeCopy = new byte[writableBytes];
+                    writeBuf.getBytes(writeReaderIndex, writeCopy);
 
-                channel.targetWritten(writableBytes, 1);
+                    final long streamId = channel.targetId();
+                    final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                            .streamId(streamId)
+                            .payload(p -> p.set(writeCopy))
+                            .extension(p -> p.set(writeExtCopy))
+                            .build();
 
-                writeBuf.skipBytes(writableBytes);
+                    streamsBuffer.write(data.typeId(), data.buffer(), data.offset(), data.sizeof());
 
-                writeExt.skipBytes(writableExtBytes);
-                writeExt.discardReadBytes();
+                    channel.targetWritten(writableBytes, 1);
+
+                    writeBuf.skipBytes(writableBytes);
+
+                    writeExt.skipBytes(writableExtBytes);
+                    writeExt.discardReadBytes();
+                }
 
                 if (flushing)
                 {
                     fireFlushed(channel);
                 }
-                else
+                else if (writableBytes > 0)
                 {
                     fireWriteComplete(channel, writableBytes);
                 }
+
+                channel.targetWriteRequestProgress();
             }
-
-            if (!writeBuf.readable())
+            else if (channel.isTargetWriteRequestInProgress())
             {
-                writeRequests.removeFirst();
-
-                ChannelFuture handlerFuture = writeRequest.getFuture();
-                handlerFuture.setSuccess();
+                break loop;
             }
         }
     }

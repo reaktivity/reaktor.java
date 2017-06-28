@@ -202,6 +202,26 @@ public class DuplexIT
 
     @Test
     @Specification({
+        "server.sent.throttle.message/client",
+        "server.sent.throttle.message/server"
+    })
+    public void shouldThrottleClientSentDataPerMessage() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "client.sent.throttle.message/client",
+        "client.sent.throttle.message/server"
+    })
+    public void shouldThrottleServerSentDataPerMessage() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "server.sent.overflow/client",
         "server.sent.overflow/server"
     })
