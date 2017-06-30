@@ -18,12 +18,15 @@ package org.reaktivity.reaktor;
 import static org.agrona.LangUtil.rethrowUnchecked;
 import static org.agrona.concurrent.AgentRunner.startOnThread;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.IntSupplier;
 
 import org.agrona.ErrorHandler;
+import org.agrona.LangUtil;
 import org.agrona.concurrent.Agent;
 import org.agrona.concurrent.AgentRunner;
 import org.agrona.concurrent.IdleStrategy;
@@ -107,6 +110,42 @@ public final class Reaktor implements AutoCloseable
             public int doWork() throws Exception
             {
                 return worker.getAsInt();
+            }
+
+            @Override
+            public void onClose()
+            {
+                final Nukleus[] nuklei0 = nukleiByName.values().toArray(new Nukleus[0]);
+                final Controller[] controllers0 = controllersByKind.values().toArray(new Controller[0]);
+                final List<Throwable> errors = new ArrayList<>();
+                for (int i=0; i < nuklei0.length; i++)
+                {
+                    try
+                    {
+                        nuklei0[i].close();
+                    }
+                    catch (Throwable t)
+                    {
+                        errors.add(t);
+                    }
+                }
+                for (int i=0; i < controllers0.length; i++)
+                {
+                    try
+                    {
+                        controllers0[i].close();
+                    }
+                    catch (Throwable t)
+                    {
+                        errors.add(t);
+                    }
+                }
+                if (!errors.isEmpty())
+                {
+                    final Throwable t = errors.get(0);
+                    errors.stream().filter(x -> x != t).forEach(x -> t.addSuppressed(x));
+                    LangUtil.rethrowUnchecked(t);
+                }
             }
         };
 
