@@ -85,4 +85,18 @@ public final class ConfigurationTest
 
         assertEquals(".", config.directory().toString());
     }
+
+    @Test
+    public void shouldUseDefaultOverridesPropertiesWhenWrapped()
+    {
+        Properties defaultOverrides = new Properties();
+        defaultOverrides.setProperty(DIRECTORY_PROPERTY_NAME, "/path/to/reaktivity");
+
+        Configuration system = new Configuration();
+        Configuration config = new Configuration(system, defaultOverrides);
+        Configuration wrapped = new Configuration(config);
+
+        assertEquals("/path/to/reaktivity", wrapped.directory().toString());
+    }
+
 }

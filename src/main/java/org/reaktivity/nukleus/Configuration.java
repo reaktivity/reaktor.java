@@ -73,7 +73,7 @@ public class Configuration
         Configuration config)
     {
         this.getProperty = config.getProperty;
-        this.getPropertyDefault = (p, d) -> d;
+        this.getPropertyDefault = config.getPropertyDefault;
     }
 
     protected Configuration(
