@@ -147,6 +147,10 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
             idleStrategy.idle(workCount);
         }
 
+        // ensure task queue is drained
+        // so that all channels are closed
+        executeTasks();
+
         shutdownLatch.countDown();
     }
 
