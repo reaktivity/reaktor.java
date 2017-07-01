@@ -53,10 +53,12 @@ public class Configuration
     public static final int COUNTERS_BUFFER_CAPACITY_DEFAULT = 1024 * 1024;
 
     private final BiFunction<String, String, String> getProperty;
+    private final BiFunction<String, String, String> getPropertyDefault;
 
     public Configuration()
     {
         this.getProperty = System::getProperty;
+        this.getPropertyDefault = (p, d) -> d;
     }
 
     public Configuration(
@@ -64,62 +66,67 @@ public class Configuration
     {
         requireNonNull(properties, "properties");
         this.getProperty = properties::getProperty;
+        this.getPropertyDefault = (p, d) -> d;
     }
 
     protected Configuration(
         Configuration config)
     {
         this.getProperty = config.getProperty;
+        this.getPropertyDefault = (p, d) -> d;
     }
 
-    public Path directory()
+    protected Configuration(
+        Configuration config,
+        Properties defaultOverrides)
     {
-        return Paths.get(getProperty(DIRECTORY_PROPERTY_NAME, "./"));
+        this.getProperty = config.getProperty;
+        this.getPropertyDefault = defaultOverrides::getProperty;
     }
 
-    public int maximumStreamsCount()
+    public final Path directory()
+    {
+        return Paths.get(getProperty(DIRECTORY_PROPERTY_NAME, "."));
+    }
+
+    public final int maximumStreamsCount()
     {
         return getInteger(MAXIMUM_STREAMS_COUNT_PROPERTY_NAME, MAXIMUM_STREAMS_COUNT_DEFAULT);
     }
 
-    public int streamsBufferCapacity()
+    public final int streamsBufferCapacity()
     {
         return getInteger(STREAMS_BUFFER_CAPACITY_PROPERTY_NAME, STREAMS_BUFFER_CAPACITY_DEFAULT);
     }
 
-    public int throttleBufferCapacity()
+    public final int throttleBufferCapacity()
     {
         return getInteger(THROTTLE_BUFFER_CAPACITY_PROPERTY_NAME, THROTTLE_BUFFER_CAPACITY_DEFAULT);
     }
 
-    public int commandBufferCapacity()
+    public final int commandBufferCapacity()
     {
         return getInteger(COMMAND_BUFFER_CAPACITY_PROPERTY_NAME, COMMAND_BUFFER_CAPACITY_DEFAULT);
     }
 
-    public int responseBufferCapacity()
+    public final int responseBufferCapacity()
     {
         return getInteger(RESPONSE_BUFFER_CAPACITY_PROPERTY_NAME, RESPONSE_BUFFER_CAPACITY_DEFAULT);
     }
 
-    public int counterValuesBufferCapacity()
+    public final int counterValuesBufferCapacity()
     {
         return getInteger(COUNTERS_BUFFER_CAPACITY_PROPERTY_NAME, COUNTERS_BUFFER_CAPACITY_DEFAULT);
     }
 
-    public int counterLabelsBufferCapacity()
+    public final int counterLabelsBufferCapacity()
     {
         return getInteger(COUNTERS_BUFFER_CAPACITY_PROPERTY_NAME, COUNTERS_BUFFER_CAPACITY_DEFAULT) * 2;
     }
 
-    protected String getProperty(String key, String defaultValue)
+    protected final int getInteger(String key, int defaultValue)
     {
-        return getProperty.apply(key, defaultValue);
-    }
-
-    protected int getInteger(String key, int defaultValue)
-    {
-        String value = getProperty.apply(key, null);
+        String value = getProperty(key, (String) null);
         if (value == null)
         {
             return defaultValue;
@@ -127,9 +134,9 @@ public class Configuration
         return Integer.decode(value);
     }
 
-    protected String getProperty(String key, Supplier<String> defaultValue)
+    protected final String getProperty(String key, Supplier<String> defaultValue)
     {
-        String value = getProperty.apply(key, null);
+        String value = getProperty(key, (String) null);
         if (value == null)
         {
             return defaultValue.get();
@@ -137,13 +144,18 @@ public class Configuration
         return value;
     }
 
-    protected int getInteger(String key, IntSupplier defaultValue)
+    protected final int getInteger(String key, IntSupplier defaultValue)
     {
-        String value = getProperty.apply(key, null);
+        String value = getProperty(key, (String) null);
         if (value == null)
         {
             return defaultValue.getAsInt();
         }
         return Integer.decode(value);
+    }
+
+    protected String getProperty(String key, String defaultValue)
+    {
+        return getProperty.apply(key, getPropertyDefault.apply(key, defaultValue));
     }
 }
