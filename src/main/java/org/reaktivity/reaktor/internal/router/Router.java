@@ -56,7 +56,7 @@ public final class Router extends Nukleus.Composite
     {
         DirectBuffer srcBuffer = route.buffer();
         MutableDirectBuffer copyBuffer = new UnsafeBuffer(new byte[route.sizeof()]);
-        copyBuffer.putBytes(0, srcBuffer, 0, copyBuffer.capacity());
+        copyBuffer.putBytes(0, srcBuffer, route.offset(), copyBuffer.capacity());
         RouteFW newRoute = new RouteFW().wrap(copyBuffer, 0, copyBuffer.capacity());
 
         return routes.add(newRoute);
