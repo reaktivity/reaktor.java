@@ -342,7 +342,7 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
             final CompletableFuture<?> promise,
             final String message)
         {
-            return promise.completeExceptionally(new IllegalStateException(message).fillInStackTrace());
+            return promise.completeExceptionally(new IllegalStateException(message));
         }
     }
 }

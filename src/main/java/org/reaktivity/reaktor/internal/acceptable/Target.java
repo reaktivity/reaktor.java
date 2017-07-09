@@ -23,6 +23,7 @@ import org.agrona.concurrent.ringbuffer.RingBuffer;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
+import org.reaktivity.reaktor.internal.types.stream.AbortFW;
 import org.reaktivity.reaktor.internal.types.stream.BeginFW;
 import org.reaktivity.reaktor.internal.types.stream.DataFW;
 import org.reaktivity.reaktor.internal.types.stream.EndFW;
@@ -36,6 +37,7 @@ public final class Target implements Nukleus
 
     private final String name;
     private final AutoCloseable layout;
+    private final int abortTypeId;
     private final RingBuffer streamsBuffer;
     private final RingBuffer throttleBuffer;
     private final Long2ObjectHashMap<MessageConsumer> throttles;
@@ -44,10 +46,12 @@ public final class Target implements Nukleus
 
     public Target(
         String name,
-        StreamsLayout layout)
+        StreamsLayout layout,
+        int abortTypeId)
     {
         this.name = name;
         this.layout = layout;
+        this.abortTypeId = abortTypeId;
         this.streamsBuffer = layout.streamsBuffer();
         this.throttleBuffer = layout.throttleBuffer();
         this.throttles = new Long2ObjectHashMap<>();
@@ -110,6 +114,12 @@ public final class Target implements Nukleus
 
             final FrameFW end = frameRO.wrap(buffer, index, index + length);
             throttles.remove(end.streamId());
+            break;
+        case AbortFW.TYPE_ID:
+            streamsBuffer.write(abortTypeId, buffer, index, length);
+
+            final FrameFW abort = frameRO.wrap(buffer, index, index + length);
+            throttles.remove(abort.streamId());
             break;
         default:
             break;

@@ -57,6 +57,7 @@ public final class Acceptor extends Nukleus.Composite
     private Router router;
     private Supplier<BufferPool> supplyBufferPool;
     private Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder;
+    private int abortTypeId;
 
     public Acceptor(
         Context context)
@@ -89,6 +90,12 @@ public final class Acceptor extends Nukleus.Composite
         Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder)
     {
         this.supplyStreamFactoryBuilder = supplyStreamFactoryBuilder;
+    }
+
+    public void setAbortTypeId(
+        int abortTypeId)
+    {
+        this.abortTypeId = abortTypeId;
     }
 
     @Override
@@ -181,7 +188,7 @@ public final class Acceptor extends Nukleus.Composite
     private Acceptable newAcceptable(
         String sourceName)
     {
-        return include(new Acceptable(context, router, sourceName, supplyBufferPool, supplyStreamFactoryBuilder));
+        return include(new Acceptable(context, router, sourceName, supplyBufferPool, supplyStreamFactoryBuilder, abortTypeId));
     }
 
     private RouteFW generateSourceRefIfNecessary(

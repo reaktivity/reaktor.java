@@ -70,6 +70,8 @@ public class NukleusBuilderImpl implements NukleusBuilder
         final int bufferSlotCapacity = config.bufferSlotCapacity();
         Supplier<BufferPool> supplyBufferPool = () -> new Slab(bufferPoolCapacity, bufferSlotCapacity);
 
+        final int abortTypeId = config.abortStreamEventTypeId();
+
         Conductor conductor = new Conductor(context);
         Watcher watcher = new Watcher(context);
         Router router = new Router(context);
@@ -81,6 +83,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
         acceptor.setRouter(router);
         acceptor.setBufferPoolSupplier(supplyBufferPool);
         acceptor.setStreamFactoryBuilderSupplier(streamFactoryBuilders::get);
+        acceptor.setAbortTypeId(abortTypeId);
 
         return new NukleusImpl(name, conductor, watcher, router, acceptor, context);
     }

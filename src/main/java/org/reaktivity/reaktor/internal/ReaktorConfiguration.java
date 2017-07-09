@@ -18,12 +18,17 @@ package org.reaktivity.reaktor.internal;
 import static org.agrona.BitUtil.findNextPositivePowerOfTwo;
 
 import org.reaktivity.nukleus.Configuration;
+import org.reaktivity.reaktor.internal.types.stream.EndFW;
 
 public class ReaktorConfiguration extends Configuration
 {
+    public static final String ABORT_STREAM_FRAME_TYPE_ID = "reaktor.abort.stream.frame.type.id";
+
     public static final String NUKLEUS_BUFFER_POOL_CAPACITY_PROPERTY_FORMAT = "nukleus.%s.buffer.pool.capacity";
 
     public static final String NUKLEUS_BUFFER_SLOT_CAPACITY_PROPERTY_FORMAT = "nukleus.%s.buffer.slot.capacity";
+
+    public static final int ABORT_STREAM_EVENT_TYPE_ID_DEFAULT = EndFW.TYPE_ID;
 
     public static final int NUKLEUS_BUFFER_SLOT_CAPACITY_DEFAULT = 65536;
 
@@ -48,6 +53,11 @@ public class ReaktorConfiguration extends Configuration
     public int bufferSlotCapacity()
     {
         return getInteger(bufferSlotCapacityPropertyName, NUKLEUS_BUFFER_SLOT_CAPACITY_DEFAULT);
+    }
+
+    public int abortStreamEventTypeId()
+    {
+        return getInteger(ABORT_STREAM_FRAME_TYPE_ID, ABORT_STREAM_EVENT_TYPE_ID_DEFAULT);
     }
 
     private int calculateBufferPoolCapacity()
