@@ -29,6 +29,7 @@ import org.reaktivity.nukleus.route.RouteKind;
 import org.reaktivity.nukleus.stream.StreamFactory;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
 import org.reaktivity.reaktor.internal.router.ReferenceKind;
+import org.reaktivity.reaktor.internal.types.stream.AbortFW;
 import org.reaktivity.reaktor.internal.types.stream.BeginFW;
 import org.reaktivity.reaktor.internal.types.stream.DataFW;
 import org.reaktivity.reaktor.internal.types.stream.EndFW;
@@ -51,6 +52,7 @@ public final class Source implements Nukleus
     private final RingBuffer throttleBuffer;
     private final Long2ObjectHashMap<MessageConsumer> streams;
     private final Function<RouteKind, StreamFactory> supplyStreamFactory;
+    private final int abortTypeId;
     private final MessageHandler readHandler;
     private final MessageConsumer writeHandler;
 
@@ -61,13 +63,15 @@ public final class Source implements Nukleus
         AtomicBuffer writeBuffer,
         Long2ObjectHashMap<MessageConsumer> streams,
         Function<String, Target> supplyTarget,
-        Function<RouteKind, StreamFactory> supplyStreamFactory)
+        Function<RouteKind, StreamFactory> supplyStreamFactory,
+        int abortTypeId)
     {
         this.sourceName = sourceName;
         this.partitionName = partitionName;
         this.layout = layout;
         this.writeBuffer = writeBuffer;
         this.supplyStreamFactory = supplyStreamFactory;
+        this.abortTypeId = abortTypeId;
         this.streamsBuffer = layout.streamsBuffer();
         this.throttleBuffer = layout.throttleBuffer();
         this.streams = streams;
@@ -159,6 +163,10 @@ public final class Source implements Nukleus
                 break;
             case EndFW.TYPE_ID:
                 handler.accept(msgTypeId, buffer, index, length);
+                streams.remove(streamId);
+                break;
+            case AbortFW.TYPE_ID:
+                handler.accept(abortTypeId, buffer, index, length);
                 streams.remove(streamId);
                 break;
             default:

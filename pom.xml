@@ -44,7 +44,7 @@
     <checkstyle.suppressions.location>src/conf/checkstyle/suppressions.xml</checkstyle.suppressions.location>
 
     <nukleus.plugin.version>0.7.8</nukleus.plugin.version>
-    <nukleus.spec.version>0.7</nukleus.spec.version>
+    <nukleus.spec.version>0.8</nukleus.spec.version>
     <nukleus.version>0.6.2</nukleus.version>
     <jmock.version>2.6.0</jmock.version>
   </properties>

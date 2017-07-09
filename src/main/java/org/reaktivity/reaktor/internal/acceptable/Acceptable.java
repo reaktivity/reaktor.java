@@ -52,13 +52,15 @@ public final class Acceptable extends Nukleus.Composite implements RouteHandler
     private final Map<String, Source> sourcesByPartitionName;
     private final Map<String, Target> targetsByName;
     private final Function<RouteKind, StreamFactory> supplyStreamFactory;
+    private final int abortTypeId;
 
     public Acceptable(
         Context context,
         Router router,
         String sourceName,
         Supplier<BufferPool> supplyBufferPool,
-        Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder)
+        Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder,
+        int abortTypeId)
     {
         this.context = context;
         this.router = router;
@@ -90,6 +92,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteHandler
             }
         }
         this.supplyStreamFactory = streamFactories::get;
+        this.abortTypeId = abortTypeId;
     }
 
     @Override
@@ -145,7 +148,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteHandler
             .build();
 
         return include(new Source(sourceName, partitionName, layout, writeBuffer, streams,
-                                  this::supplyTargetInternal, supplyStreamFactory));
+                                  this::supplyTargetInternal, supplyStreamFactory, abortTypeId));
     }
 
     private Target supplyTargetInternal(
@@ -166,6 +169,6 @@ public final class Acceptable extends Nukleus.Composite implements RouteHandler
                 .readonly(false)
                 .build();
 
-        return include(new Target(targetName, layout));
+        return include(new Target(targetName, layout, abortTypeId));
     }
 }
