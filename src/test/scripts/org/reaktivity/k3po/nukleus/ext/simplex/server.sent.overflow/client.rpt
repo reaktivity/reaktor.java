@@ -21,4 +21,4 @@ connect "nukleus://server/streams/client"
 connected
 
 write "Hello, world"
-aborted
+write aborted

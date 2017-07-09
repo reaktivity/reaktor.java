@@ -18,8 +18,6 @@ connect "nukleus://server/streams/client"
         option nukleus:route 1234L
         option nukleus:transmission "duplex"
         option nukleus:window 8192
-        option nukleus:throttle "off"
 connected
 
-write "Hello, world"
 write aborted

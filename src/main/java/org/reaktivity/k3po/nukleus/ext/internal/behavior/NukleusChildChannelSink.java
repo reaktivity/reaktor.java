@@ -20,20 +20,39 @@ import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelStateEvent;
 import org.jboss.netty.channel.MessageEvent;
 import org.kaazing.k3po.driver.internal.netty.bootstrap.channel.AbstractChannelSink;
-import org.kaazing.k3po.driver.internal.netty.channel.AbortEvent;
 import org.kaazing.k3po.driver.internal.netty.channel.FlushEvent;
+import org.kaazing.k3po.driver.internal.netty.channel.ReadAbortEvent;
 import org.kaazing.k3po.driver.internal.netty.channel.ShutdownOutputEvent;
+import org.kaazing.k3po.driver.internal.netty.channel.WriteAbortEvent;
 
 public class NukleusChildChannelSink extends AbstractChannelSink
 {
     @Override
-    protected void abortRequested(
+    protected void abortOutputRequested(
         ChannelPipeline pipeline,
-        AbortEvent evt) throws Exception
+        WriteAbortEvent evt) throws Exception
     {
         NukleusChannel channel = (NukleusChannel) evt.getChannel();
         ChannelFuture abortFuture = evt.getFuture();
-        channel.reaktor.abort(channel, abortFuture);
+
+        if (!channel.isWriteClosed())
+        {
+            channel.reaktor.abortOutput(channel, abortFuture);
+        }
+    }
+
+    @Override
+    protected void abortInputRequested(
+        ChannelPipeline pipeline,
+        ReadAbortEvent evt) throws Exception
+    {
+        NukleusChannel channel = (NukleusChannel) evt.getChannel();
+        ChannelFuture abortFuture = evt.getFuture();
+
+        if (!channel.isReadClosed())
+        {
+            channel.reaktor.abortInput(channel, abortFuture);
+        }
     }
 
     @Override

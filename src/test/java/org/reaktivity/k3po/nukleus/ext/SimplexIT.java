@@ -25,20 +25,16 @@ import org.junit.rules.TestRule;
 import org.junit.rules.Timeout;
 import org.kaazing.k3po.junit.annotation.Specification;
 import org.kaazing.k3po.junit.rules.K3poRule;
-import org.reaktivity.specification.nukleus.NukleusRule;
 
 public class SimplexIT
 {
     private final K3poRule k3po = new K3poRule()
             .setScriptRoot("org/reaktivity/k3po/nukleus/ext/simplex");
 
-    private final NukleusRule nukleus = new NukleusRule()
-            .directory("target/nukleus-itests");
-
     private final TestRule timeout = new DisableOnDebug(new Timeout(10, SECONDS));
 
     @Rule
-    public final TestRule chain = outerRule(k3po).around(nukleus).around(timeout);
+    public final TestRule chain = outerRule(k3po).around(timeout);
 
     @Test
     @Specification({
@@ -102,10 +98,20 @@ public class SimplexIT
 
     @Test
     @Specification({
-        "server.sent.reset/client",
-        "server.sent.reset/server"
+        "client.sent.write.abort/client",
+        "client.sent.write.abort/server"
     })
-    public void shouldReceiveServerSentReset() throws Exception
+    public void shouldReceiveClientSentWriteAbort() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "server.sent.read.abort/client",
+        "server.sent.read.abort/server"
+    })
+    public void shouldReceiveServerSentReadAbort() throws Exception
     {
         k3po.finish();
     }

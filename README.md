@@ -46,7 +46,10 @@ read nukleus:data.ext [0x...]
 read [0x...]
 
 # send RESET
-abort
+read abort
+
+# receive ABORT
+read aborted
 
 # receive END w/ extension
 read nukleus:end.ext [0x...]
@@ -79,7 +82,10 @@ write nukleus:data.ext [0x...]
 write [0x...]
 
 # receive RESET
-aborted
+write aborted
+
+# send ABORT
+write abort
 
 # END w/ extension
 write nukleus:end.ext [0x...]
@@ -121,7 +127,10 @@ read nukleus:data.ext [0x...]
 read [0x...]
 
 # send RESET
-abort
+read abort
+
+# receive ABORT
+read aborted
 
 # receive END w/ extension
 read nukleus:end.ext [0x...]
@@ -135,7 +144,10 @@ write nukleus:data.ext [0x...]
 write [0x...]
 
 # receive RESET
-aborted
+write aborted
+
+# send ABORT
+write abort
 
 # END w/ extension
 write nukleus:end.ext [0x...]
@@ -175,7 +187,10 @@ write [0x...]
 write nukleus:data.ext [0x...]
 
 # receive RESET
-aborted
+write aborted
+
+# send ABORT
+write abort
 
 # END w/ extension
 write nukleus:end.ext [0x...]
@@ -189,7 +204,10 @@ read nukleus:data.ext [0x...]
 read [0x...]
 
 # send RESET
-abort
+read abort
+
+# receive ABORT
+read aborted
 
 # receive END w/ extension
 read nukleus:end.ext [0x...]

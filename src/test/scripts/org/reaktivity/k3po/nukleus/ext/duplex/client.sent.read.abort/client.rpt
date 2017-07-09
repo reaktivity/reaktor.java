@@ -20,4 +20,4 @@ connect "nukleus://server/streams/client"
         option nukleus:window 8192
 connected
 
-abort
+read abort

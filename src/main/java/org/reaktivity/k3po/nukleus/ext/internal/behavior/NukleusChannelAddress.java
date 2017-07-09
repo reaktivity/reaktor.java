@@ -65,6 +65,11 @@ public final class NukleusChannelAddress extends ChannelAddress
         return senderName(this.getLocation());
     }
 
+    public String getSenderPartition()
+    {
+        return senderPartition(this.getLocation());
+    }
+
     public String getReceiverName()
     {
         return receiverName(getLocation());
@@ -101,6 +106,14 @@ public final class NukleusChannelAddress extends ChannelAddress
         String path = location.getPath();
         assert path.startsWith("/streams/");
         return path.substring("/streams/".length());
+    }
+
+    private static String senderPartition(
+        URI location)
+    {
+        String senderPart = location.getFragment();
+        String senderName = senderName(location);
+        return senderPart == null ? senderName : String.format("%s#%s", senderName, senderPart);
     }
 
     private String receiverName(

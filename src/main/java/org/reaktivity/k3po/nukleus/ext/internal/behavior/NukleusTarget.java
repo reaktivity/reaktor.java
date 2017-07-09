@@ -24,8 +24,8 @@ import static org.jboss.netty.channel.Channels.fireChannelDisconnected;
 import static org.jboss.netty.channel.Channels.fireChannelUnbound;
 import static org.jboss.netty.channel.Channels.fireWriteComplete;
 import static org.jboss.netty.channel.Channels.succeededFuture;
-import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireChannelAborted;
 import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireFlushed;
+import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireOutputAborted;
 import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireOutputShutdown;
 
 import java.nio.file.Path;
@@ -42,6 +42,7 @@ import org.agrona.concurrent.UnsafeBuffer;
 import org.agrona.concurrent.ringbuffer.RingBuffer;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
+import org.jboss.netty.channel.ChannelException;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.Channels;
@@ -50,6 +51,7 @@ import org.jboss.netty.channel.MessageEvent;
 import org.kaazing.k3po.driver.internal.netty.channel.ChannelAddress;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.layout.Layout;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.layout.StreamsLayout;
+import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.AbortFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.BeginFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.DataFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.EndFW;
@@ -65,6 +67,7 @@ final class NukleusTarget implements AutoCloseable
     private final BeginFW.Builder beginRW = new BeginFW.Builder();
     private final DataFW.Builder dataRW = new DataFW.Builder();
     private final EndFW.Builder endRW = new EndFW.Builder();
+    private final AbortFW.Builder abortRW = new AbortFW.Builder();
 
     private final WindowFW windowRO = new WindowFW();
     private final ResetFW resetRO = new ResetFW();
@@ -246,6 +249,21 @@ final class NukleusTarget implements AutoCloseable
         flushThrottledWrites(channel);
     }
 
+    public void doAbortOutput(
+        NukleusChannel channel,
+        ChannelFuture abortFuture)
+    {
+        final long streamId = channel.targetId();
+
+        final AbortFW abort = abortRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                .streamId(streamId)
+                .build();
+
+        streamsBuffer.write(abort.typeId(), abort.buffer(), abort.offset(), abort.sizeof());
+
+        abortFuture.setSuccess();
+    }
+
     public void doShutdownOutput(
         NukleusChannel channel,
         ChannelFuture handlerFuture)
@@ -411,10 +429,10 @@ final class NukleusTarget implements AutoCloseable
     private final class Throttle
     {
         private final NukleusChannel channel;
+        private final Consumer<Throwable> failureHandler;
 
         private Consumer<WindowFW> windowHandler;
         private Consumer<ResetFW> resetHandler;
-        private boolean resetPending;
 
         private Throttle(
             NukleusChannel channel,
@@ -423,6 +441,7 @@ final class NukleusTarget implements AutoCloseable
             this.channel = channel;
             this.windowHandler = this::processWindow;
             this.resetHandler = this::processResetBeforeHandshake;
+            this.failureHandler = handshakeFuture::setFailure;
 
             handshakeFuture.addListener(this::onHandshakeCompleted);
         }
@@ -462,17 +481,19 @@ final class NukleusTarget implements AutoCloseable
         private void processReset(
             ResetFW reset)
         {
-            fireChannelAborted(channel);
-
             final long streamId = reset.streamId();
             unregisterThrottle.accept(streamId);
+
+            if (channel.setReadAborted())
+            {
+                fireOutputAborted(channel);
+            }
         }
 
         private void processResetBeforeHandshake(
             ResetFW reset)
         {
-            this.resetPending = true;
-            this.resetHandler = this::processReset;
+            failureHandler.accept(new ChannelException("Handshake failed"));
         }
 
         private void onHandshakeCompleted(
@@ -480,7 +501,7 @@ final class NukleusTarget implements AutoCloseable
         {
             this.resetHandler = this::processReset;
 
-            if (resetPending)
+            if (!future.isSuccess())
             {
                 final long streamId = channel.sourceId();
                 final ResetFW reset = resetRW.wrap(resetBuffer, 0, resetBuffer.capacity())
