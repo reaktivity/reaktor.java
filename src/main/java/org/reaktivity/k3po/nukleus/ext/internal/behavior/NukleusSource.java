@@ -26,6 +26,7 @@ import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.ArrayUtil;
 import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.concurrent.MessageHandler;
+import org.jboss.netty.channel.ChannelException;
 import org.jboss.netty.channel.ChannelFuture;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.layout.StreamsLayout;
 import org.reaktivity.nukleus.Configuration;
@@ -89,21 +90,27 @@ public final class NukleusSource implements AutoCloseable
         routesByRef.remove(sourceRef, serverChannel);
     }
 
-    public void doAbort(
-        String partitionName,
-        long streamId,
+    public void doAbortInput(
+        NukleusChannel channel,
         ChannelFuture abortFuture)
     {
-        NukleusPartition partition = supplyPartition(partitionName);
-        partition.doReset(streamId);
+        NukleusPartition partition = findPartition(channel);
 
-        abortFuture.setSuccess();
+        if (partition != null)
+        {
+            partition.doReset(channel.sourceId());
+            abortFuture.setSuccess();
+        }
+        else
+        {
+            abortFuture.setFailure(new ChannelException("Partition not found for " + channel));
+        }
     }
 
     public void onReadable(
         String partitionName)
     {
-        supplyPartition(partitionName);
+        partitionsByName.computeIfAbsent(partitionName, this::newPartition);
     }
 
     public int process()
@@ -127,10 +134,25 @@ public final class NukleusSource implements AutoCloseable
         }
     }
 
-    private NukleusPartition supplyPartition(
-        String partitionName)
+    private NukleusPartition findPartition(
+        NukleusChannel channel)
     {
-        return partitionsByName.computeIfAbsent(partitionName, this::newPartition);
+        NukleusChannelAddress localAddress = channel.getLocalAddress();
+        String senderName = localAddress.getSenderName();
+        String partitionName = localAddress.getSenderPartition();
+
+        NukleusPartition partition = partitionsByName.get(partitionName);
+        if (partition == null)
+        {
+            partition = partitionsByName.entrySet()
+                                        .stream()
+                                        .filter(e -> e.getKey().startsWith(senderName + "#"))
+                                        .findFirst()
+                                        .map(e -> e.getValue())
+                                        .orElse(null);
+        }
+
+        return partition;
     }
 
     private NukleusPartition newPartition(

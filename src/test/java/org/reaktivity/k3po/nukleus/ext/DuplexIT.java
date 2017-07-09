@@ -18,6 +18,7 @@ package org.reaktivity.k3po.nukleus.ext;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.rules.RuleChain.outerRule;
 
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.DisableOnDebug;
@@ -25,20 +26,16 @@ import org.junit.rules.TestRule;
 import org.junit.rules.Timeout;
 import org.kaazing.k3po.junit.annotation.Specification;
 import org.kaazing.k3po.junit.rules.K3poRule;
-import org.reaktivity.specification.nukleus.NukleusRule;
 
 public class DuplexIT
 {
     private final K3poRule k3po = new K3poRule()
             .setScriptRoot("org/reaktivity/k3po/nukleus/ext/duplex");
 
-    private final NukleusRule nukleus = new NukleusRule()
-            .directory("target/nukleus-itests");
-
     private final TestRule timeout = new DisableOnDebug(new Timeout(10, SECONDS));
 
     @Rule
-    public final TestRule chain = outerRule(k3po).around(nukleus).around(timeout);
+    public final TestRule chain = outerRule(k3po).around(timeout);
 
     @Test
     @Specification({
@@ -162,20 +159,41 @@ public class DuplexIT
 
     @Test
     @Specification({
-        "server.sent.reset/client",
-        "server.sent.reset/server"
+        "server.sent.write.abort/client",
+        "server.sent.write.abort/server"
     })
-    public void shouldReceiveServerSentReset() throws Exception
+    public void shouldReceiveServerSentWriteAbort() throws Exception
     {
         k3po.finish();
     }
 
     @Test
     @Specification({
-        "client.sent.reset/client",
-        "client.sent.reset/server"
+        "client.sent.write.abort/client",
+        "client.sent.write.abort/server"
     })
-    public void shouldReceiveClientSentReset() throws Exception
+    public void shouldReceiveClientSentWriteAbort() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Ignore("BEGIN vs RESET read order not yet guaranteed to match write order")
+    @Test
+    @Specification({
+        "server.sent.read.abort/client",
+        "server.sent.read.abort/server"
+    })
+    public void shouldReceiveServerSentReadAbort() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "client.sent.read.abort/client",
+        "client.sent.read.abort/server"
+    })
+    public void shouldReceiveClientSentReadAbort() throws Exception
     {
         k3po.finish();
     }

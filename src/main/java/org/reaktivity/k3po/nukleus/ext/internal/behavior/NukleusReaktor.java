@@ -98,11 +98,18 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
         submitTask(new ConnectClientTask(channel, remoteAddress, connectFuture));
     }
 
-    public void abort(
+    public void abortOutput(
         NukleusChannel channel,
         ChannelFuture handlerFuture)
     {
-        submitTask(new AbortTask(channel, handlerFuture));
+        submitTask(new AbortOutputTask(channel, handlerFuture));
+    }
+
+    public void abortInput(
+        NukleusChannel channel,
+        ChannelFuture handlerFuture)
+    {
+        submitTask(new AbortInputTask(channel, handlerFuture));
     }
 
     public void write(
@@ -413,12 +420,12 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
         }
     }
 
-    private final class AbortTask implements Runnable
+    private final class AbortOutputTask implements Runnable
     {
         private final NukleusChannel channel;
         private final ChannelFuture handlerFuture;
 
-        private AbortTask(
+        private AbortOutputTask(
             NukleusChannel channel,
             ChannelFuture handlerFuture)
         {
@@ -437,7 +444,40 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
                 Path scopePath = scopePath(receiverName);
 
                 NukleusScope scope = reaktor.scopesByPath.computeIfAbsent(scopePath, reaktor::newScope);
-                scope.doAbort(channel, handlerFuture);
+                scope.doAbortOutput(channel, handlerFuture);
+            }
+            catch (Exception ex)
+            {
+                handlerFuture.setFailure(ex);
+            }
+        }
+    }
+
+    private final class AbortInputTask implements Runnable
+    {
+        private final NukleusChannel channel;
+        private final ChannelFuture handlerFuture;
+
+        private AbortInputTask(
+            NukleusChannel channel,
+            ChannelFuture handlerFuture)
+        {
+            this.channel = channel;
+            this.handlerFuture = handlerFuture;
+        }
+
+        @Override
+        public void run()
+        {
+            try
+            {
+                NukleusReaktor reaktor = channel.reaktor;
+                NukleusChannelAddress localAddress = channel.getLocalAddress();
+                String receiverName = localAddress.getReceiverName();
+                Path scopePath = scopePath(receiverName);
+
+                NukleusScope scope = reaktor.scopesByPath.computeIfAbsent(scopePath, reaktor::newScope);
+                scope.doAbortInput(channel, handlerFuture);
             }
             catch (Exception ex)
             {

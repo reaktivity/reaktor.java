@@ -19,6 +19,7 @@ import static org.jboss.netty.channel.Channels.fireChannelClosed;
 import static org.jboss.netty.channel.Channels.fireChannelDisconnected;
 import static org.jboss.netty.channel.Channels.fireChannelUnbound;
 import static org.jboss.netty.channel.Channels.fireMessageReceived;
+import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireInputAborted;
 import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireInputShutdown;
 
 import java.nio.ByteBuffer;
@@ -31,6 +32,7 @@ import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.ChannelFuture;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.OctetsFW;
+import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.AbortFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.BeginFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.DataFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.EndFW;
@@ -40,6 +42,7 @@ public final class NukleusStreamFactory
     private final BeginFW beginRO = new BeginFW();
     private final DataFW dataRO = new DataFW();
     private final EndFW endRO = new EndFW();
+    private final AbortFW abortRO = new AbortFW();
 
     private final LongConsumer unregisterStream;
 
@@ -93,6 +96,10 @@ public final class NukleusStreamFactory
                 EndFW end = endRO.wrap(buffer, index, index + length);
                 onEnd(end);
                 break;
+            case AbortFW.TYPE_ID:
+                AbortFW abort = abortRO.wrap(buffer, index, index + length);
+                onAbort(abort);
+                break;
             }
         }
 
@@ -120,9 +127,9 @@ public final class NukleusStreamFactory
 
             channel.sourceId(streamId);
 
-            handshakeFuture.setSuccess();
-
             partition.doWindow(channel, initialWindow, initialWindow);
+
+            handshakeFuture.setSuccess();
         }
 
         private void onData(
@@ -192,6 +199,18 @@ public final class NukleusStreamFactory
             else
             {
                 fireInputShutdown(channel);
+            }
+        }
+
+        private void onAbort(
+            AbortFW abort)
+        {
+            final long streamId = abort.streamId();
+            unregisterStream.accept(streamId);
+
+            if (channel.setReadAborted())
+            {
+                fireInputAborted(channel);
             }
         }
     }

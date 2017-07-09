@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.reaktivity</groupId>
   <artifactId>k3po-nukleus-ext</artifactId>
-  <version>0.6.2</version>
+  <version>0.7</version>
   <name>K3PO Nukleus Extension</name>
   <description>K3PO Nukleus Extension</description>
   <url>https://github.com/reaktivity/k3po-nukleus-ext.java</url>
@@ -44,10 +44,10 @@
     <checkstyle.suppressions.location>src/conf/checkstyle/suppressions.xml</checkstyle.suppressions.location>
 
     <junit.version>4.12</junit.version>
-    <k3po.version>3.0.0-alpha-73</k3po.version>
-    <nukleus.version>0.2</nukleus.version>
-    <nukleus.spec.version>0.7</nukleus.spec.version>
-    <nukleus.plugin.version>0.7.6</nukleus.plugin.version>
+    <k3po.version>3.0.0-alpha-77</k3po.version>
+    <nukleus.version>0.6.2</nukleus.version>
+    <nukleus.spec.version>0.8</nukleus.spec.version>
+    <nukleus.plugin.version>0.7.8</nukleus.plugin.version>
   </properties>
 
   <dependencies>

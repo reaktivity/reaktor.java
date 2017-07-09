@@ -24,4 +24,4 @@ accepted
 connected
 
 write "Hello, world"
-aborted
+write aborted

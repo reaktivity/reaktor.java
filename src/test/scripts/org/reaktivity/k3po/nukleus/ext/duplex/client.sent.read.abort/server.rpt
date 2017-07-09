@@ -22,4 +22,4 @@ accept "nukleus://server/streams/client"
 accepted
 connected
 
-aborted
+write aborted

@@ -14,9 +14,11 @@
 # under the License.
 #
 
-connect "nukleus://server/streams/client"
-        option nukleus:route 1234L
-        option nukleus:window 8192
+accept "nukleus://server/streams/client"
+       option nukleus:route 1234L
+       option nukleus:window 8192
+
+accepted
 connected
 
-aborted
+read aborted
