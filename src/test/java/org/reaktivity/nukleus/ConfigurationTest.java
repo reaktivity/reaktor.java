@@ -99,4 +99,39 @@ public final class ConfigurationTest
         assertEquals("/path/to/reaktivity", wrapped.directory().toString());
     }
 
+    @Test
+    public void shouldGetIntegerProperty()
+    {
+        System.setProperty("integer.property.name", Integer.toString(1234));
+
+        Configuration config = new Configuration();
+
+        assertEquals(1234, config.getInteger("integer.property.name", 5678));
+    }
+
+    @Test
+    public void shouldDefaultIntegerProperty()
+    {
+        Configuration config = new Configuration();
+
+        assertEquals(1234, config.getInteger("integer.property.name", 1234));
+    }
+
+    @Test
+    public void shouldGetBooleanProperty()
+    {
+        System.setProperty("boolean.property.name", Boolean.TRUE.toString());
+
+        Configuration config = new Configuration();
+
+        assertEquals(Boolean.TRUE, config.getBoolean("boolean.property.name", Boolean.FALSE));
+    }
+
+    @Test
+    public void shouldDefaultBooleanProperty()
+    {
+        Configuration config = new Configuration();
+
+        assertEquals(Boolean.TRUE, config.getBoolean("boolean.property.name", Boolean.TRUE));
+    }
 }
