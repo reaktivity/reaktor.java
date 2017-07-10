@@ -43,6 +43,13 @@ public final class NukleusFactoryTest
             }
 
             @Override
+            public NukleusBuilder inject(
+                Nukleus component)
+            {
+                return this;
+            }
+
+            @Override
             public Nukleus build()
             {
                 return null;
