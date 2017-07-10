@@ -340,7 +340,8 @@ final class NukleusTarget implements AutoCloseable
                 final boolean flushing = !writeBuf.readable();
                 final int writableBytes = min(channel.targetWriteableBytes(writeBuf.readableBytes()), (1 << Short.SIZE) - 1);
 
-                if (writableBytes > 0)
+                // allow extension-only DATA frames to be flushed immediately
+                if (writableBytes > 0 || !writeBuf.readable())
                 {
                     final int writeReaderIndex = writeBuf.readerIndex();
 
