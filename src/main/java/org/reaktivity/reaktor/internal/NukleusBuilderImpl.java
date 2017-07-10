@@ -17,6 +17,8 @@ package org.reaktivity.reaktor.internal;
 
 import java.io.Closeable;
 import java.util.EnumMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -38,6 +40,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
     private final ReaktorConfiguration config;
     private final String name;
     private final Map<RouteKind, StreamFactoryBuilder> streamFactoryBuilders;
+    private final List<Nukleus> components;
 
     public NukleusBuilderImpl(
         Configuration config,
@@ -46,6 +49,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
         this.config = new ReaktorConfiguration(config, name);
         this.name = name;
         this.streamFactoryBuilders = new EnumMap<>(RouteKind.class);
+        this.components = new LinkedList<>();
     }
 
     @Override
@@ -57,6 +61,14 @@ public class NukleusBuilderImpl implements NukleusBuilder
         Objects.requireNonNull(builder, "supplier");
 
         this.streamFactoryBuilders.put(kind, builder);
+        return this;
+    }
+
+    @Override
+    public NukleusBuilder inject(
+        Nukleus component)
+    {
+        components.add(component);
         return this;
     }
 
@@ -85,7 +97,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
         acceptor.setStreamFactoryBuilderSupplier(streamFactoryBuilders::get);
         acceptor.setAbortTypeId(abortTypeId);
 
-        return new NukleusImpl(name, conductor, watcher, router, acceptor, context);
+        return new NukleusImpl(name, conductor, watcher, router, acceptor, context, components);
     }
 
     private static final class NukleusImpl extends Nukleus.Composite
@@ -99,11 +111,14 @@ public class NukleusBuilderImpl implements NukleusBuilder
             Watcher watcher,
             Router router,
             Acceptor acceptor,
-            Closeable cleanup)
+            Closeable cleanup,
+            List<Nukleus> components)
         {
             super(conductor, watcher, router, acceptor);
             this.name = name;
             this.cleanup = cleanup;
+
+            components.forEach(this::include);
         }
 
         @Override
