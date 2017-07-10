@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Properties;
 import java.util.function.BiFunction;
+import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 
@@ -134,6 +135,16 @@ public class Configuration
         return Integer.decode(value);
     }
 
+    protected final boolean getBoolean(String key, boolean defaultValue)
+    {
+        String value = getProperty(key, (String) null);
+        if (value == null)
+        {
+            return defaultValue;
+        }
+        return Boolean.valueOf(value);
+    }
+
     protected final String getProperty(String key, Supplier<String> defaultValue)
     {
         String value = getProperty(key, (String) null);
@@ -152,6 +163,16 @@ public class Configuration
             return defaultValue.getAsInt();
         }
         return Integer.decode(value);
+    }
+
+    protected final boolean getBoolean(String key, BooleanSupplier defaultValue)
+    {
+        String value = getProperty(key, (String) null);
+        if (value == null)
+        {
+            return defaultValue.getAsBoolean();
+        }
+        return Boolean.valueOf(value);
     }
 
     protected String getProperty(String key, String defaultValue)

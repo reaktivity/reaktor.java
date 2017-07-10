@@ -24,5 +24,8 @@ public interface NukleusBuilder
         RouteKind kind,
         StreamFactoryBuilder builder);
 
+    NukleusBuilder inject(
+        Nukleus component);
+
     Nukleus build();
 }
