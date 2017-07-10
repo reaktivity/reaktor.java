@@ -21,6 +21,7 @@ import org.agrona.ErrorHandler;
 import org.agrona.concurrent.IdleStrategy;
 import org.jmock.Expectations;
 import org.jmock.integration.junit4.JUnitRuleMockery;
+import org.jmock.lib.concurrent.Synchroniser;
 import org.junit.Rule;
 import org.junit.Test;
 import org.reaktivity.nukleus.Controller;
@@ -30,7 +31,12 @@ public class ReaktorTest
 {
 
     @Rule
-    public JUnitRuleMockery context = new JUnitRuleMockery();
+    public JUnitRuleMockery context = new JUnitRuleMockery()
+    {
+        {
+            setThreadingPolicy(new Synchroniser());
+        }
+    };
 
     @Test
     public void shouldCloseControllers() throws Exception
