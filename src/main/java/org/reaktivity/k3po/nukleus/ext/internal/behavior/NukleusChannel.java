@@ -122,6 +122,12 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
     }
 
     @Override
+    protected boolean setWriteAborted()
+    {
+        return super.setWriteAborted();
+    }
+
+    @Override
     protected boolean setClosed()
     {
         return super.setClosed();

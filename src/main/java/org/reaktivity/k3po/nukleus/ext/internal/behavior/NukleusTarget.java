@@ -485,7 +485,7 @@ final class NukleusTarget implements AutoCloseable
             final long streamId = reset.streamId();
             unregisterThrottle.accept(streamId);
 
-            if (channel.setReadAborted())
+            if (channel.setWriteAborted())
             {
                 fireOutputAborted(channel);
             }
