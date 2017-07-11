@@ -180,6 +180,28 @@ public class DuplexIT
     @Ignore("BEGIN vs RESET read order not yet guaranteed to match write order")
     @Test
     @Specification({
+        "server.sent.read.and.write.abort/client",
+        "server.sent.read.and.write.abort/server"
+    })
+    public void shouldReceiveServerSentReadAndWriteAbort() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Ignore("ABORT vs RESET read order not yet guaranteed to match write order")
+    @Test
+    @Specification({
+        "client.sent.read.and.write.abort/client",
+        "client.sent.read.and.write.abort/server"
+    })
+    public void shouldReceiveClientSentReadAndWriteAbort() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Ignore("BEGIN vs RESET read order not yet guaranteed to match write order")
+    @Test
+    @Specification({
         "server.sent.read.abort/client",
         "server.sent.read.abort/server"
     })
