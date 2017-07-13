@@ -45,11 +45,11 @@ public class Slab implements BufferPool
 
     public Slab(int totalCapacity, int slotCapacity)
     {
-        if (!isPowerOfTwo(totalCapacity))
+        if (!isZeroOrPowerOfTwo(totalCapacity))
         {
             throw new IllegalArgumentException("totalCapacity is not a power of 2");
         }
-        if (!isPowerOfTwo(slotCapacity))
+        if (!isZeroOrPowerOfTwo(slotCapacity))
         {
             throw new IllegalArgumentException("slotCapacity is not a power of 2");
         }
@@ -59,7 +59,7 @@ public class Slab implements BufferPool
         }
         this.slotCapacity = slotCapacity;
         this.bitsPerSlot = Integer.numberOfTrailingZeros(slotCapacity);
-        int totalSlots = totalCapacity / slotCapacity;
+        int totalSlots = slotCapacity != 0 ? totalCapacity / slotCapacity : 0;
         this.mask = totalSlots - 1;
         this.slabBuffer = new UnsafeBuffer(ByteBuffer.allocateDirect(totalCapacity));
         this.slotByteBuffer = slabBuffer.byteBuffer().duplicate();
@@ -148,5 +148,10 @@ public class Slab implements BufferPool
         this.slotCapacity = that.slotCapacity;
         this.used = that.used;
         this.slotByteBuffer = that.slotByteBuffer.duplicate();
+    }
+
+    private static boolean isZeroOrPowerOfTwo(int value)
+    {
+        return value == 0 || isPowerOfTwo(value);
     }
 }
