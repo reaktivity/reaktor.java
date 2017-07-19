@@ -17,11 +17,12 @@ package org.reaktivity.k3po.nukleus.ext.internal.behavior.config;
 
 import static java.util.Objects.requireNonNull;
 
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.Channel;
-import org.kaazing.k3po.driver.internal.behavior.ScriptProgressException;
 import org.kaazing.k3po.driver.internal.behavior.handler.codec.ConfigDecoder;
 import org.kaazing.k3po.driver.internal.behavior.handler.codec.MessageDecoder;
 import org.kaazing.k3po.lang.types.StructuredTypeInfo;
@@ -31,6 +32,7 @@ public final class NukleusExtensionDecoder implements ConfigDecoder
 {
     private final StructuredTypeInfo type;
     private final List<MessageDecoder> decoders;
+    private final List<MessageDecoder> remainingDecoders;
 
     public NukleusExtensionDecoder(
         StructuredTypeInfo type,
@@ -38,13 +40,14 @@ public final class NukleusExtensionDecoder implements ConfigDecoder
     {
         this.type = type;
         this.decoders = requireNonNull(decoders);
+        this.remainingDecoders = new ArrayList<>(decoders);
     }
 
     @Override
-    public void decode(
+    public boolean decode(
         Channel channel) throws Exception
     {
-        decode((NukleusChannel) channel);
+        return decode((NukleusChannel) channel);
     }
 
     @Override
@@ -60,41 +63,42 @@ public final class NukleusExtensionDecoder implements ConfigDecoder
         return sb.toString();
     }
 
-    private void decode(
+    private boolean decode(
         NukleusChannel channel) throws Exception
     {
         final ChannelBuffer readExtBuffer = channel.readExtBuffer();
 
-        if (readExtBuffer.readable())
+        Iterator<MessageDecoder> iterator = remainingDecoders.iterator();
+        while (iterator.hasNext())
         {
-            final int lastIndex = decoders.size() - 1;
-            for (int index=0; index < decoders.size(); index++)
+            MessageDecoder decoder = iterator.next();
+
+            ChannelBuffer remainingExtBuffer;
+
+            if (iterator.hasNext())
             {
-                MessageDecoder decoder = decoders.get(index);
-
-                ChannelBuffer remainingExtBuffer;
-
-                if (index == lastIndex)
-                {
-                    remainingExtBuffer = decoder.decodeLast(readExtBuffer);
-                }
-                else
-                {
-                    remainingExtBuffer = decoder.decode(readExtBuffer);
-                }
-
-                if (remainingExtBuffer == null)
-                {
-                    throw new ScriptProgressException(decoder.getRegionInfo(), "[]");
-                }
-
-                // rewind as needed
-                final int remainingExtBytes = remainingExtBuffer.readableBytes();
-                if (remainingExtBytes > 0)
-                {
-                    readExtBuffer.skipBytes(-remainingExtBytes);
-                }
+                remainingExtBuffer = decoder.decode(readExtBuffer);
             }
+            else
+            {
+                remainingExtBuffer = decoder.decodeLast(readExtBuffer);
+            }
+
+            if (remainingExtBuffer == null)
+            {
+                return false;
+            }
+
+            // rewind as needed
+            final int remainingExtBytes = remainingExtBuffer.readableBytes();
+            if (remainingExtBytes > 0)
+            {
+                readExtBuffer.skipBytes(-remainingExtBytes);
+            }
+            // Remove the decoder because it is done
+            iterator.remove();
         }
+
+        return true;
     }
 }
