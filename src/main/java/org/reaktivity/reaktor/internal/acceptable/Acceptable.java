@@ -72,10 +72,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteHandler
 
         final Map<RouteKind, StreamFactory> streamFactories = new EnumMap<>(RouteKind.class);
         final AtomicCounter streams = context.counters().streams();
-        final LongSupplier supplyStreamId = () ->
-            {
-                return streams.increment() + 1;
-            };
+        final LongSupplier supplyStreamId = () -> streams.increment() + 1;
         final AtomicLong correlations = new AtomicLong();
         for (RouteKind kind : EnumSet.allOf(RouteKind.class))
         {
