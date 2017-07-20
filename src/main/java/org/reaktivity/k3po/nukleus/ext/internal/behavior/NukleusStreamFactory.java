@@ -21,6 +21,9 @@ import static org.jboss.netty.channel.Channels.fireChannelUnbound;
 import static org.jboss.netty.channel.Channels.fireMessageReceived;
 import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireInputAborted;
 import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireInputShutdown;
+import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind.BEGIN;
+import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind.DATA;
+import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind.END;
 
 import java.nio.ByteBuffer;
 import java.util.function.LongConsumer;
@@ -122,7 +125,7 @@ public final class NukleusStreamFactory
                 final byte[] beginExtCopy = new byte[beginExtBytes];
                 buffer.getBytes(offset, beginExtCopy);
 
-                channel.readExtBuffer().writeBytes(beginExtCopy);
+                channel.readExtBuffer(BEGIN).writeBytes(beginExtCopy);
             }
 
             channel.sourceId(streamId);
@@ -130,6 +133,7 @@ public final class NukleusStreamFactory
             partition.doWindow(channel, initialWindow, initialWindow);
 
             handshakeFuture.setSuccess();
+            channel.beginInputFuture().setSuccess();
         }
 
         private void onData(
@@ -155,7 +159,7 @@ public final class NukleusStreamFactory
                     final byte[] dataExtCopy = new byte[dataExtBytes];
                     buffer.getBytes(offset, dataExtCopy);
 
-                    channel.readExtBuffer().writeBytes(dataExtCopy);
+                    channel.readExtBuffer(DATA).writeBytes(dataExtCopy);
                 }
 
                 partition.doWindow(channel, readableBytes, 1);
@@ -186,7 +190,7 @@ public final class NukleusStreamFactory
                 final byte[] endExtCopy = new byte[endExtBytes];
                 buffer.getBytes(offset, endExtCopy);
 
-                channel.readExtBuffer().writeBytes(endExtCopy);
+                channel.readExtBuffer(END).writeBytes(endExtCopy);
             }
 
             if (channel.setReadClosed())

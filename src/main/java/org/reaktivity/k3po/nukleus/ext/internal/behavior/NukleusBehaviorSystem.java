@@ -18,6 +18,9 @@ package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 import static java.util.Collections.singletonMap;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.stream.Collectors.toList;
+import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind.BEGIN;
+import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind.DATA;
+import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind.END;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.CONFIG_BEGIN_EXT;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.CONFIG_DATA_EXT;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.CONFIG_END_EXT;
@@ -75,9 +78,9 @@ public class NukleusBehaviorSystem implements BehaviorSystemSpi
         this.readConfigFactories = unmodifiableMap(readConfigFactories);
 
         Map<StructuredTypeInfo, WriteConfigFactory> writeConfigFactories = new LinkedHashMap<>();
-        writeConfigFactories.put(CONFIG_BEGIN_EXT, NukleusBehaviorSystem::newWriteExtHandler);
-        writeConfigFactories.put(CONFIG_DATA_EXT, NukleusBehaviorSystem::newWriteExtHandler);
-        writeConfigFactories.put(CONFIG_END_EXT, NukleusBehaviorSystem::newWriteExtHandler);
+        writeConfigFactories.put(CONFIG_BEGIN_EXT, NukleusBehaviorSystem::newWriteBeginExtHandler);
+        writeConfigFactories.put(CONFIG_DATA_EXT, NukleusBehaviorSystem::newWriteDataExtHandler);
+        writeConfigFactories.put(CONFIG_END_EXT, NukleusBehaviorSystem::newWriteEndExtHandler);
         this.writeConfigFactories = unmodifiableMap(writeConfigFactories);
     }
 
@@ -163,7 +166,7 @@ public class NukleusBehaviorSystem implements BehaviorSystemSpi
         StructuredTypeInfo type = node.getType();
         List<MessageDecoder> decoders = node.getMatchers().stream().map(decoderFactory).collect(toList());
 
-        ReadBeginExtHandler handler = new ReadBeginExtHandler(new NukleusExtensionDecoder(type, decoders));
+        ReadBeginExtHandler handler = new ReadBeginExtHandler(new NukleusExtensionDecoder(BEGIN, type, decoders));
         handler.setRegionInfo(regionInfo);
         return handler;
     }
@@ -176,7 +179,7 @@ public class NukleusBehaviorSystem implements BehaviorSystemSpi
         StructuredTypeInfo type = node.getType();
         List<MessageDecoder> decoders = node.getMatchers().stream().map(decoderFactory).collect(toList());
 
-        ReadDataExtHandler handler = new ReadDataExtHandler(new NukleusExtensionDecoder(type, decoders));
+        ReadDataExtHandler handler = new ReadDataExtHandler(new NukleusExtensionDecoder(DATA, type, decoders));
         handler.setRegionInfo(regionInfo);
         return handler;
     }
@@ -189,19 +192,43 @@ public class NukleusBehaviorSystem implements BehaviorSystemSpi
         StructuredTypeInfo type = node.getType();
         List<MessageDecoder> decoders = node.getMatchers().stream().map(decoderFactory).collect(toList());
 
-        ReadEndExtHandler handler = new ReadEndExtHandler(new NukleusExtensionDecoder(type, decoders));
+        ReadEndExtHandler handler = new ReadEndExtHandler(new NukleusExtensionDecoder(END, type, decoders));
         handler.setRegionInfo(regionInfo);
         return handler;
     }
 
-    private static WriteConfigHandler newWriteExtHandler(
+    private static WriteConfigHandler newWriteBeginExtHandler(
         AstWriteConfigNode node,
         Function<AstValue<?>, MessageEncoder> encoderFactory)
     {
         StructuredTypeInfo type = node.getType();
         List<MessageEncoder> encoders = node.getValues().stream().map(encoderFactory).collect(toList());
 
-        WriteConfigHandler handler = new WriteConfigHandler(new NukleusExtensionEncoder(type, encoders));
+        WriteConfigHandler handler = new WriteConfigHandler(new NukleusExtensionEncoder(BEGIN, type, encoders));
+        handler.setRegionInfo(node.getRegionInfo());
+        return handler;
+    }
+
+    private static WriteConfigHandler newWriteDataExtHandler(
+        AstWriteConfigNode node,
+        Function<AstValue<?>, MessageEncoder> encoderFactory)
+    {
+        StructuredTypeInfo type = node.getType();
+        List<MessageEncoder> encoders = node.getValues().stream().map(encoderFactory).collect(toList());
+
+        WriteConfigHandler handler = new WriteConfigHandler(new NukleusExtensionEncoder(DATA, type, encoders));
+        handler.setRegionInfo(node.getRegionInfo());
+        return handler;
+    }
+
+    private static WriteConfigHandler newWriteEndExtHandler(
+        AstWriteConfigNode node,
+        Function<AstValue<?>, MessageEncoder> encoderFactory)
+    {
+        StructuredTypeInfo type = node.getType();
+        List<MessageEncoder> encoders = node.getValues().stream().map(encoderFactory).collect(toList());
+
+        WriteConfigHandler handler = new WriteConfigHandler(new NukleusExtensionEncoder(END, type, encoders));
         handler.setRegionInfo(node.getRegionInfo());
         return handler;
     }

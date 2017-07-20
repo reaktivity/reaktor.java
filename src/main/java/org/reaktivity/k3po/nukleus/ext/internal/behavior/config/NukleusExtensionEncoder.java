@@ -24,16 +24,20 @@ import org.kaazing.k3po.driver.internal.behavior.handler.codec.ConfigEncoder;
 import org.kaazing.k3po.driver.internal.behavior.handler.codec.MessageEncoder;
 import org.kaazing.k3po.lang.types.StructuredTypeInfo;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusChannel;
+import org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind;
 
 public final class NukleusExtensionEncoder implements ConfigEncoder
 {
+    private final NukleusExtensionKind writeExtKind;
     private final StructuredTypeInfo type;
     private final List<MessageEncoder> encoders;
 
     public NukleusExtensionEncoder(
+        NukleusExtensionKind writeExtKind,
         StructuredTypeInfo type,
         List<MessageEncoder> encoders)
     {
+        this.writeExtKind = writeExtKind;
         this.type = type;
         this.encoders = requireNonNull(encoders);
     }
@@ -63,7 +67,7 @@ public final class NukleusExtensionEncoder implements ConfigEncoder
     {
         for (MessageEncoder encoder : encoders)
         {
-            channel.writeExtBuffer().writeBytes(encoder.encode());
+            channel.writeExtBuffer(writeExtKind, false).writeBytes(encoder.encode());
         }
     }
 }

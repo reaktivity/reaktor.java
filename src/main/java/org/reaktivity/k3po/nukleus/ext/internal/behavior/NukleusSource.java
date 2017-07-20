@@ -28,6 +28,7 @@ import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.concurrent.MessageHandler;
 import org.jboss.netty.channel.ChannelException;
 import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.ChannelFutureListener;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.layout.StreamsLayout;
 import org.reaktivity.nukleus.Configuration;
 
@@ -91,6 +92,36 @@ public final class NukleusSource implements AutoCloseable
     }
 
     public void doAbortInput(
+        NukleusChannel channel,
+        ChannelFuture abortFuture)
+    {
+        ChannelFuture beginInputFuture = channel.beginInputFuture();
+        if (beginInputFuture.isSuccess())
+        {
+            doAbortInputAfterBeginReply(channel, abortFuture);
+        }
+        else
+        {
+            beginInputFuture.addListener(new ChannelFutureListener()
+            {
+                @Override
+                public void operationComplete(
+                    ChannelFuture future) throws Exception
+                {
+                    if (future.isSuccess())
+                    {
+                        doAbortInputAfterBeginReply(channel, abortFuture);
+                    }
+                    else
+                    {
+                        abortFuture.setFailure(future.getCause());
+                    }
+                }
+            });
+        }
+    }
+
+    private void doAbortInputAfterBeginReply(
         NukleusChannel channel,
         ChannelFuture abortFuture)
     {

@@ -15,6 +15,10 @@
  */
 package org.reaktivity.k3po.nukleus.ext.internal.behavior.config;
 
+import static org.kaazing.k3po.driver.internal.behavior.handler.event.AbstractEventHandler.ChannelEventKind.BOUND;
+import static org.kaazing.k3po.driver.internal.behavior.handler.event.AbstractEventHandler.ChannelEventKind.CONNECTED;
+import static org.kaazing.k3po.driver.internal.behavior.handler.event.AbstractEventHandler.ChannelEventKind.INTEREST_OPS;
+
 import java.util.EnumSet;
 
 import org.jboss.netty.channel.ChannelHandlerContext;
@@ -26,8 +30,8 @@ public class ReadBeginExtHandler extends AbstractReadExtHandler
     public ReadBeginExtHandler(
         ConfigDecoder decoder)
     {
-        super(EnumSet.of(ChannelEventKind.BOUND, ChannelEventKind.CONNECTED),
-                EnumSet.of(ChannelEventKind.BOUND, ChannelEventKind.CONNECTED),
+        super(EnumSet.of(BOUND, CONNECTED, INTEREST_OPS),
+                EnumSet.of(BOUND, CONNECTED, INTEREST_OPS),
                 decoder);
     }
 
@@ -58,4 +62,19 @@ public class ReadBeginExtHandler extends AbstractReadExtHandler
 
         super.channelConnected(ctx, e);
     }
+
+    @Override
+    public void channelInterestChanged(
+        ChannelHandlerContext ctx,
+        ChannelStateEvent e) throws Exception
+    {
+        // lazy client
+        if (ctx.getChannel().getParent() == null)
+        {
+            doReadExtension(ctx);
+        }
+
+        super.channelInterestChanged(ctx, e);
+    }
+
 }

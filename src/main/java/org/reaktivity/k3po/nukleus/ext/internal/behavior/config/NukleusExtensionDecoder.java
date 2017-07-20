@@ -27,17 +27,21 @@ import org.kaazing.k3po.driver.internal.behavior.handler.codec.ConfigDecoder;
 import org.kaazing.k3po.driver.internal.behavior.handler.codec.MessageDecoder;
 import org.kaazing.k3po.lang.types.StructuredTypeInfo;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusChannel;
+import org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind;
 
 public final class NukleusExtensionDecoder implements ConfigDecoder
 {
+    private final NukleusExtensionKind readExtKind;
     private final StructuredTypeInfo type;
     private final List<MessageDecoder> decoders;
     private final List<MessageDecoder> remainingDecoders;
 
     public NukleusExtensionDecoder(
+        NukleusExtensionKind readExtKind,
         StructuredTypeInfo type,
         List<MessageDecoder> decoders)
     {
+        this.readExtKind = readExtKind;
         this.type = type;
         this.decoders = requireNonNull(decoders);
         this.remainingDecoders = new ArrayList<>(decoders);
@@ -66,7 +70,7 @@ public final class NukleusExtensionDecoder implements ConfigDecoder
     private boolean decode(
         NukleusChannel channel) throws Exception
     {
-        final ChannelBuffer readExtBuffer = channel.readExtBuffer();
+        final ChannelBuffer readExtBuffer = channel.readExtBuffer(readExtKind);
 
         Iterator<MessageDecoder> iterator = remainingDecoders.iterator();
         while (iterator.hasNext())
