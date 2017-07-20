@@ -18,6 +18,8 @@ package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 import static org.jboss.netty.channel.Channels.fireChannelBound;
 import static org.jboss.netty.channel.Channels.fireChannelConnected;
 import static org.jboss.netty.channel.Channels.future;
+import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusTransmission.DUPLEX;
+import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusTransmission.SIMPLEX;
 
 import java.nio.file.Path;
 import java.util.function.BiFunction;
@@ -184,15 +186,15 @@ final class NukleusPartition implements AutoCloseable
 
         fireChannelBound(childChannel, childChannel.getLocalAddress());
 
-        final NukleusChannelConfig childConfig = childChannel.getConfig();
-        if (childConfig.isDuplex())
-        {
-            NukleusChannelAddress remoteAddress = childChannel.getRemoteAddress();
-            String remoteName = remoteAddress.getReceiverName();
-            String partitionName = childConfig.getWritePartition();
-            NukleusTarget remoteTarget = supplyTarget.apply(remoteName, partitionName);
+        NukleusChannelConfig childConfig = childChannel.getConfig();
+        NukleusChannelAddress remoteAddress = childChannel.getRemoteAddress();
+        String remoteName = remoteAddress.getReceiverName();
+        String partitionName = childConfig.getWritePartition();
+        NukleusTarget remoteTarget = supplyTarget.apply(remoteName, partitionName);
 
-            remoteTarget.onAccepted(childChannel, correlationId, handshakeFuture);
+        if (childConfig.getTransmission() == DUPLEX)
+        {
+            remoteTarget.doBeginReply(childChannel, handshakeFuture);
         }
 
         fireChannelConnected(childChannel, childChannel.getRemoteAddress());
@@ -266,7 +268,7 @@ final class NukleusPartition implements AutoCloseable
                   new NukleusChildChannel(serverChannel, channelFactory, pipeline, childSink, serverChannel.reaktor);
 
             NukleusChannelConfig childConfig = childChannel.getConfig();
-            childConfig.setDuplex(serverConfig.isDuplex());
+            childConfig.setTransmission(serverConfig.getTransmission());
             childConfig.setThrottle(serverConfig.getThrottle());
             childConfig.setReadPartition(serverConfig.getReadPartition());
             childConfig.setWritePartition(serverConfig.getWritePartition());
@@ -274,7 +276,7 @@ final class NukleusPartition implements AutoCloseable
 
             childConfig.setCorrelation(correlationId);
 
-            if (!childConfig.isDuplex())
+            if (childConfig.getTransmission() == SIMPLEX)
             {
                 childChannel.setWriteClosed();
             }

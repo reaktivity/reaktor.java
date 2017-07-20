@@ -20,7 +20,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.jboss.netty.channel.Channels.fireChannelBound;
 import static org.jboss.netty.channel.Channels.fireChannelUnbound;
 import static org.jboss.netty.channel.Channels.fireExceptionCaught;
-import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireFlushed;
+import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusTransmission.SIMPLEX;
 
 import java.io.IOException;
 import java.nio.file.FileSystems;
@@ -399,7 +399,7 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
                 Path scopePath = scopePath(senderName);
 
                 final NukleusChannelConfig clientConfig = clientChannel.getConfig();
-                if (!clientConfig.isDuplex())
+                if (clientConfig.getTransmission() == SIMPLEX)
                 {
                     clientChannel.setReadClosed();
                 }
@@ -534,27 +534,19 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
         @Override
         public void run()
         {
-            if (channel.writeExtBuffer().readable())
+            try
             {
-                try
-                {
-                    NukleusReaktor reaktor = channel.reaktor;
-                    NukleusChannelAddress remoteAddress = channel.getRemoteAddress();
-                    String senderName = remoteAddress.getSenderName();
-                    Path scopePath = scopePath(senderName);
+                NukleusReaktor reaktor = channel.reaktor;
+                NukleusChannelAddress remoteAddress = channel.getRemoteAddress();
+                String senderName = remoteAddress.getSenderName();
+                Path scopePath = scopePath(senderName);
 
-                    NukleusScope scope = reaktor.scopesByPath.computeIfAbsent(scopePath, reaktor::newScope);
-                    scope.doFlush(channel, flushFuture);
-                }
-                catch (Exception ex)
-                {
-                    flushFuture.setFailure(ex);
-                }
+                NukleusScope scope = reaktor.scopesByPath.computeIfAbsent(scopePath, reaktor::newScope);
+                scope.doFlush(channel, flushFuture);
             }
-            else
+            catch (Exception ex)
             {
-                flushFuture.setSuccess();
-                fireFlushed(channel);
+                flushFuture.setFailure(ex);
             }
         }
     }

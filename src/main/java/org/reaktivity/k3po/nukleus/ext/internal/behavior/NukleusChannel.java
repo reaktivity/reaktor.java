@@ -22,9 +22,12 @@ import java.util.Deque;
 import java.util.LinkedList;
 
 import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.ChannelFactory;
+import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelSink;
+import org.jboss.netty.channel.Channels;
 import org.jboss.netty.channel.MessageEvent;
 import org.kaazing.k3po.driver.internal.netty.bootstrap.channel.AbstractChannel;
 import org.kaazing.k3po.driver.internal.netty.channel.ChannelAddress;
@@ -47,9 +50,16 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
     final NukleusReaktor reaktor;
     final Deque<MessageEvent> writeRequests;
 
+    private NukleusExtensionKind readExtKind;
     private ChannelBuffer readExtBuffer;
+
+    private NukleusExtensionKind writeExtKind;
     private ChannelBuffer writeExtBuffer;
+
     private boolean targetWriteRequestInProgress;
+
+    private ChannelFuture beginOutputFuture;
+    private ChannelFuture beginInputFuture;
 
     NukleusChannel(
         NukleusServerChannel parent,
@@ -183,6 +193,26 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
         return targetId;
     }
 
+    public ChannelFuture beginOutputFuture()
+    {
+        if (beginOutputFuture == null)
+        {
+            beginOutputFuture = Channels.future(this);
+        }
+
+        return beginOutputFuture;
+    }
+
+    public ChannelFuture beginInputFuture()
+    {
+        if (beginInputFuture == null)
+        {
+            beginInputFuture = Channels.future(this);
+        }
+
+        return beginInputFuture;
+    }
+
     public int targetWindow()
     {
         return targetWindowFrames > 0 ? targetWindowBytes : 0;
@@ -243,13 +273,35 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
         }
     }
 
-    public ChannelBuffer writeExtBuffer()
+    public ChannelBuffer writeExtBuffer(
+        NukleusExtensionKind writeExtKind,
+        boolean readonly)
     {
+        if (this.writeExtKind != writeExtKind)
+        {
+            if (readonly)
+            {
+                return ChannelBuffers.EMPTY_BUFFER;
+            }
+            else
+            {
+                writeExtBuffer.clear();
+                this.writeExtKind = writeExtKind;
+            }
+        }
+
         return writeExtBuffer;
     }
 
-    public ChannelBuffer readExtBuffer()
+    public ChannelBuffer readExtBuffer(
+        NukleusExtensionKind readExtKind)
     {
+        if (this.readExtKind != readExtKind)
+        {
+            readExtBuffer.clear();
+            this.readExtKind = readExtKind;
+        }
+
         return readExtBuffer;
     }
 

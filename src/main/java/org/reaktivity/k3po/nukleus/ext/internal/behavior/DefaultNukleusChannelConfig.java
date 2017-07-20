@@ -17,6 +17,7 @@ package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusThrottleMode.NONE;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusThrottleMode.STREAM;
+import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusTransmission.SIMPLEX;
 
 import java.util.Objects;
 
@@ -27,7 +28,7 @@ public class DefaultNukleusChannelConfig extends DefaultChannelConfig implements
     private long correlation;
     private String readPartition;
     private String writePartition;
-    private boolean duplex = false;
+    private NukleusTransmission transmission = SIMPLEX;
     private int window;
     private NukleusThrottleMode throttle = STREAM;
 
@@ -70,15 +71,17 @@ public class DefaultNukleusChannelConfig extends DefaultChannelConfig implements
         return writePartition;
     }
 
-    public void setDuplex(
-        boolean duplex)
+    @Override
+    public void setTransmission(
+        NukleusTransmission transmission)
     {
-        this.duplex = duplex;
+        this.transmission = transmission;
     }
 
-    public boolean isDuplex()
+    @Override
+    public NukleusTransmission getTransmission()
     {
-        return duplex;
+        return transmission;
     }
 
     @Override
@@ -136,7 +139,7 @@ public class DefaultNukleusChannelConfig extends DefaultChannelConfig implements
         }
         else if ("transmission".equals(key))
         {
-            setDuplex("duplex".equals(value));
+            setTransmission(NukleusTransmission.decode(Objects.toString(value, null)));
         }
         else if ("window".equals(key))
         {

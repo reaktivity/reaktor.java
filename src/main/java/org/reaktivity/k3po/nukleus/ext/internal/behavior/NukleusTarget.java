@@ -21,12 +21,16 @@ import static org.jboss.netty.channel.Channels.fireChannelBound;
 import static org.jboss.netty.channel.Channels.fireChannelClosed;
 import static org.jboss.netty.channel.Channels.fireChannelConnected;
 import static org.jboss.netty.channel.Channels.fireChannelDisconnected;
+import static org.jboss.netty.channel.Channels.fireChannelInterestChanged;
 import static org.jboss.netty.channel.Channels.fireChannelUnbound;
 import static org.jboss.netty.channel.Channels.fireWriteComplete;
 import static org.jboss.netty.channel.Channels.succeededFuture;
 import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireFlushed;
 import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireOutputAborted;
 import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireOutputShutdown;
+import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind.BEGIN;
+import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind.DATA;
+import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind.END;
 
 import java.nio.file.Path;
 import java.util.Deque;
@@ -136,14 +140,23 @@ final class NukleusTarget implements AutoCloseable
             ChannelFuture handshakeFuture = succeededFuture(clientChannel);
 
             NukleusChannelConfig clientConfig = clientChannel.getConfig();
-            if (clientConfig.isDuplex())
+            switch (clientConfig.getTransmission())
             {
-                ChannelFuture correlatedFuture = Channels.future(clientChannel);
+            case DUPLEX:
+                ChannelFuture correlatedFuture = clientChannel.beginInputFuture();
                 correlateNew.accept(correlationId, new NukleusCorrelation(clientChannel, correlatedFuture));
                 handshakeFuture = correlatedFuture;
+                break;
+            case HALF_DUPLEX:
+                ChannelFuture replyFuture = clientChannel.beginInputFuture();
+                correlateNew.accept(correlationId, new NukleusCorrelation(clientChannel, replyFuture));
+                replyFuture.addListener(f -> fireChannelInterestChanged(f.getChannel()));
+                break;
+            default:
+                break;
             }
 
-            ChannelBuffer beginExt = clientChannel.writeExtBuffer();
+            ChannelBuffer beginExt = clientChannel.writeExtBuffer(BEGIN, true);
             final int writableExtBytes = beginExt.readableBytes();
             final byte[] beginExtCopy = writeExtCopy(beginExt);
 
@@ -192,6 +205,8 @@ final class NukleusTarget implements AutoCloseable
 
             beginExt.skipBytes(writableExtBytes);
             beginExt.discardReadBytes();
+
+            clientChannel.beginOutputFuture().setSuccess();
         }
         catch (Exception ex)
         {
@@ -199,18 +214,18 @@ final class NukleusTarget implements AutoCloseable
         }
     }
 
-    public void onAccepted(
-        NukleusChildChannel childChannel,
-        long correlationId,
+    public void doBeginReply(
+        NukleusChannel channel,
         ChannelFuture handshakeFuture)
     {
-        final NukleusChannelAddress remoteAddress = childChannel.getRemoteAddress();
+        final long correlationId = channel.getConfig().getCorrelation();
+        final NukleusChannelAddress remoteAddress = channel.getRemoteAddress();
         final String senderName = remoteAddress.getSenderName();
-        final ChannelBuffer beginExt = childChannel.writeExtBuffer();
+        final ChannelBuffer beginExt = channel.writeExtBuffer(BEGIN, true);
         final int writableExtBytes = beginExt.readableBytes();
         final byte[] beginExtCopy = writeExtCopy(beginExt);
 
-        final long streamId = childChannel.targetId();
+        final long streamId = channel.targetId();
 
         final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .streamId(streamId)
@@ -220,19 +235,23 @@ final class NukleusTarget implements AutoCloseable
                 .extension(p -> p.set(beginExtCopy))
                 .build();
 
-        final Throttle throttle = new Throttle(childChannel, handshakeFuture);
+        final Throttle throttle = new Throttle(channel, handshakeFuture);
         registerThrottle.accept(begin.streamId(), throttle::handleThrottle);
 
         streamsBuffer.write(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
 
         beginExt.skipBytes(writableExtBytes);
         beginExt.discardReadBytes();
+
+        channel.beginOutputFuture().setSuccess();
     }
 
     public void doWrite(
         NukleusChannel channel,
         MessageEvent newWriteRequest)
     {
+        doFlushBegin(channel);
+
         channel.writeRequests.addLast(newWriteRequest);
 
         flushThrottledWrites(channel);
@@ -242,17 +261,26 @@ final class NukleusTarget implements AutoCloseable
         NukleusChannel channel,
         ChannelFuture flushFuture)
     {
-        Object message = ChannelBuffers.EMPTY_BUFFER;
-        MessageEvent newWriteRequest = new DownstreamMessageEvent(channel, flushFuture, message, null);
-        channel.writeRequests.addLast(newWriteRequest);
-
-        flushThrottledWrites(channel);
+        if (doFlushBegin(channel))
+        {
+            fireFlushed(channel);
+            flushFuture.setSuccess();
+        }
+        else
+        {
+            Object message = ChannelBuffers.EMPTY_BUFFER;
+            MessageEvent newWriteRequest = new DownstreamMessageEvent(channel, flushFuture, message, null);
+            channel.writeRequests.addLast(newWriteRequest);
+            flushThrottledWrites(channel);
+        }
     }
 
     public void doAbortOutput(
         NukleusChannel channel,
         ChannelFuture abortFuture)
     {
+        doFlushBegin(channel);
+
         final long streamId = channel.targetId();
 
         final AbortFW abort = abortRW.wrap(writeBuffer, 0, writeBuffer.capacity())
@@ -268,8 +296,10 @@ final class NukleusTarget implements AutoCloseable
         NukleusChannel channel,
         ChannelFuture handlerFuture)
     {
+        doFlushBegin(channel);
+
         final long streamId = channel.targetId();
-        final ChannelBuffer endExt = channel.writeExtBuffer();
+        final ChannelBuffer endExt = channel.writeExtBuffer(END, true);
         final int writableExtBytes = endExt.readableBytes();
         final byte[] endExtCopy = writeExtCopy(endExt);
 
@@ -298,8 +328,10 @@ final class NukleusTarget implements AutoCloseable
         NukleusChannel channel,
         ChannelFuture handlerFuture)
     {
+        doFlushBegin(channel);
+
         final long streamId = channel.targetId();
-        final ChannelBuffer endExt = channel.writeExtBuffer();
+        final ChannelBuffer endExt = channel.writeExtBuffer(END, true);
         final int writableExtBytes = endExt.readableBytes();
         final byte[] endExtCopy = writeExtCopy(endExt);
 
@@ -323,6 +355,21 @@ final class NukleusTarget implements AutoCloseable
         }
     }
 
+    private boolean doFlushBegin(
+        NukleusChannel channel)
+    {
+        final boolean doFlush = !channel.beginOutputFuture().isDone();
+
+        if (doFlush)
+        {
+            // SERVER, HALF_DUPLEX
+            ChannelFuture handshakeFuture = Channels.future(channel);
+            doBeginReply(channel, handshakeFuture);
+        }
+
+        return doFlush;
+    }
+
     private void flushThrottledWrites(
         NukleusChannel channel)
     {
@@ -333,7 +380,7 @@ final class NukleusTarget implements AutoCloseable
         {
             MessageEvent writeRequest = writeRequests.peekFirst();
             ChannelBuffer writeBuf = (ChannelBuffer) writeRequest.getMessage();
-            ChannelBuffer writeExt = channel.writeExtBuffer();
+            ChannelBuffer writeExt = channel.writeExtBuffer(DATA, true);
 
             if (writeBuf.readable() || writeExt.readable())
             {

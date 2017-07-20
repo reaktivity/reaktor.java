@@ -31,9 +31,9 @@ public interface NukleusChannelConfig extends ChannelConfig
 
     String getWritePartition();
 
-    void setDuplex(boolean duplex);
+    void setTransmission(NukleusTransmission transmission);
 
-    boolean isDuplex();
+    NukleusTransmission getTransmission();
 
     void setWindow(int window);
 
