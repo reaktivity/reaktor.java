@@ -18,12 +18,14 @@ package org.reaktivity.k3po.nukleus.ext.internal.behavior.config;
 import static org.kaazing.k3po.driver.internal.behavior.handler.event.AbstractEventHandler.ChannelEventKind.BOUND;
 import static org.kaazing.k3po.driver.internal.behavior.handler.event.AbstractEventHandler.ChannelEventKind.CONNECTED;
 import static org.kaazing.k3po.driver.internal.behavior.handler.event.AbstractEventHandler.ChannelEventKind.INTEREST_OPS;
+import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusTransmission.HALF_DUPLEX;
 
 import java.util.EnumSet;
 
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelStateEvent;
 import org.kaazing.k3po.driver.internal.behavior.handler.codec.ConfigDecoder;
+import org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusChannel;
 
 public class ReadBeginExtHandler extends AbstractReadExtHandler
 {
@@ -54,8 +56,10 @@ public class ReadBeginExtHandler extends AbstractReadExtHandler
         ChannelHandlerContext ctx,
         ChannelStateEvent e) throws Exception
     {
-        // lazy client
-        if (ctx.getChannel().getParent() == null)
+        // lazy client (not HALF_DUPLEX)
+        NukleusChannel channel = (NukleusChannel) ctx.getChannel();
+        if (channel.getParent() == null &&
+            channel.getConfig().getTransmission() != HALF_DUPLEX)
         {
             doReadExtension(ctx);
         }
@@ -68,13 +72,14 @@ public class ReadBeginExtHandler extends AbstractReadExtHandler
         ChannelHandlerContext ctx,
         ChannelStateEvent e) throws Exception
     {
-        // lazy client
-        if (ctx.getChannel().getParent() == null)
+        // lazy client (HALF_DUPLEX)
+        NukleusChannel channel = (NukleusChannel) ctx.getChannel();
+        if (channel.getParent() == null &&
+            channel.getConfig().getTransmission() == HALF_DUPLEX)
         {
             doReadExtension(ctx);
         }
 
         super.channelInterestChanged(ctx, e);
     }
-
 }

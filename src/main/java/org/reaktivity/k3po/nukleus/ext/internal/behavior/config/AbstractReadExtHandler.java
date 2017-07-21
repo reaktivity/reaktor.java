@@ -55,7 +55,8 @@ public abstract class AbstractReadExtHandler extends AbstractEventHandler
 
         try
         {
-            if (decoder.decode(channel))
+            if (!handlerFuture.isDone() &&
+                decoder.decode(channel))
             {
                 handlerFuture.setSuccess();
             }
