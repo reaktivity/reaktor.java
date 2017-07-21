@@ -266,12 +266,17 @@ final class NukleusTarget implements AutoCloseable
             fireFlushed(channel);
             flushFuture.setSuccess();
         }
-        else
+        else if (channel.writeExtBuffer(DATA, true).readable())
         {
             Object message = ChannelBuffers.EMPTY_BUFFER;
             MessageEvent newWriteRequest = new DownstreamMessageEvent(channel, flushFuture, message, null);
             channel.writeRequests.addLast(newWriteRequest);
             flushThrottledWrites(channel);
+        }
+        else
+        {
+            flushFuture.setSuccess();
+            fireFlushed(channel);
         }
     }
 

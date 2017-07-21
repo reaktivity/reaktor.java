@@ -132,8 +132,9 @@ public final class NukleusStreamFactory
 
             partition.doWindow(channel, initialWindow, initialWindow);
 
-            handshakeFuture.setSuccess();
             channel.beginInputFuture().setSuccess();
+
+            handshakeFuture.setSuccess();
         }
 
         private void onData(
