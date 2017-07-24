@@ -41,7 +41,7 @@ public class Configuration
 
     public static final String COUNTERS_BUFFER_CAPACITY_PROPERTY_NAME = "nuklei.counters.buffer.capacity";
 
-    public static final int MAXIMUM_STREAMS_COUNT_DEFAULT = 64;
+    public static final int MAXIMUM_STREAMS_COUNT_DEFAULT = 64 * 1024;
 
     public static final int STREAMS_BUFFER_CAPACITY_DEFAULT = 1024 * 1024;
 
