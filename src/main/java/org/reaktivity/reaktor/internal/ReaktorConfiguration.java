@@ -15,6 +15,7 @@
  */
 package org.reaktivity.reaktor.internal;
 
+import static java.lang.Integer.highestOneBit;
 import static org.agrona.BitUtil.findNextPositivePowerOfTwo;
 
 import org.reaktivity.nukleus.Configuration;
@@ -64,6 +65,6 @@ public class ReaktorConfiguration extends Configuration
     {
         final int maximumStreamsCount = maximumStreamsCount();
         final int maximumBufferedStreams = maximumStreamsCount < 1024 ? maximumStreamsCount : maximumStreamsCount / 8;
-        return findNextPositivePowerOfTwo(bufferSlotCapacity() * maximumBufferedStreams / 2);
+        return findNextPositivePowerOfTwo(bufferSlotCapacity() * highestOneBit(maximumBufferedStreams));
     }
 }
