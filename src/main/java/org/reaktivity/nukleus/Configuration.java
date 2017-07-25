@@ -27,30 +27,43 @@ import java.util.function.Supplier;
 
 public class Configuration
 {
-    public static final String DIRECTORY_PROPERTY_NAME = "nuklei.directory";
+    @Deprecated
+    public static final String DIRECTORY_PROPERTY_NAME = "reaktor.directory";
 
-    public static final String MAXIMUM_STREAMS_COUNT_PROPERTY_NAME = "nuklei.maximum.streams.count";
+    @Deprecated
+    public static final String MAXIMUM_STREAMS_COUNT_PROPERTY_NAME = "reaktor.maximum.streams.count";
 
-    public static final String STREAMS_BUFFER_CAPACITY_PROPERTY_NAME = "nuklei.streams.buffer.capacity";
+    @Deprecated
+    public static final String STREAMS_BUFFER_CAPACITY_PROPERTY_NAME = "reaktor.streams.buffer.capacity";
 
-    public static final String THROTTLE_BUFFER_CAPACITY_PROPERTY_NAME = "nuklei.throttle.buffer.capacity";
+    @Deprecated
+    public static final String THROTTLE_BUFFER_CAPACITY_PROPERTY_NAME = "reaktor.throttle.buffer.capacity";
 
-    public static final String COMMAND_BUFFER_CAPACITY_PROPERTY_NAME = "nuklei.command.buffer.capacity";
+    @Deprecated
+    public static final String COMMAND_BUFFER_CAPACITY_PROPERTY_NAME = "reaktor.command.buffer.capacity";
 
-    public static final String RESPONSE_BUFFER_CAPACITY_PROPERTY_NAME = "nuklei.response.buffer.capacity";
+    @Deprecated
+    public static final String RESPONSE_BUFFER_CAPACITY_PROPERTY_NAME = "reaktor.response.buffer.capacity";
 
-    public static final String COUNTERS_BUFFER_CAPACITY_PROPERTY_NAME = "nuklei.counters.buffer.capacity";
+    @Deprecated
+    public static final String COUNTERS_BUFFER_CAPACITY_PROPERTY_NAME = "reaktor.counters.buffer.capacity";
 
-    public static final int MAXIMUM_STREAMS_COUNT_DEFAULT = 64 * 1024;
+    @Deprecated
+    public static final int MAXIMUM_STREAMS_COUNT_DEFAULT = 16 * 1024;
 
+    @Deprecated
     public static final int STREAMS_BUFFER_CAPACITY_DEFAULT = 1024 * 1024;
 
+    @Deprecated
     public static final int THROTTLE_BUFFER_CAPACITY_DEFAULT = 64 * 1024;
 
+    @Deprecated
     public static final int COMMAND_BUFFER_CAPACITY_DEFAULT = 1024 * 1024;
 
+    @Deprecated
     public static final int RESPONSE_BUFFER_CAPACITY_DEFAULT = 1024 * 1024;
 
+    @Deprecated
     public static final int COUNTERS_BUFFER_CAPACITY_DEFAULT = 1024 * 1024;
 
     private final BiFunction<String, String, String> getProperty;
@@ -85,42 +98,50 @@ public class Configuration
         this.getPropertyDefault = defaultOverrides::getProperty;
     }
 
-    public final Path directory()
+    @Deprecated
+    public Path directory()
     {
         return Paths.get(getProperty(DIRECTORY_PROPERTY_NAME, "."));
     }
 
-    public final int maximumStreamsCount()
+    @Deprecated
+    public int maximumStreamsCount()
     {
         return getInteger(MAXIMUM_STREAMS_COUNT_PROPERTY_NAME, MAXIMUM_STREAMS_COUNT_DEFAULT);
     }
 
-    public final int streamsBufferCapacity()
+    @Deprecated
+    public int streamsBufferCapacity()
     {
         return getInteger(STREAMS_BUFFER_CAPACITY_PROPERTY_NAME, STREAMS_BUFFER_CAPACITY_DEFAULT);
     }
 
-    public final int throttleBufferCapacity()
+    @Deprecated
+    public int throttleBufferCapacity()
     {
         return getInteger(THROTTLE_BUFFER_CAPACITY_PROPERTY_NAME, THROTTLE_BUFFER_CAPACITY_DEFAULT);
     }
 
-    public final int commandBufferCapacity()
+    @Deprecated
+    public int commandBufferCapacity()
     {
         return getInteger(COMMAND_BUFFER_CAPACITY_PROPERTY_NAME, COMMAND_BUFFER_CAPACITY_DEFAULT);
     }
 
-    public final int responseBufferCapacity()
+    @Deprecated
+    public int responseBufferCapacity()
     {
         return getInteger(RESPONSE_BUFFER_CAPACITY_PROPERTY_NAME, RESPONSE_BUFFER_CAPACITY_DEFAULT);
     }
 
-    public final int counterValuesBufferCapacity()
+    @Deprecated
+    public int counterValuesBufferCapacity()
     {
         return getInteger(COUNTERS_BUFFER_CAPACITY_PROPERTY_NAME, COUNTERS_BUFFER_CAPACITY_DEFAULT);
     }
 
-    public final int counterLabelsBufferCapacity()
+    @Deprecated
+    public int counterLabelsBufferCapacity()
     {
         return getInteger(COUNTERS_BUFFER_CAPACITY_PROPERTY_NAME, COUNTERS_BUFFER_CAPACITY_DEFAULT) * 2;
     }
