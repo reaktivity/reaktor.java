@@ -15,34 +15,43 @@
  */
 package org.reaktivity.reaktor.internal;
 
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+
+import org.agrona.CloseHelper;
 import org.agrona.concurrent.status.AtomicCounter;
 import org.agrona.concurrent.status.CountersManager;
 
 public final class Counters implements AutoCloseable
 {
-    private final AtomicCounter routes;
-    private final AtomicCounter streams;
+    private final CountersManager manager;
+    private final ConcurrentMap<String, AtomicCounter> counters;
 
-    Counters(CountersManager countersManager)
+    Counters(CountersManager manager)
     {
-        routes = countersManager.newCounter("routes");
-        streams = countersManager.newCounter("streams");
+        this.manager = manager;
+        counters = new ConcurrentHashMap<>();
     }
 
     @Override
     public void close() throws Exception
     {
-        routes.close();
-        streams.close();
+        counters.values().forEach(CloseHelper::quietClose);
     }
 
     public AtomicCounter routes()
     {
-        return routes;
+        return counter("routes");
     }
 
     public AtomicCounter streams()
     {
-        return streams;
+        return counter("streams");
+    }
+
+    public AtomicCounter counter(
+        String name)
+    {
+        return counters.computeIfAbsent(name, manager::newCounter);
     }
 }
