@@ -15,45 +15,72 @@
  */
 package org.reaktivity.reaktor.internal;
 
-import static java.lang.Integer.highestOneBit;
-import static org.agrona.BitUtil.findNextPositivePowerOfTwo;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Properties;
 
 import org.reaktivity.nukleus.Configuration;
 import org.reaktivity.reaktor.internal.types.stream.EndFW;
 
 public class ReaktorConfiguration extends Configuration
 {
+    public static final String DIRECTORY_PROPERTY_NAME = "reaktor.directory";
+
+    public static final String STREAMS_BUFFER_CAPACITY_PROPERTY_NAME = "reaktor.streams.buffer.capacity";
+
+    public static final String THROTTLE_BUFFER_CAPACITY_PROPERTY_NAME = "reaktor.throttle.buffer.capacity";
+
+    public static final String COMMAND_BUFFER_CAPACITY_PROPERTY_NAME = "reaktor.command.buffer.capacity";
+
+    public static final String RESPONSE_BUFFER_CAPACITY_PROPERTY_NAME = "reaktor.response.buffer.capacity";
+
+    public static final String COUNTERS_BUFFER_CAPACITY_PROPERTY_NAME = "reaktor.counters.buffer.capacity";
+
     public static final String ABORT_STREAM_FRAME_TYPE_ID = "reaktor.abort.stream.frame.type.id";
 
-    public static final String NUKLEUS_BUFFER_POOL_CAPACITY_PROPERTY_FORMAT = "nukleus.%s.buffer.pool.capacity";
+    public static final String BUFFER_POOL_CAPACITY_PROPERTY = "reaktor.buffer.pool.capacity";
 
-    public static final String NUKLEUS_BUFFER_SLOT_CAPACITY_PROPERTY_FORMAT = "nukleus.%s.buffer.slot.capacity";
+    public static final String BUFFER_SLOT_CAPACITY_PROPERTY = "reaktor.buffer.slot.capacity";
 
     public static final int ABORT_STREAM_EVENT_TYPE_ID_DEFAULT = EndFW.TYPE_ID;
 
-    public static final int NUKLEUS_BUFFER_SLOT_CAPACITY_DEFAULT = 65536;
+    public static final int BUFFER_SLOT_CAPACITY_DEFAULT = 65536;
 
-    private final String bufferPoolCapacityPropertyName;
-    private final String bufferSlotCapacityPropertyName;
+    public static final int STREAMS_BUFFER_CAPACITY_DEFAULT = 1024 * 1024;
+
+    public static final int THROTTLE_BUFFER_CAPACITY_DEFAULT = 64 * 1024;
+
+    public static final int COMMAND_BUFFER_CAPACITY_DEFAULT = 1024 * 1024;
+
+    public static final int RESPONSE_BUFFER_CAPACITY_DEFAULT = 1024 * 1024;
+
+    public static final int COUNTERS_BUFFER_CAPACITY_DEFAULT = 1024 * 1024;
 
     public ReaktorConfiguration(
-        Configuration config,
-        String name)
+        Configuration config)
     {
         super(config);
+    }
 
-        this.bufferPoolCapacityPropertyName = String.format(NUKLEUS_BUFFER_POOL_CAPACITY_PROPERTY_FORMAT, name);
-        this.bufferSlotCapacityPropertyName = String.format(NUKLEUS_BUFFER_SLOT_CAPACITY_PROPERTY_FORMAT, name);
+    public ReaktorConfiguration(
+        Properties properties)
+    {
+        super(properties);
+    }
+
+    public final Path directory()
+    {
+        return Paths.get(getProperty(DIRECTORY_PROPERTY_NAME, "."));
     }
 
     public int bufferPoolCapacity()
     {
-        return getInteger(bufferPoolCapacityPropertyName, this::calculateBufferPoolCapacity);
+        return getInteger(BUFFER_POOL_CAPACITY_PROPERTY, this::calculateBufferPoolCapacity);
     }
 
     public int bufferSlotCapacity()
     {
-        return getInteger(bufferSlotCapacityPropertyName, NUKLEUS_BUFFER_SLOT_CAPACITY_DEFAULT);
+        return getInteger(BUFFER_SLOT_CAPACITY_PROPERTY, BUFFER_SLOT_CAPACITY_DEFAULT);
     }
 
     public int abortStreamEventTypeId()
@@ -61,10 +88,43 @@ public class ReaktorConfiguration extends Configuration
         return getInteger(ABORT_STREAM_FRAME_TYPE_ID, ABORT_STREAM_EVENT_TYPE_ID_DEFAULT);
     }
 
+    public int maximumStreamsCount()
+    {
+        return bufferPoolCapacity() / bufferSlotCapacity();
+    }
+
+    public int streamsBufferCapacity()
+    {
+        return getInteger(STREAMS_BUFFER_CAPACITY_PROPERTY_NAME, STREAMS_BUFFER_CAPACITY_DEFAULT);
+    }
+
+    public int throttleBufferCapacity()
+    {
+        return getInteger(THROTTLE_BUFFER_CAPACITY_PROPERTY_NAME, THROTTLE_BUFFER_CAPACITY_DEFAULT);
+    }
+
+    public int commandBufferCapacity()
+    {
+        return getInteger(COMMAND_BUFFER_CAPACITY_PROPERTY_NAME, COMMAND_BUFFER_CAPACITY_DEFAULT);
+    }
+
+    public int responseBufferCapacity()
+    {
+        return getInteger(RESPONSE_BUFFER_CAPACITY_PROPERTY_NAME, RESPONSE_BUFFER_CAPACITY_DEFAULT);
+    }
+
+    public int counterValuesBufferCapacity()
+    {
+        return getInteger(COUNTERS_BUFFER_CAPACITY_PROPERTY_NAME, COUNTERS_BUFFER_CAPACITY_DEFAULT);
+    }
+
+    public int counterLabelsBufferCapacity()
+    {
+        return getInteger(COUNTERS_BUFFER_CAPACITY_PROPERTY_NAME, COUNTERS_BUFFER_CAPACITY_DEFAULT) * 2;
+    }
+
     private int calculateBufferPoolCapacity()
     {
-        final int maximumStreamsCount = maximumStreamsCount();
-        final int maximumBufferedStreams = maximumStreamsCount < 1024 ? maximumStreamsCount : maximumStreamsCount / 8;
-        return findNextPositivePowerOfTwo(bufferSlotCapacity() * highestOneBit(maximumBufferedStreams));
+        return bufferSlotCapacity() * 64;
     }
 }

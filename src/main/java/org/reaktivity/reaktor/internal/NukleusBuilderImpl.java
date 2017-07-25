@@ -23,14 +23,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
 
-import org.reaktivity.nukleus.Configuration;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.NukleusBuilder;
 import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.route.RouteKind;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 import org.reaktivity.reaktor.internal.acceptor.Acceptor;
-import org.reaktivity.reaktor.internal.buffer.Slab;
 import org.reaktivity.reaktor.internal.conductor.Conductor;
 import org.reaktivity.reaktor.internal.router.Router;
 import org.reaktivity.reaktor.internal.watcher.Watcher;
@@ -39,15 +37,18 @@ public class NukleusBuilderImpl implements NukleusBuilder
 {
     private final ReaktorConfiguration config;
     private final String name;
+    private final Supplier<BufferPool> supplyBufferPool;
     private final Map<RouteKind, StreamFactoryBuilder> streamFactoryBuilders;
     private final List<Nukleus> components;
 
     public NukleusBuilderImpl(
-        Configuration config,
-        String name)
+        ReaktorConfiguration config,
+        String name,
+        Supplier<BufferPool> supplyBufferPool)
     {
-        this.config = new ReaktorConfiguration(config, name);
+        this.config = config;
         this.name = name;
+        this.supplyBufferPool = supplyBufferPool;
         this.streamFactoryBuilders = new EnumMap<>(RouteKind.class);
         this.components = new LinkedList<>();
     }
@@ -77,10 +78,6 @@ public class NukleusBuilderImpl implements NukleusBuilder
     {
         Context context = new Context();
         context.name(name).conclude(config);
-
-        final int bufferPoolCapacity = config.bufferPoolCapacity();
-        final int bufferSlotCapacity = config.bufferSlotCapacity();
-        Supplier<BufferPool> supplyBufferPool = () -> new Slab(bufferPoolCapacity, bufferSlotCapacity);
 
         final int abortTypeId = config.abortStreamEventTypeId();
 

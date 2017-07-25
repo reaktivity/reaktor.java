@@ -22,6 +22,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import org.agrona.ErrorHandler;
 import org.agrona.collections.ArrayUtil;
@@ -33,8 +34,11 @@ import org.reaktivity.nukleus.ControllerFactory;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.NukleusBuilder;
 import org.reaktivity.nukleus.NukleusFactory;
+import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.reaktor.internal.ControllerBuilderImpl;
 import org.reaktivity.reaktor.internal.NukleusBuilderImpl;
+import org.reaktivity.reaktor.internal.ReaktorConfiguration;
+import org.reaktivity.reaktor.internal.buffer.Slab;
 
 public class ReaktorBuilder
 {
@@ -87,15 +91,27 @@ public class ReaktorBuilder
 
     public Reaktor build()
     {
-        final Configuration config = this.config != null ? this.config : new Configuration();
+        final ReaktorConfiguration config = new ReaktorConfiguration(this.config != null ? this.config : new Configuration());
         final NukleusFactory nukleusFactory = NukleusFactory.instantiate();
+
+        final int bufferPoolCapacity = config.bufferPoolCapacity();
+        final int bufferSlotCapacity = config.bufferSlotCapacity();
+        final ThreadLocal<BufferPool> bufferPool = new ThreadLocal<BufferPool>()
+        {
+            @Override
+            protected BufferPool initialValue()
+            {
+                return new Slab(bufferPoolCapacity, bufferSlotCapacity);
+            }
+        };
+        Supplier<BufferPool> supplyBufferPool = bufferPool::get;
 
         Nukleus[] nuklei = new Nukleus[0];
         for (String name : nukleusFactory.names())
         {
             if (nukleusMatcher.test(name))
             {
-                NukleusBuilder builder = new NukleusBuilderImpl(config, name);
+                NukleusBuilder builder = new NukleusBuilderImpl(config, name, supplyBufferPool);
                 Nukleus nukleus = nukleusFactory.create(name, config, builder);
                 nuklei = ArrayUtil.add(nuklei, nukleus);
             }
