@@ -15,6 +15,7 @@
  */
 package org.reaktivity.nukleus.stream;
 
+import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
@@ -38,6 +39,12 @@ public interface StreamFactoryBuilder
 
     StreamFactoryBuilder setBufferPoolSupplier(
         Supplier<BufferPool> supplyBufferPool);
+
+    default StreamFactoryBuilder setCounterSupplier(
+        Function<String, LongSupplier> supplyCounter)
+    {
+        return this;
+    }
 
     StreamFactory build();
 }
