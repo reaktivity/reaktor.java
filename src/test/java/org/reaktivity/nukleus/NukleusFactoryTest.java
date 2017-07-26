@@ -21,6 +21,7 @@ import static org.junit.Assert.assertThat;
 import java.io.IOException;
 
 import org.junit.Test;
+import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteKind;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 
@@ -45,6 +46,14 @@ public final class NukleusFactoryTest
             @Override
             public NukleusBuilder inject(
                 Nukleus component)
+            {
+                return this;
+            }
+
+            @Override
+            public NukleusBuilder routeHandler(
+                RouteKind kind,
+                MessagePredicate handler)
             {
                 return this;
             }

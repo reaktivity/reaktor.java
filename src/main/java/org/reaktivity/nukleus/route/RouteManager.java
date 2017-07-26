@@ -19,7 +19,7 @@ import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessageFunction;
 import org.reaktivity.nukleus.function.MessagePredicate;
 
-public interface RouteHandler
+public interface RouteManager
 {
     <R> R resolve(
         MessagePredicate filter,
