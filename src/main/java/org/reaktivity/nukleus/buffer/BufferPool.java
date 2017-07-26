@@ -81,4 +81,11 @@ public interface BufferPool
      * @return a duplicate {@code BufferPool}
      */
     BufferPool duplicate();
+
+    /**
+     * Returns the number of slots currently reserved in this buffer pool.
+     *
+     * @return  the number of reserved slots
+     */
+    int acquiredSlots();
 }
