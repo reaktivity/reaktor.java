@@ -94,17 +94,11 @@ public class ReaktorBuilder
         final ReaktorConfiguration config = new ReaktorConfiguration(this.config != null ? this.config : new Configuration());
         final NukleusFactory nukleusFactory = NukleusFactory.instantiate();
 
+        // TODO: bufferPool per thread
         final int bufferPoolCapacity = config.bufferPoolCapacity();
         final int bufferSlotCapacity = config.bufferSlotCapacity();
-        final ThreadLocal<BufferPool> bufferPool = new ThreadLocal<BufferPool>()
-        {
-            @Override
-            protected BufferPool initialValue()
-            {
-                return new Slab(bufferPoolCapacity, bufferSlotCapacity);
-            }
-        };
-        Supplier<BufferPool> supplyBufferPool = bufferPool::get;
+        final Slab bufferPool = new Slab(bufferPoolCapacity, bufferSlotCapacity);
+        Supplier<BufferPool> supplyBufferPool = () -> bufferPool;
 
         Nukleus[] nuklei = new Nukleus[0];
         for (String name : nukleusFactory.names())
@@ -139,6 +133,6 @@ public class ReaktorBuilder
         }
         ErrorHandler errorHandler = requireNonNull(this.errorHandler, "errorHandler");
 
-        return new Reaktor(idleStrategy, errorHandler, nuklei, controllers);
+        return new Reaktor(idleStrategy, errorHandler, nuklei, controllers, bufferPool);
     }
 }

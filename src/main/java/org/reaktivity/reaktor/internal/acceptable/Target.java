@@ -15,13 +15,16 @@
  */
 package org.reaktivity.reaktor.internal.acceptable;
 
+import java.util.function.BiConsumer;
+import java.util.function.ToIntFunction;
+
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.concurrent.MessageHandler;
-import org.agrona.concurrent.ringbuffer.RingBuffer;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.function.MessageConsumer;
+import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
 import org.reaktivity.reaktor.internal.types.stream.AbortFW;
 import org.reaktivity.reaktor.internal.types.stream.BeginFW;
@@ -38,11 +41,12 @@ public final class Target implements Nukleus
     private final String name;
     private final AutoCloseable layout;
     private final int abortTypeId;
-    private final RingBuffer streamsBuffer;
-    private final RingBuffer throttleBuffer;
     private final Long2ObjectHashMap<MessageConsumer> throttles;
     private final MessageHandler readHandler;
     private final MessageConsumer writeHandler;
+
+    private ToIntFunction<MessageHandler> throttleBuffer;
+    private MessagePredicate streamsBuffer;
 
     public Target(
         String name,
@@ -52,8 +56,8 @@ public final class Target implements Nukleus
         this.name = name;
         this.layout = layout;
         this.abortTypeId = abortTypeId;
-        this.streamsBuffer = layout.streamsBuffer();
-        this.throttleBuffer = layout.throttleBuffer();
+        this.streamsBuffer = layout.streamsBuffer()::write;
+        this.throttleBuffer = layout.throttleBuffer()::read;
         this.throttles = new Long2ObjectHashMap<>();
         this.readHandler = this::handleRead;
         this.writeHandler = this::handleWrite;
@@ -62,7 +66,7 @@ public final class Target implements Nukleus
     @Override
     public int process()
     {
-        return throttleBuffer.read(readHandler);
+        return throttleBuffer.applyAsInt(readHandler);
     }
 
     @Override
@@ -104,19 +108,19 @@ public final class Target implements Nukleus
         switch (msgTypeId)
         {
         case BeginFW.TYPE_ID:
-            streamsBuffer.write(msgTypeId, buffer, index, length);
+            streamsBuffer.test(msgTypeId, buffer, index, length);
             break;
         case DataFW.TYPE_ID:
-            streamsBuffer.write(msgTypeId, buffer, index, length);
+            streamsBuffer.test(msgTypeId, buffer, index, length);
             break;
         case EndFW.TYPE_ID:
-            streamsBuffer.write(msgTypeId, buffer, index, length);
+            streamsBuffer.test(msgTypeId, buffer, index, length);
 
             final FrameFW end = frameRO.wrap(buffer, index, index + length);
             throttles.remove(end.streamId());
             break;
         case AbortFW.TYPE_ID:
-            streamsBuffer.write(abortTypeId, buffer, index, length);
+            streamsBuffer.test(abortTypeId, buffer, index, length);
 
             final FrameFW abort = frameRO.wrap(buffer, index, index + length);
             throttles.remove(abort.streamId());
@@ -152,5 +156,16 @@ public final class Target implements Nukleus
                 break;
             }
         }
+    }
+
+    void abort()
+    {
+        streamsBuffer = (t, b, i, l) -> false;
+    }
+
+    void reset(
+        BiConsumer<Long, MessageConsumer> resetHandler)
+    {
+        throttles.forEach(resetHandler);
     }
 }

@@ -32,11 +32,13 @@ import org.agrona.concurrent.AgentRunner;
 import org.agrona.concurrent.IdleStrategy;
 import org.reaktivity.nukleus.Controller;
 import org.reaktivity.nukleus.Nukleus;
+import org.reaktivity.nukleus.buffer.BufferPool;
 
 public final class Reaktor implements AutoCloseable
 {
     private final IdleStrategy idleStrategy;
     private final ErrorHandler errorHandler;
+    private final BufferPool bufferPool;
     private final Map<String, Nukleus> nukleiByName;
     private final Map<Class<? extends Controller>, Controller> controllersByKind;
 
@@ -47,10 +49,12 @@ public final class Reaktor implements AutoCloseable
         IdleStrategy idleStrategy,
         ErrorHandler errorHandler,
         Nukleus[] nuklei,
-        Controller[] controllers)
+        Controller[] controllers,
+        BufferPool bufferPool)
     {
         this.idleStrategy = idleStrategy;
         this.errorHandler = errorHandler;
+        this.bufferPool = bufferPool;
         this.nukleiByName = new ConcurrentHashMap<>();
         this.controllersByKind = new ConcurrentHashMap<>();
 
@@ -140,6 +144,12 @@ public final class Reaktor implements AutoCloseable
                         errors.add(t);
                     }
                 }
+
+                if (bufferPool.acquiredSlots() != 0)
+                {
+                    errors.add(new IllegalStateException("Buffer pool has unreleased slots: " + bufferPool.acquiredSlots()));
+                }
+
                 if (!errors.isEmpty())
                 {
                     final Throwable t = errors.get(0);

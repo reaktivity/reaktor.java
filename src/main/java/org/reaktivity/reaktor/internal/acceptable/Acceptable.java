@@ -41,9 +41,14 @@ import org.reaktivity.reaktor.internal.Context;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
 import org.reaktivity.reaktor.internal.router.ReferenceKind;
 import org.reaktivity.reaktor.internal.router.Router;
+import org.reaktivity.reaktor.internal.types.stream.AbortFW;
+import org.reaktivity.reaktor.internal.types.stream.ResetFW;
 
 public final class Acceptable extends Nukleus.Composite implements RouteHandler
 {
+    private final AbortFW.Builder abortRW = new AbortFW.Builder();
+    private final ResetFW.Builder resetRW = new ResetFW.Builder();
+
     private final Context context;
     private final Router router;
     private final String sourceName;
@@ -101,6 +106,18 @@ public final class Acceptable extends Nukleus.Composite implements RouteHandler
     public String name()
     {
         return sourceName;
+    }
+
+    @Override
+    public void close() throws Exception
+    {
+        targetsByName.forEach(this::doAbort);
+        sourcesByPartitionName.forEach(this::doReset);
+
+        streams.forEach(this::doAbort);
+        targetsByName.forEach(this::doReset);
+
+        super.close();
     }
 
     public void onReadable(
@@ -172,5 +189,48 @@ public final class Acceptable extends Nukleus.Composite implements RouteHandler
                 .build();
 
         return include(new Target(targetName, layout, abortTypeId));
+    }
+
+    private void doAbort(
+        String targetName,
+        Target target)
+    {
+        target.abort();
+    }
+
+    private void doReset(
+        String sourceName,
+        Source source)
+    {
+        source.reset();
+    }
+
+    private void doAbort(
+        long streamId,
+        MessageConsumer stream)
+    {
+        final AbortFW abort = abortRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                                     .streamId(streamId)
+                                     .build();
+
+        stream.accept(abortTypeId, abort.buffer(), abort.offset(), abort.sizeof());
+    }
+
+    private void doReset(
+        String targetName,
+        Target target)
+    {
+        target.reset(this::doReset);
+    }
+
+    private void doReset(
+        long throttleId,
+        MessageConsumer throttle)
+    {
+        final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                                     .streamId(throttleId)
+                                     .build();
+
+        throttle.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
     }
 }
