@@ -67,6 +67,11 @@ public class Slab implements BufferPool
         this.availableSlots = new int[] { totalSlots };
     }
 
+    public int acquiredSlots()
+    {
+        return used.cardinality();
+    }
+
     @Override
     public int slotCapacity()
     {

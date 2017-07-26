@@ -26,6 +26,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.reaktivity.nukleus.Controller;
 import org.reaktivity.nukleus.Nukleus;
+import org.reaktivity.nukleus.buffer.BufferPool;
 
 public class ReaktorTest
 {
@@ -44,15 +45,17 @@ public class ReaktorTest
         final Controller controller = context.mock(Controller.class);
         final IdleStrategy idleStrategy = context.mock(IdleStrategy.class);
         final ErrorHandler errorHandler = context.mock(ErrorHandler.class);
+        final BufferPool bufferPool = context.mock(BufferPool.class);
 
         context.checking(new Expectations()
         {
             {
+                oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
                 oneOf(controller).kind(); will(returnValue(Controller.class));
                 oneOf(controller).close();
             }
         });
-        Reaktor reaktor = new Reaktor(idleStrategy, errorHandler, new Nukleus[0], new Controller[]{controller});
+        Reaktor reaktor = new Reaktor(idleStrategy, errorHandler, new Nukleus[0], new Controller[]{controller}, bufferPool);
         reaktor.start();
         reaktor.close();
     }
@@ -63,15 +66,17 @@ public class ReaktorTest
         final Nukleus nukleus = context.mock(Nukleus.class);
         final IdleStrategy idleStrategy = context.mock(IdleStrategy.class);
         final ErrorHandler errorHandler = context.mock(ErrorHandler.class);
+        final BufferPool bufferPool = context.mock(BufferPool.class);
 
         context.checking(new Expectations()
         {
             {
+                oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
                 oneOf(nukleus).name(); will(returnValue("nukleus-name"));
                 oneOf(nukleus).close();
             }
         });
-        Reaktor reaktor = new Reaktor(idleStrategy, errorHandler, new Nukleus[]{nukleus}, new Controller[0]);
+        Reaktor reaktor = new Reaktor(idleStrategy, errorHandler, new Nukleus[]{nukleus}, new Controller[0], bufferPool);
         reaktor.start();
         reaktor.close();
     }
@@ -82,15 +87,17 @@ public class ReaktorTest
         final Controller controller = context.mock(Controller.class);
         final IdleStrategy idleStrategy = context.mock(IdleStrategy.class);
         final ErrorHandler errorHandler = context.mock(ErrorHandler.class);
+        final BufferPool bufferPool = context.mock(BufferPool.class);
 
         context.checking(new Expectations()
         {
             {
+                oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
                 oneOf(controller).kind(); will(returnValue(Controller.class));
                 oneOf(controller).close(); will(throwException(new Exception("controller close failed")));
             }
         });
-        Reaktor reaktor = new Reaktor(idleStrategy, errorHandler, new Nukleus[0], new Controller[]{controller});
+        Reaktor reaktor = new Reaktor(idleStrategy, errorHandler, new Nukleus[0], new Controller[]{controller}, bufferPool);
         reaktor.start();
         try
         {
@@ -109,15 +116,17 @@ public class ReaktorTest
         final Nukleus nukleus = context.mock(Nukleus.class);
         final IdleStrategy idleStrategy = context.mock(IdleStrategy.class);
         final ErrorHandler errorHandler = context.mock(ErrorHandler.class);
+        final BufferPool bufferPool = context.mock(BufferPool.class);
 
         context.checking(new Expectations()
         {
             {
+                oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
                 oneOf(nukleus).name(); will(returnValue("nukleus-name"));
                 oneOf(nukleus).close(); will(throwException(new Exception("Nukleus close failed")));
             }
         });
-        Reaktor reaktor = new Reaktor(idleStrategy, errorHandler, new Nukleus[]{nukleus}, new Controller[0]);
+        Reaktor reaktor = new Reaktor(idleStrategy, errorHandler, new Nukleus[]{nukleus}, new Controller[0], bufferPool);
         reaktor.start();
         try
         {
@@ -137,17 +146,20 @@ public class ReaktorTest
         final Nukleus nukleus = context.mock(Nukleus.class);
         final IdleStrategy idleStrategy = context.mock(IdleStrategy.class);
         final ErrorHandler errorHandler = context.mock(ErrorHandler.class);
+        final BufferPool bufferPool = context.mock(BufferPool.class);
 
         context.checking(new Expectations()
         {
             {
+                oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
                 oneOf(controller).kind(); will(returnValue(Controller.class));
                 oneOf(nukleus).name(); will(returnValue("nukleus-name"));
                 oneOf(controller).close(); will(throwException(new Exception("controller close failed")));
                 oneOf(nukleus).close(); will(throwException(new Exception("Nukleus close failed")));
             }
         });
-        Reaktor reaktor = new Reaktor(idleStrategy, errorHandler, new Nukleus[]{nukleus}, new Controller[]{controller});
+        Reaktor reaktor =
+                new Reaktor(idleStrategy, errorHandler, new Nukleus[]{nukleus}, new Controller[]{controller}, bufferPool);
         reaktor.start();
         try
         {
@@ -160,6 +172,4 @@ public class ReaktorTest
             throw t;
         }
     }
-
 }
-

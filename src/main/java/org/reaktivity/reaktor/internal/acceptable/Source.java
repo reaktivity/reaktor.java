@@ -16,15 +16,16 @@
 package org.reaktivity.reaktor.internal.acceptable;
 
 import java.util.function.Function;
+import java.util.function.ToIntFunction;
 
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.MessageHandler;
-import org.agrona.concurrent.ringbuffer.RingBuffer;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.function.MessageConsumer;
+import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteKind;
 import org.reaktivity.nukleus.stream.StreamFactory;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
@@ -48,13 +49,14 @@ public final class Source implements Nukleus
     private final String partitionName;
     private final StreamsLayout layout;
     private final AtomicBuffer writeBuffer;
-    private final RingBuffer streamsBuffer;
-    private final RingBuffer throttleBuffer;
+    private final ToIntFunction<MessageHandler> streamsBuffer;
     private final Long2ObjectHashMap<MessageConsumer> streams;
     private final Function<RouteKind, StreamFactory> supplyStreamFactory;
     private final int abortTypeId;
     private final MessageHandler readHandler;
     private final MessageConsumer writeHandler;
+
+    private MessagePredicate throttleBuffer;
 
     Source(
         String sourceName,
@@ -72,8 +74,8 @@ public final class Source implements Nukleus
         this.writeBuffer = writeBuffer;
         this.supplyStreamFactory = supplyStreamFactory;
         this.abortTypeId = abortTypeId;
-        this.streamsBuffer = layout.streamsBuffer();
-        this.throttleBuffer = layout.throttleBuffer();
+        this.streamsBuffer = layout.streamsBuffer()::read;
+        this.throttleBuffer = layout.throttleBuffer()::write;
         this.streams = streams;
         this.readHandler = this::handleRead;
         this.writeHandler = this::handleWrite;
@@ -82,7 +84,7 @@ public final class Source implements Nukleus
     @Override
     public int process()
     {
-        return streamsBuffer.read(readHandler);
+        return streamsBuffer.applyAsInt(readHandler);
     }
 
     @Override
@@ -128,10 +130,10 @@ public final class Source implements Nukleus
         switch (msgTypeId)
         {
         case WindowFW.TYPE_ID:
-            throttleBuffer.write(msgTypeId, buffer, index, length);
+            throttleBuffer.test(msgTypeId, buffer, index, length);
             break;
         case ResetFW.TYPE_ID:
-            throttleBuffer.write(msgTypeId, buffer, index, length);
+            throttleBuffer.test(msgTypeId, buffer, index, length);
 
             final FrameFW reset = frameRO.wrap(buffer, index, index + length);
             streams.remove(reset.streamId());
@@ -232,6 +234,11 @@ public final class Source implements Nukleus
         {
             doReset(sourceId);
         }
+    }
+
+    void reset()
+    {
+        throttleBuffer = (t, b, i, l) -> false;
     }
 
     private void doReset(
