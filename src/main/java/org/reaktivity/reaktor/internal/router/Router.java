@@ -23,6 +23,7 @@ import static org.reaktivity.reaktor.internal.router.RouteMatchers.targetRefMatc
 import java.util.LinkedHashSet;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 import org.agrona.DirectBuffer;
@@ -32,12 +33,15 @@ import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.function.MessageFunction;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.reaktor.internal.Context;
+import org.reaktivity.reaktor.internal.types.control.Role;
 import org.reaktivity.reaktor.internal.types.control.RouteFW;
 import org.reaktivity.reaktor.internal.types.control.UnrouteFW;
 
 public final class Router extends Nukleus.Composite
 {
     private final Set<RouteFW> routes;
+
+    private Function<Role, MessagePredicate> supplyRouteHandler;
 
     public Router(
         Context context)
@@ -59,7 +63,11 @@ public final class Router extends Nukleus.Composite
         copyBuffer.putBytes(0, srcBuffer, route.offset(), copyBuffer.capacity());
         RouteFW newRoute = new RouteFW().wrap(copyBuffer, 0, copyBuffer.capacity());
 
-        return routes.add(newRoute);
+        Role role = route.role().get();
+        MessagePredicate routeHandler = supplyRouteHandler.apply(role);
+
+        return routeHandler.test(route.typeId(), route.buffer(), route.offset(), route.sizeof()) &&
+               routes.add(newRoute);
     }
 
     public boolean doUnroute(
@@ -76,7 +84,11 @@ public final class Router extends Nukleus.Composite
                 .and(targetMatches(targetName))
                 .and(targetRefMatches(targetRef));
 
-        return routes.removeIf(filter);
+        Role role = unroute.role().get();
+        MessagePredicate routeHandler = supplyRouteHandler.apply(role);
+
+        return routes.removeIf(filter) &&
+               routeHandler.test(unroute.typeId(), unroute.buffer(), unroute.offset(), unroute.sizeof());
     }
 
     public <R> R resolve(
@@ -100,5 +112,11 @@ public final class Router extends Nukleus.Composite
         }
 
         return mapped;
+    }
+
+    public void setRouteHandlerSupplier(
+        Function<Role, MessagePredicate> supplyRouteHandler)
+    {
+        this.supplyRouteHandler = supplyRouteHandler;
     }
 }

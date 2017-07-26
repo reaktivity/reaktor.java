@@ -26,11 +26,13 @@ import java.util.function.Supplier;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.NukleusBuilder;
 import org.reaktivity.nukleus.buffer.BufferPool;
+import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteKind;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 import org.reaktivity.reaktor.internal.acceptor.Acceptor;
 import org.reaktivity.reaktor.internal.conductor.Conductor;
 import org.reaktivity.reaktor.internal.router.Router;
+import org.reaktivity.reaktor.internal.types.control.Role;
 import org.reaktivity.reaktor.internal.watcher.Watcher;
 
 public class NukleusBuilderImpl implements NukleusBuilder
@@ -38,6 +40,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
     private final ReaktorConfiguration config;
     private final String name;
     private final Supplier<BufferPool> supplyBufferPool;
+    private final Map<Role, MessagePredicate> routeHandlers;
     private final Map<RouteKind, StreamFactoryBuilder> streamFactoryBuilders;
     private final List<Nukleus> components;
 
@@ -49,8 +52,34 @@ public class NukleusBuilderImpl implements NukleusBuilder
         this.config = config;
         this.name = name;
         this.supplyBufferPool = supplyBufferPool;
+        this.routeHandlers = new EnumMap<>(Role.class);
         this.streamFactoryBuilders = new EnumMap<>(RouteKind.class);
         this.components = new LinkedList<>();
+    }
+
+    @Override
+    public NukleusBuilder routeHandler(
+        RouteKind kind,
+        MessagePredicate handler)
+    {
+        Objects.requireNonNull(kind, "kind");
+        Objects.requireNonNull(handler, "handler");
+
+        switch (kind)
+        {
+        case CLIENT:
+            this.routeHandlers.put(Role.CLIENT, handler);
+            break;
+        case PROXY:
+            this.routeHandlers.put(Role.PROXY, handler);
+            break;
+        case SERVER:
+            this.routeHandlers.put(Role.SERVER, handler);
+            break;
+        default:
+            throw new IllegalStateException("Unrecognized route kind: " + kind);
+        }
+        return this;
     }
 
     @Override
@@ -59,7 +88,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
         StreamFactoryBuilder builder)
     {
         Objects.requireNonNull(kind, "kind");
-        Objects.requireNonNull(builder, "supplier");
+        Objects.requireNonNull(builder, "builder");
 
         this.streamFactoryBuilders.put(kind, builder);
         return this;
@@ -93,6 +122,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
         acceptor.setBufferPoolSupplier(supplyBufferPool);
         acceptor.setStreamFactoryBuilderSupplier(streamFactoryBuilders::get);
         acceptor.setAbortTypeId(abortTypeId);
+        router.setRouteHandlerSupplier(k -> routeHandlers.getOrDefault(k, (t, b, i, l) -> true));
 
         return new NukleusImpl(name, conductor, watcher, router, acceptor, context, components);
     }

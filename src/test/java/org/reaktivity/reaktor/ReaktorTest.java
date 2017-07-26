@@ -50,6 +50,8 @@ public class ReaktorTest
         context.checking(new Expectations()
         {
             {
+                allowing(controller).process(); will(returnValue(0));
+
                 oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
                 oneOf(controller).kind(); will(returnValue(Controller.class));
                 oneOf(controller).close();
@@ -71,6 +73,8 @@ public class ReaktorTest
         context.checking(new Expectations()
         {
             {
+                allowing(nukleus).process(); will(returnValue(0));
+
                 oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
                 oneOf(nukleus).name(); will(returnValue("nukleus-name"));
                 oneOf(nukleus).close();
@@ -92,6 +96,8 @@ public class ReaktorTest
         context.checking(new Expectations()
         {
             {
+                allowing(controller).process(); will(returnValue(0));
+
                 oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
                 oneOf(controller).kind(); will(returnValue(Controller.class));
                 oneOf(controller).close(); will(throwException(new Exception("controller close failed")));
@@ -121,6 +127,8 @@ public class ReaktorTest
         context.checking(new Expectations()
         {
             {
+                allowing(nukleus).process(); will(returnValue(0));
+
                 oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
                 oneOf(nukleus).name(); will(returnValue("nukleus-name"));
                 oneOf(nukleus).close(); will(throwException(new Exception("Nukleus close failed")));
@@ -151,6 +159,9 @@ public class ReaktorTest
         context.checking(new Expectations()
         {
             {
+                allowing(controller).process(); will(returnValue(0));
+                allowing(nukleus).process(); will(returnValue(0));
+
                 oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
                 oneOf(controller).kind(); will(returnValue(Controller.class));
                 oneOf(nukleus).name(); will(returnValue("nukleus-name"));

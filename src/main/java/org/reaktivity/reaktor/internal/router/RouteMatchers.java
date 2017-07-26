@@ -26,7 +26,7 @@ public final class RouteMatchers
         String source)
     {
         Objects.requireNonNull(source);
-        return r -> source.equals(r.source());
+        return r -> source.equals(r.source().asString());
     }
 
     public static Predicate<RouteFW> sourceRefMatches(
@@ -39,7 +39,7 @@ public final class RouteMatchers
         String target)
     {
         Objects.requireNonNull(target);
-        return r -> target.equals(r.target());
+        return r -> target.equals(r.target().asString());
     }
 
     public static Predicate<RouteFW> targetRefMatches(
