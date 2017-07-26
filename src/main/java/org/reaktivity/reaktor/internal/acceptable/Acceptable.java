@@ -33,8 +33,8 @@ import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessageFunction;
 import org.reaktivity.nukleus.function.MessagePredicate;
-import org.reaktivity.nukleus.route.RouteHandler;
 import org.reaktivity.nukleus.route.RouteKind;
+import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 import org.reaktivity.reaktor.internal.Context;
@@ -44,7 +44,7 @@ import org.reaktivity.reaktor.internal.router.Router;
 import org.reaktivity.reaktor.internal.types.stream.AbortFW;
 import org.reaktivity.reaktor.internal.types.stream.ResetFW;
 
-public final class Acceptable extends Nukleus.Composite implements RouteHandler
+public final class Acceptable extends Nukleus.Composite implements RouteManager
 {
     private final AbortFW.Builder abortRW = new AbortFW.Builder();
     private final ResetFW.Builder resetRW = new ResetFW.Builder();
@@ -88,7 +88,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteHandler
             if (streamFactoryBuilder != null)
             {
                 StreamFactory streamFactory = streamFactoryBuilder
-                        .setRouteHandler(this)
+                        .setRouteManager(this)
                         .setWriteBuffer(writeBuffer)
                         .setStreamIdSupplier(supplyStreamId)
                         .setCorrelationIdSupplier(supplyCorrelationId)

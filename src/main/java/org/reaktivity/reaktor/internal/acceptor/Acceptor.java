@@ -24,6 +24,7 @@ import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.agrona.LangUtil;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.agrona.concurrent.status.AtomicCounter;
@@ -123,9 +124,14 @@ public final class Acceptor extends Nukleus.Composite
                 final String targetName = route.target().asString();
                 acceptable.onWritable(targetName);
 
-                router.doRoute(route);
-
-                conductor.onRouted(route.correlationId(), sourceRef);
+                if (router.doRoute(route))
+                {
+                    conductor.onRouted(route.correlationId(), sourceRef);
+                }
+                else
+                {
+                    conductor.onError(route.correlationId());
+                }
             }
             else
             {
@@ -135,6 +141,7 @@ public final class Acceptor extends Nukleus.Composite
         catch (Exception ex)
         {
             conductor.onError(route.correlationId());
+            LangUtil.rethrowUnchecked(ex);
         }
     }
 
@@ -147,8 +154,22 @@ public final class Acceptor extends Nukleus.Composite
         final Acceptable acceptable = acceptables.get(sourceName);
         if (acceptable != null)
         {
-            router.doUnroute(unroute);
-            conductor.onUnrouted(correlationId);
+            try
+            {
+                if (router.doUnroute(unroute))
+                {
+                    conductor.onUnrouted(correlationId);
+                }
+                else
+                {
+                    conductor.onError(correlationId);
+                }
+            }
+            catch (Exception ex)
+            {
+                conductor.onError(correlationId);
+                LangUtil.rethrowUnchecked(ex);
+            }
         }
         else
         {
