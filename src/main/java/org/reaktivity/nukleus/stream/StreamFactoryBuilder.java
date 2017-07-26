@@ -21,12 +21,12 @@ import java.util.function.Supplier;
 
 import org.agrona.MutableDirectBuffer;
 import org.reaktivity.nukleus.buffer.BufferPool;
-import org.reaktivity.nukleus.route.RouteHandler;
+import org.reaktivity.nukleus.route.RouteManager;
 
 public interface StreamFactoryBuilder
 {
-    StreamFactoryBuilder setRouteHandler(
-        RouteHandler router);
+    StreamFactoryBuilder setRouteManager(
+        RouteManager router);
 
     StreamFactoryBuilder setStreamIdSupplier(
         LongSupplier supplyStreamId);
