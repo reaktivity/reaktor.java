@@ -31,6 +31,7 @@ public class DefaultNukleusChannelConfig extends DefaultChannelConfig implements
     private NukleusTransmission transmission = SIMPLEX;
     private int window;
     private NukleusThrottleMode throttle = STREAM;
+    private boolean update = true;
 
     @Override
     public void setCorrelation(
@@ -97,6 +98,18 @@ public class DefaultNukleusChannelConfig extends DefaultChannelConfig implements
     }
 
     @Override
+    public void setUpdate(boolean update)
+    {
+        this.update = update;
+    }
+
+    @Override
+    public boolean getUpdate()
+    {
+        return update;
+    }
+
+    @Override
     public void setThrottle(
         NukleusThrottleMode throttle)
     {
@@ -144,6 +157,10 @@ public class DefaultNukleusChannelConfig extends DefaultChannelConfig implements
         else if ("window".equals(key))
         {
             setWindow(convertToInt(value));
+        }
+        else if ("update".equals(key))
+        {
+            setUpdate(!"none".equals(value));
         }
         else if ("throttle".equals(key))
         {

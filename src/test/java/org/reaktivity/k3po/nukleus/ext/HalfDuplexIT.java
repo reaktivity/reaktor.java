@@ -298,6 +298,26 @@ public class HalfDuplexIT
 
     @Test
     @Specification({
+        "server.sent.throttle.initial.only/client",
+        "server.sent.throttle.initial.only/server"
+    })
+    public void shouldThrottleInitialOnlyClientSentData() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "client.sent.throttle.initial.only/client",
+        "client.sent.throttle.initial.only/server"
+    })
+    public void shouldThrottleInitialOnlyServerSentData() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "server.sent.overflow/client",
         "server.sent.overflow/server"
     })
