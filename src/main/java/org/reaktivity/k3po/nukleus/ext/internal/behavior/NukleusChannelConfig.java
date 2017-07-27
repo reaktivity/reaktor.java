@@ -39,6 +39,10 @@ public interface NukleusChannelConfig extends ChannelConfig
 
     int getWindow();
 
+    void setUpdate(boolean update);
+
+    boolean getUpdate();
+
     void setThrottle(NukleusThrottleMode throttle);
 
     NukleusThrottleMode getThrottle();

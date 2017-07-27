@@ -168,6 +168,16 @@ public class SimplexIT
 
     @Test
     @Specification({
+        "server.sent.throttle.initial.only/client",
+        "server.sent.throttle.initial.only/server"
+    })
+    public void shouldThrottleInitialOnlyClientSentData() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "client.close/client",
         "client.close/server"
     })

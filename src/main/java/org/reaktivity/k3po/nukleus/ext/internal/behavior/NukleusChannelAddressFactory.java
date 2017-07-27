@@ -22,6 +22,7 @@ import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.O
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_ROUTE;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_THROTTLE;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_TRANSMISSION;
+import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_UPDATE;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_WINDOW;
 
 import java.net.URI;
@@ -80,8 +81,8 @@ public class NukleusChannelAddressFactory extends ChannelAddressFactorySpi
             }
         }
 
-        Collection<TypeInfo<?>> allOptionTypes = asList(OPTION_ROUTE, OPTION_REPLY_TO, OPTION_WINDOW, OPTION_PARTITION,
-                OPTION_CORRELATION, OPTION_THROTTLE, OPTION_TRANSMISSION);
+        Collection<TypeInfo<?>> allOptionTypes = asList(OPTION_ROUTE, OPTION_REPLY_TO, OPTION_WINDOW, OPTION_UPDATE,
+                OPTION_PARTITION, OPTION_CORRELATION, OPTION_THROTTLE, OPTION_TRANSMISSION);
         for (TypeInfo<?> optionType : allOptionTypes)
         {
             if (options != null && options.containsKey(optionType.getName()))
