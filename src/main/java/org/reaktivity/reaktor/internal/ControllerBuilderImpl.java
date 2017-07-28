@@ -21,6 +21,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.LongSupplier;
 import java.util.function.ToIntFunction;
 
 import org.agrona.CloseHelper;
@@ -82,6 +83,7 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
         return this;
     }
 
+    @Override
     public T build()
     {
         Objects.requireNonNull(factory, "factory");
@@ -194,6 +196,12 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
             MessagePredicate throttle = target.throttleBuffer()::write;
 
             return factory.apply(streams, throttle);
+        }
+
+        @Override
+        public LongSupplier getCounter(String name)
+        {
+            return () -> context.counters().counter(name).get();
         }
 
         private StreamsLayout newSource(
