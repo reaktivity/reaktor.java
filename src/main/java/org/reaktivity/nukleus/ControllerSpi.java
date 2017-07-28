@@ -50,4 +50,7 @@ public interface ControllerSpi
     <R> R doSupplyTarget(
         String target,
         BiFunction<ToIntFunction<MessageConsumer>, MessagePredicate, R> factory);
+
+    long doCount(String name);
+
 }

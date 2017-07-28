@@ -19,6 +19,7 @@ import static org.junit.Assert.assertEquals;
 import static org.reaktivity.nukleus.Configuration.COMMAND_BUFFER_CAPACITY_PROPERTY_NAME;
 import static org.reaktivity.nukleus.Configuration.DIRECTORY_PROPERTY_NAME;
 
+import java.nio.file.Paths;
 import java.util.Properties;
 
 import org.junit.Test;
@@ -32,7 +33,7 @@ public final class ConfigurationTest
 
         Configuration config = new Configuration();
 
-        assertEquals("/path/to/reaktivity", config.directory().toString());
+        assertEquals(Paths.get("/path/to/reaktivity"), config.directory());
     }
 
     @Test
@@ -43,7 +44,7 @@ public final class ConfigurationTest
 
         Configuration config = new Configuration(properties);
 
-        assertEquals("/path/to/reaktivity", config.directory().toString());
+        assertEquals(Paths.get("/path/to/reaktivity"), config.directory());
     }
 
     @Test
@@ -55,7 +56,7 @@ public final class ConfigurationTest
         Configuration system = new Configuration();
         Configuration config = new Configuration(system, defaultOverrides);
 
-        assertEquals("/path/to/reaktivity", config.directory().toString());
+        assertEquals(Paths.get("/path/to/reaktivity"), config.directory());
     }
 
     @Test
@@ -69,7 +70,7 @@ public final class ConfigurationTest
         Configuration system = new Configuration();
         Configuration config = new Configuration(system, defaults);
 
-        assertEquals("/system/path/to/reaktivity", config.directory().toString());
+        assertEquals(Paths.get("/system/path/to/reaktivity"), config.directory());
     }
 
     @Test
@@ -83,7 +84,7 @@ public final class ConfigurationTest
         Configuration system = new Configuration();
         Configuration config = new Configuration(system, defaults);
 
-        assertEquals(".", config.directory().toString());
+        assertEquals(Paths.get("."), config.directory());
     }
 
     @Test
@@ -96,7 +97,7 @@ public final class ConfigurationTest
         Configuration config = new Configuration(system, defaultOverrides);
         Configuration wrapped = new Configuration(config);
 
-        assertEquals("/path/to/reaktivity", wrapped.directory().toString());
+        assertEquals(Paths.get("/path/to/reaktivity"), wrapped.directory());
     }
 
     @Test
