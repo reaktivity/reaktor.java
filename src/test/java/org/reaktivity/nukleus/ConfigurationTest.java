@@ -33,7 +33,7 @@ public final class ConfigurationTest
 
         Configuration config = new Configuration();
 
-        assertEquals(Paths.get("/path/to/reaktivity").toString(), config.directory().toString());
+        assertEquals(Paths.get("/path/to/reaktivity"), config.directory());
     }
 
     @Test
@@ -44,7 +44,7 @@ public final class ConfigurationTest
 
         Configuration config = new Configuration(properties);
 
-        assertEquals(Paths.get("/path/to/reaktivity").toString(), config.directory().toString());
+        assertEquals(Paths.get("/path/to/reaktivity"), config.directory());
     }
 
     @Test
@@ -56,7 +56,7 @@ public final class ConfigurationTest
         Configuration system = new Configuration();
         Configuration config = new Configuration(system, defaultOverrides);
 
-        assertEquals(Paths.get("/path/to/reaktivity").toString(), config.directory().toString());
+        assertEquals(Paths.get("/path/to/reaktivity"), config.directory());
     }
 
     @Test
@@ -70,7 +70,7 @@ public final class ConfigurationTest
         Configuration system = new Configuration();
         Configuration config = new Configuration(system, defaults);
 
-        assertEquals(Paths.get("/system/path/to/reaktivity").toString(), config.directory().toString());
+        assertEquals(Paths.get("/system/path/to/reaktivity"), config.directory());
     }
 
     @Test
@@ -84,7 +84,7 @@ public final class ConfigurationTest
         Configuration system = new Configuration();
         Configuration config = new Configuration(system, defaults);
 
-        assertEquals(".", config.directory().toString());
+        assertEquals(Paths.get("."), config.directory());
     }
 
     @Test
@@ -97,7 +97,7 @@ public final class ConfigurationTest
         Configuration config = new Configuration(system, defaultOverrides);
         Configuration wrapped = new Configuration(config);
 
-        assertEquals(Paths.get("/path/to/reaktivity").toString(), wrapped.directory().toString());
+        assertEquals(Paths.get("/path/to/reaktivity"), wrapped.directory());
     }
 
     @Test
