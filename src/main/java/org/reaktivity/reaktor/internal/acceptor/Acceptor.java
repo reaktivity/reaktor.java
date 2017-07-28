@@ -110,7 +110,7 @@ public final class Acceptor extends Nukleus.Composite
     {
         final String sourceName = route.source().asString();
 
-        Acceptable acceptable = acceptables.computeIfAbsent(sourceName, this::newAcceptable);
+        acceptables.computeIfAbsent(sourceName, this::newAcceptable);
 
         try
         {
@@ -121,9 +121,6 @@ public final class Acceptor extends Nukleus.Composite
 
             if (ReferenceKind.resolve(sourceRef).ordinal() == role.ordinal())
             {
-                final String targetName = route.target().asString();
-                acceptable.onWritable(targetName);
-
                 if (router.doRoute(route))
                 {
                     conductor.onRouted(route.correlationId(), sourceRef);
