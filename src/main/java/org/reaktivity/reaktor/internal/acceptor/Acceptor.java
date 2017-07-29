@@ -116,19 +116,9 @@ public final class Acceptor extends Nukleus.Composite
         {
             route = generateSourceRefIfNecessary(route);
 
-            final Role role = route.role().get();
-            final long sourceRef = route.sourceRef();
-
-            if (ReferenceKind.resolve(sourceRef).ordinal() == role.ordinal())
+            if (router.doRoute(route))
             {
-                if (router.doRoute(route))
-                {
-                    conductor.onRouted(route.correlationId(), sourceRef);
-                }
-                else
-                {
-                    conductor.onError(route.correlationId());
-                }
+                conductor.onRouted(route.correlationId(), route.sourceRef());
             }
             else
             {

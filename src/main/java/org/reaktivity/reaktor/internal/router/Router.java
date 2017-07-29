@@ -65,6 +65,10 @@ public final class Router extends Nukleus.Composite
 
         Role role = route.role().get();
         MessagePredicate routeHandler = supplyRouteHandler.apply(role);
+        if (routeHandler == null)
+        {
+            routeHandler = (t, b, i, l) -> ReferenceKind.resolve(route.sourceRef()).ordinal() == role.ordinal();
+        }
 
         return routeHandler.test(route.typeId(), route.buffer(), route.offset(), route.sizeof()) &&
                routes.add(newRoute);
@@ -86,6 +90,10 @@ public final class Router extends Nukleus.Composite
 
         Role role = unroute.role().get();
         MessagePredicate routeHandler = supplyRouteHandler.apply(role);
+        if (routeHandler == null)
+        {
+            routeHandler = (t, b, i, l) -> true;
+        }
 
         return routes.removeIf(filter) &&
                routeHandler.test(unroute.typeId(), unroute.buffer(), unroute.offset(), unroute.sizeof());
