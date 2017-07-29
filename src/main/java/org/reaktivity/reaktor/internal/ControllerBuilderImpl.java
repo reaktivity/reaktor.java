@@ -89,7 +89,7 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
         Objects.requireNonNull(name, "name");
 
         Context context = new Context();
-        context.name(name).conclude(config);
+        context.name(name).readonly(true).conclude(config);
 
         ControllerSpi controllerSpi = new ControllerSpiImpl(context);
 
@@ -200,7 +200,7 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
         @Override
         public long doCount(String name)
         {
-            return context.counters().counter(name).get();
+            return context.counters().readonlyCounter(name).getAsLong();
         }
 
         private StreamsLayout newSource(
