@@ -122,7 +122,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
         acceptor.setBufferPoolSupplier(supplyBufferPool);
         acceptor.setStreamFactoryBuilderSupplier(streamFactoryBuilders::get);
         acceptor.setAbortTypeId(abortTypeId);
-        router.setRouteHandlerSupplier(routeHandlers::get);
+        acceptor.setRouteHandlerSupplier(routeHandlers::get);
 
         return new NukleusImpl(name, conductor, watcher, router, acceptor, context, components);
     }

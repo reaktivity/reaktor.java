@@ -23,7 +23,6 @@ import static org.reaktivity.reaktor.internal.router.RouteMatchers.targetRefMatc
 import java.util.LinkedHashSet;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.function.Predicate;
 
 import org.agrona.DirectBuffer;
@@ -33,15 +32,12 @@ import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.function.MessageFunction;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.reaktor.internal.Context;
-import org.reaktivity.reaktor.internal.types.control.Role;
 import org.reaktivity.reaktor.internal.types.control.RouteFW;
 import org.reaktivity.reaktor.internal.types.control.UnrouteFW;
 
 public final class Router extends Nukleus.Composite
 {
     private final Set<RouteFW> routes;
-
-    private Function<Role, MessagePredicate> supplyRouteHandler;
 
     public Router(
         Context context)
@@ -56,26 +52,21 @@ public final class Router extends Nukleus.Composite
     }
 
     public boolean doRoute(
-        RouteFW route)
+        RouteFW route,
+        MessagePredicate routeHandler)
     {
         DirectBuffer srcBuffer = route.buffer();
         MutableDirectBuffer copyBuffer = new UnsafeBuffer(new byte[route.sizeof()]);
         copyBuffer.putBytes(0, srcBuffer, route.offset(), copyBuffer.capacity());
         RouteFW newRoute = new RouteFW().wrap(copyBuffer, 0, copyBuffer.capacity());
 
-        Role role = route.role().get();
-        MessagePredicate routeHandler = supplyRouteHandler.apply(role);
-        if (routeHandler == null)
-        {
-            routeHandler = (t, b, i, l) -> ReferenceKind.resolve(route.sourceRef()).ordinal() == role.ordinal();
-        }
-
         return routeHandler.test(route.typeId(), route.buffer(), route.offset(), route.sizeof()) &&
                routes.add(newRoute);
     }
 
     public boolean doUnroute(
-        UnrouteFW unroute)
+        UnrouteFW unroute,
+        MessagePredicate routeHandler)
     {
         final String sourceName = unroute.source().asString();
         final long sourceRef = unroute.sourceRef();
@@ -87,13 +78,6 @@ public final class Router extends Nukleus.Composite
                 .and(sourceRefMatches(sourceRef))
                 .and(targetMatches(targetName))
                 .and(targetRefMatches(targetRef));
-
-        Role role = unroute.role().get();
-        MessagePredicate routeHandler = supplyRouteHandler.apply(role);
-        if (routeHandler == null)
-        {
-            routeHandler = (t, b, i, l) -> true;
-        }
 
         return routes.removeIf(filter) &&
                routeHandler.test(unroute.typeId(), unroute.buffer(), unroute.offset(), unroute.sizeof());
@@ -120,11 +104,5 @@ public final class Router extends Nukleus.Composite
         }
 
         return mapped;
-    }
-
-    public void setRouteHandlerSupplier(
-        Function<Role, MessagePredicate> supplyRouteHandler)
-    {
-        this.supplyRouteHandler = supplyRouteHandler;
     }
 }

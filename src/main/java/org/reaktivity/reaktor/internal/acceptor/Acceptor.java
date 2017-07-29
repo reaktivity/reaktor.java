@@ -30,6 +30,7 @@ import org.agrona.concurrent.UnsafeBuffer;
 import org.agrona.concurrent.status.AtomicCounter;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.buffer.BufferPool;
+import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteKind;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 import org.reaktivity.reaktor.internal.Context;
@@ -59,6 +60,7 @@ public final class Acceptor extends Nukleus.Composite
     private Supplier<BufferPool> supplyBufferPool;
     private Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder;
     private int abortTypeId;
+    private Function<Role, MessagePredicate> supplyRouteHandler;
 
     public Acceptor(
         Context context)
@@ -99,6 +101,12 @@ public final class Acceptor extends Nukleus.Composite
         this.abortTypeId = abortTypeId;
     }
 
+    public void setRouteHandlerSupplier(
+        Function<Role, MessagePredicate> supplyRouteHandler)
+    {
+        this.supplyRouteHandler = supplyRouteHandler;
+    }
+
     @Override
     public String name()
     {
@@ -114,9 +122,16 @@ public final class Acceptor extends Nukleus.Composite
 
         try
         {
-            route = generateSourceRefIfNecessary(route);
+            Role role = route.role().get();
+            MessagePredicate routeHandler = supplyRouteHandler.apply(role);
+            if (routeHandler == null)
+            {
+                route = generateSourceRefIfNecessary(route);
+                final long sourceRef = route.sourceRef();
+                routeHandler = (t, b, i, l) -> ReferenceKind.resolve(sourceRef).ordinal() == role.ordinal();
+            }
 
-            if (router.doRoute(route))
+            if (router.doRoute(route, routeHandler))
             {
                 conductor.onRouted(route.correlationId(), route.sourceRef());
             }
@@ -143,7 +158,14 @@ public final class Acceptor extends Nukleus.Composite
         {
             try
             {
-                if (router.doUnroute(unroute))
+                Role role = unroute.role().get();
+                MessagePredicate routeHandler = supplyRouteHandler.apply(role);
+                if (routeHandler == null)
+                {
+                    routeHandler = (t, b, i, l) -> true;
+                }
+
+                if (router.doUnroute(unroute, routeHandler))
                 {
                     conductor.onUnrouted(correlationId);
                 }
