@@ -20,7 +20,7 @@ import java.nio.file.Paths;
 import java.util.Properties;
 
 import org.reaktivity.nukleus.Configuration;
-import org.reaktivity.reaktor.internal.types.stream.EndFW;
+import org.reaktivity.reaktor.internal.types.stream.AbortFW;
 
 public class ReaktorConfiguration extends Configuration
 {
@@ -42,7 +42,7 @@ public class ReaktorConfiguration extends Configuration
 
     public static final String BUFFER_SLOT_CAPACITY_PROPERTY = "reaktor.buffer.slot.capacity";
 
-    public static final int ABORT_STREAM_EVENT_TYPE_ID_DEFAULT = EndFW.TYPE_ID;
+    public static final int ABORT_STREAM_EVENT_TYPE_ID_DEFAULT = AbortFW.TYPE_ID;
 
     public static final int BUFFER_SLOT_CAPACITY_DEFAULT = 65536;
 
