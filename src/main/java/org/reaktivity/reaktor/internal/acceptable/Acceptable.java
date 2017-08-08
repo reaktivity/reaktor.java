@@ -211,6 +211,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
     {
         final AbortFW abort = abortRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                                      .streamId(streamId)
+                                     .extension(e -> e.reset())
                                      .build();
 
         stream.accept(abortTypeId, abort.buffer(), abort.offset(), abort.sizeof());
