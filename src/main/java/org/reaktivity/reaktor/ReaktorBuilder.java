@@ -47,11 +47,13 @@ public class ReaktorBuilder
     private Predicate<Class<? extends Controller>> controllerMatcher;
     private IdleStrategy idleStrategy;
     private ErrorHandler errorHandler;
+    private Supplier<NukleusFactory> supplyNukleusFactory;
 
     ReaktorBuilder()
     {
         this.nukleusMatcher = x -> false;
         this.controllerMatcher = x -> false;
+        this.supplyNukleusFactory = NukleusFactory::instantiate;
     }
 
     public ReaktorBuilder config(
@@ -89,10 +91,18 @@ public class ReaktorBuilder
         return this;
     }
 
+    public ReaktorBuilder loader(
+        ClassLoader loader)
+    {
+        requireNonNull(loader);
+        this.supplyNukleusFactory = () -> NukleusFactory.instantiate(loader);
+        return this;
+    }
+
     public Reaktor build()
     {
         final ReaktorConfiguration config = new ReaktorConfiguration(this.config != null ? this.config : new Configuration());
-        final NukleusFactory nukleusFactory = NukleusFactory.instantiate();
+        final NukleusFactory nukleusFactory = supplyNukleusFactory.get();
 
         // TODO: bufferPool per thread
         final int bufferPoolCapacity = config.bufferPoolCapacity();
