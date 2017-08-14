@@ -166,7 +166,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
             .readonly(true)
             .build();
 
-        return include(new Source(sourceName, partitionName, layout, writeBuffer, streams,
+        return include(new Source(context.name(), sourceName, partitionName, layout, writeBuffer, streams,
                                   this::supplyTargetInternal, supplyStreamFactory, abortTypeId));
     }
 
