@@ -15,7 +15,10 @@
  */
 package org.reaktivity.reaktor.internal.acceptable;
 
+import static org.agrona.LangUtil.rethrowUnchecked;
+
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.function.ToIntFunction;
 
 import org.agrona.DirectBuffer;
@@ -45,11 +48,13 @@ public final class Source implements Nukleus
 
     private final ResetFW.Builder resetRW = new ResetFW.Builder();
 
+    private final String nukleusName;
     private final String sourceName;
     private final String partitionName;
     private final StreamsLayout layout;
     private final AtomicBuffer writeBuffer;
     private final ToIntFunction<MessageHandler> streamsBuffer;
+    private final Supplier<String> streamsDescriptor;
     private final Long2ObjectHashMap<MessageConsumer> streams;
     private final Function<RouteKind, StreamFactory> supplyStreamFactory;
     private final int abortTypeId;
@@ -59,6 +64,7 @@ public final class Source implements Nukleus
     private MessagePredicate throttleBuffer;
 
     Source(
+        String nukleusName,
         String sourceName,
         String partitionName,
         StreamsLayout layout,
@@ -68,12 +74,14 @@ public final class Source implements Nukleus
         Function<RouteKind, StreamFactory> supplyStreamFactory,
         int abortTypeId)
     {
+        this.nukleusName = nukleusName;
         this.sourceName = sourceName;
         this.partitionName = partitionName;
         this.layout = layout;
         this.writeBuffer = writeBuffer;
         this.supplyStreamFactory = supplyStreamFactory;
         this.abortTypeId = abortTypeId;
+        this.streamsDescriptor = layout::toString;
         this.streamsBuffer = layout.streamsBuffer()::read;
         this.throttleBuffer = layout.throttleBuffer()::write;
         this.streams = streams;
@@ -155,30 +163,39 @@ public final class Source implements Nukleus
 
         final MessageConsumer handler = streams.get(streamId);
 
-        if (handler != null)
+        try
         {
-            switch (msgTypeId)
+            if (handler != null)
             {
-            case BeginFW.TYPE_ID:
-            case DataFW.TYPE_ID:
-                handler.accept(msgTypeId, buffer, index, length);
-                break;
-            case EndFW.TYPE_ID:
-                handler.accept(msgTypeId, buffer, index, length);
-                streams.remove(streamId);
-                break;
-            case AbortFW.TYPE_ID:
-                handler.accept(abortTypeId, buffer, index, length);
-                streams.remove(streamId);
-                break;
-            default:
+                switch (msgTypeId)
+                {
+                case BeginFW.TYPE_ID:
+                case DataFW.TYPE_ID:
+                    handler.accept(msgTypeId, buffer, index, length);
+                    break;
+                case EndFW.TYPE_ID:
+                    handler.accept(msgTypeId, buffer, index, length);
+                    streams.remove(streamId);
+                    break;
+                case AbortFW.TYPE_ID:
+                    handler.accept(abortTypeId, buffer, index, length);
+                    streams.remove(streamId);
+                    break;
+                default:
+                    handleUnrecognized(msgTypeId, buffer, index, length);
+                    break;
+                }
+            }
+            else
+            {
                 handleUnrecognized(msgTypeId, buffer, index, length);
-                break;
             }
         }
-        else
+        catch (Throwable ex)
         {
-            handleUnrecognized(msgTypeId, buffer, index, length);
+            ex.addSuppressed(new Exception(String.format("[%s/%s]\t[0x%016x] %s",
+                                                         nukleusName, partitionName, streamId, streamsDescriptor.get())));
+            rethrowUnchecked(ex);
         }
     }
 

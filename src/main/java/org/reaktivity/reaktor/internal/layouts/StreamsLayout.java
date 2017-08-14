@@ -60,6 +60,14 @@ public final class StreamsLayout extends Layout
         unmap(throttleBuffer.buffer().byteBuffer());
     }
 
+    @Override
+    public String toString()
+    {
+        return String.format("streams=[tailAt=0x%016x, headAt=0x%016x], throttle=[tailAt=0x%016x, headAt=0x%016x]",
+                streamsBuffer.producerPosition(), streamsBuffer.consumerPosition(),
+                throttleBuffer.producerPosition(), throttleBuffer.consumerPosition());
+    }
+
     public static final class Builder extends Layout.Builder<StreamsLayout>
     {
         private long streamsCapacity;
