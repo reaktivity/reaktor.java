@@ -19,6 +19,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
@@ -61,6 +62,7 @@ public final class Acceptor extends Nukleus.Composite
     private Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder;
     private int abortTypeId;
     private Function<Role, MessagePredicate> supplyRouteHandler;
+    private AtomicLong correlations;
 
     public Acceptor(
         Context context)
@@ -69,6 +71,7 @@ public final class Acceptor extends Nukleus.Composite
         this.routeRefs = context.counters().routes();
         this.acceptables = new HashMap<>();
         this.routeBuf = new UnsafeBuffer(ByteBuffer.allocateDirect(context.maxControlCommandLength()));
+        this.correlations  = new AtomicLong();
     }
 
     public void setConductor(
@@ -218,7 +221,14 @@ public final class Acceptor extends Nukleus.Composite
     private Acceptable newAcceptable(
         String sourceName)
     {
-        return include(new Acceptable(context, router, sourceName, supplyBufferPool, supplyStreamFactoryBuilder, abortTypeId));
+        return include(new Acceptable(
+                context,
+                router,
+                sourceName,
+                supplyBufferPool,
+                supplyStreamFactoryBuilder,
+                abortTypeId,
+                correlations));
     }
 
     private RouteFW generateSourceRefIfNecessary(
