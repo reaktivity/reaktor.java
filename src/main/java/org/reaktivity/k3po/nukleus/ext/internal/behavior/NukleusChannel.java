@@ -34,9 +34,9 @@ import org.kaazing.k3po.driver.internal.netty.channel.ChannelAddress;
 
 public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfig>
 {
-    private int sourceWindowBytes;
+    private int sourceWindowBudget;
     private int sourceWindowPadding;
-    private int targetWindowBytes;
+    private int targetWindowBudget;
     private int targetWindowPadding;
 
     private int targetWrittenBytes;
@@ -167,15 +167,14 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
         int credit,
         int padding)
     {
-        sourceWindowBytes += credit;
+        sourceWindowBudget += credit;
         sourceWindowPadding += padding;
-        assert sourceWindowPadding >=0 && sourceWindowBytes >= 0;
+        assert sourceWindowPadding >= 0 && sourceWindowBudget >= 0;
     }
 
     public int sourceWindow()
     {
-        int window = sourceWindowBytes - sourceWindowPadding;
-        return window > 0 ? window : 0;
+        return Math.max(sourceWindowBudget - sourceWindowPadding, 0);
     }
 
     public void sourceId(
@@ -216,14 +215,12 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
 
     public int targetWindow()
     {
-        int window = targetWindowBytes - targetWindowPadding;
-
-        return window > 0 ? window : 0;
+        return Math.max(targetWindowBudget - targetWindowPadding, 0);
     }
 
     public boolean targetWritable()
     {
-        return (targetWindow() > 0) || !getConfig().hasThrottle();
+        return targetWindowBudget > targetWindowPadding || !getConfig().hasThrottle();
     }
 
     public int targetWriteableBytes(
@@ -236,15 +233,15 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
         int writtenBytes)
     {
         targetWrittenBytes += writtenBytes;
-        targetWindowBytes -= writtenBytes;
-        assert targetWindowPadding >= 0 && targetWindowBytes >= 0;
+        targetWindowBudget -= writtenBytes + targetWindowPadding;
+        assert targetWindowPadding >= 0 && targetWindowBudget >= 0;
     }
 
     public void targetWindowUpdate(
         int credit,
         int padding)
     {
-        targetWindowBytes += credit;
+        targetWindowBudget += credit;
         targetWindowPadding += padding;
 
         // approximation for window acknowledgment

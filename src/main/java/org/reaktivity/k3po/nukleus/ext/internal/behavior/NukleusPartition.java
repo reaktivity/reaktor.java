@@ -223,18 +223,18 @@ final class NukleusPartition implements AutoCloseable
 
     void doWindow(
         final NukleusChannel channel,
-        final int update,
+        final int credit,
         final int padding)
     {
         final long streamId = channel.sourceId();
 
+        channel.sourceWindow(credit, padding);
+
         final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .streamId(streamId)
-                .credit(update)
+                .credit(credit)
                 .padding(padding)
                 .build();
-
-        channel.sourceWindow(window.credit(), window.padding());
 
         throttleBuffer.write(window.typeId(), window.buffer(), window.offset(), window.sizeof());
     }
