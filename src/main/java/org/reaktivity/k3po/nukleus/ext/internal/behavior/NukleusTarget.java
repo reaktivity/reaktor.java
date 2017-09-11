@@ -418,7 +418,7 @@ final class NukleusTarget implements AutoCloseable
 
                     streamsBuffer.write(data.typeId(), data.buffer(), data.offset(), data.sizeof());
 
-                    channel.targetWritten(writableBytes, 1);
+                    channel.targetWritten(writableBytes);
 
                     writeBuf.skipBytes(writableBytes);
 
@@ -523,10 +523,9 @@ final class NukleusTarget implements AutoCloseable
         private void processWindow(
             WindowFW window)
         {
-            final int update = window.update();
-            final int frames = window.frames();
-
-            channel.targetWindowUpdate(update, frames);
+            final int credit = window.credit();
+            final int padding = window.padding();
+            channel.targetWindowUpdate(credit, padding);
 
             flushThrottledWrites(channel);
         }

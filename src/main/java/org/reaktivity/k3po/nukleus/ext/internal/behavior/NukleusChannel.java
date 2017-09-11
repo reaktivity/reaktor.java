@@ -35,9 +35,9 @@ import org.kaazing.k3po.driver.internal.netty.channel.ChannelAddress;
 public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfig>
 {
     private int sourceWindowBytes;
-    private int sourceWindowFrames;
+    private int sourceWindowPadding;
     private int targetWindowBytes;
-    private int targetWindowFrames;
+    private int targetWindowPadding;
 
     private int targetWrittenBytes;
     private int targetAcknowledgedBytes;
@@ -164,17 +164,18 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
     }
 
     public void sourceWindow(
-        int update,
-        int frames)
+        int credit,
+        int padding)
     {
-        sourceWindowBytes += update;
-        sourceWindowFrames += frames;
-        assert sourceWindowFrames >=0 && sourceWindowBytes >= 0;
+        sourceWindowBytes += credit;
+        sourceWindowPadding += padding;
+        assert sourceWindowPadding >=0 && sourceWindowBytes >= 0;
     }
 
     public int sourceWindow()
     {
-        return sourceWindowFrames > 0 ? sourceWindowBytes : 0;
+        int window = sourceWindowBytes - sourceWindowPadding;
+        return window > 0 ? window : 0;
     }
 
     public void sourceId(
@@ -215,12 +216,14 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
 
     public int targetWindow()
     {
-        return targetWindowFrames > 0 ? targetWindowBytes : 0;
+        int window = targetWindowBytes - targetWindowPadding;
+
+        return window > 0 ? window : 0;
     }
 
     public boolean targetWritable()
     {
-        return (targetWindowFrames > 0 && targetWindowBytes > 0) || !getConfig().hasThrottle();
+        return (targetWindow() > 0) || !getConfig().hasThrottle();
     }
 
     public int targetWriteableBytes(
@@ -230,27 +233,25 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
     }
 
     public void targetWritten(
-        int writtenBytes,
-        int writtenFrames)
+        int writtenBytes)
     {
         targetWrittenBytes += writtenBytes;
         targetWindowBytes -= writtenBytes;
-        targetWindowFrames -= writtenFrames;
-        assert targetWindowFrames >= 0 && targetWindowBytes >= 0;
+        assert targetWindowPadding >= 0 && targetWindowBytes >= 0;
     }
 
     public void targetWindowUpdate(
-        int update,
-        int frames)
+        int credit,
+        int padding)
     {
-        targetWindowBytes += update;
-        targetWindowFrames += frames;
+        targetWindowBytes += credit;
+        targetWindowPadding += padding;
 
         // approximation for window acknowledgment
         // does not account for any change to total available window after initial window
         if (targetWrittenBytes > 0)
         {
-            targetAcknowledgedBytes += update;
+            targetAcknowledgedBytes += credit;
         }
 
         if (getConfig().getThrottle() == MESSAGE && targetWriteRequestInProgress)
