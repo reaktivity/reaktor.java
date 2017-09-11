@@ -14,6 +14,7 @@ Requires external configuration of directory where streams are discovered.
 # accept new unidirectional (simplex) streams at "receiver" from source "sender"
 # for route reference ${routeRef} (required)
 # set initial window size to 8192 (required)
+# with padding size to 10 (optional)
 # on explicit partition "part0" (optional: default to any partition)
 # with explicit correlation ${correlationId} (optional: default to any correlation)
 #
@@ -25,6 +26,7 @@ property correlationId ${nukleus:newCorrelationId()}
 accept "nukleus://receiver/streams/sender"
        option nukleus:route ${routeRef}
        option nukleus:window 8192
+       option nukleus:padding 10
        option nukleus:partition "part0"
        option nukleus:correlation ${correlationId}
 
@@ -96,6 +98,7 @@ write close
 # accept new bidirectional streams at "receiver" from source "sender"
 # for route reference ${routeRef} (required)
 # with initial window size to 8192 (required)
+# with padding size to 10 (optional)
 # with throttle "none" (optional: default "stream", or "message" for per-message acknowledgment)
 # with "duplex" transmission for bidirectional (optional: default "simplex")
 #
@@ -106,6 +109,7 @@ property routeRef ${nukleus:newRouteRef()}
 accept "nukleus://receiver/streams/sender"
        option nukleus:route ${routeRef}
        option nukleus:window 8192
+       option nukleus:padding 10
        option nukleus:throttle "none"
        option nukleus:transmission "duplex"
 
@@ -158,6 +162,7 @@ write close
 # connect new bidirectional stream at "receiver" from source "sender"
 # for route reference ${routeRef} (required)
 # with initial window size to 8192 (required)
+# with padding size to 10 (optional)
 # with throttle "none" (optional: default "stream", or "message" for per-message acknowledgment)
 # with "duplex" transmission for bidirectional (optional: default "simplex")
 #
@@ -168,6 +173,7 @@ property routeRef ${nukleus:newRouteRef()}
 connect "nukleus://receiver/streams/sender"
         option nukleus:route ${routeRef}
         option nukleus:window 8192
+        option nukleus:padding 10
         option nukleus:throttle "none"
         option nukleus:transmission "duplex"
 

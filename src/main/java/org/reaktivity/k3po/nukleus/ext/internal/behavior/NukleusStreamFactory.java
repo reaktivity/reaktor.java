@@ -114,6 +114,7 @@ public final class NukleusStreamFactory
 
             final NukleusChannelConfig channelConfig = channel.getConfig();
             final int initialWindow = channelConfig.getWindow();
+            final int padding = channelConfig.getPadding();
 
             int beginExtBytes = beginExt.sizeof();
             if (beginExtBytes != 0)
@@ -130,7 +131,7 @@ public final class NukleusStreamFactory
 
             channel.sourceId(streamId);
 
-            partition.doWindow(channel, initialWindow, 0);      // TODO padding from config
+            partition.doWindow(channel, initialWindow, padding);
 
             channel.beginInputFuture().setSuccess();
 
@@ -148,7 +149,7 @@ public final class NukleusStreamFactory
 
             if (channel.sourceWindow() >= readableBytes)
             {
-                channel.sourceWindow(-readableBytes, 0);   // TODO padding from config
+                channel.sourceWindow(-readableBytes, channel.getConfig().getPadding());
 
                 int dataExtBytes = dataExt.sizeof();
                 if (dataExtBytes != 0)
@@ -165,7 +166,7 @@ public final class NukleusStreamFactory
 
                 if (channel.getConfig().getUpdate())
                 {
-                    partition.doWindow(channel, readableBytes, 0);  // TODO padding from config
+                    partition.doWindow(channel, readableBytes, channel.getConfig().getPadding());
                 }
 
                 fireMessageReceived(channel, message);

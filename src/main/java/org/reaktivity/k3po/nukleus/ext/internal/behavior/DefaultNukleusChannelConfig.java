@@ -30,6 +30,7 @@ public class DefaultNukleusChannelConfig extends DefaultChannelConfig implements
     private String writePartition;
     private NukleusTransmission transmission = SIMPLEX;
     private int window;
+    private int padding;
     private NukleusThrottleMode throttle = STREAM;
     private boolean update = true;
 
@@ -98,6 +99,18 @@ public class DefaultNukleusChannelConfig extends DefaultChannelConfig implements
     }
 
     @Override
+    public void setPadding(int padding)
+    {
+        this.padding = padding;
+    }
+
+    @Override
+    public int getPadding()
+    {
+        return padding;
+    }
+
+    @Override
     public void setUpdate(boolean update)
     {
         this.update = update;
@@ -157,6 +170,10 @@ public class DefaultNukleusChannelConfig extends DefaultChannelConfig implements
         else if ("window".equals(key))
         {
             setWindow(convertToInt(value));
+        }
+        else if ("padding".equals(key))
+        {
+            setPadding(convertToInt(value));
         }
         else if ("update".equals(key))
         {
