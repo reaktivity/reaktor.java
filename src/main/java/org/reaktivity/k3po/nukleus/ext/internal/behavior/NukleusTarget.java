@@ -381,7 +381,7 @@ final class NukleusTarget implements AutoCloseable
         final Deque<MessageEvent> writeRequests = channel.writeRequests;
 
         loop:
-        while (channel.targetWritable() && !writeRequests.isEmpty())
+        while (channel.writable() && !writeRequests.isEmpty())
         {
             MessageEvent writeRequest = writeRequests.peekFirst();
             ChannelBuffer writeBuf = (ChannelBuffer) writeRequest.getMessage();
@@ -390,7 +390,7 @@ final class NukleusTarget implements AutoCloseable
             if (writeBuf.readable() || writeExt.readable())
             {
                 final boolean flushing = !writeBuf.readable();
-                final int writableBytes = min(channel.targetWriteableBytes(writeBuf.readableBytes()), (1 << Short.SIZE) - 1);
+                final int writableBytes = min(channel.writableBytes(writeBuf.readableBytes()), (1 << Short.SIZE) - 1);
 
                 // allow extension-only DATA frames to be flushed immediately
                 if (writableBytes > 0 || !writeBuf.readable())
@@ -418,7 +418,7 @@ final class NukleusTarget implements AutoCloseable
 
                     streamsBuffer.write(data.typeId(), data.buffer(), data.offset(), data.sizeof());
 
-                    channel.targetWritten(writableBytes);
+                    channel.writtenBytes(writableBytes);
 
                     writeBuf.skipBytes(writableBytes);
 
@@ -525,7 +525,7 @@ final class NukleusTarget implements AutoCloseable
         {
             final int credit = window.credit();
             final int padding = window.padding();
-            channel.targetWindowUpdate(credit, padding);
+            channel.writableWindow(credit, padding);
 
             flushThrottledWrites(channel);
         }

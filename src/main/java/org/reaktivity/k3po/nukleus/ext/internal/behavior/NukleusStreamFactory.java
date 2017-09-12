@@ -147,9 +147,9 @@ public final class NukleusStreamFactory
             final int readableBytes = message.readableBytes();
             final OctetsFW dataExt = data.extension();
 
-            if (channel.sourceWindow() >= readableBytes)
+            if (channel.readableBytes() >= readableBytes)
             {
-                channel.sourceWindow(-readableBytes, channel.getConfig().getPadding());
+                channel.readableBytes(-readableBytes);
 
                 int dataExtBytes = dataExt.sizeof();
                 if (dataExtBytes != 0)

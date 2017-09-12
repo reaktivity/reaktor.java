@@ -228,7 +228,7 @@ final class NukleusPartition implements AutoCloseable
     {
         final long streamId = channel.sourceId();
 
-        channel.sourceWindow(credit, padding);
+        channel.readableBytes(credit);
 
         final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .streamId(streamId)
