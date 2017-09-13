@@ -18,7 +18,7 @@ property newRouteRef 1234L # external
 
 accept "nukleus://server/streams/client"
        option nukleus:route ${newRouteRef}
-       option nukleus:authorization 123L
+       option nukleus:authorization [0x01 0x00 0x40]
        option nukleus:window 8192
 
 accepted

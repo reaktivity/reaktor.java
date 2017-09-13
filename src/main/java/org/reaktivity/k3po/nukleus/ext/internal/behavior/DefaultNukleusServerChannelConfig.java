@@ -19,12 +19,16 @@ import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusThrottleM
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusThrottleMode.STREAM;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusTransmission.SIMPLEX;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Objects;
 
 import org.jboss.netty.channel.DefaultServerChannelConfig;
 
 public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfig implements NukleusServerChannelConfig
 {
+    private static final ByteBuffer LONG_BUFFER = ByteBuffer.wrap(new byte[8]).order(ByteOrder.BIG_ENDIAN);
+
     private long correlation;
     private String readPartition;
     private String writePartition;
@@ -197,6 +201,22 @@ public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfi
         if (value instanceof Number)
         {
             return ((Number) value).longValue();
+        }
+        else if (value instanceof byte[])
+        {
+            byte[] bytes = (byte[]) value;
+            if (bytes.length > 8)
+            {
+                throw new IllegalArgumentException("Too many bytes for a long value");
+            }
+            LONG_BUFFER.clear();
+            LONG_BUFFER.put(bytes);
+            for (int i=bytes.length; i < 8; i++)
+            {
+                LONG_BUFFER.put((byte) 0);
+            }
+            LONG_BUFFER.flip();
+            return LONG_BUFFER.getLong();
         }
         else
         {
