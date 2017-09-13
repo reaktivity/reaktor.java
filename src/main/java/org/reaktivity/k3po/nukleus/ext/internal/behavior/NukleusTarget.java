@@ -155,6 +155,7 @@ final class NukleusTarget implements AutoCloseable
             default:
                 break;
             }
+            long authorization = clientConfig.getAuthorization();
 
             ChannelBuffer beginExt = clientChannel.writeExtBuffer(BEGIN, true);
             final int writableExtBytes = beginExt.readableBytes();
@@ -162,6 +163,7 @@ final class NukleusTarget implements AutoCloseable
 
             final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                    .streamId(streamId)
+                   .authorization(authorization)
                    .source(senderName)
                    .sourceRef(routeRef)
                    .correlationId(correlationId)

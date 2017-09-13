@@ -31,7 +31,21 @@ public class DefaultNukleusChannelConfig extends DefaultChannelConfig implements
     private NukleusTransmission transmission = SIMPLEX;
     private int window;
     private NukleusThrottleMode throttle = STREAM;
+    private long authorization;
     private boolean update = true;
+
+    @Override
+    public void setAuthorization(
+        long authorization)
+    {
+        this.authorization = authorization;
+    }
+
+    @Override
+    public long getAuthorization()
+    {
+        return authorization;
+    }
 
     @Override
     public void setCorrelation(
@@ -138,7 +152,11 @@ public class DefaultNukleusChannelConfig extends DefaultChannelConfig implements
             return true;
         }
 
-        if ("correlation".equals(key))
+        if ("authorization".equals(key))
+        {
+            setAuthorization(convertToLong(value));
+        }
+        else if ("correlation".equals(key))
         {
             setCorrelation(convertToLong(value));
         }

@@ -71,6 +71,26 @@ public class HalfDuplexIT
 
     @Test
     @Specification({
+        "handshake.authorized/client",
+        "handshake.authorized/server"
+    })
+    public void shouldHandshakeWithAuthorization() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "handshake.not.authorized/client",
+        "handshake.not.authorized/server"
+    })
+    public void shouldFailHandshakeWithNonMatchingAuthorization() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "client.sent.data/client",
         "client.sent.data/server"
     })

@@ -156,7 +156,15 @@ final class NukleusPartition implements AutoCloseable
 
         if (serverChannel != null)
         {
-            handleBeginInitial(begin, serverChannel);
+            final long authorization = begin.authorization();
+            if (authorization != serverChannel.getConfig().getAuthorization())
+            {
+                doReset(sourceId);
+            }
+            else
+            {
+                handleBeginInitial(begin, serverChannel);
+            }
         }
         else
         {
