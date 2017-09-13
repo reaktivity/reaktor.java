@@ -16,6 +16,7 @@ Requires external configuration of directory where streams are discovered.
 # set initial window size to 8192 (required)
 # on explicit partition "part0" (optional: default to any partition)
 # with explicit correlation ${correlationId} (optional: default to any correlation)
+# requiring authorization bits on Begin (optional: default no authorization bits required)
 #
 # note: throttle (default "stream") is not relevant on accept for "simplex" transmission (not writing)
 
@@ -27,6 +28,7 @@ accept "nukleus://receiver/streams/sender"
        option nukleus:window 8192
        option nukleus:partition "part0"
        option nukleus:correlation ${correlationId}
+       option nukleus:authorization [0x00 0x03 0x80]
 
 accepted
 
@@ -62,6 +64,8 @@ read closed
 # on explicit partition "part0" (optional: default to any partition)
 # with explicit correlation ${correlationId} (optional: default to any correlation)
 # with throttle "none" (allows negative testing of flow control)
+# setting authorization bits on Begin (optional: default no authorization bits set)
+
 
 property routeRef ${nukleus:newRouteRef()}
 property correlationId ${nukleus:newCorrelationId()}
@@ -71,6 +75,7 @@ connect "nukleus://receiver/streams/sender"
         option nukleus:partition "part0"
         option nukleus:correlation ${correlationId}
         option nukleus:throttle "none"
+        option nukleus:authorization [0x00 0x03 0x80]
 
 connected
 
@@ -98,6 +103,7 @@ write close
 # with initial window size to 8192 (required)
 # with throttle "none" (optional: default "stream", or "message" for per-message acknowledgment)
 # with "duplex" transmission for bidirectional (optional: default "simplex")
+# requiring authorization bits on Begin (optional: default no authorization bits required)
 #
 # note: partition, correlationId not supported for "duplex" transmission
 
@@ -108,6 +114,7 @@ accept "nukleus://receiver/streams/sender"
        option nukleus:window 8192
        option nukleus:throttle "none"
        option nukleus:transmission "duplex"
+       option nukleus:authorization [0x00 0x03 0x80]
 
 accepted
 
@@ -160,6 +167,7 @@ write close
 # with initial window size to 8192 (required)
 # with throttle "none" (optional: default "stream", or "message" for per-message acknowledgment)
 # with "duplex" transmission for bidirectional (optional: default "simplex")
+# setting authorization bits on Begin (optional: default no authorization bits set)
 #
 # note: partition, correlationId not supported for "duplex" transmission
 
@@ -170,6 +178,7 @@ connect "nukleus://receiver/streams/sender"
         option nukleus:window 8192
         option nukleus:throttle "none"
         option nukleus:transmission "duplex"
+        option nukleus:authorization [0x00 0x03 0x80]
 
 # send BEGIN w/ extension
 write nukleus:begin.ext [0x...]
