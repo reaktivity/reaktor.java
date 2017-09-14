@@ -23,6 +23,7 @@ import org.junit.Test;
 import org.junit.rules.DisableOnDebug;
 import org.junit.rules.TestRule;
 import org.junit.rules.Timeout;
+import org.kaazing.k3po.junit.annotation.ScriptProperty;
 import org.kaazing.k3po.junit.annotation.Specification;
 import org.kaazing.k3po.junit.rules.K3poRule;
 import org.reaktivity.nukleus.Configuration;
@@ -75,6 +76,26 @@ public class ControllerIT
         "${control}/route/server/controller"
     })
     public void shouldRouteAsServer() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${control}/route/server/controller"
+    })
+    @ScriptProperty("authorization [0x01 0x00 0x00 0x00 0x00 0x00 0x00 0x00]")
+    public void shouldRouteAsServerWithAuthenticationRequired() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${control}/route/server/controller"
+    })
+    @ScriptProperty("authorization [0x01 0x00 0xc0 0x00 0x00 0x00 0x00 0x00]")
+    public void shouldRouteAsServerWithRolesRequired() throws Exception
     {
         k3po.finish();
     }
