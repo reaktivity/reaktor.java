@@ -24,3 +24,6 @@ accept "nukleus://server/streams/client"
 
 accepted
 connected
+
+read "hello server"
+write "hello client"

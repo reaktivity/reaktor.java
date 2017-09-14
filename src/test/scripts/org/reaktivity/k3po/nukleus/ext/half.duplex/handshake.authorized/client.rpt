@@ -22,3 +22,6 @@ connect "nukleus://server/streams/client"
         option nukleus:authorization [0x01 0x00 0xc0] 
         option nukleus:window 8192
 connected
+
+write "hello server"
+read "hello client"

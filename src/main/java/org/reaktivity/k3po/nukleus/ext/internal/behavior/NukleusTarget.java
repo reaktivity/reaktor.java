@@ -289,9 +289,11 @@ final class NukleusTarget implements AutoCloseable
         doFlushBegin(channel);
 
         final long streamId = channel.targetId();
+        long authorization = channel.getConfig().getAuthorization();
 
         final AbortFW abort = abortRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .streamId(streamId)
+                .authorization(authorization)
                 .build();
 
         streamsBuffer.write(abort.typeId(), abort.buffer(), abort.offset(), abort.sizeof());
@@ -309,9 +311,11 @@ final class NukleusTarget implements AutoCloseable
         final ChannelBuffer endExt = channel.writeExtBuffer(END, true);
         final int writableExtBytes = endExt.readableBytes();
         final byte[] endExtCopy = writeExtCopy(endExt);
+        long authorization = channel.getConfig().getAuthorization();
 
         final EndFW end = endRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .streamId(streamId)
+                .authorization(authorization)
                 .extension(p -> p.set(endExtCopy))
                 .build();
 
@@ -341,9 +345,11 @@ final class NukleusTarget implements AutoCloseable
         final ChannelBuffer endExt = channel.writeExtBuffer(END, true);
         final int writableExtBytes = endExt.readableBytes();
         final byte[] endExtCopy = writeExtCopy(endExt);
+        long authorization = channel.getConfig().getAuthorization();
 
         final EndFW end = endRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .streamId(streamId)
+                .authorization(authorization)
                 .extension(p -> p.set(endExtCopy))
                 .build();
 
@@ -381,6 +387,7 @@ final class NukleusTarget implements AutoCloseable
         NukleusChannel channel)
     {
         final Deque<MessageEvent> writeRequests = channel.writeRequests;
+        long authorization = channel.getConfig().getAuthorization();
 
         loop:
         while (channel.targetWritable() && !writeRequests.isEmpty())
@@ -414,6 +421,7 @@ final class NukleusTarget implements AutoCloseable
                     final long streamId = channel.targetId();
                     final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                             .streamId(streamId)
+                            .authorization(authorization)
                             .payload(p -> p.set(writeCopy))
                             .extension(p -> p.set(writeExtCopy))
                             .build();
