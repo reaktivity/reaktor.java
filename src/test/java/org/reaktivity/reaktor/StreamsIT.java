@@ -18,11 +18,7 @@ package org.reaktivity.reaktor;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.rules.RuleChain.outerRule;
 import static org.reaktivity.nukleus.route.RouteKind.SERVER;
-import static org.reaktivity.reaktor.test.TestUtil.toTestRule;
 
-import org.jmock.Expectations;
-import org.jmock.integration.junit4.JUnitRuleMockery;
-import org.jmock.lib.concurrent.Synchroniser;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.DisableOnDebug;
@@ -34,35 +30,17 @@ import org.reaktivity.nukleus.Configuration;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.NukleusBuilder;
 import org.reaktivity.nukleus.NukleusFactorySpi;
-import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 import org.reaktivity.reaktor.test.NukleusClassLoader;
 import org.reaktivity.reaktor.test.ReaktorRule;
 
 public class StreamsIT
 {
-    Nukleus testNukleus;
+    private final K3poRule k3po = new K3poRule()
+            .addScriptRoot("route", "org/reaktivity/specification/nukleus/control/route")
+            .addScriptRoot("streams", "org/reaktivity/specification/nukleus/streams");
 
-    private static StreamFactoryBuilder serverStreamFactory;
-
-    @Rule
-    public JUnitRuleMockery context = new JUnitRuleMockery()
-    {
-        {
-            setThreadingPolicy(new Synchroniser());
-            testNukleus = mock(Nukleus.class);
-            serverStreamFactory = mock(StreamFactoryBuilder.class, "serverStreamFactory");
-
-            checking(new Expectations()
-            {
-                {
-                    oneOf(serverStreamFactory).setRouteManager(with(any(RouteManager.class)));
-                }
-            });
-        }
-    };
-
-    private final K3poRule k3po = new K3poRule();
+    private static StreamFactoryBuilder serverStreamFactory = new TestStreamFactoryBuilder();
 
     private final TestRule timeout = new DisableOnDebug(new Timeout(5, SECONDS));
 
@@ -76,13 +54,15 @@ public class StreamsIT
         .clean();
 
     @Rule
-    public final TestRule chain = outerRule(toTestRule(context)).around(reaktor).around(k3po).around(timeout);
+    public final TestRule chain = outerRule(reaktor).around(k3po).around(timeout);
 
-    @Test
+        @Test
     @Specification({
-        "server/new.accept.stream"
+        "${route}/server/controller",
+        "${streams}/connection.established/client",
+        "${streams}/connection.established/server"
     })
-    public void shouldBeginServerAcceptStream() throws Exception
+    public void shouldEstablishedConnection() throws Exception
     {
         k3po.finish();
     }
