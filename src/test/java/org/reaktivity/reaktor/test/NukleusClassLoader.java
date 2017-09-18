@@ -50,20 +50,20 @@ public class NukleusClassLoader extends ClassLoader
                 protected URLConnection openConnection(URL url) throws IOException
                 {
                     return new URLConnection(url)
-                            {
+                    {
 
-                                @Override
-                                public void connect() throws IOException
-                                {
-                                    // no-op
-                                }
+                        @Override
+                        public void connect() throws IOException
+                        {
+                            // no-op
+                        }
 
-                                @Override
-                                public InputStream getInputStream() throws IOException
-                                {
-                                    return new ByteArrayInputStream(contents.getBytes());
-                                }
-                            };
+                        @Override
+                        public InputStream getInputStream() throws IOException
+                        {
+                            return new ByteArrayInputStream(contents.getBytes());
+                        }
+                    };
                 }
 
             });

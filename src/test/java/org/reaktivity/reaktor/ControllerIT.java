@@ -30,7 +30,6 @@ import org.reaktivity.nukleus.Configuration;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.NukleusBuilder;
 import org.reaktivity.nukleus.NukleusFactorySpi;
-import org.reaktivity.reaktor.test.NukleusClassLoader;
 import org.reaktivity.reaktor.test.ReaktorRule;
 
 public class ControllerIT
@@ -47,7 +46,7 @@ public class ControllerIT
         .commandBufferCapacity(1024)
         .responseBufferCapacity(1024)
         .counterValuesBufferCapacity(1024)
-        .loader(new NukleusClassLoader(TestNukleusFactorySpi.class.getName()))
+        .nukleusFactory(TestNukleusFactorySpi.class)
         .clean();
 
     @Rule
