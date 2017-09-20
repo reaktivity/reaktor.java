@@ -187,6 +187,16 @@ public class SimplexIT
         k3po.finish();
     }
 
+    @Test
+    @Specification({
+        "server.sent.throttle.initial.only.test/client",
+        "server.sent.throttle.initial.only.test/server"
+    })
+    public void shouldThrottleInitialOnlyClientSentDataTest() throws Exception
+    {
+        k3po.finish();
+    }
+
     // should pass because even if throttling is disabled, the receiver window is big enough to receive the message
     @Test
     @Specification({
