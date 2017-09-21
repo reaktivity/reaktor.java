@@ -39,6 +39,7 @@ import org.junit.rules.Timeout;
 import org.kaazing.k3po.junit.annotation.Specification;
 import org.kaazing.k3po.junit.rules.K3poRule;
 import org.mockito.ArgumentCaptor;
+import org.mockito.stubbing.Answer;
 import org.reaktivity.nukleus.Configuration;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.NukleusBuilder;
@@ -105,14 +106,19 @@ public class StreamsIT
             when(serverStreamFactory.build()).thenReturn(streamFactory);
 
             when(streamFactory.newStream(anyInt(), any(DirectBuffer.class), anyInt(), anyInt(), throttle.capture()))
-                 .thenReturn(new TestStream(
-                         router,
-                         supplyStreamId,
-                         supplyCorrelationId,
-                         writeBuffer,
-                         throttle,
-                         correlations)
-                         );
+                 .thenAnswer(newStreamAnswer());
+        }
+
+        private Answer<MessageConsumer> newStreamAnswer()
+        {
+            return (invocation) ->
+                new TestStream(
+                        router.getValue(),
+                        supplyStreamId.getValue(),
+                        supplyCorrelationId.getValue(),
+                        writeBuffer.getValue(),
+                        throttle.getValue(),
+                        correlations);
         }
 
         @Override

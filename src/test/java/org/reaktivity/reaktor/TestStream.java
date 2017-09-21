@@ -20,7 +20,6 @@ import java.util.function.LongSupplier;
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Long2ObjectHashMap;
-import org.mockito.ArgumentCaptor;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteManager;
@@ -40,19 +39,19 @@ final class TestStream implements MessageConsumer
     private final BeginFW.Builder beginRW = new BeginFW.Builder();
     private final ResetFW.Builder resetRW = new ResetFW.Builder();
 
-    private ArgumentCaptor<RouteManager> router;
-    private ArgumentCaptor<LongSupplier> supplyStreamId;
-    private ArgumentCaptor<LongSupplier> supplyCorrelationId;
-    private ArgumentCaptor<MutableDirectBuffer> writeBuffer;
+    private RouteManager router;
+    private LongSupplier supplyStreamId;
+    private LongSupplier supplyCorrelationId;
+    private MutableDirectBuffer writeBuffer;
     private final Long2ObjectHashMap<Accepted> correlations;
-    private final ArgumentCaptor<MessageConsumer> throttle;
+    private final MessageConsumer throttle;
 
     TestStream(
-        ArgumentCaptor<RouteManager> router,
-        ArgumentCaptor<LongSupplier> supplyStreamId,
-        ArgumentCaptor<LongSupplier> supplyCorrelationId,
-        ArgumentCaptor<MutableDirectBuffer> writeBuffer,
-        ArgumentCaptor<MessageConsumer> throttle,
+        RouteManager router,
+        LongSupplier supplyStreamId,
+        LongSupplier supplyCorrelationId,
+        MutableDirectBuffer writeBuffer,
+        MessageConsumer throttle,
         Long2ObjectHashMap<Accepted> correlations)
     {
         this.router = router;
@@ -98,21 +97,21 @@ final class TestStream implements MessageConsumer
                 final long routeSourceRef = route.sourceRef();
                 return sourceRef == routeSourceRef;
             };
-            RouteFW route = router.getValue().resolve(filter, (m, b, i, l) -> routeRO.wrap(b, i, i + l));
+            RouteFW route = router.resolve(filter, (m, b, i, l) -> routeRO.wrap(b, i, i + l));
             if (route != null)
             {
-                MessageConsumer target = router.getValue().supplyTarget(route.target().asString());
-                long newConnectId = supplyStreamId.getValue().getAsLong();
-                long newCorrelationId = supplyCorrelationId.getValue().getAsLong();
+                MessageConsumer target = router.supplyTarget(route.target().asString());
+                long newConnectId = supplyStreamId.getAsLong();
+                long newCorrelationId = supplyCorrelationId.getAsLong();
                 correlations.put(newCorrelationId,
                         new Accepted(begin.correlationId(), begin.source().asString()));
-                final BeginFW newBegin = beginRW.wrap(writeBuffer.getValue(),  0, writeBuffer.getValue().capacity())
+                final BeginFW newBegin = beginRW.wrap(writeBuffer,  0, writeBuffer.capacity())
                         .streamId(newConnectId)
                         .source("example")
                         .sourceRef(route.targetRef())
                         .correlationId(newCorrelationId)
                         .build();
-                target.accept(BeginFW.TYPE_ID, writeBuffer.getValue(), newBegin.offset(), newBegin.sizeof());
+                target.accept(BeginFW.TYPE_ID, writeBuffer, newBegin.offset(), newBegin.sizeof());
             }
         }
         else
@@ -120,15 +119,15 @@ final class TestStream implements MessageConsumer
             Accepted accepted = correlations.get(begin.correlationId());
             if (accepted != null)
             {
-                MessageConsumer acceptReply = router.getValue().supplyTarget(accepted.acceptName);
-                long newReplyId = supplyStreamId.getValue().getAsLong();
-                final BeginFW beginOut = beginRW.wrap(writeBuffer.getValue(),  0, writeBuffer.getValue().capacity())
+                MessageConsumer acceptReply = router.supplyTarget(accepted.acceptName);
+                long newReplyId = supplyStreamId.getAsLong();
+                final BeginFW beginOut = beginRW.wrap(writeBuffer,  0, writeBuffer.capacity())
                         .streamId(newReplyId)
                         .source("example")
                         .sourceRef(0L)
                         .correlationId(accepted.correlationId)
                         .build();
-                acceptReply.accept(BeginFW.TYPE_ID, writeBuffer.getValue(), beginOut.offset(), beginOut.sizeof());
+                acceptReply.accept(BeginFW.TYPE_ID, writeBuffer, beginOut.offset(), beginOut.sizeof());
             }
             else
             {
@@ -145,11 +144,11 @@ final class TestStream implements MessageConsumer
         FrameFW frame = frameRO.wrap(buffer, index, index + length);
         long streamId = frame.streamId();
 
-        final ResetFW reset = resetRW.wrap(writeBuffer.getValue(), 0, writeBuffer.getValue().capacity())
+        final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .streamId(streamId)
                 .build();
 
-        throttle.getValue().accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
+        throttle.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
     }
 
     static class Accepted
