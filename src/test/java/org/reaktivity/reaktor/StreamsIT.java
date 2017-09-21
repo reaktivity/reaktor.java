@@ -36,6 +36,7 @@ import org.junit.Test;
 import org.junit.rules.DisableOnDebug;
 import org.junit.rules.TestRule;
 import org.junit.rules.Timeout;
+import org.kaazing.k3po.junit.annotation.ScriptProperty;
 import org.kaazing.k3po.junit.annotation.Specification;
 import org.kaazing.k3po.junit.rules.K3poRule;
 import org.mockito.ArgumentCaptor;
@@ -77,6 +78,20 @@ public class StreamsIT
         "${streams}/connection.established/server"
     })
     public void shouldEstablishConnection() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${streams}/connection.established.authorized/client",
+        "${streams}/connection.established.authorized/server"
+    })
+    // TODO: add a bigEndianToNative function in nukleus.spec and use it on the controller script
+    //       to allow the following property to be set in big endian order, i.e. 0x00 0x01 0x80 0x00 ...
+    @ScriptProperty("routeAuthorization [0x00 0x00 0x00 0x00 0x00 0x80 0x01 0x00]")
+    public void shouldEstablishAuthorizedConnection() throws Exception
     {
         k3po.finish();
     }

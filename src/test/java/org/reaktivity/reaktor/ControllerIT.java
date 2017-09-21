@@ -83,7 +83,7 @@ public class ControllerIT
     @Specification({
         "${control}/route/server/controller"
     })
-    @ScriptProperty("authorization [0x01 0x00 0x00 0x00 0x00 0x00 0x00 0x00]")
+    @ScriptProperty("routeAuthorization [0x00 0x00 0x00 0x00 0x00 0x00 0x01 0x00]")
     public void shouldRouteAsServerWithAuthenticationRequired() throws Exception
     {
         k3po.finish();
@@ -93,7 +93,7 @@ public class ControllerIT
     @Specification({
         "${control}/route/server/controller"
     })
-    @ScriptProperty("authorization [0x01 0x00 0xc0 0x00 0x00 0x00 0x00 0x00]")
+    @ScriptProperty("routeAuthorization [0x00 0x00 0x00 0x00 0x00 0xc0 0x01 0x00]")
     public void shouldRouteAsServerWithRolesRequired() throws Exception
     {
         k3po.finish();

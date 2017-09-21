@@ -89,13 +89,16 @@ final class TestStream implements MessageConsumer
         BeginFW begin)
     {
         final long sourceRef = begin.sourceRef();
+        final long authorization = begin.authorization();
         if (sourceRef != 0L)
         {
             MessagePredicate filter = (m, b, i, l) ->
             {
                 RouteFW route = routeRO.wrap(b, i, i + l);
                 final long routeSourceRef = route.sourceRef();
-                return sourceRef == routeSourceRef;
+                final long routeAuthorization = route.authorization();
+                return sourceRef == routeSourceRef
+                       && (authorization & routeAuthorization) == routeAuthorization;
             };
             RouteFW route = router.resolve(filter, (m, b, i, l) -> routeRO.wrap(b, i, i + l));
             if (route != null)
@@ -107,11 +110,16 @@ final class TestStream implements MessageConsumer
                         new Accepted(begin.correlationId(), begin.source().asString()));
                 final BeginFW newBegin = beginRW.wrap(writeBuffer,  0, writeBuffer.capacity())
                         .streamId(newConnectId)
+                        .authorization(authorization)
                         .source("example")
                         .sourceRef(route.targetRef())
                         .correlationId(newCorrelationId)
                         .build();
                 target.accept(BeginFW.TYPE_ID, writeBuffer, newBegin.offset(), newBegin.sizeof());
+            }
+            else
+            {
+                processUnexpected(begin.buffer(), begin.offset(), begin.sizeof());
             }
         }
         else

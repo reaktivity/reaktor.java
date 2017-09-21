@@ -232,6 +232,7 @@ public final class Acceptor extends Nukleus.Composite
             final StringFW source = route.source();
             final StringFW target = route.target();
             final long targetRef = route.targetRef();
+            final long authorization = route.authorization();
             final OctetsFW extension = route.extension();
 
             route = routeRW.wrap(routeBuf, 0, routeBuf.capacity())
@@ -241,6 +242,7 @@ public final class Acceptor extends Nukleus.Composite
                            .sourceRef(newSourceRef)
                            .target(target)
                            .targetRef(targetRef)
+                           .authorization(authorization)
                            .extension(b -> b.set(extension))
                            .build();
         }
