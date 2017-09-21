@@ -17,8 +17,20 @@ package org.reaktivity.reaktor;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.rules.RuleChain.outerRule;
+import static org.mockito.ArgumentCaptor.forClass;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.reaktivity.nukleus.route.RouteKind.SERVER;
 
+import java.util.function.Function;
+import java.util.function.LongSupplier;
+import java.util.function.Supplier;
+
+import org.agrona.DirectBuffer;
+import org.agrona.MutableDirectBuffer;
+import org.agrona.collections.Long2ObjectHashMap;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.DisableOnDebug;
@@ -26,12 +38,15 @@ import org.junit.rules.TestRule;
 import org.junit.rules.Timeout;
 import org.kaazing.k3po.junit.annotation.Specification;
 import org.kaazing.k3po.junit.rules.K3poRule;
+import org.mockito.ArgumentCaptor;
 import org.reaktivity.nukleus.Configuration;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.NukleusBuilder;
 import org.reaktivity.nukleus.NukleusFactorySpi;
+import org.reaktivity.nukleus.function.MessageConsumer;
+import org.reaktivity.nukleus.route.RouteManager;
+import org.reaktivity.nukleus.stream.StreamFactory;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
-import org.reaktivity.reaktor.test.NukleusClassLoader;
 import org.reaktivity.reaktor.test.ReaktorRule;
 
 public class StreamsIT
@@ -39,8 +54,6 @@ public class StreamsIT
     private final K3poRule k3po = new K3poRule()
             .addScriptRoot("route", "org/reaktivity/specification/nukleus/control/route")
             .addScriptRoot("streams", "org/reaktivity/specification/nukleus/streams");
-
-    private static StreamFactoryBuilder serverStreamFactory = new TestStreamFactoryBuilder();
 
     private final TestRule timeout = new DisableOnDebug(new Timeout(5, SECONDS));
 
@@ -50,25 +63,57 @@ public class StreamsIT
         .commandBufferCapacity(1024)
         .responseBufferCapacity(1024)
         .counterValuesBufferCapacity(1024)
-        .loader(new NukleusClassLoader(TestNukleusFactorySpi.class.getName()))
+        .nukleusFactory(TestNukleusFactorySpi.class)
         .clean();
 
     @Rule
     public final TestRule chain = outerRule(reaktor).around(k3po).around(timeout);
 
-        @Test
+    @Test
     @Specification({
         "${route}/server/controller",
         "${streams}/connection.established/client",
         "${streams}/connection.established/server"
     })
-    public void shouldEstablishedConnection() throws Exception
+    public void shouldEstablishConnection() throws Exception
     {
         k3po.finish();
     }
 
     public static class TestNukleusFactorySpi implements NukleusFactorySpi
     {
+        private StreamFactoryBuilder serverStreamFactory = mock(StreamFactoryBuilder.class);
+        private StreamFactory streamFactory = mock(StreamFactory.class);
+
+        private ArgumentCaptor<LongSupplier> supplyCorrelationId = forClass(LongSupplier.class);
+        private ArgumentCaptor<RouteManager> router = forClass(RouteManager.class);
+        private ArgumentCaptor<LongSupplier> supplyStreamId = forClass(LongSupplier.class);
+        private ArgumentCaptor<MutableDirectBuffer> writeBuffer = forClass(MutableDirectBuffer.class);
+        private ArgumentCaptor<MessageConsumer> throttle = forClass(MessageConsumer.class);
+
+        private final Long2ObjectHashMap<TestStream.Accepted> correlations = new Long2ObjectHashMap<>();
+
+        @SuppressWarnings("unchecked")
+        public TestNukleusFactorySpi()
+        {
+            when(serverStreamFactory.setCorrelationIdSupplier(supplyCorrelationId.capture())).thenReturn(serverStreamFactory);
+            when(serverStreamFactory.setStreamIdSupplier(supplyStreamId.capture())).thenReturn(serverStreamFactory);
+            when(serverStreamFactory.setRouteManager(router.capture())).thenReturn(serverStreamFactory);
+            when(serverStreamFactory.setWriteBuffer(writeBuffer.capture())).thenReturn(serverStreamFactory);
+            when(serverStreamFactory.setBufferPoolSupplier(any(Supplier.class))).thenReturn(serverStreamFactory);
+            when(serverStreamFactory.setCounterSupplier(any(Function.class))).thenReturn(serverStreamFactory);
+            when(serverStreamFactory.build()).thenReturn(streamFactory);
+
+            when(streamFactory.newStream(anyInt(), any(DirectBuffer.class), anyInt(), anyInt(), throttle.capture()))
+                 .thenReturn(new TestStream(
+                         router,
+                         supplyStreamId,
+                         supplyCorrelationId,
+                         writeBuffer,
+                         throttle,
+                         correlations)
+                         );
+        }
 
         @Override
         public String name()
@@ -82,7 +127,6 @@ public class StreamsIT
             return builder.streamFactory(SERVER, serverStreamFactory)
                    .build();
         }
-
     }
 
 }

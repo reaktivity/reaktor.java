@@ -47,6 +47,7 @@
     <nukleus.spec.version>develop-SNAPSHOT</nukleus.spec.version>
     <nukleus.version>0.11</nukleus.version>
     <jmock.version>2.6.0</jmock.version>
+    <mockito.version>2.7.13</mockito.version>
     <k3po.version>3.0.0-alpha-80</k3po.version>
     <k3po.nukleus.ext.version>develop-SNAPSHOT</k3po.nukleus.ext.version>
   </properties>
@@ -72,6 +73,12 @@
       <groupId>org.jmock</groupId>
       <artifactId>jmock-junit4</artifactId>
       <version>${jmock.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>${mockito.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
