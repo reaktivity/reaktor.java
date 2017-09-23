@@ -27,7 +27,7 @@ import org.jboss.netty.channel.DefaultServerChannelConfig;
 
 public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfig implements NukleusServerChannelConfig
 {
-    private static final ByteBuffer LONG_BUFFER = ByteBuffer.wrap(new byte[8]).order(ByteOrder.BIG_ENDIAN);
+    private static final ByteBuffer LONG_BUFFER = ByteBuffer.wrap(new byte[8]).order(ByteOrder.LITTLE_ENDIAN);
 
     private long correlation;
     private String readPartition;
