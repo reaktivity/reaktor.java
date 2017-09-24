@@ -52,6 +52,16 @@ public final class Counters implements AutoCloseable
         return counter("streams");
     }
 
+    public AtomicCounter acquires()
+    {
+        return counter("acquires");
+    }
+
+    public AtomicCounter releases()
+    {
+        return counter("releases");
+    }
+
     public AtomicCounter counter(
         String name)
     {
