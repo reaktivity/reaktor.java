@@ -221,8 +221,7 @@ public class SimplexIT
         k3po.finish();
     }
 
-    @Ignore
-    // should succeed because the receiver window is 0 and window adjustment is enabled
+    // should fail (please see readme)
     @Test
     @Specification({
         "server.set.window0.throttle.on/client",
@@ -230,6 +229,8 @@ public class SimplexIT
     })
     public void shouldReceiveMessageWindow0ThrottleingOn() throws Exception
     {
+        thrown.expect(anyOf(isA(ComparisonFailure.class),
+                hasProperty("failures", hasItem(isA(ComparisonFailure.class)))));
         k3po.finish();
     }
 

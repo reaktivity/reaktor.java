@@ -213,3 +213,8 @@ read aborted
 read nukleus:end.ext [0x...]
 read closed
 ```
+
+
+NOTE: 
+The option window refers to the size/number of bytes the receiver can accept. 
+The option throttle refers to the way the receiver adjusts its window (when set to "message" or "stream" it's on, when set to "none" it's off). Currently when window is set to 0, it will remain 0 even if throttle is set to "on".
