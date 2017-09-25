@@ -94,6 +94,39 @@ public class StreamsIT
         k3po.finish();
     }
 
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${streams}/connection.refused.not.authorized/client"
+    })
+    @ScriptProperty("routeAuthorization [0x01 0x00 0x81 0x00 0x00 0x00 0x00 0x00]")
+    public void shoulResetConnectionWhenNotAuthorizedMissingARequiredRole() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${streams}/connection.refused.not.authorized/client"
+    })
+    @ScriptProperty("routeAuthorization [0x02 0x00 0x80 0x00 0x00 0x00 0x00 0x00]")
+    public void shoulResetConnectionWhenNotAuthorizedWrongSecurityScope() throws Exception
+    {
+        k3po.finish();
+    }
+
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${streams}/connection.refused.unknown.route.ref/client"
+    })
+    public void shouldResetConnectionWhenNotRouted() throws Exception
+    {
+        k3po.finish();
+    }
+
     public static class TestNukleusFactorySpi implements NukleusFactorySpi
     {
         private StreamFactoryBuilder serverStreamFactory = mock(StreamFactoryBuilder.class);
