@@ -88,9 +88,7 @@ public class StreamsIT
         "${streams}/connection.established.authorized/client",
         "${streams}/connection.established.authorized/server"
     })
-    // TODO: add a bigEndianToNative function in nukleus.spec and use it on the controller script
-    //       to allow the following property to be set in big endian order, i.e. 0x00 0x01 0x80 0x00 ...
-    @ScriptProperty("routeAuthorization [0x00 0x00 0x00 0x00 0x00 0x80 0x01 0x00]")
+    @ScriptProperty("routeAuthorization [0x01 0x00 0x80 0x00 0x00 0x00 0x00 0x00]")
     public void shouldEstablishAuthorizedConnection() throws Exception
     {
         k3po.finish();
