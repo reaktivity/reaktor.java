@@ -84,15 +84,43 @@ public class StreamsIT
 
     @Test
     @Specification({
-        "${route}/server/controller",
-        "${streams}/connection.established.authorized/client",
-        "${streams}/connection.established.authorized/server"
+        "${route}/server/multiple.routes/controller",
+        "${streams}/multiple.connections.established/client",
+        "${streams}/multiple.connections.established/server"
     })
-    @ScriptProperty("routeAuthorization [0x01 0x00 0x80 0x00 0x00 0x00 0x00 0x00]")
+    public void shouldEstablishMultipleConnections() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${route}/server/controller",
+        "${streams}/connection.established/client",
+        "${streams}/connection.established/server"
+    })
+    @ScriptProperty({"routeAuthorization  [0x01 0x00 0x80 0x00 0x00 0x00 0x00 0x00]",
+                     "streamAuthorization [0x01 0x00 0x81]"})
     public void shouldEstablishAuthorizedConnection() throws Exception
     {
         k3po.finish();
     }
+
+    @Test
+    @Specification({
+        "${route}/server/multiple.routes/controller",
+        "${streams}/multiple.connections.established/client",
+        "${streams}/multiple.connections.established/server"
+    })
+    @ScriptProperty({"routeAuthorization1  [0x01 0x00 0x80 0x00 0x00 0x00 0x00 0x00]",
+                     "streamAuthorization1 [0x01 0x00 0x80]",
+                     "routeAuthorization2  [0x01 0x00 0x00 0x00 0x00 0x00 0x00 0x00]",
+                     "streamAuthorization2 [0x01 0x00 0x00]"})
+    public void shouldEstablishMultipleAuthorizedConnections() throws Exception
+    {
+        k3po.finish();
+    }
+
 
     @Test
     @Specification({

@@ -32,7 +32,7 @@ import org.reaktivity.nukleus.NukleusBuilder;
 import org.reaktivity.nukleus.NukleusFactorySpi;
 import org.reaktivity.reaktor.test.ReaktorRule;
 
-public class ControllerIT
+public class ControlIT
 {
 
     private final K3poRule k3po = new K3poRule()
