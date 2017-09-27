@@ -84,17 +84,6 @@ public class StreamsIT
 
     @Test
     @Specification({
-        "${route}/server/multiple.routes/controller",
-        "${streams}/multiple.connections.established/client",
-        "${streams}/multiple.connections.established/server"
-    })
-    public void shouldEstablishMultipleConnections() throws Exception
-    {
-        k3po.finish();
-    }
-
-    @Test
-    @Specification({
         "${route}/server/controller",
         "${streams}/connection.established/client",
         "${streams}/connection.established/server"

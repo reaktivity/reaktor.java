@@ -81,6 +81,26 @@ public class ControlIT
 
     @Test
     @Specification({
+        "${control}/route/server/multiple.routes/controller"
+    })
+    public void shouldRouteAsServerWithMultipleRoutes() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${control}/route/server/multiple.routes/controller"
+    })
+    @ScriptProperty({"routeAuthorization1 [0x01 0x00 0x03 0x00 0x00 0x00 0x00 0x00]",
+                     "routeAuthorization2 [0x01 0x00 0x00 0x00 0x00 0x00 0x00 0x00]"})
+    public void shouldRouteAsServerWithMultipleRoutesDifferingInAuthorization() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "${control}/route/server/controller"
     })
     @ScriptProperty("routeAuthorization [0x00 0x00 0x00 0x00 0x00 0x00 0x01 0x00]")
@@ -125,6 +145,20 @@ public class ControlIT
         "${control}/unroute/server/controller"
     })
     public void shouldUnrouteAsServer() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${control}/route/server/multiple.routes/controller",
+        "${control}/unroute/server/multiple.routes/controller"
+    })
+    @ScriptProperty({"routeAuthorization1 [0x01 0x00 0x03 0x00 0x00 0x00 0x00 0x00]",
+                     "routeAuthorization2 [0x01 0x00 0x00 0x00 0x00 0x00 0x00 0x00]",
+                     "unrouteAuthorization1 [0x01 0x00 0x03 0x00 0x00 0x00 0x00 0x00]",
+                     "unrouteAuthorization2 [0x01 0x00 0x00 0x00 0x00 0x00 0x00 0x00]"})
+    public void shouldUnrouteAsServerWithMultipleRoutesDifferingInAuthorization() throws Exception
     {
         k3po.finish();
     }

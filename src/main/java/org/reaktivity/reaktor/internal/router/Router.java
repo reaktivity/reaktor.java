@@ -15,6 +15,7 @@
  */
 package org.reaktivity.reaktor.internal.router;
 
+import static org.reaktivity.reaktor.internal.router.RouteMatchers.authorizationMatches;
 import static org.reaktivity.reaktor.internal.router.RouteMatchers.sourceMatches;
 import static org.reaktivity.reaktor.internal.router.RouteMatchers.sourceRefMatches;
 import static org.reaktivity.reaktor.internal.router.RouteMatchers.targetMatches;
@@ -72,12 +73,14 @@ public final class Router extends Nukleus.Composite
         final long sourceRef = unroute.sourceRef();
         final String targetName = unroute.target().asString();
         final long targetRef = unroute.targetRef();
+        final long authorization = unroute.authorization();
 
         final Predicate<RouteFW> filter =
                 sourceMatches(sourceName)
                 .and(sourceRefMatches(sourceRef))
                 .and(targetMatches(targetName))
-                .and(targetRefMatches(targetRef));
+                .and(targetRefMatches(targetRef))
+                .and(authorizationMatches(authorization));
 
         return routes.removeIf(filter) &&
                routeHandler.test(unroute.typeId(), unroute.buffer(), unroute.offset(), unroute.sizeof());
