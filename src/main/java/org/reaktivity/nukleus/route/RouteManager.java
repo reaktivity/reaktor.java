@@ -22,6 +22,7 @@ import org.reaktivity.nukleus.function.MessagePredicate;
 public interface RouteManager
 {
     <R> R resolve(
+        long authorization,
         MessagePredicate filter,
         MessageFunction<R> mapper);
 
