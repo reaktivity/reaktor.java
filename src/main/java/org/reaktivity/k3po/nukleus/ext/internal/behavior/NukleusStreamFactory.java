@@ -68,7 +68,7 @@ public final class NukleusStreamFactory
         private final NukleusChannel channel;
         private final NukleusPartition partition;
         private final ChannelFuture handshakeFuture;
-        private final long authorization;
+        private long authorization;
 
         private Stream(
             NukleusChannel channel,
@@ -78,14 +78,6 @@ public final class NukleusStreamFactory
             this.channel = channel;
             this.partition = partition;
             this.handshakeFuture = handshakeFuture;
-            if (channel instanceof NukleusChildChannel)
-            {
-                authorization = ((NukleusChildChannel) channel).getParent().getConfig().getAuthorization();
-            }
-            else
-            {
-                authorization = 0L;
-            }
         }
 
         private void handleStream(
@@ -119,6 +111,7 @@ public final class NukleusStreamFactory
             BeginFW begin)
         {
             final long streamId = begin.streamId();
+            authorization = begin.authorization();
             final OctetsFW beginExt = begin.extension();
 
             final NukleusChannelConfig channelConfig = channel.getConfig();
@@ -155,7 +148,7 @@ public final class NukleusStreamFactory
             final int readableBytes = message.readableBytes();
             final OctetsFW dataExt = data.extension();
 
-            if (channel.sourceWindow() >= readableBytes)
+            if (channel.sourceWindow() >= readableBytes && data.authorization() == authorization)
             {
                 channel.sourceWindow(-readableBytes, -1);
 
@@ -176,10 +169,7 @@ public final class NukleusStreamFactory
                 {
                     partition.doWindow(channel, readableBytes, 1);
                 }
-                if ((data.authorization() & authorization) == authorization)
-                {
-                    fireMessageReceived(channel, message);
-                }
+                fireMessageReceived(channel, message);
             }
             else
             {
@@ -191,6 +181,10 @@ public final class NukleusStreamFactory
             EndFW end)
         {
             final long streamId = end.streamId();
+            if (end.authorization() != authorization)
+            {
+                partition.doReset(streamId);
+            }
             unregisterStream.accept(streamId);
 
             final OctetsFW endExt = end.extension();
@@ -225,6 +219,10 @@ public final class NukleusStreamFactory
             AbortFW abort)
         {
             final long streamId = abort.streamId();
+            if (abort.authorization() != authorization)
+            {
+                partition.doReset(streamId);
+            }
             unregisterStream.accept(streamId);
 
             if (channel.setReadAborted())
