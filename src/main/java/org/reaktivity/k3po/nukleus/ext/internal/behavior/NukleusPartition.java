@@ -52,7 +52,7 @@ final class NukleusPartition implements AutoCloseable
     private final StreamsLayout layout;
     private final RingBuffer streamsBuffer;
     private final RingBuffer throttleBuffer;
-    private final LongFunction<NukleusServerChannel> lookupRoute;
+    private final BiFunction<Long, Long, NukleusServerChannel> lookupRoute;
     private final LongFunction<MessageHandler> lookupStream;
     private final MessageHandler streamHandler;
     private final LongObjectBiConsumer<MessageHandler> registerStream;
@@ -64,7 +64,7 @@ final class NukleusPartition implements AutoCloseable
     NukleusPartition(
         Path partitionPath,
         StreamsLayout layout,
-        LongFunction<NukleusServerChannel> lookupRoute,
+        BiFunction<Long, Long, NukleusServerChannel> lookupRoute,
         LongFunction<MessageHandler> lookupStream,
         LongObjectBiConsumer<MessageHandler> registerStream,
         MutableDirectBuffer writeBuffer,
@@ -152,13 +152,13 @@ final class NukleusPartition implements AutoCloseable
     {
         final long sourceRef = begin.sourceRef();
         final long sourceId = begin.streamId();
-        final NukleusServerChannel serverChannel = lookupRoute.apply(sourceRef);
+        final NukleusServerChannel serverChannel = lookupRoute.apply(sourceRef, begin.authorization());
 
         if (serverChannel != null)
         {
             final long authorization = begin.authorization();
             final long required = serverChannel.getConfig().getAuthorization();
-            if ((authorization & required) != required)
+            if (authorization != required)
             {
                 doReset(sourceId);
             }

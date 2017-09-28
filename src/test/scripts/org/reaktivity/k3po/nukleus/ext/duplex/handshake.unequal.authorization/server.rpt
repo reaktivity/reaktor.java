@@ -16,9 +16,9 @@
 
 property newRouteRef 1234L # external
 
-connect "nukleus://server/streams/client"
-        option nukleus:route ${newRouteRef}
-        option nukleus:authorization [0x01 0x00 0xc0]
-        option nukleus:window 8192
-connected
-write aborted
+accept "nukleus://server/streams/client"
+       option nukleus:route ${newRouteRef}
+       option nukleus:transmission "duplex"
+       option nukleus:authorization [0x00 0x00 0x00]
+       option nukleus:window 8192
+

@@ -86,10 +86,10 @@ public class SimplexIT
 
     @Test
     @Specification({
-        "handshake.not.authorized/client",
-        "handshake.not.authorized/server"
+        "handshake.unequal.authorization/client",
+        "handshake.unequal.authorization/server"
     })
-    public void shouldFailHandshakeWithNonMatchingAuthorization() throws Exception
+    public void shouldFailHandshakeWithUnequalAuthorization() throws Exception
     {
         k3po.finish();
     }

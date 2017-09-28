@@ -275,9 +275,10 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
                 Path scopePath = scopePath(receiverName);
                 String sourceName = localAddress.getSenderName();
                 long sourceRef = localAddress.getRoute();
+                long authorization = localAddress.getAuthorization();
 
                 NukleusScope scope = reaktor.scopesByPath.computeIfAbsent(scopePath, reaktor::newScope);
-                scope.doRoute(sourceName, sourceRef, serverChannel);
+                scope.doRoute(sourceName, sourceRef, authorization, serverChannel);
 
                 serverChannel.setLocalAddress(localAddress);
                 serverChannel.setBound();

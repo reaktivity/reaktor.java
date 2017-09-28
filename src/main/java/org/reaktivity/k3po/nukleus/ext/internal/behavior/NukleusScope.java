@@ -79,10 +79,11 @@ public final class NukleusScope implements AutoCloseable
     public void doRoute(
         String sourceName,
         long sourceRef,
+        long authorization,
         NukleusServerChannel serverChannel)
     {
         NukleusSource source = supplySource(sourceName);
-        source.doRoute(sourceRef, serverChannel);
+        source.doRoute(sourceRef, authorization, serverChannel);
     }
 
     public void doUnroute(
