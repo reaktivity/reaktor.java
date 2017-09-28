@@ -105,28 +105,36 @@ public final class Target implements Nukleus
         int index,
         int length)
     {
+        boolean handled;
+
         switch (msgTypeId)
         {
         case BeginFW.TYPE_ID:
-            streamsBuffer.test(msgTypeId, buffer, index, length);
+            handled = streamsBuffer.test(msgTypeId, buffer, index, length);
             break;
         case DataFW.TYPE_ID:
-            streamsBuffer.test(msgTypeId, buffer, index, length);
+            handled = streamsBuffer.test(msgTypeId, buffer, index, length);
             break;
         case EndFW.TYPE_ID:
-            streamsBuffer.test(msgTypeId, buffer, index, length);
+            handled = streamsBuffer.test(msgTypeId, buffer, index, length);
 
             final FrameFW end = frameRO.wrap(buffer, index, index + length);
             throttles.remove(end.streamId());
             break;
         case AbortFW.TYPE_ID:
-            streamsBuffer.test(abortTypeId, buffer, index, length);
+            handled = streamsBuffer.test(abortTypeId, buffer, index, length);
 
             final FrameFW abort = frameRO.wrap(buffer, index, index + length);
             throttles.remove(abort.streamId());
             break;
         default:
+            handled = true;
             break;
+        }
+
+        if (!handled)
+        {
+            throw new IllegalStateException("Unable to write to streams buffer");
         }
     }
 
@@ -160,7 +168,7 @@ public final class Target implements Nukleus
 
     void abort()
     {
-        streamsBuffer = (t, b, i, l) -> false;
+        streamsBuffer = (t, b, i, l) -> true;
     }
 
     void reset(
