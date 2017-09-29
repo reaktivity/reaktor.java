@@ -110,7 +110,6 @@ public class StreamsIT
         k3po.finish();
     }
 
-
     @Test
     @Specification({
         "${route}/server/controller",
@@ -132,7 +131,6 @@ public class StreamsIT
     {
         k3po.finish();
     }
-
 
     @Test
     @Specification({

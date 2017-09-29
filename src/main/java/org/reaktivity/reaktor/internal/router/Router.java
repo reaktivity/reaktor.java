@@ -38,6 +38,8 @@ import org.reaktivity.reaktor.internal.types.control.UnrouteFW;
 
 public final class Router extends Nukleus.Composite
 {
+    private final RouteFW routeRO = new RouteFW();
+
     private final Set<RouteFW> routes;
 
     public Router(
@@ -87,13 +89,22 @@ public final class Router extends Nukleus.Composite
     }
 
     public <R> R resolve(
+        final long authorization,
         MessagePredicate filter,
         MessageFunction<R> mapper)
     {
         R mapped = null;
 
+        MessagePredicate secure = (m, b, i, l) ->
+        {
+            RouteFW route = routeRO.wrap(b, i, i + l);
+            final long routeAuthorization = route.authorization();
+            return (authorization & routeAuthorization) == routeAuthorization;
+        };
+        final MessagePredicate secureFilter = secure.and(filter);
+
         final Optional<RouteFW> optional = routes.stream()
-              .filter(r -> filter.test(r.typeId(), r.buffer(), r.offset(), r.limit()))
+              .filter(r -> secureFilter.test(r.typeId(), r.buffer(), r.offset(), r.limit()))
               .findFirst();
 
         if (optional.isPresent())

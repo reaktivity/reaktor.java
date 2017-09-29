@@ -96,11 +96,9 @@ final class TestStream implements MessageConsumer
             {
                 RouteFW route = routeRO.wrap(b, i, i + l);
                 final long routeSourceRef = route.sourceRef();
-                final long routeAuthorization = route.authorization();
-                return sourceRef == routeSourceRef
-                       && (authorization & routeAuthorization) == routeAuthorization;
+                return sourceRef == routeSourceRef;
             };
-            RouteFW route = router.resolve(filter, (m, b, i, l) -> routeRO.wrap(b, i, i + l));
+            RouteFW route = router.resolve(authorization, filter, (m, b, i, l) -> routeRO.wrap(b, i, i + l));
             if (route != null)
             {
                 MessageConsumer target = router.supplyTarget(route.target().asString());

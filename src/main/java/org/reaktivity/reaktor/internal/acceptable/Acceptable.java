@@ -134,10 +134,11 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
 
     @Override
     public <R> R resolve(
+        long authorization,
         MessagePredicate filter,
         MessageFunction<R> mapper)
     {
-        return router.resolve(filter, mapper);
+        return router.resolve(authorization, filter, mapper);
     }
 
     @Override
@@ -211,7 +212,6 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
     {
         final AbortFW abort = abortRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                                      .streamId(streamId)
-                                     .extension(e -> e.reset())
                                      .build();
 
         stream.accept(abortTypeId, abort.buffer(), abort.offset(), abort.sizeof());
