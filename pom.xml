@@ -164,6 +164,7 @@
             <configuration>
               <includes>
                 <include>org/reaktivity/reaktor/test/ReaktorRule*.class</include>
+                <include>org/reaktivity/reaktor/test/NukleusClassLoader*.class</include>
               </includes>
               <excludes>
                 <exclude>**/*IT.class</exclude>
