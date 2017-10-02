@@ -168,16 +168,6 @@ public class SimplexIT
 
     @Test
     @Specification({
-        "server.sent.throttle.stream/client",
-        "server.sent.throttle.stream/server"
-    })
-    public void shouldThrottleClientSentDataPerStream() throws Exception
-    {
-        k3po.finish();
-    }
-
-    @Test
-    @Specification({
         "server.sent.throttle.initial.only/client",
         "server.sent.throttle.initial.only/server"
     })
@@ -188,8 +178,8 @@ public class SimplexIT
 
     @Test
     @Specification({
-        "server.sent.throttle.initial.only.test/client",
-        "server.sent.throttle.initial.only.test/server"
+        "server.sent.throttle.initial.only.update.none/client",
+        "server.sent.throttle.initial.only.update.none/server"
     })
     public void shouldThrottleInitialOnlyClientSentDataTest() throws Exception
     {

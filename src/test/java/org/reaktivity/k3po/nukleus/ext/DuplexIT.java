@@ -318,16 +318,6 @@ public class DuplexIT
 
     @Test
     @Specification({
-        "server.sent.throttle.stream/client",
-        "server.sent.throttle.stream/server"
-    })
-    public void shouldThrottleClientSentDataPerStream() throws Exception
-    {
-        k3po.finish();
-    }
-
-    @Test
-    @Specification({
         "server.sent.overflow/client",
         "server.sent.overflow/server"
     })
