@@ -326,56 +326,6 @@ public class DuplexIT
         k3po.finish();
     }
 
-    // should pass because even if throttling is disabled, the receiver window is big enough to receive the message
-    @Test
-    @Specification({
-        "client.sent.throttle.off/client",
-        "client.sent.throttle.off/server"
-    })
-    public void shouldReceiveMessageThrottleOff() throws Exception
-    {
-        k3po.finish();
-    }
-
-    // should fail because the receiver window is not big enough and window adjustment is disabled
-    @Test
-    @Specification({
-        "client.sent.throttle.off.negative/client",
-        "client.sent.throttle.off.negative/server"
-    })
-    public void shouldNotReceiveMessageThrottleOff() throws Exception
-    {
-        thrown.expect(anyOf(isA(ComparisonFailure.class),
-                hasProperty("failures", hasItem(isA(ComparisonFailure.class)))));
-        k3po.finish();
-    }
-
-    // should fail (please see readme)
-    @Test
-    @Specification({
-        "server.set.window0.throttle.on/client",
-        "server.set.window0.throttle.on/server"
-    })
-    public void shouldReceiveMessageWindow0ThrottleingOn() throws Exception
-    {
-        thrown.expect(anyOf(isA(ComparisonFailure.class),
-                hasProperty("failures", hasItem(isA(ComparisonFailure.class)))));
-        k3po.finish();
-    }
-
-    // should fail because the receiver window is 0 and window adjustment is disabled
-    @Test
-    @Specification({
-        "server.set.window0.throttle.off/client",
-        "server.set.window0.throttle.off/server"
-    })
-    public void shouldNotReceiveMessageWindow0ThrottleingOff() throws Exception
-    {
-        thrown.expect(anyOf(isA(ComparisonFailure.class),
-                hasProperty("failures", hasItem(isA(ComparisonFailure.class)))));
-        k3po.finish();
-    }
-
     @Test
     @Specification({
         "server.sent.overflow/client",

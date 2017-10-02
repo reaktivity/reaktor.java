@@ -215,6 +215,6 @@ read closed
 ```
 
 
-NOTE: 
-The option window refers to the size/number of bytes the receiver can accept. 
-The option throttle refers to the way the receiver adjusts its window (when set to "message" or "stream" it's on, when set to "none" it's off). Currently when window is set to 0, it will remain 0 even if throttle is set to "on".
+NOTE:
+The "nukleus:window" option specifies the number of bytes that will be advertised in the first Window frame sent back in response to a Begin
+The "nukleus:throttle" option determines how and whether writes will respect Window frames received from the other end. When set to "stream" or "message", window frames are honored, When set to "none" they are not.
