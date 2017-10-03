@@ -25,7 +25,6 @@ import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.O
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_TRANSMISSION;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_UPDATE;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_WINDOW;
-import static org.reaktivity.k3po.nukleus.ext.internal.util.Convertions.convertToLong;
 
 import java.net.URI;
 import java.util.Collection;
@@ -99,7 +98,7 @@ public class NukleusChannelAddressFactory extends ChannelAddressFactorySpi
         }
 
         final long route = (Long) options.get(OPTION_ROUTE.getName());
-        final long authorization = convertToLong(options.get(OPTION_AUTHORIZATION.getName()), 0);
+        final long authorization = (Long) options.getOrDefault(OPTION_AUTHORIZATION.getName(), 0L);
         final String replyTo = (String) options.get(OPTION_REPLY_TO.getName());
 
         return new NukleusChannelAddress(location, route, authorization, replyTo);

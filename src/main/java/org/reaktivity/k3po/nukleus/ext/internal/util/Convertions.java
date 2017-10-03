@@ -1,8 +1,5 @@
 package org.reaktivity.k3po.nukleus.ext.internal.util;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-
 /**
  * Copyright 2016-2017 The Reaktivity Project
  *
@@ -20,16 +17,9 @@ import java.nio.ByteOrder;
  */
 public final class Convertions
 {
-    private static final ByteBuffer LONG_BUFFER = ByteBuffer.wrap(new byte[8]).order(ByteOrder.LITTLE_ENDIAN);
-
     private Convertions()
     {
         // no instances
-    }
-
-    public static long convertToLong(Object value, long defaultValue)
-    {
-        return value == null ? defaultValue : convertToLong(value);
     }
 
     public static long convertToLong(Object value)
@@ -37,22 +27,6 @@ public final class Convertions
         if (value instanceof Number)
         {
             return ((Number) value).longValue();
-        }
-        else if (value instanceof byte[])
-        {
-            byte[] bytes = (byte[]) value;
-            if (bytes.length > 8)
-            {
-                throw new IllegalArgumentException("Too many bytes for a long value");
-            }
-            LONG_BUFFER.clear();
-            LONG_BUFFER.put(bytes);
-            for (int i=bytes.length; i < 8; i++)
-            {
-                LONG_BUFFER.put((byte) 0);
-            }
-            LONG_BUFFER.flip();
-            return LONG_BUFFER.getLong();
         }
         else
         {
