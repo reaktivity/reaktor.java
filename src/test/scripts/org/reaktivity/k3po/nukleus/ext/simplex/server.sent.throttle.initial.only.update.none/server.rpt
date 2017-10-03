@@ -23,4 +23,5 @@ accept "nukleus://server/streams/client"
 accepted
 connected
 
-read "Hello, world"
+read "H"
+read notify FIRST_BYTE_RECEIVED

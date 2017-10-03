@@ -217,4 +217,4 @@ read closed
 
 NOTE:
 The "nukleus:window" option specifies the number of bytes that will be advertised in the first Window frame sent back in response to a Begin
-The "nukleus:throttle" option determines how and whether writes will respect Window frames received from the other end. When set to "stream" or "message", window frames are honored, When set to "none" they are not.
+The "nukleus:throttle" option determines how and whether writes will respect Window frames received from the other end. When set to "stream" or "message", window frames are honored, when set to "none" they are not.

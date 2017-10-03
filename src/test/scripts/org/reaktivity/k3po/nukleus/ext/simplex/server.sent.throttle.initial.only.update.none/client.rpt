@@ -20,6 +20,7 @@ connect "nukleus://server/streams/client"
         option nukleus:window 8192
 connected
 
-write "Hello"
-write ", "
-write "world"
+write "H"
+write await FIRST_BYTE_RECEIVED
+write "e"
+write aborted
