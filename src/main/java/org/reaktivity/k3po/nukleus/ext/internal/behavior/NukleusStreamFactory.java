@@ -21,6 +21,7 @@ import static org.jboss.netty.channel.Channels.fireChannelUnbound;
 import static org.jboss.netty.channel.Channels.fireMessageReceived;
 import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireInputAborted;
 import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireInputShutdown;
+import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusChannel.NATIVE_ORDER;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind.BEGIN;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind.DATA;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind.END;
@@ -229,7 +230,7 @@ public final class NukleusStreamFactory
         int maxLimit)
     {
         // TODO: avoid allocation
-        final ByteBuffer dstBuffer = ByteBuffer.allocate(maxLimit - index);
+        final ByteBuffer dstBuffer = ByteBuffer.allocate(maxLimit - index).order(NATIVE_ORDER);
         buffer.getBytes(index, dstBuffer, dstBuffer.capacity());
         dstBuffer.flip();
         return ChannelBuffers.wrappedBuffer(dstBuffer);

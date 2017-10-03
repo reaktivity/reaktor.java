@@ -15,13 +15,14 @@
  */
 package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 
+import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusChannel.NATIVE_ORDER;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusThrottleMode.NONE;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusThrottleMode.STREAM;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusTransmission.SIMPLEX;
 
 import java.util.Objects;
 
-import org.jboss.netty.channel.DefaultChannelConfig;
+import org.kaazing.k3po.driver.internal.netty.bootstrap.channel.DefaultChannelConfig;
 
 public class DefaultNukleusChannelConfig extends DefaultChannelConfig implements NukleusChannelConfig
 {
@@ -32,6 +33,12 @@ public class DefaultNukleusChannelConfig extends DefaultChannelConfig implements
     private int window;
     private NukleusThrottleMode throttle = STREAM;
     private boolean update = true;
+
+    public DefaultNukleusChannelConfig()
+    {
+        super();
+        setEndian(NATIVE_ORDER);
+    }
 
     @Override
     public void setCorrelation(
@@ -129,11 +136,11 @@ public class DefaultNukleusChannelConfig extends DefaultChannelConfig implements
     }
 
     @Override
-    public boolean setOption(
+    protected boolean setOption0(
         String key,
         Object value)
     {
-        if (super.setOption(key, value))
+        if (super.setOption0(key, value))
         {
             return true;
         }
