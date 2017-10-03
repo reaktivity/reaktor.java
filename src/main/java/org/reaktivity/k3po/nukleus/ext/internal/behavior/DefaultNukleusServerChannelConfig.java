@@ -21,7 +21,7 @@ import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusTransmiss
 
 import java.util.Objects;
 
-import org.jboss.netty.channel.DefaultServerChannelConfig;
+import org.kaazing.k3po.driver.internal.netty.bootstrap.channel.DefaultServerChannelConfig;
 
 public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfig implements NukleusServerChannelConfig
 {
@@ -129,11 +129,11 @@ public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfi
     }
 
     @Override
-    public boolean setOption(
+    protected boolean setOption0(
         String key,
         Object value)
     {
-        if (super.setOption(key, value))
+        if (super.setOption0(key, value))
         {
             return true;
         }
