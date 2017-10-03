@@ -18,6 +18,7 @@ package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 import static org.jboss.netty.buffer.ChannelBuffers.dynamicBuffer;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusThrottleMode.MESSAGE;
 
+import java.nio.ByteOrder;
 import java.util.Deque;
 import java.util.LinkedList;
 
@@ -34,6 +35,8 @@ import org.kaazing.k3po.driver.internal.netty.channel.ChannelAddress;
 
 public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfig>
 {
+    static final ByteOrder NATIVE_ORDER = ByteOrder.nativeOrder();
+
     private int sourceWindowBytes;
     private int sourceWindowFrames;
     private int targetWindowBytes;
@@ -72,8 +75,8 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
 
         this.reaktor = reaktor;
         this.writeRequests = new LinkedList<>();
-        this.readExtBuffer = dynamicBuffer(8192);
-        this.writeExtBuffer = dynamicBuffer(8192);
+        this.readExtBuffer = dynamicBuffer(NATIVE_ORDER, 8192);
+        this.writeExtBuffer = dynamicBuffer(NATIVE_ORDER, 8192);
         this.targetId = getId();
     }
 
