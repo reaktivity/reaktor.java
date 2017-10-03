@@ -15,6 +15,7 @@
  */
 package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 
+import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusChannel.NATIVE_ORDER;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusThrottleMode.NONE;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusThrottleMode.STREAM;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusTransmission.SIMPLEX;
@@ -35,6 +36,12 @@ public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfi
     private NukleusThrottleMode throttle = STREAM;
     private long authorization;
     private boolean update = true;
+
+    public DefaultNukleusServerChannelConfig()
+    {
+        super();
+        setEndian(NATIVE_ORDER);
+    }
 
     @Override
     public void setAuthorization(
