@@ -177,13 +177,13 @@ public class SimplexIT
         k3po.finish();
     }
 
-    @Ignore
+    @Ignore ("Please see issue #1206: https://github.com/kaazing/tickets/issues/1206")
     @Test
     @Specification({
         "server.sent.throttle.initial.only.update.none/client",
         "server.sent.throttle.initial.only.update.none/server"
     })
-    public void shouldThrottleInitialOnlyClientSentDataTest() throws Exception
+    public void shouldThrottleInitialOnlyClientSentDataUpdateNone() throws Exception
     {
         k3po.finish();
     }
