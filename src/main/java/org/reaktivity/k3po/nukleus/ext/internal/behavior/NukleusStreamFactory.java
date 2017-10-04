@@ -21,19 +21,16 @@ import static org.jboss.netty.channel.Channels.fireChannelUnbound;
 import static org.jboss.netty.channel.Channels.fireMessageReceived;
 import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireInputAborted;
 import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireInputShutdown;
-import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusChannel.NATIVE_ORDER;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind.BEGIN;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind.DATA;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind.END;
 
-import java.nio.ByteBuffer;
 import java.util.function.LongConsumer;
 
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.concurrent.MessageHandler;
 import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.ChannelFuture;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.OctetsFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.AbortFW;
@@ -143,7 +140,7 @@ public final class NukleusStreamFactory
         {
             final long streamId = data.streamId();
             final OctetsFW payload = data.payload();
-            final ChannelBuffer message = payload.get(NukleusStreamFactory.this::readBuffer);
+            final ChannelBuffer message = payload.get(this::readBuffer);
             final int readableBytes = message.readableBytes();
             final OctetsFW dataExt = data.extension();
 
@@ -222,17 +219,16 @@ public final class NukleusStreamFactory
                 fireInputAborted(channel);
             }
         }
-    }
 
-    private ChannelBuffer readBuffer(
-        DirectBuffer buffer,
-        int index,
-        int maxLimit)
-    {
-        // TODO: avoid allocation
-        final ByteBuffer dstBuffer = ByteBuffer.allocate(maxLimit - index).order(NATIVE_ORDER);
-        buffer.getBytes(index, dstBuffer, dstBuffer.capacity());
-        dstBuffer.flip();
-        return ChannelBuffers.wrappedBuffer(dstBuffer);
+        private ChannelBuffer readBuffer(
+            DirectBuffer buffer,
+            int index,
+            int maxLimit)
+        {
+            // TODO: avoid allocation
+            final byte[] array = new byte[maxLimit - index];
+            buffer.getBytes(index, array);
+            return channel.getConfig().getBufferFactory().getBuffer(array, 0, array.length);
+        }
     }
 }

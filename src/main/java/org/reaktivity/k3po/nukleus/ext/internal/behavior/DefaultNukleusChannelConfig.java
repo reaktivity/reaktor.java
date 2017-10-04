@@ -15,7 +15,7 @@
  */
 package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 
-import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusChannel.NATIVE_ORDER;
+import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusChannel.NATIVE_BUFFER_FACTORY;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusThrottleMode.NONE;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusThrottleMode.STREAM;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusTransmission.SIMPLEX;
@@ -37,7 +37,7 @@ public class DefaultNukleusChannelConfig extends DefaultChannelConfig implements
     public DefaultNukleusChannelConfig()
     {
         super();
-        setEndian(NATIVE_ORDER);
+        setBufferFactory(NATIVE_BUFFER_FACTORY);
     }
 
     @Override

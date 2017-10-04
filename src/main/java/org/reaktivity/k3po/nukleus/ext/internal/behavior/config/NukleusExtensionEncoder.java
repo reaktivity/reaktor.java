@@ -17,9 +17,9 @@ package org.reaktivity.k3po.nukleus.ext.internal.behavior.config;
 
 import static java.util.Objects.requireNonNull;
 
-import java.nio.ByteOrder;
 import java.util.List;
 
+import org.jboss.netty.buffer.ChannelBufferFactory;
 import org.jboss.netty.channel.Channel;
 import org.kaazing.k3po.driver.internal.behavior.handler.codec.ConfigEncoder;
 import org.kaazing.k3po.driver.internal.behavior.handler.codec.MessageEncoder;
@@ -68,10 +68,10 @@ public final class NukleusExtensionEncoder implements ConfigEncoder
         NukleusChannel channel)
     {
         NukleusChannelConfig config = channel.getConfig();
-        ByteOrder endian = config.getEndian();
+        ChannelBufferFactory bufferFactory = config.getBufferFactory();
         for (MessageEncoder encoder : encoders)
         {
-            channel.writeExtBuffer(writeExtKind, false).writeBytes(encoder.encode(endian));
+            channel.writeExtBuffer(writeExtKind, false).writeBytes(encoder.encode(bufferFactory));
         }
     }
 }
