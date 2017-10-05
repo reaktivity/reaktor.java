@@ -90,11 +90,11 @@ public class ControlIT
 
     @Test
     @Specification({
-        "${control}/route/server/multiple.routes/controller"
+        "${control}/route/server/multiple.authorizations/controller"
     })
-    @ScriptProperty({"routeAuthorization1 [0x01 0x00 0x03 0x00 0x00 0x00 0x00 0x00]",
-                     "routeAuthorization2 [0x01 0x00 0x00 0x00 0x00 0x00 0x00 0x00]"})
-    public void shouldRouteAsServerWithMultipleRoutesDifferingInAuthorization() throws Exception
+    @ScriptProperty({"route1Authorization 0x0001_000000000000L",
+                     "route2Authorization 0x0002_000000000000L"})
+    public void shouldRouteByAuthorizationAsServer() throws Exception
     {
         k3po.finish();
     }
@@ -103,7 +103,7 @@ public class ControlIT
     @Specification({
         "${control}/route/server/controller"
     })
-    @ScriptProperty("routeAuthorization [0x00 0x00 0x00 0x00 0x00 0x00 0x01 0x00]")
+    @ScriptProperty("routeAuthorization  0x0001_000000000000L")
     public void shouldRouteAsServerWithAuthenticationRequired() throws Exception
     {
         k3po.finish();
@@ -113,7 +113,7 @@ public class ControlIT
     @Specification({
         "${control}/route/server/controller"
     })
-    @ScriptProperty("routeAuthorization [0x00 0x00 0x00 0x00 0x00 0xc0 0x01 0x00]")
+    @ScriptProperty("routeAuthorization 0x0001_000000000003L")
     public void shouldRouteAsServerWithRolesRequired() throws Exception
     {
         k3po.finish();
@@ -154,11 +154,9 @@ public class ControlIT
         "${control}/route/server/multiple.routes/controller",
         "${control}/unroute/server/multiple.routes/controller"
     })
-    @ScriptProperty({"routeAuthorization1 [0x01 0x00 0x03 0x00 0x00 0x00 0x00 0x00]",
-                     "routeAuthorization2 [0x01 0x00 0x00 0x00 0x00 0x00 0x00 0x00]",
-                     "unrouteAuthorization1 [0x01 0x00 0x03 0x00 0x00 0x00 0x00 0x00]",
-                     "unrouteAuthorization2 [0x01 0x00 0x00 0x00 0x00 0x00 0x00 0x00]"})
-    public void shouldUnrouteAsServerWithMultipleRoutesDifferingInAuthorization() throws Exception
+    @ScriptProperty({"route1Authorization 0x0001_000000000000L",
+                     "route2Authorization 0x0001_000000000001L"})
+    public void shouldUnrouteAsServerWithMultipleRoutes() throws Exception
     {
         k3po.finish();
     }

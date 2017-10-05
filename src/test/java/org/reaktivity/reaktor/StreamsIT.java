@@ -88,8 +88,8 @@ public class StreamsIT
         "${streams}/connection.established/client",
         "${streams}/connection.established/server"
     })
-    @ScriptProperty({"routeAuthorization  [0x01 0x00 0x80 0x00 0x00 0x00 0x00 0x00]",
-                     "streamAuthorization [0x01 0x00 0x81]"})
+    @ScriptProperty({"routeAuthorization  0x0001_000000000080L",
+                     "streamAuthorization 0x0001_000000000081L"})
     public void shouldEstablishAuthorizedConnection() throws Exception
     {
         k3po.finish();
@@ -101,10 +101,10 @@ public class StreamsIT
         "${streams}/multiple.connections.established/client",
         "${streams}/multiple.connections.established/server"
     })
-    @ScriptProperty({"routeAuthorization1  [0x01 0x00 0x80 0x00 0x00 0x00 0x00 0x00]",
-                     "streamAuthorization1 [0x01 0x00 0x80]",
-                     "routeAuthorization2  [0x01 0x00 0x00 0x00 0x00 0x00 0x00 0x00]",
-                     "streamAuthorization2 [0x01 0x00 0x00]"})
+    @ScriptProperty({"route1Authorization  0x0001_000000000008L",
+                     "stream1Authorization 0x0001_000000000008L",
+                     "route2Authorization  0x0001_000000000000L",
+                     "stream2Authorization 0x0001_000000000000L"})
     public void shouldEstablishMultipleAuthorizedConnections() throws Exception
     {
         k3po.finish();
