@@ -19,6 +19,8 @@ import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusChannel.N
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusThrottleMode.NONE;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusThrottleMode.STREAM;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusTransmission.SIMPLEX;
+import static org.reaktivity.k3po.nukleus.ext.internal.util.Conversions.convertToInt;
+import static org.reaktivity.k3po.nukleus.ext.internal.util.Conversions.convertToLong;
 
 import java.util.Objects;
 
@@ -144,8 +146,7 @@ public class DefaultNukleusChannelConfig extends DefaultChannelConfig implements
         {
             return true;
         }
-
-        if ("correlation".equals(key))
+        else if ("correlation".equals(key))
         {
             setCorrelation(convertToLong(value));
         }
@@ -179,29 +180,5 @@ public class DefaultNukleusChannelConfig extends DefaultChannelConfig implements
         }
 
         return true;
-    }
-
-    private static long convertToLong(Object value)
-    {
-        if (value instanceof Number)
-        {
-            return ((Number) value).longValue();
-        }
-        else
-        {
-            return Long.parseLong(String.valueOf(value));
-        }
-    }
-
-    private static int convertToInt(Object value)
-    {
-        if (value instanceof Number)
-        {
-            return ((Number) value).intValue();
-        }
-        else
-        {
-            return Integer.parseInt(String.valueOf(value));
-        }
     }
 }

@@ -127,6 +127,7 @@ public final class NukleusStreamFactory
             }
 
             channel.sourceId(streamId);
+            channel.sourceAuth(begin.authorization());
 
             partition.doWindow(channel, initialWindow, initialWindow);
 
@@ -144,7 +145,7 @@ public final class NukleusStreamFactory
             final int readableBytes = message.readableBytes();
             final OctetsFW dataExt = data.extension();
 
-            if (channel.sourceWindow() >= readableBytes)
+            if (channel.sourceWindow() >= readableBytes && data.authorization() == channel.sourceAuth())
             {
                 channel.sourceWindow(-readableBytes, -1);
 
@@ -165,7 +166,6 @@ public final class NukleusStreamFactory
                 {
                     partition.doWindow(channel, readableBytes, 1);
                 }
-
                 fireMessageReceived(channel, message);
             }
             else
@@ -178,6 +178,10 @@ public final class NukleusStreamFactory
             EndFW end)
         {
             final long streamId = end.streamId();
+            if (end.authorization() != channel.sourceAuth())
+            {
+                partition.doReset(streamId);
+            }
             unregisterStream.accept(streamId);
 
             final OctetsFW endExt = end.extension();
@@ -212,6 +216,10 @@ public final class NukleusStreamFactory
             AbortFW abort)
         {
             final long streamId = abort.streamId();
+            if (abort.authorization() != channel.sourceAuth())
+            {
+                partition.doReset(streamId);
+            }
             unregisterStream.accept(streamId);
 
             if (channel.setReadAborted())

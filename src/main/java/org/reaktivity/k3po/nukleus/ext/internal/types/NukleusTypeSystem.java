@@ -36,6 +36,7 @@ public final class NukleusTypeSystem implements TypeSystemSpi
     public static final TypeInfo<Long> OPTION_CORRELATION = new TypeInfo<>("correlation", Long.class);
     public static final TypeInfo<String> OPTION_TRANSMISSION = new TypeInfo<>("transmission", String.class);
     public static final TypeInfo<String> OPTION_THROTTLE = new TypeInfo<>("throttle", String.class);
+    public static final TypeInfo<Long> OPTION_AUTHORIZATION = new TypeInfo<>("authorization", Long.class);
 
     public static final StructuredTypeInfo CONFIG_BEGIN_EXT =
             new StructuredTypeInfo("nukleus", "begin.ext", emptyList(), MAX_VALUE);
@@ -59,6 +60,7 @@ public final class NukleusTypeSystem implements TypeSystemSpi
         acceptOptions.add(OPTION_WINDOW);
         acceptOptions.add(OPTION_UPDATE);
         acceptOptions.add(OPTION_PARTITION);
+        acceptOptions.add(OPTION_AUTHORIZATION);
         acceptOptions.add(OPTION_CORRELATION);
         acceptOptions.add(OPTION_THROTTLE);
         acceptOptions.add(OPTION_TRANSMISSION);
@@ -70,6 +72,7 @@ public final class NukleusTypeSystem implements TypeSystemSpi
         connectOptions.add(OPTION_WINDOW);
         connectOptions.add(OPTION_UPDATE);
         connectOptions.add(OPTION_PARTITION);
+        connectOptions.add(OPTION_AUTHORIZATION);
         connectOptions.add(OPTION_CORRELATION);
         connectOptions.add(OPTION_THROTTLE);
         connectOptions.add(OPTION_TRANSMISSION);
