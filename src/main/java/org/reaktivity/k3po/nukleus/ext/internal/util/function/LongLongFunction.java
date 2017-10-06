@@ -18,12 +18,5 @@ package org.reaktivity.k3po.nukleus.ext.internal.util.function;
 @FunctionalInterface
 public interface LongLongFunction<R>
 {
-
-    /**
-     * Applies this function to the given arguments.
-     *
-     * @param value the function argument
-     * @return the function result
-     */
     R apply(long value1, long value2);
 }
