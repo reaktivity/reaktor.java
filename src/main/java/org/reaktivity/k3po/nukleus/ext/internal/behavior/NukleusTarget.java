@@ -156,6 +156,7 @@ final class NukleusTarget implements AutoCloseable
                 break;
             }
             long authorization = clientConfig.getAuthorization();
+            clientChannel.targetAuth(authorization);
 
             ChannelBuffer beginExt = clientChannel.writeExtBuffer(BEGIN, true);
             final int writableExtBytes = beginExt.readableBytes();
@@ -289,7 +290,7 @@ final class NukleusTarget implements AutoCloseable
         doFlushBegin(channel);
 
         final long streamId = channel.targetId();
-        long authorization = channel.getConfig().getAuthorization();
+        long authorization = channel.targetAuth();
 
         final AbortFW abort = abortRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .streamId(streamId)
@@ -345,11 +346,10 @@ final class NukleusTarget implements AutoCloseable
         final ChannelBuffer endExt = channel.writeExtBuffer(END, true);
         final int writableExtBytes = endExt.readableBytes();
         final byte[] endExtCopy = writeExtCopy(endExt);
-        long authorization = channel.getConfig().getAuthorization();
 
         final EndFW end = endRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .streamId(streamId)
-                .authorization(authorization)
+                .authorization(channel.targetAuth())
                 .extension(p -> p.set(endExtCopy))
                 .build();
 

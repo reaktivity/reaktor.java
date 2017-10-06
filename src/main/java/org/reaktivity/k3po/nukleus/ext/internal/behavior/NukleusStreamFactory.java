@@ -66,7 +66,6 @@ public final class NukleusStreamFactory
         private final NukleusChannel channel;
         private final NukleusPartition partition;
         private final ChannelFuture handshakeFuture;
-        private long authorization;
 
         private Stream(
             NukleusChannel channel,
@@ -109,7 +108,6 @@ public final class NukleusStreamFactory
             BeginFW begin)
         {
             final long streamId = begin.streamId();
-            authorization = begin.authorization();
             final OctetsFW beginExt = begin.extension();
 
             final NukleusChannelConfig channelConfig = channel.getConfig();
@@ -129,6 +127,7 @@ public final class NukleusStreamFactory
             }
 
             channel.sourceId(streamId);
+            channel.sourceAuth(begin.authorization());
 
             partition.doWindow(channel, initialWindow, initialWindow);
 
@@ -146,7 +145,7 @@ public final class NukleusStreamFactory
             final int readableBytes = message.readableBytes();
             final OctetsFW dataExt = data.extension();
 
-            if (channel.sourceWindow() >= readableBytes && data.authorization() == authorization)
+            if (channel.sourceWindow() >= readableBytes && data.authorization() == channel.sourceAuth())
             {
                 channel.sourceWindow(-readableBytes, -1);
 
@@ -179,7 +178,7 @@ public final class NukleusStreamFactory
             EndFW end)
         {
             final long streamId = end.streamId();
-            if (end.authorization() != authorization)
+            if (end.authorization() != channel.sourceAuth())
             {
                 partition.doReset(streamId);
             }
@@ -217,7 +216,7 @@ public final class NukleusStreamFactory
             AbortFW abort)
         {
             final long streamId = abort.streamId();
-            if (abort.authorization() != authorization)
+            if (abort.authorization() != channel.sourceAuth())
             {
                 partition.doReset(streamId);
             }
