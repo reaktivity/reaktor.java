@@ -47,7 +47,9 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
     private int targetAcknowledgedBytes;
 
     private long sourceId;
+    private long sourceAuth;
     private long targetId;
+    private long targetAuth;
 
     private int targetAcknowlegedBytesCheckpoint = -1;
 
@@ -193,6 +195,27 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
     public long targetId()
     {
         return targetId;
+    }
+
+    public void sourceAuth(
+        long sourceAuth)
+    {
+        this.sourceAuth = sourceAuth;
+    }
+
+    public long sourceAuth()
+    {
+        return sourceAuth;
+    }
+
+    public void targetAuth(long targetAuth)
+    {
+        this.targetAuth = targetAuth;
+    }
+
+    public long targetAuth()
+    {
+        return targetAuth;
     }
 
     public ChannelFuture beginOutputFuture()
