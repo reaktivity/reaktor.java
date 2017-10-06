@@ -38,6 +38,7 @@ import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.BeginFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.FrameFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.ResetFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.WindowFW;
+import org.reaktivity.k3po.nukleus.ext.internal.util.function.LongLongFunction;
 import org.reaktivity.k3po.nukleus.ext.internal.util.function.LongObjectBiConsumer;
 
 final class NukleusPartition implements AutoCloseable
@@ -52,7 +53,7 @@ final class NukleusPartition implements AutoCloseable
     private final StreamsLayout layout;
     private final RingBuffer streamsBuffer;
     private final RingBuffer throttleBuffer;
-    private final BiFunction<Long, Long, NukleusServerChannel> lookupRoute;
+    private final LongLongFunction<NukleusServerChannel> lookupRoute;
     private final LongFunction<MessageHandler> lookupStream;
     private final MessageHandler streamHandler;
     private final LongObjectBiConsumer<MessageHandler> registerStream;
@@ -64,7 +65,7 @@ final class NukleusPartition implements AutoCloseable
     NukleusPartition(
         Path partitionPath,
         StreamsLayout layout,
-        BiFunction<Long, Long, NukleusServerChannel> lookupRoute,
+        LongLongFunction<NukleusServerChannel> lookupRoute,
         LongFunction<MessageHandler> lookupStream,
         LongObjectBiConsumer<MessageHandler> registerStream,
         MutableDirectBuffer writeBuffer,
