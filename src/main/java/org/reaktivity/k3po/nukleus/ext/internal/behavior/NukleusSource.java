@@ -82,7 +82,7 @@ public final class NukleusSource implements AutoCloseable
         NukleusServerChannel serverChannel)
     {
         // TODO: detect bind collision
-        routesByRefAndAuth.computeIfAbsent(sourceRef, (key) -> new Long2ObjectHashMap<NukleusServerChannel>())
+        routesByRefAndAuth.computeIfAbsent(sourceRef, key -> new Long2ObjectHashMap<NukleusServerChannel>())
             .put(authorization, serverChannel);
     }
 
@@ -92,13 +92,9 @@ public final class NukleusSource implements AutoCloseable
         NukleusServerChannel serverChannel)
     {
         Long2ObjectHashMap<NukleusServerChannel> channels = routesByRefAndAuth.get(sourceRef);
-        if (channels != null)
+        if (channels != null && channels.remove(authorization) != null && channels.isEmpty())
         {
-            channels.remove(authorization);
-            if (channels.isEmpty())
-            {
-                routesByRefAndAuth.remove(sourceRef);
-            }
+            routesByRefAndAuth.remove(sourceRef);
         }
     }
 
@@ -210,7 +206,7 @@ public final class NukleusSource implements AutoCloseable
                 .build();
 
         NukleusPartition partition = new NukleusPartition(partitionPath, layout,
-                (r, a) -> routesByRefAndAuth.computeIfAbsent(r, (key) -> new Long2ObjectHashMap<NukleusServerChannel>()).get(a),
+                (r, a) -> routesByRefAndAuth.computeIfAbsent(r, key -> new Long2ObjectHashMap<NukleusServerChannel>()).get(a),
                 streamsById::get, streamsById::put,
                 writeBuffer, streamFactory, correlateEstablished, supplyTarget);
 
