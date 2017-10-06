@@ -16,10 +16,7 @@
 package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 
 import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.LongFunction;
@@ -42,7 +39,8 @@ public final class NukleusSource implements AutoCloseable
     private final String sourceName;
     private final MutableDirectBuffer writeBuffer;
 
-    private final Map<List<Long>, NukleusServerChannel> routesByRef;
+    private final Long2ObjectHashMap<Long2ObjectHashMap<NukleusServerChannel>> routesByRefAndAuth =
+            new Long2ObjectHashMap<>();
     private final Long2ObjectHashMap<MessageHandler> streamsById;
     private final Map<String, NukleusPartition> partitionsByName;
 
@@ -64,7 +62,6 @@ public final class NukleusSource implements AutoCloseable
         this.streamsDirectory = streamsDirectory;
         this.sourceName = sourceName;
         this.writeBuffer = writeBuffer;
-        this.routesByRef = new HashMap<>();
         this.streamsById = new Long2ObjectHashMap<>();
         this.partitionsByName = new LinkedHashMap<>();
         this.partitions = new NukleusPartition[0];
@@ -85,14 +82,24 @@ public final class NukleusSource implements AutoCloseable
         NukleusServerChannel serverChannel)
     {
         // TODO: detect bind collision
-        routesByRef.putIfAbsent(Arrays.asList(sourceRef, authorization), serverChannel);
+        routesByRefAndAuth.computeIfAbsent(sourceRef, (key) -> new Long2ObjectHashMap<NukleusServerChannel>())
+            .put(authorization, serverChannel);
     }
 
     public void doUnroute(
         long sourceRef,
+        long authorization,
         NukleusServerChannel serverChannel)
     {
-        routesByRef.remove(sourceRef, serverChannel);
+        Long2ObjectHashMap<NukleusServerChannel> channels = routesByRefAndAuth.get(sourceRef);
+        if (channels != null)
+        {
+            channels.remove(authorization);
+            if (channels.isEmpty())
+            {
+                routesByRefAndAuth.remove(sourceRef);
+            }
+        }
     }
 
     public void doAbortInput(
@@ -203,7 +210,8 @@ public final class NukleusSource implements AutoCloseable
                 .build();
 
         NukleusPartition partition = new NukleusPartition(partitionPath, layout,
-                (r, s) -> routesByRef.get(Arrays.asList(r, s)), streamsById::get, streamsById::put,
+                (r, a) -> routesByRefAndAuth.computeIfAbsent(r, (key) -> new Long2ObjectHashMap<NukleusServerChannel>()).get(a),
+                streamsById::get, streamsById::put,
                 writeBuffer, streamFactory, correlateEstablished, supplyTarget);
 
         this.partitions = ArrayUtil.add(this.partitions, partition);

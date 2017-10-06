@@ -320,7 +320,7 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
                 long sourceRef = localAddress.getRoute();
 
                 NukleusScope scope = reaktor.scopesByPath.computeIfAbsent(scopePath, reaktor::newScope);
-                scope.doUnroute(sourceName, sourceRef, serverChannel);
+                scope.doUnroute(sourceName, sourceRef, localAddress.getAuthorization(), serverChannel);
 
                 serverChannel.setLocalAddress(null);
                 fireChannelUnbound(serverChannel);
@@ -357,9 +357,10 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
                     Path scopePath = scopePath(receiverName);
                     String sourceName = localAddress.getSenderName();
                     long sourceRef = localAddress.getRoute();
+                    long authorization = localAddress.getAuthorization();
 
                     NukleusScope scope = reaktor.scopesByPath.computeIfAbsent(scopePath, reaktor::newScope);
-                    scope.doUnroute(sourceName, sourceRef, serverChannel);
+                    scope.doUnroute(sourceName, sourceRef, authorization, serverChannel);
 
                     serverChannel.setLocalAddress(null);
                     fireChannelUnbound(serverChannel);
