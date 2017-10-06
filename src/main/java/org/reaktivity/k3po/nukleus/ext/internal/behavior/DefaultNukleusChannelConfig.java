@@ -34,26 +34,12 @@ public class DefaultNukleusChannelConfig extends DefaultChannelConfig implements
     private NukleusTransmission transmission = SIMPLEX;
     private int window;
     private NukleusThrottleMode throttle = STREAM;
-    private long authorization;
     private boolean update = true;
 
     public DefaultNukleusChannelConfig()
     {
         super();
         setBufferFactory(NATIVE_BUFFER_FACTORY);
-    }
-
-    @Override
-    public void setAuthorization(
-        long authorization)
-    {
-        this.authorization = authorization;
-    }
-
-    @Override
-    public long getAuthorization()
-    {
-        return authorization;
     }
 
     @Override
@@ -159,11 +145,6 @@ public class DefaultNukleusChannelConfig extends DefaultChannelConfig implements
         if (super.setOption0(key, value))
         {
             return true;
-        }
-
-        if ("authorization".equals(key))
-        {
-            setAuthorization(convertToLong(value));
         }
         else if ("correlation".equals(key))
         {

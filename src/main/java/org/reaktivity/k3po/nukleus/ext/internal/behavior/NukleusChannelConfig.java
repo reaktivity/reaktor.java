@@ -48,8 +48,4 @@ public interface NukleusChannelConfig extends ChannelConfig
     NukleusThrottleMode getThrottle();
 
     boolean hasThrottle();
-
-    void setAuthorization(long authorization);
-
-    long getAuthorization();
 }

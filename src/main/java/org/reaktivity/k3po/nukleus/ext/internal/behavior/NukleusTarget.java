@@ -155,7 +155,7 @@ final class NukleusTarget implements AutoCloseable
             default:
                 break;
             }
-            long authorization = clientConfig.getAuthorization();
+            long authorization = remoteAddress.getAuthorization();
             clientChannel.targetAuth(authorization);
 
             ChannelBuffer beginExt = clientChannel.writeExtBuffer(BEGIN, true);
@@ -312,7 +312,7 @@ final class NukleusTarget implements AutoCloseable
         final ChannelBuffer endExt = channel.writeExtBuffer(END, true);
         final int writableExtBytes = endExt.readableBytes();
         final byte[] endExtCopy = writeExtCopy(endExt);
-        long authorization = channel.getConfig().getAuthorization();
+        final long authorization = channel.targetAuth();
 
         final EndFW end = endRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .streamId(streamId)
@@ -387,7 +387,7 @@ final class NukleusTarget implements AutoCloseable
         NukleusChannel channel)
     {
         final Deque<MessageEvent> writeRequests = channel.writeRequests;
-        long authorization = channel.getConfig().getAuthorization();
+        final long authorization = channel.targetAuth();
 
         loop:
         while (channel.targetWritable() && !writeRequests.isEmpty())
