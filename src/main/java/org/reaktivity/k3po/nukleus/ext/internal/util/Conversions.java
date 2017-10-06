@@ -15,9 +15,9 @@ package org.reaktivity.k3po.nukleus.ext.internal.util;
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-public final class Convertions
+public final class Conversions
 {
-    private Convertions()
+    private Conversions()
     {
         // no instances
     }

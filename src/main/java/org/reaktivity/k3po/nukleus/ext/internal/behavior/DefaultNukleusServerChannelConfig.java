@@ -19,8 +19,8 @@ import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusChannel.N
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusThrottleMode.NONE;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusThrottleMode.STREAM;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusTransmission.SIMPLEX;
-import static org.reaktivity.k3po.nukleus.ext.internal.util.Convertions.convertToInt;
-import static org.reaktivity.k3po.nukleus.ext.internal.util.Convertions.convertToLong;
+import static org.reaktivity.k3po.nukleus.ext.internal.util.Conversions.convertToInt;
+import static org.reaktivity.k3po.nukleus.ext.internal.util.Conversions.convertToLong;
 
 import java.util.Objects;
 
