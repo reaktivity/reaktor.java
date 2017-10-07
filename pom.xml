@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.reaktivity</groupId>
   <artifactId>reaktor</artifactId>
-  <version>0.26</version>
+  <version>0.27</version>
   <name>Reaktor for Java Nuklei</name>
   <description>Reaktor for Java Nuklei</description>
   <url>https://github.com/reaktivity/reaktor.java</url>
@@ -45,10 +45,13 @@
     <jacoco.coverage.ratio>0.06</jacoco.coverage.ratio>
     <jacoco.missed.count>65</jacoco.missed.count>
 
-    <nukleus.plugin.version>0.7.8</nukleus.plugin.version>
-    <nukleus.spec.version>0.8</nukleus.spec.version>
+    <nukleus.plugin.version>0.12</nukleus.plugin.version>
+    <nukleus.spec.version>0.10</nukleus.spec.version>
     <nukleus.version>0.11</nukleus.version>
     <jmock.version>2.6.0</jmock.version>
+    <mockito.version>2.7.13</mockito.version>
+    <k3po.version>3.0.0-alpha-83</k3po.version>
+    <k3po.nukleus.ext.version>0.11</k3po.nukleus.ext.version>
   </properties>
 
   <dependencies>
@@ -73,6 +76,22 @@
       <artifactId>jmock-junit4</artifactId>
       <version>${jmock.version}</version>
       <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>${mockito.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.kaazing</groupId>
+      <artifactId>k3po.junit</artifactId>
+      <version>${k3po.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.kaazing</groupId>
+      <artifactId>k3po.lang</artifactId>
+      <version>${k3po.version}</version>
     </dependency>
   </dependencies>
 
@@ -195,12 +214,46 @@
             <configuration>
               <includes>
                 <include>org/reaktivity/reaktor/test/ReaktorRule*.class</include>
+                <include>org/reaktivity/reaktor/test/NukleusClassLoader*.class</include>
               </includes>
               <excludes>
                 <exclude>**/*IT.class</exclude>
                 <exclude>**/*Test.class</exclude>
               </excludes>
             </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.kaazing</groupId>
+        <artifactId>k3po-maven-plugin</artifactId>
+        <version>${k3po.version}</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>start</goal>
+              <goal>stop</goal>
+            </goals>
+          </execution>
+        </executions>
+        <dependencies>
+          <dependency>
+            <groupId>org.reaktivity</groupId>
+            <artifactId>k3po-nukleus-ext</artifactId>
+            <version>${k3po.nukleus.ext.version}</version>
+          </dependency>
+        </dependencies>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <version>2.19.1</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>integration-test</goal>
+              <goal>verify</goal>
+            </goals>
           </execution>
         </executions>
       </plugin>

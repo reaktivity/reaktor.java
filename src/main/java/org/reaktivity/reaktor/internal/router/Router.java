@@ -89,18 +89,15 @@ public final class Router extends Nukleus.Composite
     {
         R mapped = null;
 
-        if (routes != null)
+        final Optional<RouteFW> optional = routes.stream()
+              .filter(r -> filter.test(r.typeId(), r.buffer(), r.offset(), r.limit()))
+              .findFirst();
+
+        if (optional.isPresent())
         {
-            final Optional<RouteFW> optional = routes.stream()
-                  .filter(r -> filter.test(r.typeId(), r.buffer(), r.offset(), r.limit()))
-                  .findFirst();
+            final RouteFW route = optional.get();
 
-            if (optional.isPresent())
-            {
-                final RouteFW route = optional.get();
-
-                mapped = mapper.apply(route.typeId(), route.buffer(), route.offset(), route.limit());
-            }
+            mapped = mapper.apply(route.typeId(), route.buffer(), route.offset(), route.limit());
         }
 
         return mapped;
