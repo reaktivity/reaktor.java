@@ -39,6 +39,7 @@ import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
 import org.reaktivity.nukleus.Controller;
 import org.reaktivity.nukleus.Nukleus;
+import org.reaktivity.nukleus.NukleusFactorySpi;
 import org.reaktivity.reaktor.Reaktor;
 import org.reaktivity.reaktor.ReaktorBuilder;
 import org.reaktivity.reaktor.internal.ReaktorConfiguration;
@@ -144,6 +145,12 @@ public final class ReaktorRule implements TestRule
         }
 
         return nukleus;
+    }
+
+    public ReaktorRule nukleusFactory(Class<? extends NukleusFactorySpi> factory)
+    {
+        loader(new NukleusClassLoader(factory.getName()));
+        return this;
     }
 
     public <T extends Controller> T controller(
