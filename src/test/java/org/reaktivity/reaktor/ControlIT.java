@@ -103,7 +103,7 @@ public class ControlIT
     @Specification({
         "${control}/route/server/controller"
     })
-    @ScriptProperty("routeAuthorization  0x0001_000000000000L")
+    @ScriptProperty("routeAuthorization 0x0001_000000000000L")
     public void shouldRouteAsServerWithAuthenticationRequired() throws Exception
     {
         k3po.finish();

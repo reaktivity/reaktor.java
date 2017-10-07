@@ -32,11 +32,11 @@ import java.util.List;
 import org.agrona.LangUtil;
 import org.reaktivity.nukleus.NukleusFactorySpi;
 
-public class NukleusClassLoader extends ClassLoader
+class NukleusClassLoader extends ClassLoader
 {
     private final List<URL> urls;
 
-    public NukleusClassLoader(String... factorySpiClassNames)
+    NukleusClassLoader(String... factorySpiClassNames)
     {
         final String contents = Arrays.stream(factorySpiClassNames).collect(joining("\n"));
         URI uri = URI.create("data:," + factorySpiClassNames[0]);
