@@ -54,10 +54,9 @@ import org.reaktivity.nukleus.stream.StreamFactory;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 import org.reaktivity.reaktor.internal.types.control.RouteFW;
 import org.reaktivity.reaktor.internal.types.stream.BeginFW;
-import org.reaktivity.reaktor.internal.types.stream.ResetFW;
 import org.reaktivity.reaktor.test.ReaktorRule;
 
-public class StreamsIT
+public class MultipleStreamsIT
 {
     private final K3poRule k3po = new K3poRule()
             .addScriptRoot("route", "org/reaktivity/specification/nukleus/control/route")
@@ -79,56 +78,15 @@ public class StreamsIT
 
     @Test
     @Specification({
-        "${route}/server/controller",
-        "${streams}/connection.established/client",
-        "${streams}/connection.established/server"
+        "${route}/server/multiple.routes/controller",
+        "${streams}/multiple.connections.established/client",
+        "${streams}/multiple.connections.established/server"
     })
-    public void shouldEstablishConnection() throws Exception
-    {
-        k3po.finish();
-    }
-
-    @Test
-    @Specification({
-        "${route}/server/controller",
-        "${streams}/connection.established/client",
-        "${streams}/connection.established/server"
-    })
-    @ScriptProperty({"routeAuthorization  0x0001_000000000080L",
-                     "streamAuthorization 0x0001_000000000081L"})
-    public void shouldEstablishAuthorizedConnection() throws Exception
-    {
-        k3po.finish();
-    }
-
-    @Test
-    @Specification({
-        "${route}/server/controller",
-        "${streams}/connection.refused.not.authorized/client"
-    })
-    @ScriptProperty("routeAuthorization [0x01 0x00 0x81 0x00 0x00 0x00 0x00 0x00]")
-    public void shoulResetConnectionWhenNotAuthorizedMissingARequiredRole() throws Exception
-    {
-        k3po.finish();
-    }
-
-    @Test
-    @Specification({
-        "${route}/server/controller",
-        "${streams}/connection.refused.not.authorized/client"
-    })
-    @ScriptProperty("routeAuthorization [0x02 0x00 0x80 0x00 0x00 0x00 0x00 0x00]")
-    public void shoulResetConnectionWhenNotAuthorizedWrongSecurityScope() throws Exception
-    {
-        k3po.finish();
-    }
-
-    @Test
-    @Specification({
-        "${route}/server/controller",
-        "${streams}/connection.refused.unknown.route.ref/client"
-    })
-    public void shouldResetConnectionWhenNotRouted() throws Exception
+    @ScriptProperty({"route1Authorization  0x0001_000000000008L",
+                     "stream1Authorization 0x0001_000000000008L",
+                     "route2Authorization  0x0001_000000000000L",
+                     "stream2Authorization 0x0001_000000000000L"})
+    public void shouldEstablishMultipleAuthorizedConnections() throws Exception
     {
         k3po.finish();
     }
@@ -143,20 +101,23 @@ public class StreamsIT
         private ArgumentCaptor<LongSupplier> supplyStreamId = forClass(LongSupplier.class);
         private ArgumentCaptor<MutableDirectBuffer> writeBuffer = forClass(MutableDirectBuffer.class);
 
-        private MessageConsumer newStream = mock(MessageConsumer.class);
-        private MessageConsumer replyStream = mock(MessageConsumer.class);
-        private ArgumentCaptor<MessageConsumer> newStreamThrottle = forClass(MessageConsumer.class);
-        private ArgumentCaptor<MessageConsumer> replyStreamThrottle = forClass(MessageConsumer.class);
+        private MessageConsumer newStream1 = mock(MessageConsumer.class);
+        private MessageConsumer replyStream1 = mock(MessageConsumer.class);
+        private MessageConsumer newStream2 = mock(MessageConsumer.class);
+        private MessageConsumer replyStream2 = mock(MessageConsumer.class);
+        private boolean newStream1Started;
 
         private final BeginFW beginRO = new BeginFW();
         private final RouteFW routeRO = new RouteFW();
 
         private final BeginFW.Builder beginRW = new BeginFW.Builder();
-        private final ResetFW.Builder resetRW = new ResetFW.Builder();
 
-        private long newCorrelationId;
-        private long correlationId;
-        private String source;
+        private long newCorrelationId1;
+        private long correlationId1;
+        private String source1;
+        private long newCorrelationId2;
+        private long correlationId2;
+        private String source2;
 
         @SuppressWarnings("unchecked")
         public TestNukleusFactorySpi()
@@ -169,13 +130,23 @@ public class StreamsIT
             when(serverStreamFactory.setCounterSupplier(any(Function.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.build()).thenReturn(streamFactory);
 
-            when(streamFactory.newStream(anyInt(), any(DirectBuffer.class), anyInt(), anyInt(), newStreamThrottle.capture()))
+            when(streamFactory.newStream(anyInt(), any(DirectBuffer.class), anyInt(), anyInt(), any(MessageConsumer.class)))
                  .thenAnswer((invocation) ->
                  {
-                     when(streamFactory.newStream(anyInt(), any(DirectBuffer.class), anyInt(), anyInt(),
-                             replyStreamThrottle.capture()))
-                         .thenReturn(replyStream);
-                     return newStream;
+                     MessageConsumer result;
+                     int maxLength = (int) invocation.getArgument(2) + (int) invocation.getArgument(3);
+                     BeginFW begin = beginRO.wrap((DirectBuffer)invocation.getArgument(1),
+                             invocation.getArgument(2), maxLength);
+                     if (begin.sourceRef() == 0)
+                     {
+                         result = begin.correlationId() == newCorrelationId1 ? replyStream1 : replyStream2;
+                     }
+                     else
+                     {
+                         result = newStream1Started ? newStream1 : newStream2;
+                         newStream1Started = true;
+                     }
+                     return result;
                  });
 
             doAnswer(new Answer<Object>()
@@ -184,8 +155,9 @@ public class StreamsIT
                         public Object answer(
                             InvocationOnMock invocation) throws Throwable
                         {
+                            int maxLength = (int) invocation.getArgument(2) + (int) invocation.getArgument(3);
                             BeginFW begin = beginRO.wrap((DirectBuffer)invocation.getArgument(1),
-                                    invocation.getArgument(2), invocation.getArgument(3));
+                                    invocation.getArgument(2), maxLength);
                             long sourceRef = begin.sourceRef();
                             long authorization = begin.authorization();
                             MessagePredicate filter = (m, b, i, l) ->
@@ -201,30 +173,22 @@ public class StreamsIT
                             {
                                 MessageConsumer target = router.getValue().supplyTarget(route.target().asString());
                                 long newConnectId = supplyStreamId.getValue().getAsLong();
-                                newCorrelationId = supplyCorrelationId.getValue().getAsLong();
-                                correlationId = begin.correlationId();
-                                source = begin.source().asString();
+                                newCorrelationId1 = supplyCorrelationId.getValue().getAsLong();
+                                correlationId1 = begin.correlationId();
+                                source1 = begin.source().asString();
                                 final BeginFW newBegin = beginRW.wrap(buffer,  0, buffer.capacity())
                                         .streamId(newConnectId)
                                         .authorization(begin.authorization())
                                         .source("example")
                                         .sourceRef(route.targetRef())
-                                        .correlationId(newCorrelationId)
+                                        .correlationId(newCorrelationId1)
                                         .build();
                                 target.accept(BeginFW.TYPE_ID, buffer, newBegin.offset(), newBegin.sizeof());
-                            }
-                            else
-                            {
-                                final ResetFW reset = resetRW.wrap(buffer, 0, buffer.capacity())
-                                        .streamId(begin.streamId())
-                                        .build();
-                                newStreamThrottle.getValue().accept(
-                                        reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
                             }
                             return null;
                         }
                     }
-            ).when(newStream).accept(eq(BeginFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
+            ).when(newStream1).accept(eq(BeginFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
 
             doAnswer(new Answer<Object>()
                     {
@@ -232,20 +196,82 @@ public class StreamsIT
                         public Object answer(
                             InvocationOnMock invocation) throws Throwable
                         {
-                            MessageConsumer acceptReply = router.getValue().supplyTarget(source);
+                            MessageConsumer acceptReply = router.getValue().supplyTarget(source1);
                             long newReplyId = supplyStreamId.getValue().getAsLong();
                             MutableDirectBuffer buffer = writeBuffer.getValue();
                             final BeginFW beginOut = beginRW.wrap(buffer,  0, buffer.capacity())
                                     .streamId(newReplyId)
                                     .source("example")
                                     .sourceRef(0L)
-                                    .correlationId(correlationId)
+                                    .correlationId(correlationId1)
                                     .build();
                             acceptReply.accept(BeginFW.TYPE_ID, buffer, beginOut.offset(), beginOut.sizeof());
                             return null;
                         }
                     }
-            ).when(replyStream).accept(eq(BeginFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
+            ).when(replyStream1).accept(eq(BeginFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
+
+            doAnswer(new Answer<Object>()
+                    {
+                        @Override
+                        public Object answer(
+                            InvocationOnMock invocation) throws Throwable
+                        {
+                            int maxLength = (int) invocation.getArgument(2) + (int) invocation.getArgument(3);
+                            BeginFW begin = beginRO.wrap((DirectBuffer)invocation.getArgument(1),
+                                    invocation.getArgument(2), maxLength);
+                            long sourceRef = begin.sourceRef();
+                            long authorization = begin.authorization();
+                            MessagePredicate filter = (m, b, i, l) ->
+                            {
+                                RouteFW route = routeRO.wrap(b, i, i + l);
+                                final long routeSourceRef = route.sourceRef();
+                                return sourceRef == routeSourceRef;
+                            };
+                            RouteFW route = router.getValue().resolve(authorization, filter,
+                                    (m, b, i, l) -> routeRO.wrap(b, i, i + l));
+                            MutableDirectBuffer buffer = writeBuffer.getValue();
+                            if (route != null)
+                            {
+                                MessageConsumer target = router.getValue().supplyTarget(route.target().asString());
+                                long newConnectId = supplyStreamId.getValue().getAsLong();
+                                newCorrelationId2 = supplyCorrelationId.getValue().getAsLong();
+                                correlationId2 = begin.correlationId();
+                                source2 = begin.source().asString();
+                                final BeginFW newBegin = beginRW.wrap(buffer,  0, buffer.capacity())
+                                        .streamId(newConnectId)
+                                        .authorization(begin.authorization())
+                                        .source("example")
+                                        .sourceRef(route.targetRef())
+                                        .correlationId(newCorrelationId2)
+                                        .build();
+                                target.accept(BeginFW.TYPE_ID, buffer, newBegin.offset(), newBegin.sizeof());
+                            }
+                            return null;
+                        }
+                    }
+            ).when(newStream2).accept(eq(BeginFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
+
+            doAnswer(new Answer<Object>()
+                    {
+                        @Override
+                        public Object answer(
+                            InvocationOnMock invocation) throws Throwable
+                        {
+                            MessageConsumer acceptReply = router.getValue().supplyTarget(source2);
+                            long newReplyId = supplyStreamId.getValue().getAsLong();
+                            MutableDirectBuffer buffer = writeBuffer.getValue();
+                            final BeginFW beginOut = beginRW.wrap(buffer,  0, buffer.capacity())
+                                    .streamId(newReplyId)
+                                    .source("example")
+                                    .sourceRef(0L)
+                                    .correlationId(correlationId2)
+                                    .build();
+                            acceptReply.accept(BeginFW.TYPE_ID, buffer, beginOut.offset(), beginOut.sizeof());
+                            return null;
+                        }
+                    }
+            ).when(replyStream2).accept(eq(BeginFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
         }
 
         @Override
