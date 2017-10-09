@@ -27,25 +27,25 @@ public class SlabTest
     @Test(expected = IllegalArgumentException.class)
     public void shouldRejectSlotCapacityNotPowerOfTwo()
     {
-        new Slab(1024, 100);
+        new DefaultBufferPool(1024, 100);
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void shouldRejectTotalCapacityNotPowerOfTwo()
     {
-        new Slab(10000, 1024);
+        new DefaultBufferPool(10000, 1024);
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void shouldRejectSlotCapacityGreaterThanTotalCapacity()
     {
-        new Slab(256, 512);
+        new DefaultBufferPool(256, 512);
     }
 
     @Test
     public void acquireShouldAllocateSlot() throws Exception
     {
-        Slab slab = new Slab(16, 4);
+        DefaultBufferPool slab = new DefaultBufferPool(16, 4);
         int slot = slab.acquire(123);
         assertTrue(slot >= 0 && slot < 4);
     }
@@ -53,7 +53,7 @@ public class SlabTest
     @Test
     public void acquireShouldAllocateDifferentSlotsForDifferentStreams() throws Exception
     {
-        Slab slab = new Slab(512 * 1024, 1024);
+        DefaultBufferPool slab = new DefaultBufferPool(512 * 1024, 1024);
         int slot1 = slab.acquire(111);
         assertTrue(slot1 >= 0);
         int slot2 = slab.acquire(112);
@@ -65,7 +65,7 @@ public class SlabTest
     @Test
     public void acquireShouldAllocateDifferentSlotsForDifferentStreamsWithSameHashcode() throws Exception
     {
-        Slab slab = new Slab(512 * 1024, 1024);
+        DefaultBufferPool slab = new DefaultBufferPool(512 * 1024, 1024);
 
         int slot1 = slab.acquire(1);
         assertTrue(slot1 >= 0);
@@ -79,7 +79,7 @@ public class SlabTest
     @Test
     public void acquireShouldReportOutOfMemory() throws Exception
     {
-        Slab slab = new Slab(256, 16);
+        DefaultBufferPool slab = new DefaultBufferPool(256, 16);
         int slot = 0;
         int i;
         for (i = 0; i < 16; i++)
@@ -89,13 +89,13 @@ public class SlabTest
             assertTrue(slot >= 0);
         }
         slot = slab.acquire(111 + i);
-        assertEquals(Slab.NO_SLOT, slot);
+        assertEquals(DefaultBufferPool.NO_SLOT, slot);
     }
 
     @Test
     public void bufferShouldReturnCorrectlySizedBuffer() throws Exception
     {
-        Slab slab = new Slab(256, 16);
+        DefaultBufferPool slab = new DefaultBufferPool(256, 16);
         int slot = slab.acquire(124123490L);
         MutableDirectBuffer buffer = slab.buffer(slot);
         buffer.putInt(0, 123);
@@ -106,7 +106,7 @@ public class SlabTest
     @Test
     public void freeShouldMakeSlotAvailableForReuse() throws Exception
     {
-        Slab slab = new Slab(16 * 1024, 1024);
+        DefaultBufferPool slab = new DefaultBufferPool(16 * 1024, 1024);
         int slot = 0;
         int i;
         for (i=0; i < 16; i++)
@@ -116,10 +116,10 @@ public class SlabTest
             assertTrue(slot >= 0);
         }
         int slotBad = slab.acquire(111 + i);
-        assertEquals(Slab.NO_SLOT, slotBad);
+        assertEquals(DefaultBufferPool.NO_SLOT, slotBad);
         slab.release(slot);
         slot = slab.acquire(111 + i);
-        assertNotEquals(Slab.NO_SLOT, slot);
+        assertNotEquals(DefaultBufferPool.NO_SLOT, slot);
     }
 
 }

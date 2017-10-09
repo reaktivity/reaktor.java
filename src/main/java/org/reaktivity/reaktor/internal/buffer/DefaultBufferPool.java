@@ -31,7 +31,7 @@ import org.reaktivity.nukleus.buffer.BufferPool;
  * to store data in it, and releasing the slot once it is no longer needed.
  * <b>Each instance of this class is assumed to be used by one and only one thread.</b>
  */
-public class Slab implements BufferPool
+public class DefaultBufferPool implements BufferPool
 {
     private final MutableDirectBuffer slotBuffer = new UnsafeBuffer(new byte[0]);
 
@@ -43,7 +43,7 @@ public class Slab implements BufferPool
     private final BitSet used;
     private final int[] availableSlots;
 
-    public Slab(int totalCapacity, int slotCapacity)
+    public DefaultBufferPool(int totalCapacity, int slotCapacity)
     {
         if (!isZeroOrPowerOfTwo(totalCapacity))
         {
@@ -140,11 +140,11 @@ public class Slab implements BufferPool
     @Override
     public BufferPool duplicate()
     {
-        return new Slab(this);
+        return new DefaultBufferPool(this);
     }
 
-    private Slab(
-        Slab that)
+    private DefaultBufferPool(
+        DefaultBufferPool that)
     {
         this.availableSlots = that.availableSlots;
         this.bitsPerSlot = that.bitsPerSlot;
