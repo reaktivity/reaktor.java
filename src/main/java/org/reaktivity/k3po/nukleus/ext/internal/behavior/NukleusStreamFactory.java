@@ -25,14 +25,12 @@ import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtension
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind.DATA;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind.END;
 
-import java.nio.ByteBuffer;
 import java.util.function.LongConsumer;
 
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.concurrent.MessageHandler;
 import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.ChannelFuture;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.OctetsFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.AbortFW;
@@ -130,6 +128,7 @@ public final class NukleusStreamFactory
             }
 
             channel.sourceId(streamId);
+            channel.sourceAuth(begin.authorization());
 
             partition.doWindow(channel, initialWindow, padding);
 
@@ -143,11 +142,11 @@ public final class NukleusStreamFactory
         {
             final long streamId = data.streamId();
             final OctetsFW payload = data.payload();
-            final ChannelBuffer message = payload.get(NukleusStreamFactory.this::readBuffer);
+            final ChannelBuffer message = payload.get(this::readBuffer);
             final int readableBytes = message.readableBytes();
             final OctetsFW dataExt = data.extension();
 
-            if (channel.readableBytes() >= readableBytes)
+            if (channel.readableBytes() >= readableBytes && data.authorization() == channel.sourceAuth())
             {
                 channel.readableBytes(-readableBytes);
 
@@ -168,7 +167,6 @@ public final class NukleusStreamFactory
                 {
                     partition.doWindow(channel, readableBytes, channel.getConfig().getPadding());
                 }
-
                 fireMessageReceived(channel, message);
             }
             else
@@ -181,6 +179,10 @@ public final class NukleusStreamFactory
             EndFW end)
         {
             final long streamId = end.streamId();
+            if (end.authorization() != channel.sourceAuth())
+            {
+                partition.doReset(streamId);
+            }
             unregisterStream.accept(streamId);
 
             final OctetsFW endExt = end.extension();
@@ -215,6 +217,10 @@ public final class NukleusStreamFactory
             AbortFW abort)
         {
             final long streamId = abort.streamId();
+            if (abort.authorization() != channel.sourceAuth())
+            {
+                partition.doReset(streamId);
+            }
             unregisterStream.accept(streamId);
 
             if (channel.setReadAborted())
@@ -222,17 +228,16 @@ public final class NukleusStreamFactory
                 fireInputAborted(channel);
             }
         }
-    }
 
-    private ChannelBuffer readBuffer(
-        DirectBuffer buffer,
-        int index,
-        int maxLimit)
-    {
-        // TODO: avoid allocation
-        final ByteBuffer dstBuffer = ByteBuffer.allocate(maxLimit - index);
-        buffer.getBytes(index, dstBuffer, dstBuffer.capacity());
-        dstBuffer.flip();
-        return ChannelBuffers.wrappedBuffer(dstBuffer);
+        private ChannelBuffer readBuffer(
+            DirectBuffer buffer,
+            int index,
+            int maxLimit)
+        {
+            // TODO: avoid allocation
+            final byte[] array = new byte[maxLimit - index];
+            buffer.getBytes(index, array);
+            return channel.getConfig().getBufferFactory().getBuffer(array, 0, array.length);
+        }
     }
 }

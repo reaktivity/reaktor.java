@@ -15,7 +15,7 @@
  */
 package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 
-import org.jboss.netty.channel.ChannelConfig;
+import org.kaazing.k3po.driver.internal.netty.bootstrap.channel.ChannelConfig;
 
 public interface NukleusChannelConfig extends ChannelConfig
 {

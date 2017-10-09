@@ -19,11 +19,13 @@ import static java.util.Objects.requireNonNull;
 
 import java.util.List;
 
+import org.jboss.netty.buffer.ChannelBufferFactory;
 import org.jboss.netty.channel.Channel;
 import org.kaazing.k3po.driver.internal.behavior.handler.codec.ConfigEncoder;
 import org.kaazing.k3po.driver.internal.behavior.handler.codec.MessageEncoder;
 import org.kaazing.k3po.lang.types.StructuredTypeInfo;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusChannel;
+import org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusChannelConfig;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind;
 
 public final class NukleusExtensionEncoder implements ConfigEncoder
@@ -65,9 +67,11 @@ public final class NukleusExtensionEncoder implements ConfigEncoder
     private void encode(
         NukleusChannel channel)
     {
+        NukleusChannelConfig config = channel.getConfig();
+        ChannelBufferFactory bufferFactory = config.getBufferFactory();
         for (MessageEncoder encoder : encoders)
         {
-            channel.writeExtBuffer(writeExtKind, false).writeBytes(encoder.encode());
+            channel.writeExtBuffer(writeExtKind, false).writeBytes(encoder.encode(bufferFactory));
         }
     }
 }

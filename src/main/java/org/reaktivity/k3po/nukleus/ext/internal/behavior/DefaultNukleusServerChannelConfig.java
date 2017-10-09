@@ -15,13 +15,16 @@
  */
 package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 
+import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusChannel.NATIVE_BUFFER_FACTORY;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusThrottleMode.NONE;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusThrottleMode.STREAM;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusTransmission.SIMPLEX;
+import static org.reaktivity.k3po.nukleus.ext.internal.util.Conversions.convertToInt;
+import static org.reaktivity.k3po.nukleus.ext.internal.util.Conversions.convertToLong;
 
 import java.util.Objects;
 
-import org.jboss.netty.channel.DefaultServerChannelConfig;
+import org.kaazing.k3po.driver.internal.netty.bootstrap.channel.DefaultServerChannelConfig;
 
 public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfig implements NukleusServerChannelConfig
 {
@@ -33,6 +36,12 @@ public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfi
     private int padding;
     private NukleusThrottleMode throttle = STREAM;
     private boolean update = true;
+
+    public DefaultNukleusServerChannelConfig()
+    {
+        super();
+        setBufferFactory(NATIVE_BUFFER_FACTORY);
+    }
 
     @Override
     public void setCorrelation(
@@ -142,11 +151,11 @@ public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfi
     }
 
     @Override
-    public boolean setOption(
+    protected boolean setOption0(
         String key,
         Object value)
     {
-        if (super.setOption(key, value))
+        if (super.setOption0(key, value))
         {
             return true;
         }
@@ -191,27 +200,4 @@ public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfi
         return true;
     }
 
-    private static long convertToLong(Object value)
-    {
-        if (value instanceof Number)
-        {
-            return ((Number) value).longValue();
-        }
-        else
-        {
-            return Long.parseLong(String.valueOf(value));
-        }
-    }
-
-    private static int convertToInt(Object value)
-    {
-        if (value instanceof Number)
-        {
-            return ((Number) value).intValue();
-        }
-        else
-        {
-            return Integer.parseInt(String.valueOf(value));
-        }
-    }
 }

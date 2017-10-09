@@ -38,6 +38,7 @@ import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.BeginFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.FrameFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.ResetFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.WindowFW;
+import org.reaktivity.k3po.nukleus.ext.internal.util.function.LongLongFunction;
 import org.reaktivity.k3po.nukleus.ext.internal.util.function.LongObjectBiConsumer;
 
 final class NukleusPartition implements AutoCloseable
@@ -52,7 +53,7 @@ final class NukleusPartition implements AutoCloseable
     private final StreamsLayout layout;
     private final RingBuffer streamsBuffer;
     private final RingBuffer throttleBuffer;
-    private final LongFunction<NukleusServerChannel> lookupRoute;
+    private final LongLongFunction<NukleusServerChannel> lookupRoute;
     private final LongFunction<MessageHandler> lookupStream;
     private final MessageHandler streamHandler;
     private final LongObjectBiConsumer<MessageHandler> registerStream;
@@ -64,7 +65,7 @@ final class NukleusPartition implements AutoCloseable
     NukleusPartition(
         Path partitionPath,
         StreamsLayout layout,
-        LongFunction<NukleusServerChannel> lookupRoute,
+        LongLongFunction<NukleusServerChannel> lookupRoute,
         LongFunction<MessageHandler> lookupStream,
         LongObjectBiConsumer<MessageHandler> registerStream,
         MutableDirectBuffer writeBuffer,
@@ -152,7 +153,7 @@ final class NukleusPartition implements AutoCloseable
     {
         final long sourceRef = begin.sourceRef();
         final long sourceId = begin.streamId();
-        final NukleusServerChannel serverChannel = lookupRoute.apply(sourceRef);
+        final NukleusServerChannel serverChannel = lookupRoute.apply(sourceRef, begin.authorization());
 
         if (serverChannel != null)
         {

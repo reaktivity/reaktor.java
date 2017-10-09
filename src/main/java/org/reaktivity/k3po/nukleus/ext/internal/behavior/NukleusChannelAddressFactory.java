@@ -16,6 +16,7 @@
 package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 
 import static java.util.Arrays.asList;
+import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_AUTHORIZATION;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_CORRELATION;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_PADDING;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_PARTITION;
@@ -83,7 +84,7 @@ public class NukleusChannelAddressFactory extends ChannelAddressFactorySpi
         }
 
         Collection<TypeInfo<?>> allOptionTypes = asList(OPTION_ROUTE, OPTION_REPLY_TO, OPTION_WINDOW, OPTION_PADDING,
-                OPTION_UPDATE, OPTION_PARTITION, OPTION_CORRELATION, OPTION_THROTTLE, OPTION_TRANSMISSION);
+                OPTION_UPDATE, OPTION_PARTITION, OPTION_AUTHORIZATION, OPTION_CORRELATION, OPTION_THROTTLE, OPTION_TRANSMISSION);
         for (TypeInfo<?> optionType : allOptionTypes)
         {
             if (options != null && options.containsKey(optionType.getName()))
@@ -98,8 +99,9 @@ public class NukleusChannelAddressFactory extends ChannelAddressFactorySpi
         }
 
         final long route = (Long) options.get(OPTION_ROUTE.getName());
+        final long authorization = (Long) options.getOrDefault(OPTION_AUTHORIZATION.getName(), 0L);
         final String replyTo = (String) options.get(OPTION_REPLY_TO.getName());
 
-        return new NukleusChannelAddress(location, route, replyTo);
+        return new NukleusChannelAddress(location, route, authorization, replyTo);
     }
 }

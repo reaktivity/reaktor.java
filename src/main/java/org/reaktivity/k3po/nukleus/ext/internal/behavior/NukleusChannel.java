@@ -15,14 +15,16 @@
  */
 package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 
-import static org.jboss.netty.buffer.ChannelBuffers.dynamicBuffer;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusThrottleMode.MESSAGE;
 
+import java.nio.ByteOrder;
 import java.util.Deque;
 import java.util.LinkedList;
 
 import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBufferFactory;
 import org.jboss.netty.buffer.ChannelBuffers;
+import org.jboss.netty.buffer.HeapChannelBufferFactory;
 import org.jboss.netty.channel.ChannelFactory;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelPipeline;
@@ -37,12 +39,15 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
     private int readableBudget;
     private int writableBudget;
     private int writablePadding;
+    static final ChannelBufferFactory NATIVE_BUFFER_FACTORY = HeapChannelBufferFactory.getInstance(ByteOrder.nativeOrder());
 
     private int writtenBytes;
     private int acknowledgedBytes;
 
     private long sourceId;
+    private long sourceAuth;
     private long targetId;
+    private long targetAuth;
 
     private int acknowlegedBytesCheckpoint = -1;
 
@@ -71,8 +76,6 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
 
         this.reaktor = reaktor;
         this.writeRequests = new LinkedList<>();
-        this.readExtBuffer = dynamicBuffer(8192);
-        this.writeExtBuffer = dynamicBuffer(8192);
         this.targetId = getId();
     }
 
@@ -190,6 +193,27 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
         return targetId;
     }
 
+    public void sourceAuth(
+        long sourceAuth)
+    {
+        this.sourceAuth = sourceAuth;
+    }
+
+    public long sourceAuth()
+    {
+        return sourceAuth;
+    }
+
+    public void targetAuth(long targetAuth)
+    {
+        this.targetAuth = targetAuth;
+    }
+
+    public long targetAuth()
+    {
+        return targetAuth;
+    }
+
     public ChannelFuture beginOutputFuture()
     {
         if (beginOutputFuture == null)
@@ -280,7 +304,14 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
             }
             else
             {
-                writeExtBuffer.clear();
+                if (writeExtBuffer == null)
+                {
+                    writeExtBuffer = getConfig().getBufferFactory().getBuffer(8192);
+                }
+                else
+                {
+                    writeExtBuffer.clear();
+                }
                 this.writeExtKind = writeExtKind;
             }
         }
@@ -293,7 +324,14 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
     {
         if (this.readExtKind != readExtKind)
         {
-            readExtBuffer.clear();
+            if (readExtBuffer == null)
+            {
+                readExtBuffer = getConfig().getBufferFactory().getBuffer(8192);
+            }
+            else
+            {
+                readExtBuffer.clear();
+            }
             this.readExtKind = readExtKind;
         }
 
