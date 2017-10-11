@@ -36,10 +36,11 @@ import org.kaazing.k3po.driver.internal.netty.channel.ChannelAddress;
 
 public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfig>
 {
+    static final ChannelBufferFactory NATIVE_BUFFER_FACTORY = HeapChannelBufferFactory.getInstance(ByteOrder.nativeOrder());
+
     private int readableBudget;
     private int writableBudget;
     private int writablePadding;
-    static final ChannelBufferFactory NATIVE_BUFFER_FACTORY = HeapChannelBufferFactory.getInstance(ByteOrder.nativeOrder());
 
     private int writtenBytes;
     private int acknowledgedBytes;
