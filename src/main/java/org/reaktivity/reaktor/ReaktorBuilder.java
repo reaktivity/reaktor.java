@@ -39,7 +39,7 @@ import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.reaktor.internal.ControllerBuilderImpl;
 import org.reaktivity.reaktor.internal.NukleusBuilderImpl;
 import org.reaktivity.reaktor.internal.ReaktorConfiguration;
-import org.reaktivity.reaktor.internal.buffer.Slab;
+import org.reaktivity.reaktor.internal.buffer.DefaultBufferPool;
 import org.reaktivity.reaktor.internal.security.Realms;
 
 public class ReaktorBuilder
@@ -109,7 +109,7 @@ public class ReaktorBuilder
         // TODO: bufferPool per thread
         final int bufferPoolCapacity = config.bufferPoolCapacity();
         final int bufferSlotCapacity = config.bufferSlotCapacity();
-        final Slab bufferPool = new Slab(bufferPoolCapacity, bufferSlotCapacity);
+        final DefaultBufferPool bufferPool = new DefaultBufferPool(bufferPoolCapacity, bufferSlotCapacity);
         Supplier<BufferPool> supplyBufferPool = () -> bufferPool;
 
         final ToLongFunction<String> supplyRealmId = new Realms()::supplyRealmId;

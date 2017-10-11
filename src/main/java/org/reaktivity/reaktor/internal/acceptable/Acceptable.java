@@ -39,6 +39,7 @@ import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 import org.reaktivity.reaktor.internal.Context;
+import org.reaktivity.reaktor.internal.buffer.CountingBufferPool;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
 import org.reaktivity.reaktor.internal.router.ReferenceKind;
 import org.reaktivity.reaktor.internal.router.Router;
@@ -60,6 +61,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
     private final Function<RouteKind, StreamFactory> supplyStreamFactory;
     private final int abortTypeId;
 
+
     public Acceptable(
         Context context,
         Router router,
@@ -67,7 +69,8 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
         Supplier<BufferPool> supplyBufferPool,
         ToLongFunction<String> supplyRealmId,
         Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder,
-        int abortTypeId)
+        int abortTypeId,
+        AtomicLong correlations)
     {
         this.context = context;
         this.router = router;
@@ -81,7 +84,10 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
         final Function<String, LongSupplier> supplyCounter = name -> () -> context.counters().counter(name).increment() + 1;
         final AtomicCounter streams = context.counters().streams();
         final LongSupplier supplyStreamId = () -> streams.increment() + 1;
-        final AtomicLong correlations = new AtomicLong();
+        final AtomicCounter acquires = context.counters().acquires();
+        final AtomicCounter releases = context.counters().releases();
+        Supplier<BufferPool> supplyCountingBufferPool =
+                () -> new CountingBufferPool(supplyBufferPool.get(), acquires::increment, releases::increment);
         for (RouteKind kind : EnumSet.allOf(RouteKind.class))
         {
             final ReferenceKind refKind = ReferenceKind.valueOf(kind);
@@ -95,7 +101,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
                         .setStreamIdSupplier(supplyStreamId)
                         .setCorrelationIdSupplier(supplyCorrelationId)
                         .setCounterSupplier(supplyCounter)
-                        .setBufferPoolSupplier(supplyBufferPool)
+                        .setBufferPoolSupplier(supplyCountingBufferPool)
                         .setRealmIdSupplier(supplyRealmId)
                         .build();
                 streamFactories.put(kind, streamFactory);

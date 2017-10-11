@@ -135,19 +135,27 @@ public final class Source implements Nukleus
         int index,
         int length)
     {
+        boolean handled;
+
         switch (msgTypeId)
         {
         case WindowFW.TYPE_ID:
-            throttleBuffer.test(msgTypeId, buffer, index, length);
+            handled = throttleBuffer.test(msgTypeId, buffer, index, length);
             break;
         case ResetFW.TYPE_ID:
-            throttleBuffer.test(msgTypeId, buffer, index, length);
+            handled = throttleBuffer.test(msgTypeId, buffer, index, length);
 
             final FrameFW reset = frameRO.wrap(buffer, index, index + length);
             streams.remove(reset.streamId());
             break;
         default:
+            handled = true;
             break;
+        }
+
+        if (!handled)
+        {
+            throw new IllegalStateException("Unable to write to throttle buffer");
         }
     }
 
@@ -255,7 +263,7 @@ public final class Source implements Nukleus
 
     void reset()
     {
-        throttleBuffer = (t, b, i, l) -> false;
+        throttleBuffer = (t, b, i, l) -> true;
     }
 
     private void doReset(

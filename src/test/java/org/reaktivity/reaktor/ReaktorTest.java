@@ -51,6 +51,7 @@ public class ReaktorTest
         {
             {
                 allowing(controller).process(); will(returnValue(0));
+                allowing(idleStrategy).idle(with(any(int.class)));
 
                 oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
                 oneOf(controller).kind(); will(returnValue(Controller.class));
@@ -74,6 +75,7 @@ public class ReaktorTest
         {
             {
                 allowing(nukleus).process(); will(returnValue(0));
+                allowing(idleStrategy).idle(with(any(int.class)));
 
                 oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
                 oneOf(nukleus).name(); will(returnValue("nukleus-name"));
@@ -97,6 +99,7 @@ public class ReaktorTest
         {
             {
                 allowing(controller).process(); will(returnValue(0));
+                allowing(idleStrategy).idle(with(any(int.class)));
 
                 oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
                 oneOf(controller).kind(); will(returnValue(Controller.class));
@@ -128,6 +131,7 @@ public class ReaktorTest
         {
             {
                 allowing(nukleus).process(); will(returnValue(0));
+                allowing(idleStrategy).idle(with(any(int.class)));
 
                 oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
                 oneOf(nukleus).name(); will(returnValue("nukleus-name"));
@@ -161,6 +165,7 @@ public class ReaktorTest
             {
                 allowing(controller).process(); will(returnValue(0));
                 allowing(nukleus).process(); will(returnValue(0));
+                allowing(idleStrategy).idle(with(any(int.class)));
 
                 oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
                 oneOf(controller).kind(); will(returnValue(Controller.class));
