@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
+import java.util.function.ToLongFunction;
 
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.NukleusBuilder;
@@ -43,15 +44,18 @@ public class NukleusBuilderImpl implements NukleusBuilder
     private final Map<Role, MessagePredicate> routeHandlers;
     private final Map<RouteKind, StreamFactoryBuilder> streamFactoryBuilders;
     private final List<Nukleus> components;
+    private final ToLongFunction<String> supplyRealmId;
 
     public NukleusBuilderImpl(
         ReaktorConfiguration config,
         String name,
-        Supplier<BufferPool> supplyBufferPool)
+        Supplier<BufferPool> supplyBufferPool,
+        ToLongFunction<String> supplyRealmId)
     {
         this.config = config;
         this.name = name;
         this.supplyBufferPool = supplyBufferPool;
+        this.supplyRealmId = supplyRealmId;
         this.routeHandlers = new EnumMap<>(Role.class);
         this.streamFactoryBuilders = new EnumMap<>(RouteKind.class);
         this.components = new LinkedList<>();
@@ -120,6 +124,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
         acceptor.setConductor(conductor);
         acceptor.setRouter(router);
         acceptor.setBufferPoolSupplier(supplyBufferPool);
+        acceptor.setRealmIdSupplier(supplyRealmId);
         acceptor.setStreamFactoryBuilderSupplier(streamFactoryBuilders::get);
         acceptor.setAbortTypeId(abortTypeId);
         acceptor.setRouteHandlerSupplier(routeHandlers::get);

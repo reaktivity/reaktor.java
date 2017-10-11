@@ -32,7 +32,7 @@ import java.util.List;
 import org.agrona.LangUtil;
 import org.reaktivity.nukleus.NukleusFactorySpi;
 
-class NukleusClassLoader extends ClassLoader
+public class NukleusClassLoader extends ClassLoader
 {
     private final List<URL> urls;
 

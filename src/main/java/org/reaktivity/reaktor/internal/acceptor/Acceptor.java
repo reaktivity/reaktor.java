@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.function.ToLongFunction;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -58,9 +59,11 @@ public final class Acceptor extends Nukleus.Composite
     private Conductor conductor;
     private Router router;
     private Supplier<BufferPool> supplyBufferPool;
+    private ToLongFunction<String> supplyRealmId;
     private Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder;
     private int abortTypeId;
     private Function<Role, MessagePredicate> supplyRouteHandler;
+
 
     public Acceptor(
         Context context)
@@ -87,6 +90,12 @@ public final class Acceptor extends Nukleus.Composite
         Supplier<BufferPool> supplyBufferPool)
     {
         this.supplyBufferPool = supplyBufferPool;
+    }
+
+    public void setRealmIdSupplier(
+        ToLongFunction<String> supplyRealmId)
+    {
+        this.supplyRealmId = supplyRealmId;
     }
 
     public void setStreamFactoryBuilderSupplier(
@@ -218,7 +227,8 @@ public final class Acceptor extends Nukleus.Composite
     private Acceptable newAcceptable(
         String sourceName)
     {
-        return include(new Acceptable(context, router, sourceName, supplyBufferPool, supplyStreamFactoryBuilder, abortTypeId));
+        return include(new Acceptable(context, router, sourceName, supplyBufferPool, supplyRealmId,
+                supplyStreamFactoryBuilder, abortTypeId));
     }
 
     private RouteFW generateSourceRefIfNecessary(

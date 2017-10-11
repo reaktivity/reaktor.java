@@ -23,6 +23,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
+import java.util.function.ToLongFunction;
 
 import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.concurrent.AtomicBuffer;
@@ -64,6 +65,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
         Router router,
         String sourceName,
         Supplier<BufferPool> supplyBufferPool,
+        ToLongFunction<String> supplyRealmId,
         Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder,
         int abortTypeId)
     {
@@ -94,6 +96,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
                         .setCorrelationIdSupplier(supplyCorrelationId)
                         .setCounterSupplier(supplyCounter)
                         .setBufferPoolSupplier(supplyBufferPool)
+                        .setRealmIdSupplier(supplyRealmId)
                         .build();
                 streamFactories.put(kind, streamFactory);
             }
