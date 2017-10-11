@@ -16,6 +16,7 @@
 package org.reaktivity.nukleus.stream;
 
 import java.util.function.Function;
+import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
@@ -42,6 +43,12 @@ public interface StreamFactoryBuilder
 
     default StreamFactoryBuilder setCounterSupplier(
         Function<String, LongSupplier> supplyCounter)
+    {
+        return this;
+    }
+
+    default StreamFactoryBuilder setRealmIdSupplier(
+        LongFunction<String> supplyScope)
     {
         return this;
     }
