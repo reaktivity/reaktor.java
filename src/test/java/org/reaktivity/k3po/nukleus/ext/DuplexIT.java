@@ -17,12 +17,15 @@ package org.reaktivity.k3po.nukleus.ext;
 
 import static java.util.Arrays.asList;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasProperty;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.isA;
+import static org.junit.internal.matchers.ThrowableMessageMatcher.hasMessage;
 import static org.junit.rules.RuleChain.outerRule;
 
 import org.junit.ComparisonFailure;
@@ -66,6 +69,27 @@ public class DuplexIT
     })
     public void shouldHandshakeWithExtension() throws Exception
     {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "handshake.authorized/client",
+        "handshake.authorized/server"
+    })
+    public void shouldHandshakeWithAuthorization() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "handshake.unequal.authorization/client",
+        "handshake.unequal.authorization/server"
+    })
+    public void shouldFailHandshakeWithUnequalAuthorization() throws Exception
+    {
+        thrown.expect(allOf(isA(ComparisonFailure.class), hasMessage(containsString("Handshake fail"))));
         k3po.finish();
     }
 

@@ -77,6 +77,26 @@ public class SimplexIT
 
     @Test
     @Specification({
+        "handshake.authorized/client",
+        "handshake.authorized/server"
+    })
+    public void shouldHandshakeWithAuthorization() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "handshake.unequal.authorization/client",
+        "handshake.unequal.authorization/server"
+    })
+    public void shouldFailHandshakeWithUnequalAuthorization() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "client.sent.data/client",
         "client.sent.data/server"
     })

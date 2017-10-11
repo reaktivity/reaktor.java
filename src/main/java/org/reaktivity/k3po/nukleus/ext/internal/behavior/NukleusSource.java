@@ -39,7 +39,8 @@ public final class NukleusSource implements AutoCloseable
     private final String sourceName;
     private final MutableDirectBuffer writeBuffer;
 
-    private final Long2ObjectHashMap<NukleusServerChannel> routesByRef;
+    private final Long2ObjectHashMap<Long2ObjectHashMap<NukleusServerChannel>> routesByRefAndAuth =
+            new Long2ObjectHashMap<>();
     private final Long2ObjectHashMap<MessageHandler> streamsById;
     private final Map<String, NukleusPartition> partitionsByName;
 
@@ -61,7 +62,6 @@ public final class NukleusSource implements AutoCloseable
         this.streamsDirectory = streamsDirectory;
         this.sourceName = sourceName;
         this.writeBuffer = writeBuffer;
-        this.routesByRef = new Long2ObjectHashMap<>();
         this.streamsById = new Long2ObjectHashMap<>();
         this.partitionsByName = new LinkedHashMap<>();
         this.partitions = new NukleusPartition[0];
@@ -78,17 +78,24 @@ public final class NukleusSource implements AutoCloseable
 
     public void doRoute(
         long sourceRef,
+        long authorization,
         NukleusServerChannel serverChannel)
     {
         // TODO: detect bind collision
-        routesByRef.putIfAbsent(sourceRef, serverChannel);
+        routesByRefAndAuth.computeIfAbsent(sourceRef, key -> new Long2ObjectHashMap<NukleusServerChannel>())
+            .put(authorization, serverChannel);
     }
 
     public void doUnroute(
         long sourceRef,
+        long authorization,
         NukleusServerChannel serverChannel)
     {
-        routesByRef.remove(sourceRef, serverChannel);
+        Long2ObjectHashMap<NukleusServerChannel> channels = routesByRefAndAuth.get(sourceRef);
+        if (channels != null && channels.remove(authorization) != null && channels.isEmpty())
+        {
+            routesByRefAndAuth.remove(sourceRef);
+        }
     }
 
     public void doAbortInput(
@@ -199,7 +206,8 @@ public final class NukleusSource implements AutoCloseable
                 .build();
 
         NukleusPartition partition = new NukleusPartition(partitionPath, layout,
-                routesByRef::get, streamsById::get, streamsById::put,
+                (r, a) -> routesByRefAndAuth.computeIfAbsent(r, key -> new Long2ObjectHashMap<NukleusServerChannel>()).get(a),
+                streamsById::get, streamsById::put,
                 writeBuffer, streamFactory, correlateEstablished, supplyTarget);
 
         this.partitions = ArrayUtil.add(this.partitions, partition);

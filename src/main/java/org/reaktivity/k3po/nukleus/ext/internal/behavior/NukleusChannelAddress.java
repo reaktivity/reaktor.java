@@ -24,16 +24,19 @@ public final class NukleusChannelAddress extends ChannelAddress
     private static final long serialVersionUID = 1L;
 
     private final long route;
+    private final long authorization;
     private final String replyTo;
 
     public NukleusChannelAddress(
         URI location,
         long route,
+        long authorization,
         String replyTo)
     {
         super(location);
 
         this.route = route;
+        this.authorization = authorization;
         this.replyTo = replyTo;
     }
 
@@ -42,17 +45,24 @@ public final class NukleusChannelAddress extends ChannelAddress
         ChannelAddress transport,
         boolean ephemeral,
         long route,
+        long authorization,
         String replyTo)
     {
         super(location, transport, ephemeral);
 
         this.route = route;
+        this.authorization = authorization;
         this.replyTo = replyTo;
     }
 
     public long getRoute()
     {
         return route;
+    }
+
+    public long getAuthorization()
+    {
+        return authorization;
     }
 
     public String getReplyTo()
@@ -90,14 +100,14 @@ public final class NukleusChannelAddress extends ChannelAddress
         String newReceiver = oldSender;
         String newReplyTo = oldReceiver;
         URI newLocation = URI.create(String.format("nukleus://%s/streams/%s", newReceiver, newSender));
-        return new NukleusChannelAddress(newLocation, 0L, newReplyTo);
+        return new NukleusChannelAddress(newLocation, 0L, authorization, newReplyTo);
     }
 
     private NukleusChannelAddress newEphemeralAddress(
         URI location,
         ChannelAddress transport)
     {
-        return new NukleusChannelAddress(location, transport, true, route, replyTo);
+        return new NukleusChannelAddress(location, transport, true, route, authorization, replyTo);
     }
 
     private static String senderName(
