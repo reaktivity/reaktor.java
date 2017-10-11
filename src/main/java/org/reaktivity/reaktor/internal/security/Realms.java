@@ -25,7 +25,7 @@ public final class Realms
 
     private final Map<String, Long> realmIdsByName = new HashMap<>(MAX_REALMS);
 
-    private int nextRealmBitShift;
+    private int nextRealmBitShift = 48;
 
     public long supplyRealmId(String realm)
     {

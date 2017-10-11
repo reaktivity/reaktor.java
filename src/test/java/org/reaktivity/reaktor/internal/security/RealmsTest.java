@@ -30,22 +30,22 @@ public class RealmsTest
     public void shouldAssignAllAvailableNewRealmIds() throws Exception
     {
         Realms realms = new Realms();
-        assertEquals(0x0001L, realms.supplyRealmId("realm1"));
-        assertEquals(0x0002L, realms.supplyRealmId("realm2"));
-        assertEquals(0x0004L, realms.supplyRealmId("realm3"));
-        assertEquals(0x0008L, realms.supplyRealmId("realm4"));
-        assertEquals(0x0010L, realms.supplyRealmId("realm5"));
-        assertEquals(0x0020L, realms.supplyRealmId("realm6"));
-        assertEquals(0x0040L, realms.supplyRealmId("realm7"));
-        assertEquals(0x0080L, realms.supplyRealmId("realm8"));
-        assertEquals(0x0100L, realms.supplyRealmId("realm9"));
-        assertEquals(0x0200L, realms.supplyRealmId("realm10"));
-        assertEquals(0x0400L, realms.supplyRealmId("realm11"));
-        assertEquals(0x0800L, realms.supplyRealmId("realm12"));
-        assertEquals(0x1000L, realms.supplyRealmId("realm13"));
-        assertEquals(0x2000L, realms.supplyRealmId("realm14"));
-        assertEquals(0x4000L, realms.supplyRealmId("realm15"));
-        assertEquals(0x8000L, realms.supplyRealmId("realm16"));
+        assertEquals(0x0001000000000000L, realms.supplyRealmId("realm1"));
+        assertEquals(0x0002000000000000L, realms.supplyRealmId("realm2"));
+        assertEquals(0x0004000000000000L, realms.supplyRealmId("realm3"));
+        assertEquals(0x0008000000000000L, realms.supplyRealmId("realm4"));
+        assertEquals(0x0010000000000000L, realms.supplyRealmId("realm5"));
+        assertEquals(0x0020000000000000L, realms.supplyRealmId("realm6"));
+        assertEquals(0x0040000000000000L, realms.supplyRealmId("realm7"));
+        assertEquals(0x0080000000000000L, realms.supplyRealmId("realm8"));
+        assertEquals(0x0100000000000000L, realms.supplyRealmId("realm9"));
+        assertEquals(0x0200000000000000L, realms.supplyRealmId("realm10"));
+        assertEquals(0x0400000000000000L, realms.supplyRealmId("realm11"));
+        assertEquals(0x0800000000000000L, realms.supplyRealmId("realm12"));
+        assertEquals(0x1000000000000000L, realms.supplyRealmId("realm13"));
+        assertEquals(0x2000000000000000L, realms.supplyRealmId("realm14"));
+        assertEquals(0x4000000000000000L, realms.supplyRealmId("realm15"));
+        assertEquals(0x8000000000000000L, realms.supplyRealmId("realm16"));
     }
 
     @Test
@@ -64,13 +64,13 @@ public class RealmsTest
     public void shouldRetrieveExistingRealmIds() throws Exception
     {
         Realms realms = new Realms();
-        assertEquals(0x0001L, realms.supplyRealmId("realm1"));
-        assertEquals(0x0002L, realms.supplyRealmId("realm2"));
-        assertEquals(0x0004L, realms.supplyRealmId("realm3"));
+        assertEquals(0x0001000000000000L, realms.supplyRealmId("realm1"));
+        assertEquals(0x0002000000000000L, realms.supplyRealmId("realm2"));
+        assertEquals(0x0004000000000000L, realms.supplyRealmId("realm3"));
 
-        assertEquals(0x0001L, realms.supplyRealmId("realm1"));
-        assertEquals(0x0002L, realms.supplyRealmId("realm2"));
-        assertEquals(0x0004L, realms.supplyRealmId("realm3"));
+        assertEquals(0x0001000000000000L, realms.supplyRealmId("realm1"));
+        assertEquals(0x0002000000000000L, realms.supplyRealmId("realm2"));
+        assertEquals(0x0004000000000000L, realms.supplyRealmId("realm3"));
     }
 
 }
