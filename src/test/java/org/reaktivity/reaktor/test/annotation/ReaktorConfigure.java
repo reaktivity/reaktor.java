@@ -23,8 +23,8 @@ import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ ElementType.METHOD })
-@Repeatable(Configures.class)
-public @interface Configure
+@Repeatable(ReaktorConfigures.class)
+public @interface ReaktorConfigure
 {
     String name();
     String value();

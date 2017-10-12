@@ -22,7 +22,7 @@ import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ ElementType.METHOD })
-public @interface Configures
+public @interface ReaktorConfigures
 {
-    Configure[] value() default {};
+    ReaktorConfigure[] value() default {};
 }
