@@ -30,10 +30,12 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.function.Predicate;
 
+import org.agrona.LangUtil;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
@@ -43,6 +45,7 @@ import org.reaktivity.nukleus.NukleusFactorySpi;
 import org.reaktivity.reaktor.Reaktor;
 import org.reaktivity.reaktor.ReaktorBuilder;
 import org.reaktivity.reaktor.internal.ReaktorConfiguration;
+import org.reaktivity.reaktor.test.annotation.ReaktorConfigure;
 
 public final class ReaktorRule implements TestRule
 {
@@ -182,6 +185,20 @@ public final class ReaktorRule implements TestRule
     @Override
     public Statement apply(Statement base, Description description)
     {
+        final String testMethod = description.getMethodName();
+        try
+        {
+            ReaktorConfigure[] configures = description.getTestClass()
+                       .getDeclaredMethod(testMethod)
+                       .getAnnotationsByType(ReaktorConfigure.class);
+            Arrays.stream(configures).forEach(
+                    p -> properties.setProperty(p.name(), p.value()));
+        }
+        catch (Exception e)
+        {
+            LangUtil.rethrowUnchecked(e);
+        }
+
         return new Statement()
         {
             private boolean shouldDeletePath(
