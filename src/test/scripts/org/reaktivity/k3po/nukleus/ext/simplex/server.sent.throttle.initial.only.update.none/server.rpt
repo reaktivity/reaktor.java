@@ -14,12 +14,14 @@
 # under the License.
 #
 
-connect "nukleus://server/streams/client"
-        option nukleus:route 1234L
-        option nukleus:transmission "duplex"
-        option nukleus:window 8192
-        option nukleus:throttle "none"
+accept "nukleus://server/streams/client"
+       option nukleus:route 1234L
+       option nukleus:transmission "simplex"
+       option nukleus:window 1
+       option nukleus:update "none"
+
+accepted
 connected
 
-write "Hello, world"
-write aborted
+read "H"
+read notify FIRST_BYTE_RECEIVED
