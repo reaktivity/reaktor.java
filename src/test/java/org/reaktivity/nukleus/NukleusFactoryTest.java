@@ -19,7 +19,9 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.Assert.assertThat;
 
 import java.io.IOException;
+import java.util.function.Consumer;
 
+import org.agrona.concurrent.MessageHandler;
 import org.junit.Test;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteKind;
@@ -62,6 +64,27 @@ public final class NukleusFactoryTest
             public Nukleus build()
             {
                 return null;
+            }
+
+            @Override
+            public NukleusBuilder resolveHandler(
+                MessageHandler handler)
+            {
+                return this;
+            }
+
+            @Override
+            public NukleusBuilder unresolveHandler(
+                MessageHandler handler)
+            {
+                return this;
+            }
+
+            @Override
+            public NukleusBuilder getCommandReply(
+                Consumer<MessageHandler> reply)
+            {
+                return this;
             }
         };
 
