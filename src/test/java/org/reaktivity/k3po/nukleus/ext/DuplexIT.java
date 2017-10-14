@@ -95,6 +95,16 @@ public class DuplexIT
 
     @Test
     @Specification({
+        "read.and.write.integers.little.endian/client",
+        "read.and.write.integers.little.endian/server"
+    })
+    public void shouldReadAndWriteIntegersInNativeByteOrder() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "client.sent.data/client",
         "client.sent.data/server"
     })
