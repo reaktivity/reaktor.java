@@ -17,7 +17,7 @@ package org.reaktivity.nukleus;
 
 import java.util.function.Consumer;
 
-import org.agrona.concurrent.MessageHandler;
+import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteKind;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
@@ -36,13 +36,13 @@ public interface NukleusBuilder
         Nukleus component);
 
     NukleusBuilder resolveHandler(
-    MessageHandler handler);
+    MessageConsumer handler);
 
     NukleusBuilder unresolveHandler(
-    MessageHandler handler);
+    MessageConsumer handler);
 
     NukleusBuilder getCommandReply(
-    Consumer<MessageHandler> reply);
+    Consumer<MessageConsumer> reply);
 
     Nukleus build();
 }
