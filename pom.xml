@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.reaktivity</groupId>
   <artifactId>reaktor</artifactId>
-  <version>0.28</version>
+  <version>0.29</version>
   <name>Reaktor for Java Nuklei</name>
   <description>Reaktor for Java Nuklei</description>
   <url>https://github.com/reaktivity/reaktor.java</url>
@@ -212,6 +212,7 @@
               <includes>
                 <include>org/reaktivity/reaktor/test/ReaktorRule*.class</include>
                 <include>org/reaktivity/reaktor/test/NukleusClassLoader*.class</include>
+                <include>org/reaktivity/reaktor/test/annotation/Configure*.class</include>
               </includes>
               <excludes>
                 <exclude>**/*IT.class</exclude>
