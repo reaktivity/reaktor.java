@@ -45,7 +45,7 @@ import org.reaktivity.nukleus.NukleusFactorySpi;
 import org.reaktivity.reaktor.Reaktor;
 import org.reaktivity.reaktor.ReaktorBuilder;
 import org.reaktivity.reaktor.internal.ReaktorConfiguration;
-import org.reaktivity.reaktor.test.annotation.ReaktorConfigure;
+import org.reaktivity.reaktor.test.annotation.Configure;
 
 public final class ReaktorRule implements TestRule
 {
@@ -188,9 +188,9 @@ public final class ReaktorRule implements TestRule
         final String testMethod = description.getMethodName();
         try
         {
-            ReaktorConfigure[] configures = description.getTestClass()
+            Configure[] configures = description.getTestClass()
                        .getDeclaredMethod(testMethod)
-                       .getAnnotationsByType(ReaktorConfigure.class);
+                       .getAnnotationsByType(Configure.class);
             Arrays.stream(configures).forEach(
                     p -> properties.setProperty(p.name(), p.value()));
         }
