@@ -15,6 +15,8 @@
  */
 package org.reaktivity.reaktor.internal;
 
+import static java.lang.String.format;
+
 import java.io.Closeable;
 import java.util.EnumMap;
 import java.util.LinkedList;
@@ -24,9 +26,11 @@ import java.util.Objects;
 import java.util.function.Supplier;
 import java.util.function.ToLongFunction;
 
+import org.agrona.collections.Int2ObjectHashMap;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.NukleusBuilder;
 import org.reaktivity.nukleus.buffer.BufferPool;
+import org.reaktivity.nukleus.function.CommandHandler;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteKind;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
@@ -34,6 +38,8 @@ import org.reaktivity.reaktor.internal.acceptor.Acceptor;
 import org.reaktivity.reaktor.internal.conductor.Conductor;
 import org.reaktivity.reaktor.internal.router.Router;
 import org.reaktivity.reaktor.internal.types.control.Role;
+import org.reaktivity.reaktor.internal.types.control.auth.ResolveFW;
+import org.reaktivity.reaktor.internal.types.control.auth.UnresolveFW;
 import org.reaktivity.reaktor.internal.watcher.Watcher;
 
 public class NukleusBuilderImpl implements NukleusBuilder
@@ -41,6 +47,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
     private final ReaktorConfiguration config;
     private final String name;
     private final Supplier<BufferPool> supplyBufferPool;
+    private final Int2ObjectHashMap<CommandHandler> commandHandlersByTypeId;
     private final Map<Role, MessagePredicate> routeHandlers;
     private final Map<RouteKind, StreamFactoryBuilder> streamFactoryBuilders;
     private final List<Nukleus> components;
@@ -56,9 +63,29 @@ public class NukleusBuilderImpl implements NukleusBuilder
         this.name = name;
         this.supplyBufferPool = supplyBufferPool;
         this.supplyRealmId = supplyRealmId;
+        this.commandHandlersByTypeId = new Int2ObjectHashMap<>();
         this.routeHandlers = new EnumMap<>(Role.class);
         this.streamFactoryBuilders = new EnumMap<>(RouteKind.class);
         this.components = new LinkedList<>();
+    }
+
+    @Override
+    public NukleusBuilder commandHandler(
+        int msgTypeId,
+        CommandHandler handler)
+    {
+        switch(msgTypeId)
+        {
+        case ResolveFW.TYPE_ID:
+            commandHandlersByTypeId.put(msgTypeId, handler);
+            break;
+        case UnresolveFW.TYPE_ID:
+            commandHandlersByTypeId.put(msgTypeId, handler);
+            break;
+        default:
+            throw new IllegalArgumentException(format("Unsupported msgTypeId %d", msgTypeId));
+        }
+        return this;
     }
 
     @Override
@@ -120,6 +147,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
         Acceptor acceptor = new Acceptor(context);
 
         conductor.setAcceptor(acceptor);
+        conductor.setCommandHandlerSupplier(commandHandlersByTypeId::get);
         watcher.setAcceptor(acceptor);
         acceptor.setConductor(conductor);
         acceptor.setRouter(router);
