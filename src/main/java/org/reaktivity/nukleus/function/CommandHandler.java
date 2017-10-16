@@ -13,29 +13,12 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.nukleus;
+package org.reaktivity.nukleus.function;
 
-import org.reaktivity.nukleus.function.CommandHandler;
-import org.reaktivity.nukleus.function.MessagePredicate;
-import org.reaktivity.nukleus.route.RouteKind;
-import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
+import org.agrona.DirectBuffer;
 
-public interface NukleusBuilder
+@FunctionalInterface
+public interface CommandHandler
 {
-    NukleusBuilder routeHandler(
-        RouteKind kind,
-        MessagePredicate handler);
-
-    NukleusBuilder streamFactory(
-        RouteKind kind,
-        StreamFactoryBuilder builder);
-
-    NukleusBuilder inject(
-        Nukleus component);
-
-    NukleusBuilder commandHandler(
-        int msgTypeId,
-        CommandHandler handler);
-
-    Nukleus build();
+    void handle(DirectBuffer buffer, int index, int length, MessageConsumer replyTo);
 }
