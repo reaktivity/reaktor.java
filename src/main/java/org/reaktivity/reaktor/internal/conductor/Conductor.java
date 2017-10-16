@@ -35,8 +35,6 @@ import org.reaktivity.reaktor.internal.types.control.RouteFW;
 import org.reaktivity.reaktor.internal.types.control.RoutedFW;
 import org.reaktivity.reaktor.internal.types.control.UnrouteFW;
 import org.reaktivity.reaktor.internal.types.control.UnroutedFW;
-import org.reaktivity.reaktor.internal.types.control.auth.ResolveFW;
-import org.reaktivity.reaktor.internal.types.control.auth.UnresolveFW;
 
 public final class Conductor implements Nukleus
 {
@@ -54,8 +52,7 @@ public final class Conductor implements Nukleus
     private final MessageHandler commandHandler;
 
     private Acceptor acceptor;
-    private MessageHandler resolveHandler = this::handleUnrecognized;
-    private MessageHandler unresolveHandler = this::handleUnrecognized;
+    private IntFunction<CommandHandler> commandHandlerSupplier;
 
     public Conductor(
         Context context)
@@ -113,8 +110,7 @@ public final class Conductor implements Nukleus
     public void setCommandHandlerSupplier(
         IntFunction<CommandHandler> commandHandlerSupplier)
     {
-        // TODO Auto-generated method stub
-
+        this.commandHandlerSupplier = commandHandlerSupplier;
     }
 
     @Override
@@ -139,12 +135,6 @@ public final class Conductor implements Nukleus
             final UnrouteFW unroute = unrouteRO.wrap(buffer, index, index + length);
             acceptor.doUnroute(unroute);
             break;
-        case ResolveFW.TYPE_ID:
-            resolveHandler.onMessage(msgTypeId, buffer, index, length);
-            break;
-        case UnresolveFW.TYPE_ID:
-            unresolveHandler.onMessage(msgTypeId, buffer, index, length);
-            break;
         default:
             handleUnrecognized(msgTypeId, buffer, index, length);
             break;
@@ -157,7 +147,15 @@ public final class Conductor implements Nukleus
         int index,
         int length)
     {
-        final FrameFW frame = frameRO.wrap(buffer, index, index + length);
-        onError(frame.correlationId());
+        CommandHandler handler = commandHandlerSupplier.apply(msgTypeId);
+        if (handler != null)
+        {
+            handler.handle(buffer, index, length, conductorResponses::transmit);
+        }
+        else
+        {
+            final FrameFW frame = frameRO.wrap(buffer, index, index + length);
+            onError(frame.correlationId());
+        }
     }
 }

@@ -148,6 +148,16 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
         }
 
         @Override
+        public <R> CompletableFuture<R> doCommand(
+            int msgTypeId,
+            DirectBuffer buffer,
+            int index,
+            int length)
+        {
+            return handleCommand(msgTypeId, buffer, index, length);
+        }
+
+        @Override
         public CompletableFuture<Long> doRoute(
             int msgTypeId,
             DirectBuffer buffer,
@@ -156,7 +166,7 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
         {
             assert msgTypeId == RouteFW.TYPE_ID;
 
-            return handleCommand(Long.class, msgTypeId, buffer, index, length);
+            return handleCommand(msgTypeId, buffer, index, length);
         }
 
         @Override
@@ -168,7 +178,7 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
         {
             assert msgTypeId == UnrouteFW.TYPE_ID;
 
-            return handleCommand(Void.class, msgTypeId, buffer, index, length);
+            return handleCommand(msgTypeId, buffer, index, length);
         }
 
         @Override
@@ -226,7 +236,6 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
         }
 
         private <R> CompletableFuture<R> handleCommand(
-            Class<R> resultType,
             int msgTypeId,
             DirectBuffer buffer,
             int index,

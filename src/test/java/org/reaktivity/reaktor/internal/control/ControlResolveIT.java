@@ -85,7 +85,7 @@ public class ControlResolveIT
     @Test
     @Specification({
         "${control}/resolve/no.roles/controller",
-        "${control}/unresolve/no.roles/controller"
+        "${control}/unresolve/succeeds/controller"
     })
     public void shouldUnresolve() throws Exception
     {
@@ -116,10 +116,10 @@ public class ControlResolveIT
                 public Object answer(
                     InvocationOnMock invocation) throws Throwable
                 {
-                    DirectBuffer buffer = invocation.getArgument(1);
-                    int index = invocation.getArgument(2);
-                    int length = invocation.getArgument(3);
-                    resolveRO.wrap(buffer, index, length);
+                    DirectBuffer buffer = invocation.getArgument(0);
+                    int index = invocation.getArgument(1);
+                    int length = invocation.getArgument(2);
+                    resolveRO.wrap(buffer, index, index + length);
                     long correlationId = resolveRO.correlationId();
                     ResolvedFW result = resolvedRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                             .correlationId(correlationId)
@@ -138,12 +138,12 @@ public class ControlResolveIT
                 public Object answer(
                     InvocationOnMock invocation) throws Throwable
                 {
-                    DirectBuffer buffer = invocation.getArgument(1);
-                    int index = invocation.getArgument(2);
-                    int length = invocation.getArgument(3);
-                    unresolveRO.wrap(buffer, index, length);
+                    DirectBuffer buffer = invocation.getArgument(0);
+                    int index = invocation.getArgument(1);
+                    int length = invocation.getArgument(2);
+                    unresolveRO.wrap(buffer, index, index + length);
                     UnresolvedFW result = unresolvedRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                            .correlationId(resolveRO.correlationId())
+                            .correlationId(unresolveRO.correlationId())
                             .build();
                     MessageConsumer reply = (MessageConsumer) invocation.getArgument(3);
                     reply.accept(result.typeId(), result.buffer(), result.offset(), result.sizeof());
@@ -165,10 +165,9 @@ public class ControlResolveIT
         @Override
         public Nukleus create(Configuration config, NukleusBuilder builder)
         {
-            return builder
-                    .commandHandler(ResolveFW.TYPE_ID, resolver)
-                    .commandHandler(UnresolveFW.TYPE_ID, unresolver)
-                    .build();
+            return builder.commandHandler(ResolveFW.TYPE_ID, resolver)
+                          .commandHandler(UnresolveFW.TYPE_ID, unresolver)
+                          .build();
         }
 
     }
