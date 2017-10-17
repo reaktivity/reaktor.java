@@ -15,6 +15,7 @@ Requires external configuration of directory where streams are discovered.
 # for route reference ${routeRef} (required)
 # with specified authorization (optional, default zeros, exact match required)
 # set initial window size to 8192 (required)
+# with padding size to 10 (optional)
 # on explicit partition "part0" (optional: default to any partition)
 # with explicit correlation ${correlationId} (optional: default to any correlation)
 #
@@ -27,6 +28,7 @@ accept "nukleus://receiver/streams/sender"
        option nukleus:route ${routeRef}
        option nukleus:authorization 0x0001_000000_0000c1
        option nukleus:window 8192
+       option nukleus:padding 10
        option nukleus:partition "part0"
        option nukleus:correlation ${correlationId}
 
@@ -102,6 +104,7 @@ write close
 # for route reference ${routeRef} (required)
 # with specified authorization (optional, default zeros, exact match required)
 # with initial window size to 8192 (required)
+# with padding size to 10 (optional)
 # with throttle "none" (optional: default "stream", or "message" for per-message acknowledgment)
 # with "duplex" transmission for bidirectional (optional: default "simplex")
 #
@@ -112,6 +115,7 @@ property routeRef ${nukleus:newRouteRef()}
 accept "nukleus://receiver/streams/sender"
        option nukleus:route ${routeRef}
        option nukleus:window 8192
+       option nukleus:padding 10
        option nukleus:throttle "none"
        option nukleus:transmission "duplex"
        option nukleus:authorization 0x0001_000000_0000c1
@@ -166,6 +170,7 @@ write close
 # for route reference ${routeRef} (required)
 # setting authorization bits on Begin (optional: default all zeros)
 # with initial window size to 8192 (required)
+# with padding size to 10 (optional)
 # with throttle "none" (optional: default "stream", or "message" for per-message acknowledgment)
 # with "duplex" transmission for bidirectional (optional: default "simplex")
 #
@@ -176,6 +181,7 @@ property routeRef ${nukleus:newRouteRef()}
 connect "nukleus://receiver/streams/sender"
         option nukleus:route ${routeRef}
         option nukleus:window 8192
+        option nukleus:padding 10
         option nukleus:throttle "none"
         option nukleus:transmission "duplex"
         option nukleus:authorization 0x0001_000000_0000c1

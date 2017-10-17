@@ -39,6 +39,10 @@ public interface NukleusChannelConfig extends ChannelConfig
 
     int getWindow();
 
+    void setPadding(int padding);
+
+    int getPadding();
+
     void setUpdate(boolean update);
 
     boolean getUpdate();

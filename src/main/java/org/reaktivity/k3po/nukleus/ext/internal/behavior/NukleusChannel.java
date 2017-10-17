@@ -38,20 +38,19 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
 {
     static final ChannelBufferFactory NATIVE_BUFFER_FACTORY = HeapChannelBufferFactory.getInstance(ByteOrder.nativeOrder());
 
-    private int sourceWindowBytes;
-    private int sourceWindowFrames;
-    private int targetWindowBytes;
-    private int targetWindowFrames;
+    private int readableBudget;
+    private int writableBudget;
+    private int writablePadding;
 
-    private int targetWrittenBytes;
-    private int targetAcknowledgedBytes;
+    private int writtenBytes;
+    private int acknowledgedBytes;
 
     private long sourceId;
     private long sourceAuth;
     private long targetId;
     private long targetAuth;
 
-    private int targetAcknowlegedBytesCheckpoint = -1;
+    private int acknowlegedBytesCheckpoint = -1;
 
     final NukleusReaktor reaktor;
     final Deque<MessageEvent> writeRequests;
@@ -167,18 +166,16 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
         return String.format("%s [sourceId=%d, targetId=%d]", description, sourceId, targetId);
     }
 
-    public void sourceWindow(
-        int update,
-        int frames)
+    public void readableBytes(
+        int credit)
     {
-        sourceWindowBytes += update;
-        sourceWindowFrames += frames;
-        assert sourceWindowFrames >=0 && sourceWindowBytes >= 0;
+        readableBudget += credit;
+        assert readableBudget >= 0;
     }
 
-    public int sourceWindow()
+    public int readableBytes()
     {
-        return sourceWindowFrames > 0 ? sourceWindowBytes : 0;
+        return Math.max(readableBudget - getConfig().getPadding(), 0);
     }
 
     public void sourceId(
@@ -238,49 +235,47 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
         return beginInputFuture;
     }
 
-    public int targetWindow()
+    public int writableBytes()
     {
-        return targetWindowFrames > 0 ? targetWindowBytes : 0;
+        return Math.max(writableBudget - writablePadding, 0);
     }
 
-    public boolean targetWritable()
+    public boolean writable()
     {
-        return (targetWindowFrames > 0 && targetWindowBytes > 0) || !getConfig().hasThrottle();
+        return writableBudget > writablePadding || !getConfig().hasThrottle();
     }
 
-    public int targetWriteableBytes(
+    public int writableBytes(
         int writableBytes)
     {
-        return getConfig().hasThrottle() ? Math.min(targetWindow(), writableBytes) : writableBytes;
+        return getConfig().hasThrottle() ? Math.min(writableBytes(), writableBytes) : writableBytes;
     }
 
-    public void targetWritten(
-        int writtenBytes,
-        int writtenFrames)
+    public void writtenBytes(
+        int writtenBytes)
     {
-        targetWrittenBytes += writtenBytes;
-        targetWindowBytes -= writtenBytes;
-        targetWindowFrames -= writtenFrames;
-        assert targetWindowFrames >= 0 && targetWindowBytes >= 0;
+        this.writtenBytes += writtenBytes;
+        writableBudget -= writtenBytes + writablePadding;
+        assert writablePadding >= 0 && writableBudget >= 0;
     }
 
-    public void targetWindowUpdate(
-        int update,
-        int frames)
+    public void writableWindow(
+        int credit,
+        int padding)
     {
-        targetWindowBytes += update;
-        targetWindowFrames += frames;
+        writableBudget += credit;
+        writablePadding = padding;
 
         // approximation for window acknowledgment
         // does not account for any change to total available window after initial window
-        if (targetWrittenBytes > 0)
+        if (writtenBytes > 0)
         {
-            targetAcknowledgedBytes += update;
+            acknowledgedBytes += credit;
         }
 
         if (getConfig().getThrottle() == MESSAGE && targetWriteRequestInProgress)
         {
-            if (targetAcknowledgedBytes >= targetAcknowlegedBytesCheckpoint)
+            if (acknowledgedBytes >= acknowlegedBytesCheckpoint)
             {
                 completeWriteRequestIfFullyWritten();
             }
@@ -293,7 +288,7 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
         {
             final MessageEvent writeRequest = writeRequests.peekFirst();
             final ChannelBuffer message = (ChannelBuffer) writeRequest.getMessage();
-            targetAcknowlegedBytesCheckpoint = targetWrittenBytes + message.readableBytes();
+            acknowlegedBytesCheckpoint = writtenBytes + message.readableBytes();
             targetWriteRequestInProgress = true;
         }
     }
@@ -349,7 +344,7 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
         switch (getConfig().getThrottle())
         {
         case MESSAGE:
-            if (targetWriteRequestInProgress && targetAcknowledgedBytes >= targetAcknowlegedBytesCheckpoint)
+            if (targetWriteRequestInProgress && acknowledgedBytes >= acknowlegedBytesCheckpoint)
             {
                 completeWriteRequestIfFullyWritten();
             }
