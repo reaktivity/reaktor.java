@@ -31,6 +31,12 @@ public interface ControllerSpi
 
     void doClose();
 
+    <R> CompletableFuture<R> doCommand(
+        int msgTypeId,
+        DirectBuffer buffer,
+        int index,
+        int length);
+
     CompletableFuture<Long> doRoute(
         int msgTypeId,
         DirectBuffer buffer,
