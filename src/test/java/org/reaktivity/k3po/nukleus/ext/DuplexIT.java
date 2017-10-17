@@ -352,6 +352,16 @@ public class DuplexIT
 
     @Test
     @Specification({
+            "server.sent.overflow.padding/client",
+            "server.sent.overflow.padding/server"
+    })
+    public void shouldOverflowClientSentDataPadding() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "client.sent.overflow/client",
         "client.sent.overflow/server"
     })
