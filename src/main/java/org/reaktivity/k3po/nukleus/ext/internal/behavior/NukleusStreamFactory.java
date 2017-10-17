@@ -165,7 +165,8 @@ public final class NukleusStreamFactory
 
                 if (channel.getConfig().getUpdate())
                 {
-                    partition.doWindow(channel, readableBytes, channel.getConfig().getPadding());
+                    int padding = channel.getConfig().getPadding();
+                    partition.doWindow(channel, readableBytes + padding, padding);
                 }
                 fireMessageReceived(channel, message);
             }
