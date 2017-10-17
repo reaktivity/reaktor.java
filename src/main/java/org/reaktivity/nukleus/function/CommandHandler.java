@@ -16,9 +16,10 @@
 package org.reaktivity.nukleus.function;
 
 import org.agrona.DirectBuffer;
+import org.agrona.MutableDirectBuffer;
 
 @FunctionalInterface
 public interface CommandHandler
 {
-    void handle(DirectBuffer buffer, int index, int length, MessageConsumer replyTo);
+    void handle(DirectBuffer buffer, int index, int length, MessageConsumer replyTo, MutableDirectBuffer replyBuffer);
 }
