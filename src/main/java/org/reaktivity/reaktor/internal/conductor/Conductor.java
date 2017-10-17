@@ -150,7 +150,7 @@ public final class Conductor implements Nukleus
         CommandHandler handler = commandHandlerSupplier.apply(msgTypeId);
         if (handler != null)
         {
-            handler.handle(buffer, index, length, conductorResponses::transmit);
+            handler.handle(buffer, index, length, conductorResponses::transmit, sendBuffer);
         }
         else
         {

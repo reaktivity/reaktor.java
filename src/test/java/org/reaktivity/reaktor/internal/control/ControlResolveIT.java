@@ -130,7 +130,8 @@ public class ControlResolveIT
                     return null;
                 }
             }
-            ).when(resolver).handle(any(DirectBuffer.class), anyInt(), anyInt(), any(MessageConsumer.class));
+            ).when(resolver).handle(any(DirectBuffer.class), anyInt(), anyInt(), any(MessageConsumer.class),
+                    any(MutableDirectBuffer.class));
 
             doAnswer(new Answer<Object>()
             {
@@ -150,9 +151,8 @@ public class ControlResolveIT
                     return null;
                 }
             }
-            ).when(unresolver).handle(any(DirectBuffer.class), anyInt(), anyInt(), any(MessageConsumer.class));
-
-
+            ).when(unresolver).handle(any(DirectBuffer.class), anyInt(), anyInt(), any(MessageConsumer.class),
+                    any(MutableDirectBuffer.class));
         }
 
 
