@@ -18,7 +18,6 @@ package org.reaktivity.nukleus.stream;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
-import java.util.function.ToLongFunction;
 
 import org.agrona.MutableDirectBuffer;
 import org.reaktivity.nukleus.buffer.BufferPool;
@@ -43,12 +42,6 @@ public interface StreamFactoryBuilder
 
     default StreamFactoryBuilder setCounterSupplier(
         Function<String, LongSupplier> supplyCounter)
-    {
-        return this;
-    }
-
-    default StreamFactoryBuilder setRealmIdSupplier(
-        ToLongFunction<String> supplyRealmId)
     {
         return this;
     }
