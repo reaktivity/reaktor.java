@@ -19,6 +19,7 @@ import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusChannel.N
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusThrottleMode.NONE;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusThrottleMode.STREAM;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusTransmission.SIMPLEX;
+import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_BYTE_ORDER;
 import static org.reaktivity.k3po.nukleus.ext.internal.util.Conversions.convertToInt;
 import static org.reaktivity.k3po.nukleus.ext.internal.util.Conversions.convertToLong;
 
@@ -190,6 +191,10 @@ public class DefaultNukleusChannelConfig extends DefaultChannelConfig implements
         else if ("throttle".equals(key))
         {
             setThrottle(NukleusThrottleMode.decode(Objects.toString(value, null)));
+        }
+        else if (OPTION_BYTE_ORDER.getName().equals(key))
+        {
+            setBufferFactory(NukleusByteOrder.decode(Objects.toString(value, "native")).toBufferFactory());
         }
         else
         {

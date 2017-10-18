@@ -17,14 +17,12 @@ package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusThrottleMode.MESSAGE;
 
-import java.nio.ByteOrder;
 import java.util.Deque;
 import java.util.LinkedList;
 
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBufferFactory;
 import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.buffer.HeapChannelBufferFactory;
 import org.jboss.netty.channel.ChannelFactory;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelPipeline;
@@ -36,7 +34,7 @@ import org.kaazing.k3po.driver.internal.netty.channel.ChannelAddress;
 
 public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfig>
 {
-    static final ChannelBufferFactory NATIVE_BUFFER_FACTORY = HeapChannelBufferFactory.getInstance(ByteOrder.nativeOrder());
+    static final ChannelBufferFactory NATIVE_BUFFER_FACTORY = NukleusByteOrder.NATIVE.toBufferFactory();
 
     private int readableBudget;
     private int writableBudget;
