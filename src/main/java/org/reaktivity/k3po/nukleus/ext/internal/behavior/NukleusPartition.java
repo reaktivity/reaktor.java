@@ -269,6 +269,7 @@ final class NukleusPartition implements AutoCloseable
                   new NukleusChildChannel(serverChannel, channelFactory, pipeline, childSink, serverChannel.reaktor);
 
             NukleusChannelConfig childConfig = childChannel.getConfig();
+            childConfig.setBufferFactory(serverConfig.getBufferFactory());
             childConfig.setTransmission(serverConfig.getTransmission());
             childConfig.setThrottle(serverConfig.getThrottle());
             childConfig.setReadPartition(serverConfig.getReadPartition());
