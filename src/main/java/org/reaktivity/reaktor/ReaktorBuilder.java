@@ -23,7 +23,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import java.util.function.ToLongFunction;
 
 import org.agrona.ErrorHandler;
 import org.agrona.collections.ArrayUtil;
@@ -40,7 +39,6 @@ import org.reaktivity.reaktor.internal.ControllerBuilderImpl;
 import org.reaktivity.reaktor.internal.NukleusBuilderImpl;
 import org.reaktivity.reaktor.internal.ReaktorConfiguration;
 import org.reaktivity.reaktor.internal.buffer.DefaultBufferPool;
-import org.reaktivity.reaktor.internal.security.Realms;
 
 public class ReaktorBuilder
 {
@@ -112,14 +110,12 @@ public class ReaktorBuilder
         final DefaultBufferPool bufferPool = new DefaultBufferPool(bufferPoolCapacity, bufferSlotCapacity);
         Supplier<BufferPool> supplyBufferPool = () -> bufferPool;
 
-        final ToLongFunction<String> supplyRealmId = new Realms()::supplyRealmId;
-
         Nukleus[] nuklei = new Nukleus[0];
         for (String name : nukleusFactory.names())
         {
             if (nukleusMatcher.test(name))
             {
-                NukleusBuilder builder = new NukleusBuilderImpl(config, name, supplyBufferPool, supplyRealmId);
+                NukleusBuilder builder = new NukleusBuilderImpl(config, name, supplyBufferPool);
                 Nukleus nukleus = nukleusFactory.create(name, config, builder);
                 nuklei = ArrayUtil.add(nuklei, nukleus);
             }

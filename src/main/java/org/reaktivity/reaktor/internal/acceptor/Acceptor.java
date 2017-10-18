@@ -22,7 +22,6 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.function.ToLongFunction;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -60,7 +59,6 @@ public final class Acceptor extends Nukleus.Composite
     private Conductor conductor;
     private Router router;
     private Supplier<BufferPool> supplyBufferPool;
-    private ToLongFunction<String> supplyRealmId;
     private Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder;
     private int abortTypeId;
     private Function<Role, MessagePredicate> supplyRouteHandler;
@@ -93,12 +91,6 @@ public final class Acceptor extends Nukleus.Composite
         Supplier<BufferPool> supplyBufferPool)
     {
         this.supplyBufferPool = supplyBufferPool;
-    }
-
-    public void setRealmIdSupplier(
-        ToLongFunction<String> supplyRealmId)
-    {
-        this.supplyRealmId = supplyRealmId;
     }
 
     public void setStreamFactoryBuilderSupplier(
@@ -235,7 +227,6 @@ public final class Acceptor extends Nukleus.Composite
                 router,
                 sourceName,
                 supplyBufferPool,
-                supplyRealmId,
                 supplyStreamFactoryBuilder,
                 abortTypeId,
                 correlations));

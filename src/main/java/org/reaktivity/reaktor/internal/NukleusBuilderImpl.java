@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
-import java.util.function.ToLongFunction;
 
 import org.agrona.collections.Int2ObjectHashMap;
 import org.reaktivity.nukleus.Nukleus;
@@ -51,18 +50,15 @@ public class NukleusBuilderImpl implements NukleusBuilder
     private final Map<Role, MessagePredicate> routeHandlers;
     private final Map<RouteKind, StreamFactoryBuilder> streamFactoryBuilders;
     private final List<Nukleus> components;
-    private final ToLongFunction<String> supplyRealmId;
 
     public NukleusBuilderImpl(
         ReaktorConfiguration config,
         String name,
-        Supplier<BufferPool> supplyBufferPool,
-        ToLongFunction<String> supplyRealmId)
+        Supplier<BufferPool> supplyBufferPool)
     {
         this.config = config;
         this.name = name;
         this.supplyBufferPool = supplyBufferPool;
-        this.supplyRealmId = supplyRealmId;
         this.commandHandlersByTypeId = new Int2ObjectHashMap<>();
         this.routeHandlers = new EnumMap<>(Role.class);
         this.streamFactoryBuilders = new EnumMap<>(RouteKind.class);
@@ -152,7 +148,6 @@ public class NukleusBuilderImpl implements NukleusBuilder
         acceptor.setConductor(conductor);
         acceptor.setRouter(router);
         acceptor.setBufferPoolSupplier(supplyBufferPool);
-        acceptor.setRealmIdSupplier(supplyRealmId);
         acceptor.setStreamFactoryBuilderSupplier(streamFactoryBuilders::get);
         acceptor.setAbortTypeId(abortTypeId);
         acceptor.setRouteHandlerSupplier(routeHandlers::get);

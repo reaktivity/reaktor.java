@@ -29,7 +29,6 @@ import static org.reaktivity.nukleus.route.RouteKind.SERVER;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
-import java.util.function.ToLongFunction;
 
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
@@ -168,7 +167,6 @@ public class StreamsIT
             when(serverStreamFactory.setWriteBuffer(writeBuffer.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setCounterSupplier(any(Function.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setBufferPoolSupplier(any(Supplier.class))).thenReturn(serverStreamFactory);
-            when(serverStreamFactory.setRealmIdSupplier(any(ToLongFunction.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.build()).thenReturn(streamFactory);
 
             when(streamFactory.newStream(anyInt(), any(DirectBuffer.class), anyInt(), anyInt(), newStreamThrottle.capture()))
