@@ -43,6 +43,8 @@ import org.reaktivity.reaktor.internal.types.control.RouteFW;
 import org.reaktivity.reaktor.internal.types.control.RoutedFW;
 import org.reaktivity.reaktor.internal.types.control.UnrouteFW;
 import org.reaktivity.reaktor.internal.types.control.UnroutedFW;
+import org.reaktivity.reaktor.internal.types.control.auth.ResolvedFW;
+import org.reaktivity.reaktor.internal.types.control.auth.UnresolvedFW;
 
 public final class ControllerBuilderImpl<T extends Controller> implements ControllerBuilder<T>
 {
@@ -100,6 +102,8 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
     {
         private final FrameFW frameRO = new FrameFW();
         private final RoutedFW routedRO = new RoutedFW();
+        private final ResolvedFW resolvedRO = new ResolvedFW();
+        private final UnresolvedFW unresolvedRO = new UnresolvedFW();
         private final UnroutedFW unroutedRO = new UnroutedFW();
         private final ErrorFW errorRO = new ErrorFW();
 
@@ -268,8 +272,14 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
             case ErrorFW.TYPE_ID:
                 handleErrorResponse(buffer, index, length);
                 break;
+            case ResolvedFW.TYPE_ID:
+                handleResolvedResponse(buffer, index, length);
+                break;
             case RoutedFW.TYPE_ID:
                 handleRoutedResponse(buffer, index, length);
+                break;
+            case UnresolvedFW.TYPE_ID:
+                handleUnresolvedResponse(buffer, index, length);
                 break;
             case UnroutedFW.TYPE_ID:
                 handleUnroutedResponse(buffer, index, length);
@@ -297,6 +307,23 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
         }
 
         @SuppressWarnings("unchecked")
+        private void handleResolvedResponse(
+            DirectBuffer buffer,
+            int index,
+            int length)
+        {
+            final ResolvedFW response = resolvedRO.wrap(buffer, index, length);
+            long correlationId = response.correlationId();
+            long authorization = response.authorization();
+
+            CompletableFuture<Long> promise = (CompletableFuture<Long>) promisesByCorrelationId.remove(correlationId);
+            if (promise != null)
+            {
+                commandSucceeded(promise, authorization);
+            }
+        }
+
+        @SuppressWarnings("unchecked")
         private void handleRoutedResponse(
             DirectBuffer buffer,
             int index,
@@ -310,6 +337,21 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
             if (promise != null)
             {
                 commandSucceeded(promise, sourceRef);
+            }
+        }
+
+        private void handleUnresolvedResponse(
+            DirectBuffer buffer,
+            int index,
+            int length)
+        {
+            final UnresolvedFW unrouted = unresolvedRO.wrap(buffer, index, length);
+            final long correlationId = unrouted.correlationId();
+
+            CompletableFuture<?> promise = promisesByCorrelationId.remove(correlationId);
+            if (promise != null)
+            {
+                commandSucceeded(promise);
             }
         }
 
