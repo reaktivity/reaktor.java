@@ -121,7 +121,7 @@ public final class Conductor implements Nukleus
 
     private void handleCommand(
         int msgTypeId,
-        MutableDirectBuffer buffer,
+        DirectBuffer buffer,
         int index,
         int length)
     {
