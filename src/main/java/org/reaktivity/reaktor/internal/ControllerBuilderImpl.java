@@ -43,7 +43,9 @@ import org.reaktivity.reaktor.internal.types.control.RouteFW;
 import org.reaktivity.reaktor.internal.types.control.RoutedFW;
 import org.reaktivity.reaktor.internal.types.control.UnrouteFW;
 import org.reaktivity.reaktor.internal.types.control.UnroutedFW;
+import org.reaktivity.reaktor.internal.types.control.auth.ResolveFW;
 import org.reaktivity.reaktor.internal.types.control.auth.ResolvedFW;
+import org.reaktivity.reaktor.internal.types.control.auth.UnresolveFW;
 import org.reaktivity.reaktor.internal.types.control.auth.UnresolvedFW;
 
 public final class ControllerBuilderImpl<T extends Controller> implements ControllerBuilder<T>
@@ -152,12 +154,14 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
         }
 
         @Override
-        public <R> CompletableFuture<R> doCommand(
+        public CompletableFuture<Long> doResolve(
             int msgTypeId,
             DirectBuffer buffer,
             int index,
             int length)
         {
+            assert msgTypeId == ResolveFW.TYPE_ID;
+
             return handleCommand(msgTypeId, buffer, index, length);
         }
 
@@ -169,6 +173,18 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
             int length)
         {
             assert msgTypeId == RouteFW.TYPE_ID;
+
+            return handleCommand(msgTypeId, buffer, index, length);
+        }
+
+        @Override
+        public CompletableFuture<Void> doUnresolve(
+            int msgTypeId,
+            DirectBuffer buffer,
+            int index,
+            int length)
+        {
+            assert msgTypeId == UnresolveFW.TYPE_ID;
 
             return handleCommand(msgTypeId, buffer, index, length);
         }
