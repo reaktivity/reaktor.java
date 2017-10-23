@@ -15,6 +15,7 @@
  */
 package org.reaktivity.reaktor.internal.router;
 
+import static org.reaktivity.reaktor.internal.router.RouteMatchers.authorizationMatches;
 import static org.reaktivity.reaktor.internal.router.RouteMatchers.sourceMatches;
 import static org.reaktivity.reaktor.internal.router.RouteMatchers.sourceRefMatches;
 import static org.reaktivity.reaktor.internal.router.RouteMatchers.targetMatches;
@@ -37,6 +38,8 @@ import org.reaktivity.reaktor.internal.types.control.UnrouteFW;
 
 public final class Router extends Nukleus.Composite
 {
+    private final RouteFW routeRO = new RouteFW();
+
     private final Set<RouteFW> routes;
 
     public Router(
@@ -72,25 +75,36 @@ public final class Router extends Nukleus.Composite
         final long sourceRef = unroute.sourceRef();
         final String targetName = unroute.target().asString();
         final long targetRef = unroute.targetRef();
+        final long authorization = unroute.authorization();
 
         final Predicate<RouteFW> filter =
                 sourceMatches(sourceName)
                 .and(sourceRefMatches(sourceRef))
                 .and(targetMatches(targetName))
-                .and(targetRefMatches(targetRef));
+                .and(targetRefMatches(targetRef))
+                .and(authorizationMatches(authorization));
 
         return routes.removeIf(filter) &&
                routeHandler.test(unroute.typeId(), unroute.buffer(), unroute.offset(), unroute.sizeof());
     }
 
     public <R> R resolve(
+        final long authorization,
         MessagePredicate filter,
         MessageFunction<R> mapper)
     {
         R mapped = null;
 
+        MessagePredicate secure = (m, b, i, l) ->
+        {
+            RouteFW route = routeRO.wrap(b, i, i + l);
+            final long routeAuthorization = route.authorization();
+            return (authorization & routeAuthorization) == routeAuthorization;
+        };
+        final MessagePredicate secureFilter = secure.and(filter);
+
         final Optional<RouteFW> optional = routes.stream()
-              .filter(r -> filter.test(r.typeId(), r.buffer(), r.offset(), r.limit()))
+              .filter(r -> secureFilter.test(r.typeId(), r.buffer(), r.offset(), r.limit()))
               .findFirst();
 
         if (optional.isPresent())

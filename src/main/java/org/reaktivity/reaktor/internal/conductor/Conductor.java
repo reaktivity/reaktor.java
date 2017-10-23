@@ -17,6 +17,8 @@ package org.reaktivity.reaktor.internal.conductor;
 
 import static java.nio.ByteBuffer.allocateDirect;
 
+import java.util.function.IntFunction;
+
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.concurrent.MessageHandler;
@@ -24,6 +26,7 @@ import org.agrona.concurrent.UnsafeBuffer;
 import org.agrona.concurrent.broadcast.BroadcastTransmitter;
 import org.agrona.concurrent.ringbuffer.RingBuffer;
 import org.reaktivity.nukleus.Nukleus;
+import org.reaktivity.nukleus.function.CommandHandler;
 import org.reaktivity.reaktor.internal.Context;
 import org.reaktivity.reaktor.internal.acceptor.Acceptor;
 import org.reaktivity.reaktor.internal.types.control.ErrorFW;
@@ -49,6 +52,7 @@ public final class Conductor implements Nukleus
     private final MessageHandler commandHandler;
 
     private Acceptor acceptor;
+    private IntFunction<CommandHandler> commandHandlerSupplier;
 
     public Conductor(
         Context context)
@@ -103,6 +107,12 @@ public final class Conductor implements Nukleus
         return conductorCommands.read(commandHandler);
     }
 
+    public void setCommandHandlerSupplier(
+        IntFunction<CommandHandler> commandHandlerSupplier)
+    {
+        this.commandHandlerSupplier = commandHandlerSupplier;
+    }
+
     @Override
     public String name()
     {
@@ -126,9 +136,26 @@ public final class Conductor implements Nukleus
             acceptor.doUnroute(unroute);
             break;
         default:
+            handleUnrecognized(msgTypeId, buffer, index, length);
+            break;
+        }
+    }
+
+    private void handleUnrecognized(
+        int msgTypeId,
+        DirectBuffer buffer,
+        int index,
+        int length)
+    {
+        CommandHandler handler = commandHandlerSupplier.apply(msgTypeId);
+        if (handler != null)
+        {
+            handler.handle(buffer, index, length, conductorResponses::transmit, sendBuffer);
+        }
+        else
+        {
             final FrameFW frame = frameRO.wrap(buffer, index, index + length);
             onError(frame.correlationId());
-            break;
         }
     }
 }
