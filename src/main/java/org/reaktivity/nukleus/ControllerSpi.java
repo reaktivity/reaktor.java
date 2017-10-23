@@ -31,6 +31,18 @@ public interface ControllerSpi
 
     void doClose();
 
+    CompletableFuture<Long> doResolve(
+        int msgTypeId,
+        DirectBuffer buffer,
+        int index,
+        int length);
+
+    CompletableFuture<Void> doUnresolve(
+        int msgTypeId,
+        DirectBuffer buffer,
+        int index,
+        int length);
+
     CompletableFuture<Long> doRoute(
         int msgTypeId,
         DirectBuffer buffer,
