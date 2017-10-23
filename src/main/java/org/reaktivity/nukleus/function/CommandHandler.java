@@ -13,24 +13,13 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.nukleus.route;
+package org.reaktivity.nukleus.function;
 
-import org.reaktivity.nukleus.function.MessageConsumer;
-import org.reaktivity.nukleus.function.MessageFunction;
-import org.reaktivity.nukleus.function.MessagePredicate;
+import org.agrona.DirectBuffer;
+import org.agrona.MutableDirectBuffer;
 
-public interface RouteManager
+@FunctionalInterface
+public interface CommandHandler
 {
-    <R> R resolve(
-        long authorization,
-        MessagePredicate filter,
-        MessageFunction<R> mapper);
-
-    MessageConsumer supplyTarget(
-        String targetName);
-
-    void setThrottle(
-        String targetName,
-        long streamId,
-        MessageConsumer throttle);
+    void handle(DirectBuffer buffer, int index, int length, MessageConsumer replyTo, MutableDirectBuffer replyBuffer);
 }
