@@ -48,6 +48,12 @@ public final class RouteMatchers
         return r -> targetRef == r.targetRef();
     }
 
+    public static Predicate<RouteFW> authorizationMatches(
+        long authorization)
+    {
+        return r -> authorization == r.authorization();
+    }
+
     private RouteMatchers()
     {
         // no instances

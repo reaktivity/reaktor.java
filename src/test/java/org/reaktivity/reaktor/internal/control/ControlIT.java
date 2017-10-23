@@ -13,7 +13,7 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.reaktor;
+package org.reaktivity.reaktor.internal.control;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.rules.RuleChain.outerRule;
@@ -32,7 +32,7 @@ import org.reaktivity.nukleus.NukleusBuilder;
 import org.reaktivity.nukleus.NukleusFactorySpi;
 import org.reaktivity.reaktor.test.ReaktorRule;
 
-public class ControllerIT
+public class ControlIT
 {
 
     private final K3poRule k3po = new K3poRule()
@@ -81,6 +81,26 @@ public class ControllerIT
 
     @Test
     @Specification({
+        "${control}/route/server/multiple.routes/controller"
+    })
+    public void shouldRouteAsServerWithMultipleRoutes() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${control}/route/server/multiple.authorizations/controller"
+    })
+    @ScriptProperty({"route1Authorization 0x0001_000000000000L",
+                     "route2Authorization 0x0002_000000000000L"})
+    public void shouldRouteByAuthorizationAsServer() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "${control}/route/server/controller"
     })
     @ScriptProperty("routeAuthorization 0x0001_000000000000L")
@@ -93,7 +113,7 @@ public class ControllerIT
     @Specification({
         "${control}/route/server/controller"
     })
-    @ScriptProperty("routeAuthorization 0x0001_00000000000cL")
+    @ScriptProperty("routeAuthorization 0x0001_000000000003L")
     public void shouldRouteAsServerWithRolesRequired() throws Exception
     {
         k3po.finish();
@@ -125,6 +145,18 @@ public class ControllerIT
         "${control}/unroute/server/controller"
     })
     public void shouldUnrouteAsServer() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${control}/route/server/multiple.routes/controller",
+        "${control}/unroute/server/multiple.routes/controller"
+    })
+    @ScriptProperty({"route1Authorization 0x0001_000000000000L",
+                     "route2Authorization 0x0001_000000000001L"})
+    public void shouldUnrouteAsServerWithMultipleRoutes() throws Exception
     {
         k3po.finish();
     }
