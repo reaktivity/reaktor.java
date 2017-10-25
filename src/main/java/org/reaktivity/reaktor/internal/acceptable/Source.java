@@ -44,6 +44,7 @@ import org.reaktivity.reaktor.internal.types.stream.WindowFW;
 public final class Source implements Nukleus
 {
     private final FrameFW frameRO = new FrameFW();
+    private final FrameFW.Builder frameRW = new FrameFW.Builder();
     private final BeginFW beginRO = new BeginFW();
 
     private final ResetFW.Builder resetRW = new ResetFW.Builder();
@@ -136,6 +137,20 @@ public final class Source implements Nukleus
         int length)
     {
         boolean handled;
+
+        if (buffer instanceof MutableDirectBuffer)
+        {
+            MutableDirectBuffer mutable = (MutableDirectBuffer) buffer;
+            long streamId = frameRO.wrap(buffer, index, index + length).streamId();
+            frameRW.wrap(mutable, index, index + length)
+                .streamId(streamId)
+                .timestamp(System.currentTimeMillis())
+                .build();
+        }
+        else
+        {
+            new IllegalArgumentException("buffer not instance of MutableDirectBuffer: " +  buffer).printStackTrace();
+        }
 
         switch (msgTypeId)
         {

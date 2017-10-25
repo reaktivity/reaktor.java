@@ -108,12 +108,19 @@ public final class Target implements Nukleus
     {
         boolean handled;
 
-        MutableDirectBuffer mutable = (MutableDirectBuffer) buffer;
-        long streamId = frameRO.wrap(buffer, index, index + length).streamId();
-        frameRW.wrap(mutable, index, index + length)
-            .streamId(streamId)
-            .timestamp(System.currentTimeMillis())
-            .build();
+        if (buffer instanceof MutableDirectBuffer)
+        {
+            MutableDirectBuffer mutable = (MutableDirectBuffer) buffer;
+            long streamId = frameRO.wrap(buffer, index, index + length).streamId();
+            frameRW.wrap(mutable, index, index + length)
+                .streamId(streamId)
+                .timestamp(System.currentTimeMillis())
+                .build();
+        }
+        else
+        {
+            new IllegalArgumentException("buffer not instance of MutableDirectBuffer: " +  buffer).printStackTrace();
+        }
 
         switch (msgTypeId)
         {
