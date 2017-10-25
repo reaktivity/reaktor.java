@@ -37,6 +37,7 @@ import org.reaktivity.reaktor.internal.types.stream.WindowFW;
 public final class Target implements Nukleus
 {
     private final FrameFW frameRO = new FrameFW();
+    private final FrameFW.Builder frameRW = new FrameFW.Builder();
 
     private final String name;
     private final AutoCloseable layout;
@@ -106,6 +107,13 @@ public final class Target implements Nukleus
         int length)
     {
         boolean handled;
+
+        MutableDirectBuffer mutable = (MutableDirectBuffer) buffer;
+        long streamId = frameRO.wrap(buffer, index, index + length).streamId();
+        frameRW.wrap(mutable, index, index + length)
+            .streamId(streamId)
+            .timestamp(System.currentTimeMillis())
+            .build();
 
         switch (msgTypeId)
         {
