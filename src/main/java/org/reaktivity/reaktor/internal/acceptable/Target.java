@@ -37,10 +37,10 @@ import org.reaktivity.reaktor.internal.types.stream.WindowFW;
 public final class Target implements Nukleus
 {
     private final FrameFW frameRO = new FrameFW();
-    private final FrameFW.Builder frameRW = new FrameFW.Builder();
 
     private final String name;
     private final AutoCloseable layout;
+    private final MessageConsumer setTimestamp;
     private final int abortTypeId;
     private final Long2ObjectHashMap<MessageConsumer> throttles;
     private final MessageHandler readHandler;
@@ -52,10 +52,12 @@ public final class Target implements Nukleus
     public Target(
         String name,
         StreamsLayout layout,
+        MessageConsumer setTimestamp,
         int abortTypeId)
     {
         this.name = name;
         this.layout = layout;
+        this.setTimestamp = setTimestamp;
         this.abortTypeId = abortTypeId;
         this.streamsBuffer = layout.streamsBuffer()::write;
         this.throttleBuffer = layout.throttleBuffer()::read;
@@ -106,22 +108,9 @@ public final class Target implements Nukleus
         int index,
         int length)
     {
+        setTimestamp.accept(msgTypeId, buffer, index, length);
+
         boolean handled;
-
-        if (buffer instanceof MutableDirectBuffer)
-        {
-            MutableDirectBuffer mutable = (MutableDirectBuffer) buffer;
-            long streamId = frameRO.wrap(buffer, index, index + length).streamId();
-            frameRW.wrap(mutable, index, index + length)
-                .streamId(streamId)
-                .timestamp(System.currentTimeMillis())
-                .build();
-        }
-        else
-        {
-            new IllegalArgumentException("buffer not instance of MutableDirectBuffer: " +  buffer).printStackTrace();
-        }
-
         switch (msgTypeId)
         {
         case BeginFW.TYPE_ID:

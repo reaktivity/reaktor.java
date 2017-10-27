@@ -44,7 +44,6 @@ import org.reaktivity.reaktor.internal.types.stream.WindowFW;
 public final class Source implements Nukleus
 {
     private final FrameFW frameRO = new FrameFW();
-    private final FrameFW.Builder frameRW = new FrameFW.Builder();
     private final BeginFW beginRO = new BeginFW();
 
     private final ResetFW.Builder resetRW = new ResetFW.Builder();
@@ -58,6 +57,7 @@ public final class Source implements Nukleus
     private final Supplier<String> streamsDescriptor;
     private final Long2ObjectHashMap<MessageConsumer> streams;
     private final Function<RouteKind, StreamFactory> supplyStreamFactory;
+    private final MessageConsumer setTimestamp;
     private final int abortTypeId;
     private final MessageHandler readHandler;
     private final MessageConsumer writeHandler;
@@ -73,6 +73,7 @@ public final class Source implements Nukleus
         Long2ObjectHashMap<MessageConsumer> streams,
         Function<String, Target> supplyTarget,
         Function<RouteKind, StreamFactory> supplyStreamFactory,
+        MessageConsumer setTimestamp,
         int abortTypeId)
     {
         this.nukleusName = nukleusName;
@@ -82,6 +83,7 @@ public final class Source implements Nukleus
         this.writeBuffer = writeBuffer;
         this.supplyStreamFactory = supplyStreamFactory;
         this.abortTypeId = abortTypeId;
+        this.setTimestamp = setTimestamp;
         this.streamsDescriptor = layout::toString;
         this.streamsBuffer = layout.streamsBuffer()::read;
         this.throttleBuffer = layout.throttleBuffer()::write;
@@ -136,21 +138,9 @@ public final class Source implements Nukleus
         int index,
         int length)
     {
-        boolean handled;
+        setTimestamp.accept(msgTypeId, buffer, index, length);
 
-        if (buffer instanceof MutableDirectBuffer)
-        {
-            MutableDirectBuffer mutable = (MutableDirectBuffer) buffer;
-            long streamId = frameRO.wrap(buffer, index, index + length).streamId();
-            frameRW.wrap(mutable, index, index + length)
-                .streamId(streamId)
-                .timestamp(System.currentTimeMillis())
-                .build();
-        }
-        else
-        {
-            new IllegalArgumentException("buffer not instance of MutableDirectBuffer: " +  buffer).printStackTrace();
-        }
+        boolean handled;
 
         switch (msgTypeId)
         {
