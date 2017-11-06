@@ -185,7 +185,7 @@ public final class ReaktorRule implements TestRule
     @Override
     public Statement apply(Statement base, Description description)
     {
-        final String testMethod = description.getMethodName();
+        final String testMethod = description.getMethodName().replaceAll("\\[.*\\]", "");
         try
         {
             Configure[] configures = description.getTestClass()
