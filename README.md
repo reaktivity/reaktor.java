@@ -26,7 +26,7 @@ property correlationId ${nukleus:newCorrelationId()}
 
 accept "nukleus://receiver/streams/sender"
        option nukleus:route ${routeRef}
-       option nukleus:authorization 0x0001_000000_0000c1
+       option nukleus:authorization 0x0001_000000_0000c1L
        option nukleus:window 8192
        option nukleus:padding 10
        option nukleus:partition "part0"
@@ -77,7 +77,7 @@ connect "nukleus://receiver/streams/sender"
         option nukleus:partition "part0"
         option nukleus:correlation ${correlationId}
         option nukleus:throttle "none"
-        option nukleus:authorization 0x0001_000000_0000c1
+        option nukleus:authorization 0x0001_000000_0000c1L
 
 connected
 
@@ -118,7 +118,7 @@ accept "nukleus://receiver/streams/sender"
        option nukleus:padding 10
        option nukleus:throttle "none"
        option nukleus:transmission "duplex"
-       option nukleus:authorization 0x0001_000000_0000c1
+       option nukleus:authorization 0x0001_000000_0000c1L
 
 accepted
 
@@ -184,7 +184,7 @@ connect "nukleus://receiver/streams/sender"
         option nukleus:padding 10
         option nukleus:throttle "none"
         option nukleus:transmission "duplex"
-        option nukleus:authorization 0x0001_000000_0000c1
+        option nukleus:authorization 0x0001_000000_0000c1L
 
 # send BEGIN w/ extension
 write nukleus:begin.ext [0x...]
@@ -246,7 +246,7 @@ accept "nukleus://receiver/streams/sender"
        option nukleus:window 8192
        option nukleus:throttle "none"
        option nukleus:transmission "half-duplex"
-       option nukleus:authorization 0x0001_000000_0000c1
+       option nukleus:authorization 0x0001_000000_0000c1L
 
 accepted
 
@@ -312,7 +312,7 @@ connect "nukleus://receiver/streams/sender"
         option nukleus:window 8192
         option nukleus:throttle "none"
         option nukleus:transmission "half-duplex"
-        option nukleus:authorization 0x0001_000000_0000c1
+        option nukleus:authorization 0x0001_000000_0000c1L
 
 # send BEGIN w/ extension
 write nukleus:begin.ext [0x...]
