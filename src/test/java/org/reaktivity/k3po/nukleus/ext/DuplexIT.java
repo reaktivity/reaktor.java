@@ -106,7 +106,7 @@ public class DuplexIT
     @Test
     @Specification({
         "byteorder.native/client",
-        "byorder.native/server"
+        "byteorder.native/server"
     })
     public void shouldReadAndWriteIntegersInNativeByteOrder() throws Exception
     {
