@@ -95,10 +95,30 @@ public class DuplexIT
 
     @Test
     @Specification({
-        "read.and.write.integers.little.endian/client",
-        "read.and.write.integers.little.endian/server"
+        "byteorder.default/client",
+        "byteorder.default/server"
+    })
+    public void shouldReadAndWriteIntegersInNativeByteOrderByDefault() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "byteorder.native/client",
+        "byorder.native/server"
     })
     public void shouldReadAndWriteIntegersInNativeByteOrder() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "byteorder.network/client",
+        "byteorder.network/server"
+    })
+    public void shouldReadAndWriteIntegersInNetworkByteOrder() throws Exception
     {
         k3po.finish();
     }
