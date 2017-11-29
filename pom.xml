@@ -47,10 +47,10 @@
     <k3po.version>3.0.0-alpha-86</k3po.version>
     <nukleus.version>0.6.2</nukleus.version>
     <nukleus.spec.version>develop-SNAPSHOT</nukleus.spec.version>
-    <nukleus.plugin.version>0.12</nukleus.plugin.version>
+    <nukleus.plugin.version>0.18</nukleus.plugin.version>
 
     <jacoco.coverage.ratio>0.03</jacoco.coverage.ratio>
-    <jacoco.missed.count>113</jacoco.missed.count>
+    <jacoco.missed.count>119</jacoco.missed.count>
   </properties>
 
   <dependencies>
