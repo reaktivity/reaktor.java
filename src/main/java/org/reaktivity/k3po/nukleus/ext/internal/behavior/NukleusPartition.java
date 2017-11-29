@@ -224,18 +224,18 @@ final class NukleusPartition implements AutoCloseable
 
     void doWindow(
         final NukleusChannel channel,
-        final int update,
-        final int frames)
+        final int credit,
+        final int padding)
     {
         final long streamId = channel.sourceId();
 
+        channel.readableBytes(credit);
+
         final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .streamId(streamId)
-                .update(update)
-                .frames(frames)
+                .credit(credit)
+                .padding(padding)
                 .build();
-
-        channel.sourceWindow(window.update(), window.frames());
 
         throttleBuffer.write(window.typeId(), window.buffer(), window.offset(), window.sizeof());
     }
@@ -269,11 +269,13 @@ final class NukleusPartition implements AutoCloseable
                   new NukleusChildChannel(serverChannel, channelFactory, pipeline, childSink, serverChannel.reaktor);
 
             NukleusChannelConfig childConfig = childChannel.getConfig();
+            childConfig.setBufferFactory(serverConfig.getBufferFactory());
             childConfig.setTransmission(serverConfig.getTransmission());
             childConfig.setThrottle(serverConfig.getThrottle());
             childConfig.setReadPartition(serverConfig.getReadPartition());
             childConfig.setWritePartition(serverConfig.getWritePartition());
             childConfig.setWindow(serverConfig.getWindow());
+            childConfig.setPadding(serverConfig.getPadding());
 
             childConfig.setCorrelation(correlationId);
 

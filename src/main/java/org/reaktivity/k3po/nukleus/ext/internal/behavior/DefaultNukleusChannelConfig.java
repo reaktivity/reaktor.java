@@ -19,6 +19,7 @@ import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusChannel.N
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusThrottleMode.NONE;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusThrottleMode.STREAM;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusTransmission.SIMPLEX;
+import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_BYTE_ORDER;
 import static org.reaktivity.k3po.nukleus.ext.internal.util.Conversions.convertToInt;
 import static org.reaktivity.k3po.nukleus.ext.internal.util.Conversions.convertToLong;
 
@@ -33,6 +34,7 @@ public class DefaultNukleusChannelConfig extends DefaultChannelConfig implements
     private String writePartition;
     private NukleusTransmission transmission = SIMPLEX;
     private int window;
+    private int padding;
     private NukleusThrottleMode throttle = STREAM;
     private boolean update = true;
 
@@ -107,6 +109,18 @@ public class DefaultNukleusChannelConfig extends DefaultChannelConfig implements
     }
 
     @Override
+    public void setPadding(int padding)
+    {
+        this.padding = padding;
+    }
+
+    @Override
+    public int getPadding()
+    {
+        return padding;
+    }
+
+    @Override
     public void setUpdate(boolean update)
     {
         this.update = update;
@@ -166,6 +180,10 @@ public class DefaultNukleusChannelConfig extends DefaultChannelConfig implements
         {
             setWindow(convertToInt(value));
         }
+        else if ("padding".equals(key))
+        {
+            setPadding(convertToInt(value));
+        }
         else if ("update".equals(key))
         {
             setUpdate(!"none".equals(value));
@@ -173,6 +191,10 @@ public class DefaultNukleusChannelConfig extends DefaultChannelConfig implements
         else if ("throttle".equals(key))
         {
             setThrottle(NukleusThrottleMode.decode(Objects.toString(value, null)));
+        }
+        else if (OPTION_BYTE_ORDER.getName().equals(key))
+        {
+            setBufferFactory(NukleusByteOrder.decode(Objects.toString(value, "native")).toBufferFactory());
         }
         else
         {

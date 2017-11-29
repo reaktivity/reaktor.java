@@ -16,10 +16,11 @@
 
 connect "nukleus://server/streams/client"
         option nukleus:route 1234L
-        option nukleus:transmission "duplex"
+        option nukleus:transmission "simplex"
         option nukleus:window 8192
-        option nukleus:throttle "none"
 connected
 
-write "Hello, world"
+write "H"
+write await FIRST_BYTE_RECEIVED
+write "e"
 write aborted

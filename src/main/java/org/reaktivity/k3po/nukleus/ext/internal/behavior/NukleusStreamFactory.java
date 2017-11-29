@@ -112,6 +112,7 @@ public final class NukleusStreamFactory
 
             final NukleusChannelConfig channelConfig = channel.getConfig();
             final int initialWindow = channelConfig.getWindow();
+            final int padding = channelConfig.getPadding();
 
             int beginExtBytes = beginExt.sizeof();
             if (beginExtBytes != 0)
@@ -129,7 +130,7 @@ public final class NukleusStreamFactory
             channel.sourceId(streamId);
             channel.sourceAuth(begin.authorization());
 
-            partition.doWindow(channel, initialWindow, initialWindow);
+            partition.doWindow(channel, initialWindow, padding);
 
             channel.beginInputFuture().setSuccess();
 
@@ -145,9 +146,9 @@ public final class NukleusStreamFactory
             final int readableBytes = message.readableBytes();
             final OctetsFW dataExt = data.extension();
 
-            if (channel.sourceWindow() >= readableBytes && data.authorization() == channel.sourceAuth())
+            if (channel.readableBytes() >= readableBytes && data.authorization() == channel.sourceAuth())
             {
-                channel.sourceWindow(-readableBytes, -1);
+                channel.readableBytes(-readableBytes);
 
                 int dataExtBytes = dataExt.sizeof();
                 if (dataExtBytes != 0)
@@ -164,7 +165,8 @@ public final class NukleusStreamFactory
 
                 if (channel.getConfig().getUpdate())
                 {
-                    partition.doWindow(channel, readableBytes, 1);
+                    int padding = channel.getConfig().getPadding();
+                    partition.doWindow(channel, readableBytes + padding, padding);
                 }
                 fireMessageReceived(channel, message);
             }

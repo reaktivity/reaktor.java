@@ -17,7 +17,7 @@
 connect "nukleus://server/streams/client"
         option nukleus:route 1234L
         option nukleus:window 8192
-        option nukleus:throttle "off"
+        option nukleus:throttle "none"
 connected
 
 write "Hello, world"

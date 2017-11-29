@@ -15,6 +15,7 @@ Requires external configuration of directory where streams are discovered.
 # for route reference ${routeRef} (required)
 # with specified authorization (optional, default zeros, exact match required)
 # set initial window size to 8192 (required)
+# with padding size to 10 (optional)
 # on explicit partition "part0" (optional: default to any partition)
 # with explicit correlation ${correlationId} (optional: default to any correlation)
 #
@@ -25,8 +26,9 @@ property correlationId ${nukleus:newCorrelationId()}
 
 accept "nukleus://receiver/streams/sender"
        option nukleus:route ${routeRef}
-       option nukleus:authorization 0x0001_000000_0000c1
+       option nukleus:authorization 0x0001_000000_0000c1L
        option nukleus:window 8192
+       option nukleus:padding 10
        option nukleus:partition "part0"
        option nukleus:correlation ${correlationId}
 
@@ -75,7 +77,7 @@ connect "nukleus://receiver/streams/sender"
         option nukleus:partition "part0"
         option nukleus:correlation ${correlationId}
         option nukleus:throttle "none"
-        option nukleus:authorization 0x0001_000000_0000c1
+        option nukleus:authorization 0x0001_000000_0000c1L
 
 connected
 
@@ -102,6 +104,7 @@ write close
 # for route reference ${routeRef} (required)
 # with specified authorization (optional, default zeros, exact match required)
 # with initial window size to 8192 (required)
+# with padding size to 10 (optional)
 # with throttle "none" (optional: default "stream", or "message" for per-message acknowledgment)
 # with "duplex" transmission for bidirectional (optional: default "simplex")
 #
@@ -112,9 +115,10 @@ property routeRef ${nukleus:newRouteRef()}
 accept "nukleus://receiver/streams/sender"
        option nukleus:route ${routeRef}
        option nukleus:window 8192
+       option nukleus:padding 10
        option nukleus:throttle "none"
        option nukleus:transmission "duplex"
-       option nukleus:authorization 0x0001_000000_0000c1
+       option nukleus:authorization 0x0001_000000_0000c1L
 
 accepted
 
@@ -166,6 +170,7 @@ write close
 # for route reference ${routeRef} (required)
 # setting authorization bits on Begin (optional: default all zeros)
 # with initial window size to 8192 (required)
+# with padding size to 10 (optional)
 # with throttle "none" (optional: default "stream", or "message" for per-message acknowledgment)
 # with "duplex" transmission for bidirectional (optional: default "simplex")
 #
@@ -176,9 +181,10 @@ property routeRef ${nukleus:newRouteRef()}
 connect "nukleus://receiver/streams/sender"
         option nukleus:route ${routeRef}
         option nukleus:window 8192
+        option nukleus:padding 10
         option nukleus:throttle "none"
         option nukleus:transmission "duplex"
-        option nukleus:authorization 0x0001_000000_0000c1
+        option nukleus:authorization 0x0001_000000_0000c1L
 
 # send BEGIN w/ extension
 write nukleus:begin.ext [0x...]
@@ -240,7 +246,7 @@ accept "nukleus://receiver/streams/sender"
        option nukleus:window 8192
        option nukleus:throttle "none"
        option nukleus:transmission "half-duplex"
-       option nukleus:authorization 0x0001_000000_0000c1
+       option nukleus:authorization 0x0001_000000_0000c1L
 
 accepted
 
@@ -306,7 +312,7 @@ connect "nukleus://receiver/streams/sender"
         option nukleus:window 8192
         option nukleus:throttle "none"
         option nukleus:transmission "half-duplex"
-        option nukleus:authorization 0x0001_000000_0000c1
+        option nukleus:authorization 0x0001_000000_0000c1L
 
 # send BEGIN w/ extension
 write nukleus:begin.ext [0x...]
@@ -351,3 +357,8 @@ read aborted
 read nukleus:end.ext [0x...]
 read closed
 ```
+
+
+NOTE:
+The "nukleus:window" option specifies the number of bytes that will be advertised in the first Window frame sent back in response to a Begin
+The "nukleus:throttle" option determines how and whether writes will respect Window frames received from the other end. When set to "stream" or "message", window frames are honored, when set to "none" they are not.
