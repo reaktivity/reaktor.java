@@ -77,10 +77,10 @@ property correlationId ${nukleus:newCorrelationId()}
 
 connect "nukleus://receiver/streams/sender"
         option nukleus:route ${routeRef}
+        option nukleus:authorization 0x0001_000000_0000c1L
         option nukleus:partition "part0"
         option nukleus:correlation ${correlationId}
         option nukleus:throttle "none"
-        option nukleus:authorization 0x0001_000000_0000c1L
 
 connected
 
@@ -186,12 +186,12 @@ property routeRef ${nukleus:newRouteRef()}
 
 connect "nukleus://receiver/streams/sender"
         option nukleus:route ${routeRef}
+        option nukleus:authorization 0x0001_000000_0000c1L
         option nukleus:window 8192
         option nukleus:padding 10
         option nukleus:throttle "none"
         option nukleus:byteorder "native"
         option nukleus:transmission "duplex"
-        option nukleus:authorization 0x0001_000000_0000c1L
 
 # send BEGIN w/ extension
 write nukleus:begin.ext [0x...]
@@ -251,11 +251,11 @@ property routeRef ${nukleus:newRouteRef()}
 
 accept "nukleus://receiver/streams/sender"
        option nukleus:route ${routeRef}
+       option nukleus:authorization 0x0001_000000_0000c1L
        option nukleus:window 8192
        option nukleus:throttle "none"
        option nukleus:byteorder "native"
        option nukleus:transmission "half-duplex"
-       option nukleus:authorization 0x0001_000000_0000c1L
 
 accepted
 
@@ -319,11 +319,11 @@ property routeRef ${nukleus:newRouteRef()}
 
 connect "nukleus://receiver/streams/sender"
         option nukleus:route ${routeRef}
+        option nukleus:authorization 0x0001_000000_0000c1L
         option nukleus:window 8192
         option nukleus:throttle "none"
         option nukleus:byteorder "network"
         option nukleus:transmission "half-duplex"
-        option nukleus:authorization 0x0001_000000_0000c1L
 
 # send BEGIN w/ extension
 write nukleus:begin.ext [0x...]
