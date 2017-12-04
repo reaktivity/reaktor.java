@@ -18,6 +18,7 @@ Requires external configuration of directory where streams are discovered.
 # with padding size to 10 (optional)
 # on explicit partition "part0" (optional: default to any partition)
 # with explicit correlation ${correlationId} (optional: default to any correlation)
+# using network byte order (big-endian) for shorts, int's and longs (optional: default to native)
 #
 # note: throttle (default "stream") is not relevant on accept for "simplex" transmission (not writing)
 
@@ -31,6 +32,7 @@ accept "nukleus://receiver/streams/sender"
        option nukleus:padding 10
        option nukleus:partition "part0"
        option nukleus:correlation ${correlationId}
+       option nukleus:byteorder "network"
 
 accepted
 
@@ -66,6 +68,7 @@ read closed
 # setting authorization bits on Begin (optional: default all zeros)
 # on explicit partition "part0" (optional: default to any partition)
 # with explicit correlation ${correlationId} (optional: default to any correlation)
+# using network byte order (big-endian) for shorts, int's and longs (optional: default to native)
 # with throttle "none" (allows negative testing of flow control)
 
 
@@ -74,10 +77,10 @@ property correlationId ${nukleus:newCorrelationId()}
 
 connect "nukleus://receiver/streams/sender"
         option nukleus:route ${routeRef}
+        option nukleus:authorization 0x0001_000000_0000c1L
         option nukleus:partition "part0"
         option nukleus:correlation ${correlationId}
         option nukleus:throttle "none"
-        option nukleus:authorization 0x0001_000000_0000c1L
 
 connected
 
@@ -106,6 +109,7 @@ write close
 # with initial window size to 8192 (required)
 # with padding size to 10 (optional)
 # with throttle "none" (optional: default "stream", or "message" for per-message acknowledgment)
+# using network byte order (big-endian) for shorts, int's and longs (optional: default to native)
 # with "duplex" transmission for bidirectional (optional: default "simplex")
 #
 # note: partition, correlationId not supported for "duplex" transmission
@@ -114,11 +118,12 @@ property routeRef ${nukleus:newRouteRef()}
 
 accept "nukleus://receiver/streams/sender"
        option nukleus:route ${routeRef}
+       option nukleus:authorization 0x0001_000000_0000c1L
        option nukleus:window 8192
        option nukleus:padding 10
        option nukleus:throttle "none"
+       option nukleus:byteorder "native"
        option nukleus:transmission "duplex"
-       option nukleus:authorization 0x0001_000000_0000c1L
 
 accepted
 
@@ -172,6 +177,7 @@ write close
 # with initial window size to 8192 (required)
 # with padding size to 10 (optional)
 # with throttle "none" (optional: default "stream", or "message" for per-message acknowledgment)
+# using network byte order (big-endian) for shorts, int's and longs (optional: default to native)
 # with "duplex" transmission for bidirectional (optional: default "simplex")
 #
 # note: partition, correlationId not supported for "duplex" transmission
@@ -180,11 +186,12 @@ property routeRef ${nukleus:newRouteRef()}
 
 connect "nukleus://receiver/streams/sender"
         option nukleus:route ${routeRef}
+        option nukleus:authorization 0x0001_000000_0000c1L
         option nukleus:window 8192
         option nukleus:padding 10
         option nukleus:throttle "none"
+        option nukleus:byteorder "native"
         option nukleus:transmission "duplex"
-        option nukleus:authorization 0x0001_000000_0000c1L
 
 # send BEGIN w/ extension
 write nukleus:begin.ext [0x...]
@@ -235,6 +242,7 @@ read closed
 # with specified authorization (optional, default zeros, exact match required)
 # with initial window size to 8192 (required)
 # with throttle "none" (optional: default "stream", or "message" for per-message acknowledgment)
+# using network byte order (big-endian) for shorts, int's and longs (optional: default to native)
 # with "half-duplex" transmission for bidirectional (optional: default "simplex")
 #
 # note: partition, correlationId not supported for "half-duplex" transmission
@@ -243,10 +251,11 @@ property routeRef ${nukleus:newRouteRef()}
 
 accept "nukleus://receiver/streams/sender"
        option nukleus:route ${routeRef}
+       option nukleus:authorization 0x0001_000000_0000c1L
        option nukleus:window 8192
        option nukleus:throttle "none"
+       option nukleus:byteorder "native"
        option nukleus:transmission "half-duplex"
-       option nukleus:authorization 0x0001_000000_0000c1L
 
 accepted
 
@@ -301,6 +310,7 @@ read closed
 # setting authorization bits on Begin (optional: default all zeros)
 # with initial window size to 8192 (required)
 # with throttle "none" (optional: default "stream", or "message" for per-message acknowledgment)
+# using network byte order (big-endian) for shorts, int's and longs (optional: default to native)
 # with "half-duplex" transmission for bidirectional (optional: default "simplex")
 #
 # note: partition, correlationId not supported for "half-duplex" transmission
@@ -309,10 +319,11 @@ property routeRef ${nukleus:newRouteRef()}
 
 connect "nukleus://receiver/streams/sender"
         option nukleus:route ${routeRef}
+        option nukleus:authorization 0x0001_000000_0000c1L
         option nukleus:window 8192
         option nukleus:throttle "none"
+        option nukleus:byteorder "network"
         option nukleus:transmission "half-duplex"
-        option nukleus:authorization 0x0001_000000_0000c1L
 
 # send BEGIN w/ extension
 write nukleus:begin.ext [0x...]
