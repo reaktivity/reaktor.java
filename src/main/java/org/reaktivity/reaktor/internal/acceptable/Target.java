@@ -40,6 +40,7 @@ public final class Target implements Nukleus
 
     private final String name;
     private final AutoCloseable layout;
+    private final MessageConsumer setTimestamp;
     private final int abortTypeId;
     private final Long2ObjectHashMap<MessageConsumer> throttles;
     private final MessageHandler readHandler;
@@ -51,10 +52,12 @@ public final class Target implements Nukleus
     public Target(
         String name,
         StreamsLayout layout,
+        MessageConsumer setTimestamp,
         int abortTypeId)
     {
         this.name = name;
         this.layout = layout;
+        this.setTimestamp = setTimestamp;
         this.abortTypeId = abortTypeId;
         this.streamsBuffer = layout.streamsBuffer()::write;
         this.throttleBuffer = layout.throttleBuffer()::read;
@@ -105,8 +108,9 @@ public final class Target implements Nukleus
         int index,
         int length)
     {
-        boolean handled;
+        setTimestamp.accept(msgTypeId, buffer, index, length);
 
+        boolean handled;
         switch (msgTypeId)
         {
         case BeginFW.TYPE_ID:

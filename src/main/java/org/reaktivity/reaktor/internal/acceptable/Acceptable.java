@@ -15,6 +15,7 @@
  */
 package org.reaktivity.reaktor.internal.acceptable;
 
+import java.time.Instant;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -24,6 +25,8 @@ import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
+import org.agrona.DirectBuffer;
+import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
@@ -43,12 +46,15 @@ import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
 import org.reaktivity.reaktor.internal.router.ReferenceKind;
 import org.reaktivity.reaktor.internal.router.Router;
 import org.reaktivity.reaktor.internal.types.stream.AbortFW;
+import org.reaktivity.reaktor.internal.types.stream.FrameFW;
 import org.reaktivity.reaktor.internal.types.stream.ResetFW;
 
 public final class Acceptable extends Nukleus.Composite implements RouteManager
 {
     private final AbortFW.Builder abortRW = new AbortFW.Builder();
     private final ResetFW.Builder resetRW = new ResetFW.Builder();
+    private final FrameFW frameRO = new FrameFW();
+    private final FrameFW.Builder frameRW = new FrameFW.Builder();
 
     private final Context context;
     private final Router router;
@@ -59,6 +65,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
     private final Map<String, Target> targetsByName;
     private final Function<RouteKind, StreamFactory> supplyStreamFactory;
     private final int abortTypeId;
+    private final LongSupplier supplyTimestamp = Acceptable::epochMicros;
 
 
     public Acceptable(
@@ -163,6 +170,15 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
         supplyTargetInternal(targetName).setThrottle(streamId, throttle);
     }
 
+    private static long epochMicros()
+    {
+        final Instant now = Instant.now();
+        final long seconds = now.getEpochSecond();
+        final long nanosFromSecond = now.getNano();
+
+        return (seconds * 1_000_000) + (nanosFromSecond / 1_000);
+    }
+
     private Source newSource(
         String partitionName)
     {
@@ -174,7 +190,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
             .build();
 
         return include(new Source(context.name(), sourceName, partitionName, layout, writeBuffer, streams,
-                                  this::supplyTargetInternal, supplyStreamFactory, abortTypeId));
+                                  this::supplyTargetInternal, supplyStreamFactory, this::setTimestamp, abortTypeId));
     }
 
     private Target supplyTargetInternal(
@@ -195,7 +211,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
                 .readonly(false)
                 .build();
 
-        return include(new Target(targetName, layout, abortTypeId));
+        return include(new Target(targetName, layout, this::setTimestamp, abortTypeId));
     }
 
     private void doAbort(
@@ -239,5 +255,24 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
                                      .build();
 
         throttle.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
+    }
+
+    private void setTimestamp(
+        int msgTypeId,
+        DirectBuffer buffer,
+        int index,
+        int length)
+    {
+        MutableDirectBuffer mutable = writeBuffer;
+        if (mutable != buffer)
+        {
+            mutable = (MutableDirectBuffer) buffer;
+        }
+
+        long streamId = frameRO.wrap(buffer, index, index + length).streamId();
+        frameRW.wrap(mutable, index, index + length)
+            .streamId(streamId)
+            .timestamp(supplyTimestamp.getAsLong())
+            .build();
     }
 }
