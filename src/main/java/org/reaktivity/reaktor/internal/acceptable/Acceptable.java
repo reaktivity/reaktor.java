@@ -263,18 +263,16 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
         int index,
         int length)
     {
-        if (buffer == writeBuffer)
+        MutableDirectBuffer mutable = writeBuffer;
+        if (mutable != buffer)
         {
-            MutableDirectBuffer mutable = writeBuffer;
-            long streamId = frameRO.wrap(buffer, index, index + length).streamId();
-            frameRW.wrap(mutable, index, index + length)
-                .streamId(streamId)
-                .timestamp(supplyTimestamp.getAsLong())
-                .build();
+            mutable = (MutableDirectBuffer) buffer;
         }
-        else
-        {
-            new IllegalArgumentException("buffer is not writeBuffer: " +  writeBuffer).printStackTrace();
-        }
+
+        long streamId = frameRO.wrap(buffer, index, index + length).streamId();
+        frameRW.wrap(mutable, index, index + length)
+            .streamId(streamId)
+            .timestamp(supplyTimestamp.getAsLong())
+            .build();
     }
 }
