@@ -422,6 +422,8 @@ final class NukleusTarget implements AutoCloseable
                     final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                             .streamId(streamId)
                             .authorization(authorization)
+                            .groupId(0)
+                            .claimed(0)
                             .payload(p -> p.set(writeCopy))
                             .extension(p -> p.set(writeExtCopy))
                             .build();
