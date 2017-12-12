@@ -31,6 +31,28 @@ public interface StreamFactoryBuilder
     StreamFactoryBuilder setStreamIdSupplier(
         LongSupplier supplyStreamId);
 
+    default StreamFactoryBuilder setGroupIdSupplier(
+        LongSupplier supplyGroupId)
+    {
+        return this;
+    }
+
+/*
+    // Use the given object to claim group budget.
+    // For e.g.:
+    //
+    // int claimed = claimGroupBudget.apply(groupId).applyAsInt(claim);
+    StreamFactoryBuilder setGroupBudgetClaimer(
+        LongFunction<IntUnaryOperator> claimGroupBudget);
+
+    // Use the given object to release group budget.
+    // For e.g.:
+    //
+    // int remaining = releaseGroupBudget.apply(groupId).applyAsInt(claimed);
+    StreamFactoryBuilder setGroupBudgetReleaser(
+        LongFunction<IntUnaryOperator> releaseGroupBudget);
+*/
+
     StreamFactoryBuilder setCorrelationIdSupplier(
         LongSupplier supplyCorrelationId);
 
