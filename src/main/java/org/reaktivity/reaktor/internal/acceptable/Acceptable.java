@@ -65,6 +65,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
         Context context,
         Router router,
         String sourceName,
+        LongSupplier supplyGroupId,
         Supplier<BufferPool> supplyBufferPool,
         Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder,
         int abortTypeId,
@@ -97,6 +98,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
                         .setRouteManager(this)
                         .setWriteBuffer(writeBuffer)
                         .setStreamIdSupplier(supplyStreamId)
+                        .setGroupIdSupplier(supplyGroupId)
                         .setCorrelationIdSupplier(supplyCorrelationId)
                         .setCounterSupplier(supplyCounter)
                         .setBufferPoolSupplier(supplyCountingBufferPool)

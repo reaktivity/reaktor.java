@@ -141,6 +141,7 @@ public class StreamsIT
         private ArgumentCaptor<LongSupplier> supplyCorrelationId = forClass(LongSupplier.class);
         private ArgumentCaptor<RouteManager> router = forClass(RouteManager.class);
         private ArgumentCaptor<LongSupplier> supplyStreamId = forClass(LongSupplier.class);
+        private ArgumentCaptor<LongSupplier> supplyGroupId = forClass(LongSupplier.class);
         private ArgumentCaptor<MutableDirectBuffer> writeBuffer = forClass(MutableDirectBuffer.class);
 
         private MessageConsumer newStream = mock(MessageConsumer.class);
@@ -163,6 +164,7 @@ public class StreamsIT
         {
             when(serverStreamFactory.setCorrelationIdSupplier(supplyCorrelationId.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setStreamIdSupplier(supplyStreamId.capture())).thenReturn(serverStreamFactory);
+            when(serverStreamFactory.setGroupIdSupplier(supplyGroupId.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setRouteManager(router.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setWriteBuffer(writeBuffer.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setCounterSupplier(any(Function.class))).thenReturn(serverStreamFactory);
