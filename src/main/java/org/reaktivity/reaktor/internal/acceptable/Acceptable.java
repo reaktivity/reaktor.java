@@ -21,6 +21,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
+import java.util.function.IntUnaryOperator;
+import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
@@ -65,6 +67,9 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
         Context context,
         Router router,
         String sourceName,
+        LongSupplier supplyGroupId,
+        LongFunction<IntUnaryOperator> groupBudgetClaimer,
+        LongFunction<IntUnaryOperator> groupBudgetReleaser,
         Supplier<BufferPool> supplyBufferPool,
         Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder,
         int abortTypeId,
@@ -97,6 +102,9 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
                         .setRouteManager(this)
                         .setWriteBuffer(writeBuffer)
                         .setStreamIdSupplier(supplyStreamId)
+                        .setGroupIdSupplier(supplyGroupId)
+                        .setGroupBudgetClaimer(groupBudgetClaimer)
+                        .setGroupBudgetReleaser(groupBudgetReleaser)
                         .setCorrelationIdSupplier(supplyCorrelationId)
                         .setCounterSupplier(supplyCounter)
                         .setBufferPoolSupplier(supplyCountingBufferPool)
