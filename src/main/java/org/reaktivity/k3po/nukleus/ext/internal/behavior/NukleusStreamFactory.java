@@ -130,7 +130,7 @@ public final class NukleusStreamFactory
             channel.sourceId(streamId);
             channel.sourceAuth(begin.authorization());
 
-            partition.doWindow(channel, initialWindow, padding);
+            partition.doWindow(channel, initialWindow, padding, 0);
 
             channel.beginInputFuture().setSuccess();
 
@@ -166,7 +166,7 @@ public final class NukleusStreamFactory
                 if (channel.getConfig().getUpdate())
                 {
                     int padding = channel.getConfig().getPadding();
-                    partition.doWindow(channel, readableBytes + padding, padding);
+                    partition.doWindow(channel, readableBytes + padding, padding, 0);
                 }
                 fireMessageReceived(channel, message);
             }
