@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
+import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -55,10 +56,12 @@ public final class Acceptor extends Nukleus.Composite
     private final Map<String, Acceptable> acceptables;
     private final AtomicCounter routeRefs;
     private final MutableDirectBuffer routeBuf;
+    private final GroupBudgetManager groupBudgetManager;
 
     private Conductor conductor;
     private Router router;
     private Supplier<BufferPool> supplyBufferPool;
+    private LongSupplier supplyGroupId;
     private Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder;
     private int abortTypeId;
     private Function<Role, MessagePredicate> supplyRouteHandler;
@@ -73,6 +76,9 @@ public final class Acceptor extends Nukleus.Composite
         this.acceptables = new HashMap<>();
         this.routeBuf = new UnsafeBuffer(ByteBuffer.allocateDirect(context.maxControlCommandLength()));
         this.correlations  = new AtomicLong();
+        int groupId = 0;
+        this.supplyGroupId = () -> groupId + 1;
+        this.groupBudgetManager = new GroupBudgetManager();
     }
 
     public void setConductor(
@@ -226,6 +232,9 @@ public final class Acceptor extends Nukleus.Composite
                 context,
                 router,
                 sourceName,
+                supplyGroupId,
+                groupBudgetManager::claim,
+                groupBudgetManager::release,
                 supplyBufferPool,
                 supplyStreamFactoryBuilder,
                 abortTypeId,
