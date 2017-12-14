@@ -31,7 +31,8 @@ class GroupBudgetManager
         budgets = new Long2LongHashMap(0L);
     }
 
-    public IntUnaryOperator claim(long groupId)
+    public IntUnaryOperator claim(
+        long groupId)
     {
         return groupId == 0
             ? NOOP_CLAIM :
@@ -44,7 +45,8 @@ class GroupBudgetManager
             };
     }
 
-    public IntUnaryOperator release(long groupId)
+    public IntUnaryOperator release(
+        long groupId)
     {
         return groupId == 0
                 ? NOOP_RELEASE :
