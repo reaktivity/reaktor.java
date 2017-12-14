@@ -423,7 +423,7 @@ final class NukleusTarget implements AutoCloseable
                             .streamId(streamId)
                             .authorization(authorization)
                             .groupId(0)
-                            .padding(0)
+                            .padding(channel.writablePadding)
                             .payload(p -> p.set(writeCopy))
                             .extension(p -> p.set(writeExtCopy))
                             .build();
