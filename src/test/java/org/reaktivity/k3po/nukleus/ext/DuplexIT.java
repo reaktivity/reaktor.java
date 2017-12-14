@@ -95,6 +95,36 @@ public class DuplexIT
 
     @Test
     @Specification({
+        "byteorder.default/client",
+        "byteorder.default/server"
+    })
+    public void shouldReadAndWriteIntegersInNativeByteOrderByDefault() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "byteorder.native/client",
+        "byteorder.native/server"
+    })
+    public void shouldReadAndWriteIntegersInNativeByteOrder() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "byteorder.network/client",
+        "byteorder.network/server"
+    })
+    public void shouldReadAndWriteIntegersInNetworkByteOrder() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "client.sent.data/client",
         "client.sent.data/server"
     })
