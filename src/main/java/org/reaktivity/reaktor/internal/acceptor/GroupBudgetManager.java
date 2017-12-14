@@ -36,13 +36,7 @@ class GroupBudgetManager
     {
         return groupId == 0
             ? NOOP_CLAIM :
-            (claim) ->
-            {
-                long budget = budgets.get(groupId);
-                long claimed = Math.min(budget, claim);
-                budgets.computeIfPresent(groupId, (k, v) -> budget - claimed);
-                return (int) claimed;
-            };
+            bytes -> doClaim(groupId, bytes);
     }
 
     public IntUnaryOperator release(
@@ -50,12 +44,26 @@ class GroupBudgetManager
     {
         return groupId == 0
                 ? NOOP_RELEASE :
-                (release) ->
-                {
-                    long budget = budgets.get(groupId);
-                    long newBudget = budget + release;
-                    budgets.computeIfPresent(groupId, (k, v) -> newBudget);
-                    return (int) newBudget;
-                };
+                bytes -> doRelease(groupId, bytes);
+    }
+
+    private int doClaim(
+        long groupId,
+        long bytes)
+    {
+        long budget = budgets.get(groupId);
+        long claimed = Math.min(budget, bytes);
+        budgets.computeIfPresent(groupId, (k, v) -> budget - claimed);
+        return (int) claimed;
+    }
+
+    private int doRelease(
+        long groupId,
+        long bytes)
+    {
+        long budget = budgets.get(groupId);
+        long newBudget = budget + bytes;
+        budgets.computeIfPresent(groupId, (k, v) -> newBudget);
+        return (int) newBudget;
     }
 }
