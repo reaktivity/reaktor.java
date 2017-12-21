@@ -38,7 +38,7 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
 
     private int readableBudget;
     private int writableBudget;
-    private int writablePadding;
+    int writablePadding;
 
     private int writtenBytes;
     private int acknowledgedBytes;
