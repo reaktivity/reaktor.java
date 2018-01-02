@@ -64,7 +64,7 @@ public class StreamsIT
             .addScriptRoot("route", "org/reaktivity/specification/nukleus/control/route")
             .addScriptRoot("streams", "org/reaktivity/specification/nukleus/streams");
 
-    private final TestRule timeout = new DisableOnDebug(new Timeout(5, SECONDS));
+    private final TestRule timeout = new DisableOnDebug(new Timeout(15, SECONDS));
 
     private final ReaktorRule reaktor = new ReaktorRule()
         .nukleus("example"::equals)

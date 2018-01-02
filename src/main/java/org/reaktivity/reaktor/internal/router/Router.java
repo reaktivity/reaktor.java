@@ -15,14 +15,7 @@
  */
 package org.reaktivity.reaktor.internal.router;
 
-import static org.reaktivity.reaktor.internal.router.RouteMatchers.authorizationMatches;
-import static org.reaktivity.reaktor.internal.router.RouteMatchers.sourceMatches;
-import static org.reaktivity.reaktor.internal.router.RouteMatchers.sourceRefMatches;
-import static org.reaktivity.reaktor.internal.router.RouteMatchers.targetMatches;
-import static org.reaktivity.reaktor.internal.router.RouteMatchers.targetRefMatches;
-
 import java.util.function.Consumer;
-import java.util.function.Predicate;
 
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
@@ -31,6 +24,7 @@ import org.reaktivity.nukleus.function.MessageFunction;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.reaktor.internal.Context;
 import org.reaktivity.reaktor.internal.layouts.RoutesLayout;
+import org.reaktivity.reaktor.internal.types.ListFW;
 import org.reaktivity.reaktor.internal.types.OctetsFW;
 import org.reaktivity.reaktor.internal.types.control.RouteFW;
 import org.reaktivity.reaktor.internal.types.control.UnrouteFW;
@@ -44,6 +38,7 @@ public final class Router extends Nukleus.Composite
     private final RouteTableFW routeTableRO;
     private final MutableDirectBuffer routesBuffer;
     private final int routesBufferCapacity;
+    private final RouteFW routeRO;
 
     public Router(
         Context context)
@@ -51,6 +46,7 @@ public final class Router extends Nukleus.Composite
         this.routesLayout = context.routesLayout();
         this.routeTableRW = new RouteTableFW.Builder();
         this.routeTableRO = new RouteTableFW();
+        this.routeRO = new RouteFW();
         this.routesBuffer = routesLayout.routesBuffer();
         this.routesBufferCapacity = routesLayout.capacity();
     }
@@ -61,6 +57,7 @@ public final class Router extends Nukleus.Composite
         return "router";
     }
 
+    int cnt = 0;
     public boolean doRoute(
         RouteFW route,
         MessagePredicate routeHandler)
@@ -76,11 +73,16 @@ public final class Router extends Nukleus.Composite
             routeTableRW
                 .wrap(routesBuffer, 0, routesBufferCapacity)
                 .writeLockAcquires(readLock)
-                .writeLockReleases(readLock--)
+                .writeLockReleases(readLock - 1)
                 .routeEntries(b ->
                 {
-                    routeTable.routeEntries().forEach(
-                        e -> b.item(copyRouteEntry(e.routeSize(), e.route()))
+                    final ListFW<RouteEntryFW> existingEntries = routeTable.routeEntries();
+                    existingEntries.forEach(
+                        e ->
+                        {
+                            System.out.println("hmm: " + e);
+                            b.item(copyRouteEntry(e.routeSize(), e.route()));
+                        }
                     );
 
                     b.item(
@@ -88,7 +90,11 @@ public final class Router extends Nukleus.Composite
                                                               .route(routeBuilder -> copyRoute(routeBuilder, route))
                     );
                 });
-
+            RouteTableFW what = routeTableRW.build();
+            System.out.println("before");
+            final ListFW<RouteEntryFW> routeEntries = what.routeEntries();
+            routeEntries.forEach(re -> System.out.println(re));
+            System.out.println("after");
             routesLayout.unlock();
         }
         return routed;
@@ -98,18 +104,6 @@ public final class Router extends Nukleus.Composite
         UnrouteFW unroute,
         MessagePredicate routeHandler)
     {
-        final String sourceName = unroute.source().asString();
-        final long sourceRef = unroute.sourceRef();
-        final String targetName = unroute.target().asString();
-        final long targetRef = unroute.targetRef();
-        final long authorization = unroute.authorization();
-
-        final Predicate<RouteFW> filter =
-                sourceMatches(sourceName)
-                .and(sourceRefMatches(sourceRef))
-                .and(targetMatches(targetName))
-                .and(targetRefMatches(targetRef))
-                .and(authorizationMatches(authorization));
 
         RouteTableFW routeTable = routeTableRO.wrap(routesBuffer, 0, routesBufferCapacity);
         final boolean unrouted =
@@ -146,14 +140,16 @@ public final class Router extends Nukleus.Composite
         RouteTableFW routeTable = routeTableRO.wrap(routesBuffer, 0, routesBufferCapacity);
         routeTable.routeEntries().forEach(re ->
         {
-            RouteFW candidate = re.route();
+            final RouteFW candidate = re.route();
+            final int typeId = candidate.typeId();
+            final DirectBuffer buffer = candidate.buffer();
+            final int offset = candidate.offset();
+            final int length = candidate.sizeof();
             final long routeAuthorization = candidate.authorization();
-            if ((authorization & routeAuthorization) == routeAuthorization)
+
+            if (filter.test(typeId, buffer, offset, length) &&
+                (authorization & routeAuthorization) == routeAuthorization)
             {
-                final int typeId = candidate.typeId();
-                final DirectBuffer buffer = candidate.buffer();
-                final int offset = candidate.offset();
-                final int length = candidate.sizeof();
                 r = mapper.apply(typeId, buffer, offset, length);
             }
         });

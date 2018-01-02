@@ -62,12 +62,12 @@ public final class RoutesLayout extends Layout
     public int lock()
     {
         assert routesBuffer.getInt(FIELD_OFFSET_WRITE_LOCK_ACQUIRES) ==  routesBuffer.getInt(FIELD_OFFSET_WRITE_LOCK_RELEASES);
-        return routesBuffer.addIntOrdered(FIELD_OFFSET_WRITE_LOCK_ACQUIRES, 1);
+        return  routesBuffer.addIntOrdered(FIELD_OFFSET_WRITE_LOCK_ACQUIRES, 1) + 1;
     }
 
     public int unlock()
     {
-        return routesBuffer.addIntOrdered(FIELD_OFFSET_WRITE_LOCK_RELEASES, 1);
+        return routesBuffer.addIntOrdered(FIELD_OFFSET_WRITE_LOCK_RELEASES, 1) + 1;
     }
 
     public static final class Builder extends Layout.Builder<RoutesLayout>
