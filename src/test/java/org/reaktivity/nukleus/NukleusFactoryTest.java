@@ -19,6 +19,7 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.Assert.assertThat;
 
 import java.io.IOException;
+import java.util.function.Predicate;
 
 import org.junit.Test;
 import org.reaktivity.nukleus.function.CommandHandler;
@@ -69,6 +70,13 @@ public final class NukleusFactoryTest
             public NukleusBuilder commandHandler(
                 int msgTypeId,
                 CommandHandler handler)
+            {
+                return this;
+            }
+
+            @Override
+            public NukleusBuilder allowZeroRouteRef(
+                Predicate<RouteKind> predicate)
             {
                 return this;
             }

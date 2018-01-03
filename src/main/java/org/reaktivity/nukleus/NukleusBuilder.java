@@ -15,6 +15,8 @@
  */
 package org.reaktivity.nukleus;
 
+import java.util.function.Predicate;
+
 import org.reaktivity.nukleus.function.CommandHandler;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteKind;
@@ -25,6 +27,9 @@ public interface NukleusBuilder
     NukleusBuilder routeHandler(
         RouteKind kind,
         MessagePredicate handler);
+
+    NukleusBuilder allowZeroRouteRef(
+        Predicate<RouteKind> predicate);
 
     NukleusBuilder streamFactory(
         RouteKind kind,
