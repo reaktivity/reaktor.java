@@ -15,8 +15,6 @@
  */
 package org.reaktivity.reaktor.internal.router;
 
-import java.util.function.Consumer;
-
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.reaktivity.nukleus.Nukleus;
@@ -57,12 +55,11 @@ public final class Router extends Nukleus.Composite
         return "router";
     }
 
-    int cnt = 0;
     public boolean doRoute(
         RouteFW route,
         MessagePredicate routeHandler)
     {
-        RouteTableFW routeTable = routeTableRO.wrap(routesBuffer, 0, routesBufferCapacity);
+        final RouteTableFW routeTable = routeTableRO.wrap(routesBuffer, 0, routesBufferCapacity);
 
         final boolean routed = routeHandler.test(route.typeId(), route.buffer(), route.offset(), route.sizeof());
 
@@ -77,26 +74,20 @@ public final class Router extends Nukleus.Composite
                 .routeEntries(b ->
                 {
                     final ListFW<RouteEntryFW> existingEntries = routeTable.routeEntries();
+
                     existingEntries.forEach(
                         e ->
                         {
-                            System.out.println("hmm: " + e);
-                            b.item(copyRouteEntry(e.routeSize(), e.route()));
+                            final OctetsFW er = e.route();
+                            b.item(b2 -> b2.route(er.buffer(), er.offset(), er.sizeof()));
                         }
                     );
-
-                    b.item(
-                        routeEntryBuilder -> routeEntryBuilder.routeSize(route.sizeof())
-                                                              .route(routeBuilder -> copyRoute(routeBuilder, route))
-                    );
+                    b.item(b2 -> b2.route(route.buffer(), route.offset(), route.sizeof()));
                 });
-            RouteTableFW what = routeTableRW.build();
-            System.out.println("before");
-            final ListFW<RouteEntryFW> routeEntries = what.routeEntries();
-            routeEntries.forEach(re -> System.out.println(re));
-            System.out.println("after");
+            routeTableRW.build();
             routesLayout.unlock();
         }
+
         return routed;
     }
 
@@ -108,22 +99,30 @@ public final class Router extends Nukleus.Composite
         RouteTableFW routeTable = routeTableRO.wrap(routesBuffer, 0, routesBufferCapacity);
         final boolean unrouted =
             routeHandler.test(unroute.typeId(), unroute.buffer(), unroute.offset(), unroute.sizeof()) &&
-            routeTable.routeEntries().anyMatch(r -> routeMatchesUnroute(r.route(), unroute));
+            routeTable.routeEntries().anyMatch(r -> routeMatchesUnroute(wrapRoute(r, routeRO), unroute));
 
         if (unrouted)
         {
-            routesLayout.lock();
+            int readLock = routesLayout.lock();
 
             routeTableRO.wrap(routesBuffer, 0, routesBufferCapacity);
             routeTableRW.wrap(routesBuffer, 0, routesBufferCapacity);
 
-            routeTableRW.routeEntries(b ->
-            {
-                routeTableRO.routeEntries().forEach(
-                    e -> b.item(copyRouteEntry(e.routeSize(), e.route()))
-                );
-            });
+            routeTableRW.writeLockAcquires(readLock)
+                        .writeLockReleases(readLock - 1)
+                        .routeEntries(b ->
+                        {
+                            routeTableRO.routeEntries().forEach(e ->
+                            {
+                                RouteFW route = wrapRoute(e, routeRO);
+                                if (!routeMatchesUnroute(route, unroute))
+                                {
+                                    b.item(ob ->  ob.route(route.buffer(), route.offset(), route.sizeof()));
+                                }
+                            });
+                        });
 
+            routeTableRW.build();
             routesLayout.unlock();
         }
         return unrouted;
@@ -135,67 +134,53 @@ public final class Router extends Nukleus.Composite
         MessagePredicate filter,
         MessageFunction<R> mapper)
     {
-        // anyMatch matchFirst firstMatch(
+        // TODO do matchFirst when supported by ListFW
         r = null;
         RouteTableFW routeTable = routeTableRO.wrap(routesBuffer, 0, routesBufferCapacity);
         routeTable.routeEntries().forEach(re ->
         {
-            final RouteFW candidate = re.route();
-            final int typeId = candidate.typeId();
-            final DirectBuffer buffer = candidate.buffer();
-            final int offset = candidate.offset();
-            final int length = candidate.sizeof();
-            final long routeAuthorization = candidate.authorization();
-
-            if (filter.test(typeId, buffer, offset, length) &&
-                (authorization & routeAuthorization) == routeAuthorization)
+            if (r == null)
             {
-                r = mapper.apply(typeId, buffer, offset, length);
+                final RouteFW candidate = wrapRoute(re, routeRO);
+                final int typeId = candidate.typeId();
+                final DirectBuffer buffer = candidate.buffer();
+                final int offset = candidate.offset();
+                final int length = candidate.sizeof();
+                final long routeAuthorization = candidate.authorization();
+
+                if (filter.test(typeId, buffer, offset, length) &&
+                   (authorization & routeAuthorization) == routeAuthorization)
+                {
+                    r = mapper.apply(typeId, buffer, offset, length);
+                }
             }
         });
 
+        System.out.println(authorization + "  " + r);
         return r == null ? null : (R) r;
     }
 
-    private static Consumer<RouteEntryFW.Builder> copyRouteEntry(
-        int size,
-        RouteFW route)
-    {
-        return routeEntryBuilder ->
-        {
-            routeEntryBuilder.routeSize(size);
-            routeEntryBuilder.route(routeBuilder -> copyRoute(routeBuilder, route));
-        };
-    }
-
-    private static void copyRoute(
-        RouteFW.Builder b,
-        RouteFW route)
-    {
-        final OctetsFW extension = route.extension();
-
-        b.correlationId(route.correlationId())
-         .role(rb -> rb.set(route.role()))
-         .source(route.source())
-         .sourceRef(route.sourceRef())
-         .target(route.target())
-         .targetRef(route.targetRef())
-         .authorization(route.authorization())
-         .extension(
-             extension.buffer(),
-             extension.offset(),
-             extension.limit());
-    }
 
     private static boolean routeMatchesUnroute(
         RouteFW route,
         UnrouteFW unroute)
     {
-        return route.role() == unroute.role() &&
-        unroute.source().equals(route.source()) &&
+        return route.role().get() == unroute.role().get() &&
+        unroute.source().asString().equals(route.source().asString()) &&
         unroute.sourceRef() == route.sourceRef() &&
-        unroute.target().equals(route.target()) &&
+        unroute.target().asString().equals(route.target().asString()) &&
         unroute.targetRef() == route.targetRef() &&
         unroute.authorization() == route.authorization();
+    }
+
+    private static RouteFW wrapRoute(
+        RouteEntryFW r,
+        RouteFW routeRO)
+    {
+        final OctetsFW route = r.route();
+        final DirectBuffer buffer = route.buffer();
+        final int offset = route.offset();
+        final int routeSize = (int) r.routeSize();
+        return routeRO.wrap(buffer, offset, offset + routeSize);
     }
 }
