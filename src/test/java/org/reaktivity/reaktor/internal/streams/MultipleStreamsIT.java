@@ -27,6 +27,7 @@ import static org.mockito.Mockito.when;
 import static org.reaktivity.nukleus.route.RouteKind.SERVER;
 
 import java.util.function.Function;
+import java.util.function.IntUnaryOperator;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
@@ -101,8 +102,10 @@ public class MultipleStreamsIT
         private ArgumentCaptor<RouteManager> router = forClass(RouteManager.class);
         private ArgumentCaptor<LongSupplier> supplyStreamId = forClass(LongSupplier.class);
         private ArgumentCaptor<LongSupplier> supplyGroupId = forClass(LongSupplier.class);
-        private ArgumentCaptor<LongFunction> groupBudgetClaimer = forClass(LongFunction.class);
-        private ArgumentCaptor<LongFunction> groupBudgetReleaser = forClass(LongFunction.class);
+        @SuppressWarnings("unchecked")
+        private ArgumentCaptor<LongFunction<IntUnaryOperator>> groupBudgetClaimer = forClass(LongFunction.class);
+        @SuppressWarnings("unchecked")
+        private ArgumentCaptor<LongFunction<IntUnaryOperator>> groupBudgetReleaser = forClass(LongFunction.class);
         private ArgumentCaptor<MutableDirectBuffer> writeBuffer = forClass(MutableDirectBuffer.class);
 
         private MessageConsumer newStream1 = mock(MessageConsumer.class);
