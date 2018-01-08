@@ -44,8 +44,6 @@ public class ReaktorConfiguration extends Configuration
 
     public static final String ROUTES_BUFFER_CAPACITY_PROPERTY_NAME = "reaktor.routes.buffer.capacity";
 
-    private static final String ROUTES_ENTRY_CAPACITY_PROPERTY_NAME = "reaktor.routes.entry.capacity";
-
     public static final int ABORT_STREAM_EVENT_TYPE_ID_DEFAULT = AbortFW.TYPE_ID;
 
     public static final int BUFFER_SLOT_CAPACITY_DEFAULT = 65536;
@@ -125,11 +123,6 @@ public class ReaktorConfiguration extends Configuration
     public int routesBufferCapacity()
     {
         return getInteger(ROUTES_BUFFER_CAPACITY_PROPERTY_NAME, ROUTES_BUFFER_CAPACITY_DEFAULT);
-    }
-
-    public int routesEntryCapacity()
-    {
-        return getInteger(ROUTES_ENTRY_CAPACITY_PROPERTY_NAME, ROUTES_ENTRY_CAPACITY_DEFAULT);
     }
 
     public int counterValuesBufferCapacity()
