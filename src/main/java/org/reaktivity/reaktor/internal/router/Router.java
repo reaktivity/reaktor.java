@@ -148,7 +148,7 @@ public final class Router extends Nukleus.Composite
                 final int length = candidate.sizeof();
                 final long routeAuthorization = candidate.authorization();
 
-                if (filter.test(typeId, buffer, offset, length) &&
+                if (filter.test(typeId, buffer, offset, offset + length) &&
                    (authorization & routeAuthorization) == routeAuthorization)
                 {
                     r = mapper.apply(typeId, buffer, offset, length);
@@ -156,7 +156,6 @@ public final class Router extends Nukleus.Composite
             }
         });
 
-        System.out.println(authorization + "  " + r);
         return r == null ? null : (R) r;
     }
 
