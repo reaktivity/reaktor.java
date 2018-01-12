@@ -113,9 +113,9 @@ public class NukleusBuilderImpl implements NukleusBuilder
 
     @Override
     public NukleusBuilder allowZeroRouteRef(
-        Predicate<RouteKind> predicate)
+        Predicate<RouteKind> allowZeroRouteRef)
     {
-        this.allowZeroRouteRef = predicate;
+        this.allowZeroRouteRef = allowZeroRouteRef;
         return this;
     }
 
