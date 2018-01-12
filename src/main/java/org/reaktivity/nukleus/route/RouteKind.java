@@ -20,4 +20,20 @@ public enum RouteKind
     SERVER,
     CLIENT,
     PROXY;
+
+    public static RouteKind valueOf(
+        int ordinal)
+    {
+        switch (ordinal)
+        {
+        case 0:
+            return SERVER;
+        case 1:
+            return CLIENT;
+        case 2:
+            return PROXY;
+        default:
+            throw new IllegalArgumentException(String.format("Unrecognized value: %d", ordinal));
+        }
+    }
 }
