@@ -23,6 +23,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import org.agrona.collections.Int2ObjectHashMap;
@@ -50,6 +51,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
     private final Map<Role, MessagePredicate> routeHandlers;
     private final Map<RouteKind, StreamFactoryBuilder> streamFactoryBuilders;
     private final List<Nukleus> components;
+    private Predicate<RouteKind> allowZeroRouteRef = r -> false;
 
     public NukleusBuilderImpl(
         ReaktorConfiguration config,
@@ -110,6 +112,14 @@ public class NukleusBuilderImpl implements NukleusBuilder
     }
 
     @Override
+    public NukleusBuilder allowZeroRouteRef(
+        Predicate<RouteKind> allowZeroRouteRef)
+    {
+        this.allowZeroRouteRef = allowZeroRouteRef;
+        return this;
+    }
+
+    @Override
     public NukleusBuilder streamFactory(
         RouteKind kind,
         StreamFactoryBuilder builder)
@@ -151,6 +161,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
         acceptor.setStreamFactoryBuilderSupplier(streamFactoryBuilders::get);
         acceptor.setAbortTypeId(abortTypeId);
         acceptor.setRouteHandlerSupplier(routeHandlers::get);
+        acceptor.setAllowZeroRouteRef(allowZeroRouteRef);
 
         return new NukleusImpl(name, conductor, watcher, router, acceptor, context, components);
     }
