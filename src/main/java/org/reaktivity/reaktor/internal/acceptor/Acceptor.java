@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -65,8 +66,8 @@ public final class Acceptor extends Nukleus.Composite
     private Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder;
     private int abortTypeId;
     private Function<Role, MessagePredicate> supplyRouteHandler;
+    private Predicate<RouteKind> allowZeroRouteRef;
     private AtomicLong correlations;
-
 
     public Acceptor(
         Context context)
@@ -117,6 +118,12 @@ public final class Acceptor extends Nukleus.Composite
         this.supplyRouteHandler = supplyRouteHandler;
     }
 
+    public void setAllowZeroRouteRef(
+        Predicate<RouteKind> allowZeroRouteRef)
+    {
+        this.allowZeroRouteRef = allowZeroRouteRef;
+    }
+
     @Override
     public String name()
     {
@@ -134,11 +141,23 @@ public final class Acceptor extends Nukleus.Composite
         {
             Role role = route.role().get();
             MessagePredicate routeHandler = supplyRouteHandler.apply(role);
-            if (routeHandler == null)
+            if (!allowZeroRouteRef.test(RouteKind.valueOf(role.ordinal())))
             {
                 route = generateSourceRefIfNecessary(route);
                 final long sourceRef = route.sourceRef();
-                routeHandler = (t, b, i, l) -> ReferenceKind.resolve(sourceRef).ordinal() == role.ordinal();
+                MessagePredicate defaultHandler = (t, b, i, l) -> ReferenceKind.resolve(sourceRef).ordinal() == role.ordinal();
+                if (routeHandler == null)
+                {
+                    routeHandler = defaultHandler;
+                }
+                else
+                {
+                    routeHandler = defaultHandler.and(routeHandler);
+                }
+            }
+            if (routeHandler == null)
+            {
+                routeHandler = (t, b, i, l) -> true;
             }
 
             if (router.doRoute(route, routeHandler))
