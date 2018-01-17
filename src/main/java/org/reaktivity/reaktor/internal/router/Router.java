@@ -134,29 +134,26 @@ public final class Router extends Nukleus.Composite
         MessagePredicate filter,
         MessageFunction<R> mapper)
     {
-        // TODO do matchFirst when supported by ListFW
-        r = null;
         RouteTableFW routeTable = routeTableRO.wrap(routesBuffer, 0, routesBufferCapacity);
-        routeTable.routeEntries().forEach(re ->
+        RouteEntryFW routeEntry = routeTable.routeEntries().matchFirst(re ->
         {
-            if (r == null)
-            {
-                final RouteFW candidate = wrapRoute(re, routeRO);
-                final int typeId = candidate.typeId();
-                final DirectBuffer buffer = candidate.buffer();
-                final int offset = candidate.offset();
-                final int length = candidate.sizeof();
-                final long routeAuthorization = candidate.authorization();
-
-                if (filter.test(typeId, buffer, offset, offset + length) &&
-                   (authorization & routeAuthorization) == routeAuthorization)
-                {
-                    r = mapper.apply(typeId, buffer, offset, length);
-                }
-            }
+            final RouteFW candidate = wrapRoute(re, routeRO);
+            final int typeId = candidate.typeId();
+            final DirectBuffer buffer = candidate.buffer();
+            final int offset = candidate.offset();
+            final int length = candidate.sizeof();
+            final long routeAuthorization = candidate.authorization();
+            return filter.test(typeId, buffer, offset, offset + length) &&
+            (authorization & routeAuthorization) == routeAuthorization;
         });
 
-        return r == null ? null : (R) r;
+        R result = null;
+        if (routeEntry != null)
+        {
+            final RouteFW route = wrapRoute(routeEntry, routeRO);
+            result = mapper.apply(route.typeId(), route.buffer(), route.offset(), route.sizeof());
+        }
+        return result;
     }
 
 
