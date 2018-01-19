@@ -17,6 +17,7 @@ package org.reaktivity.nukleus.stream;
 
 import java.util.function.Function;
 import java.util.function.IntUnaryOperator;
+import java.util.function.LongConsumer;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
@@ -73,5 +74,12 @@ public interface StreamFactoryBuilder
         return this;
     }
 
+    default StreamFactoryBuilder setAccumulatorSupplier(
+        Function<String, LongConsumer> supplyStatsCounter)
+    {
+        return this;
+    }
+
     StreamFactory build();
+
 }
