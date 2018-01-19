@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.IntUnaryOperator;
+import java.util.function.LongConsumer;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
@@ -85,6 +86,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
 
         final Map<RouteKind, StreamFactory> streamFactories = new EnumMap<>(RouteKind.class);
         final Function<String, LongSupplier> supplyCounter = name -> () -> context.counters().counter(name).increment() + 1;
+        final Function<String, LongConsumer> supplyStatsCounter = name -> (i) -> context.counters().counter(name).add(i);
         final AtomicCounter streams = context.counters().streams();
         final LongSupplier supplyStreamId = () -> streams.increment() + 1;
         final AtomicCounter acquires = context.counters().acquires();
@@ -107,6 +109,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
                         .setGroupBudgetReleaser(groupBudgetReleaser)
                         .setCorrelationIdSupplier(supplyCorrelationId)
                         .setCounterSupplier(supplyCounter)
+                        .setAccumulatorSupplier(supplyStatsCounter)
                         .setBufferPoolSupplier(supplyCountingBufferPool)
                         .build();
                 streamFactories.put(kind, streamFactory);
