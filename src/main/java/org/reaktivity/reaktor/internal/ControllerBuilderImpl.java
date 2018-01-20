@@ -30,7 +30,6 @@ import org.agrona.concurrent.MessageHandler;
 import org.agrona.concurrent.broadcast.BroadcastReceiver;
 import org.agrona.concurrent.broadcast.CopyBroadcastReceiver;
 import org.agrona.concurrent.ringbuffer.RingBuffer;
-import org.reaktivity.nukleus.Configuration;
 import org.reaktivity.nukleus.Controller;
 import org.reaktivity.nukleus.ControllerBuilder;
 import org.reaktivity.nukleus.ControllerSpi;
@@ -50,14 +49,14 @@ import org.reaktivity.reaktor.internal.types.control.auth.UnresolvedFW;
 
 public final class ControllerBuilderImpl<T extends Controller> implements ControllerBuilder<T>
 {
-    private final Configuration config;
+    private final ReaktorConfiguration config;
     private final Class<T> kind;
 
     private Function<ControllerSpi, T> factory;
     private String name;
 
     public ControllerBuilderImpl(
-        Configuration config,
+        ReaktorConfiguration config,
         Class<T> kind)
     {
         this.config = config;
