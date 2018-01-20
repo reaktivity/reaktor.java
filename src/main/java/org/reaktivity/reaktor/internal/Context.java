@@ -37,16 +37,18 @@ import org.agrona.concurrent.broadcast.BroadcastTransmitter;
 import org.agrona.concurrent.ringbuffer.ManyToOneRingBuffer;
 import org.agrona.concurrent.ringbuffer.RingBuffer;
 import org.agrona.concurrent.status.CountersManager;
-import org.reaktivity.nukleus.Configuration;
 import org.reaktivity.reaktor.internal.layouts.ControlLayout;
+import org.reaktivity.reaktor.internal.layouts.RoutesLayout;
 
 public final class Context implements Closeable
 {
     private final ControlLayout.Builder controlRW = new ControlLayout.Builder();
+    private final RoutesLayout.Builder routesRW = new RoutesLayout.Builder();
 
     private boolean readonly;
     private Path configDirectory;
     private ControlLayout controlRO;
+    private RoutesLayout routesRO;
     private int maximumStreamsCount;
     private int streamsBufferCapacity;
     private int throttleBufferCapacity;
@@ -268,8 +270,13 @@ public final class Context implements Closeable
         return name;
     }
 
+    public RoutesLayout routesLayout()
+    {
+        return routesRO;
+    }
+
     public Context conclude(
-        Configuration config)
+        ReaktorConfiguration config)
     {
         try
         {
@@ -310,6 +317,12 @@ public final class Context implements Closeable
             conductorResponses(new BroadcastTransmitter(conductorResponseBuffer()));
 
             concludeCounters();
+
+            this.routesRO = routesRW.routesPath(config.directory().resolve(format("%s/routes", name)))
+                                    .routesBufferCapacity(config.routesBufferCapacity())
+                                    .readonly(false)
+                                    .build();
+
         }
         catch (Exception ex)
         {
@@ -356,4 +369,5 @@ public final class Context implements Closeable
             counters = new Counters(countersManager);
         }
     }
+
 }
