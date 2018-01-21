@@ -31,6 +31,7 @@ import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireOutput
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind.BEGIN;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind.DATA;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind.END;
+import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NullChannelBuffer.NULL_BUFFER;
 
 import java.nio.file.Path;
 import java.util.Deque;
@@ -45,7 +46,6 @@ import org.agrona.concurrent.MessageHandler;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.agrona.concurrent.ringbuffer.RingBuffer;
 import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.ChannelException;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
@@ -264,16 +264,15 @@ final class NukleusTarget implements AutoCloseable
         NukleusChannel channel,
         ChannelFuture flushFuture)
     {
-        if (doFlushBegin(channel))
+        doFlushBegin(channel);
+        if (channel.writeExtBuffer(DATA, true).readable())
         {
-            fireFlushed(channel);
-            flushFuture.setSuccess();
-        }
-        else if (channel.writeExtBuffer(DATA, true).readable())
-        {
-            Object message = ChannelBuffers.EMPTY_BUFFER;
-            MessageEvent newWriteRequest = new DownstreamMessageEvent(channel, flushFuture, message, null);
-            channel.writeRequests.addLast(newWriteRequest);
+            if (channel.writeRequests.isEmpty())
+            {
+                Object message = NULL_BUFFER;
+                MessageEvent newWriteRequest = new DownstreamMessageEvent(channel, flushFuture, message, null);
+                channel.writeRequests.addLast(newWriteRequest);
+            }
             flushThrottledWrites(channel);
         }
         else
@@ -398,7 +397,7 @@ final class NukleusTarget implements AutoCloseable
 
             if (writeBuf.readable() || writeExt.readable())
             {
-                final boolean flushing = !writeBuf.readable();
+                final boolean flushing = writeBuf == NULL_BUFFER;
                 final int writableBytes = min(channel.writableBytes(writeBuf.readableBytes()), (1 << Short.SIZE) - 1);
 
                 // allow extension-only DATA frames to be flushed immediately
@@ -419,12 +418,17 @@ final class NukleusTarget implements AutoCloseable
                     writeBuf.getBytes(writeReaderIndex, writeCopy);
 
                     final long streamId = channel.targetId();
-                    final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                    dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                             .streamId(streamId)
                             .authorization(authorization)
                             .groupId(0)
-                            .padding(channel.writablePadding)
-                            .payload(p -> p.set(writeCopy))
+                            .padding(channel.writablePadding);
+                    // extension-only DATA frames should have null payload (default)
+                    if (writeBuf !=  NULL_BUFFER)
+                    {
+                        dataRW.payload(p -> p.set(writeCopy));
+                    }
+                    final DataFW data = dataRW
                             .extension(p -> p.set(writeExtCopy))
                             .build();
 
@@ -442,7 +446,7 @@ final class NukleusTarget implements AutoCloseable
                 {
                     fireFlushed(channel);
                 }
-                else if (writableBytes > 0)
+                else
                 {
                     fireWriteComplete(channel, writableBytes);
                 }

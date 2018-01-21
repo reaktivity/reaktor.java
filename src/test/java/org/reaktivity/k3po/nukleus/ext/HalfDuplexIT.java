@@ -42,7 +42,7 @@ public class HalfDuplexIT
     private final K3poRule k3po = new K3poRule()
             .setScriptRoot("org/reaktivity/k3po/nukleus/ext/half.duplex");
 
-    private final TestRule timeout = new DisableOnDebug(new Timeout(10, SECONDS));
+    private final TestRule timeout = new DisableOnDebug(new Timeout(5, SECONDS));
 
     private final ExpectedException thrown = ExpectedException.none();
 
@@ -358,8 +358,8 @@ public class HalfDuplexIT
 
     @Test
     @Specification({
-        "client.flush.data.ext/client",
-        "client.flush.data.ext/server"
+        "client.flush.empty.data.with.ext/client",
+        "client.flush.empty.data.with.ext/server"
     })
     public void shouldReceiveClientFlushedEmptyDataWithExtension() throws Exception
     {
@@ -368,10 +368,40 @@ public class HalfDuplexIT
 
     @Test
     @Specification({
-        "server.flush.data.ext/client",
-        "server.flush.data.ext/server"
+        "client.flush.null.data.with.ext/client",
+        "client.flush.null.data.with.ext/server"
+    })
+    public void shouldReceiveClientFlushedNullDataWithExtension() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "server.flush.empty.data.with.ext/client",
+        "server.flush.empty.data.with.ext/server"
     })
     public void shouldReceiveServerFlushedEmptyDataWithExtension() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "server.flush.null.data.with.ext/client",
+        "server.flush.null.data.with.ext/server"
+    })
+    public void shouldReceiveServerFlushedNullDataWithExtension() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "server.write.empty.data.with.ext/client",
+        "server.write.empty.data.with.ext/server"
+    })
+    public void shouldReceiveServerWrittenEmptyDataWithExtension() throws Exception
     {
         k3po.finish();
     }

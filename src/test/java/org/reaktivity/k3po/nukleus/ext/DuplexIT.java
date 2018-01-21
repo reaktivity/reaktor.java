@@ -45,7 +45,7 @@ public class DuplexIT
     private final K3poRule k3po = new K3poRule()
             .setScriptRoot("org/reaktivity/k3po/nukleus/ext/duplex");
 
-    private final TestRule timeout = new DisableOnDebug(new Timeout(10, SECONDS));
+    private final TestRule timeout = new DisableOnDebug(new Timeout(5, SECONDS));
 
     private final ExpectedException thrown = ExpectedException.none();
 
@@ -402,8 +402,40 @@ public class DuplexIT
 
     @Test
     @Specification({
-        "client.flush.data.ext/client",
-        "client.flush.data.ext/server"
+        "client.flush.null.data.with.ext/client",
+        "client.flush.null.data.with.ext/server"
+    })
+    public void shouldReceiveClientFlushedNullDataWithExtension() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "server.flush.null.data.with.ext/client",
+        "server.flush.null.data.with.ext/server"
+    })
+    public void shouldReceiveServerFlushedNullDataWithExtension() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "server.flush.null.data.with.ext/client",
+        "server.flush.empty.data.with.ext/server"
+    })
+    public void shouldReportFailureFromReadNullDataWhenNullDataIsNotWritten() throws Exception
+    {
+        thrown.expect(anyOf(isA(ComparisonFailure.class),
+                hasProperty("failures", hasItem(isA(ComparisonFailure.class)))));
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "client.flush.null.data.with.ext/client",
+        "client.flush.null.data.with.ext/server"
     })
     public void shouldReceiveClientFlushedEmptyDataWithExtension() throws Exception
     {
@@ -412,10 +444,20 @@ public class DuplexIT
 
     @Test
     @Specification({
-        "server.flush.data.ext/client",
-        "server.flush.data.ext/server"
+        "server.flush.empty.data.with.ext/client",
+        "server.flush.empty.data.with.ext/server"
     })
     public void shouldReceiveServerFlushedEmptyDataWithExtension() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "server.write.empty.data.with.ext/client",
+        "server.write.empty.data.with.ext/server"
+    })
+    public void shouldReceiveServerWrittenEmptyDataWithExtension() throws Exception
     {
         k3po.finish();
     }
