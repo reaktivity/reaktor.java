@@ -51,6 +51,10 @@ read option nukleus:partition "part1"
 read nukleus:data.ext [0x...]
 read [0x...]
 
+# receive DATA w/ extension and null payload
+read nukleus:data.ext [0x...]
+read nukleus:data.null
+
 # send RESET
 read abort
 
@@ -90,6 +94,14 @@ write option nukleus:partition "part1"
 # send DATA w/ extension
 write nukleus:data.ext [0x...]
 write [0x...]
+
+# send DATA w/ extension and null payload
+write nukleus:data.ext [0x...]
+write flush
+
+# send DATA w/ extension and empty payload
+write nukleus:data.ext [0x...]
+write nukleus:data.empty
 
 # receive RESET
 write aborted
@@ -142,6 +154,10 @@ read option nukleus:partition "part1"
 read nukleus:data.ext [0x...]
 read [0x...]
 
+# receive DATA w/ extension and null payload
+read nukleus:data.ext [0x...]
+read nukleus:data.null
+
 # send RESET
 read abort
 
@@ -158,6 +174,14 @@ write option nukleus:partition "part1"
 # send DATA w/ extension
 write nukleus:data.ext [0x...]
 write [0x...]
+
+# send DATA w/ extension and null payload
+write nukleus:data.ext [0x...]
+write flush
+
+# send DATA w/ extension and empty payload
+write nukleus:data.ext [0x...]
+write nukleus:data.empty
 
 # receive RESET
 write aborted
@@ -208,6 +232,14 @@ write option nukleus:partition "part1"
 write [0x...]
 write nukleus:data.ext [0x...]
 
+# send DATA w/ extension and null payload
+write nukleus:data.ext [0x...]
+write flush
+
+# send DATA w/ extension and empty payload
+write nukleus:data.ext [0x...]
+write nukleus:data.empty
+
 # receive RESET
 write aborted
 
@@ -224,6 +256,10 @@ read option nukleus:partition "part1"
 # receive DATA w/ extension
 read nukleus:data.ext [0x...]
 read [0x...]
+
+# receive DATA w/ extension and null payload
+read nukleus:data.ext [0x...]
+read nukleus:data.null
 
 # send RESET
 read abort
@@ -271,6 +307,14 @@ write option nukleus:partition "part1"
 write nukleus:data.ext [0x...]
 write [0x...]
 
+# send DATA w/ extension and null payload
+write nukleus:data.ext [0x...]
+write flush
+
+# send DATA w/ extension and empty payload
+write nukleus:data.ext [0x...]
+write nukleus:data.empty
+
 # receive RESET
 write aborted
 
@@ -291,6 +335,10 @@ read option nukleus:partition "part1"
 # receive DATA w/ extension
 read nukleus:data.ext [0x...]
 read [0x...]
+
+# receive DATA w/ extension and null payload
+read nukleus:data.ext [0x...]
+read nukleus:data.null
 
 # send RESET
 read abort
@@ -337,6 +385,14 @@ write option nukleus:partition "part1"
 write [0x...]
 write nukleus:data.ext [0x...]
 
+# send DATA w/ extension and null payload
+write nukleus:data.ext [0x...]
+write flush
+
+# send DATA w/ extension and empty payload
+write nukleus:data.ext [0x...]
+write nukleus:data.empty
+
 # receive RESET
 write aborted
 
@@ -357,6 +413,10 @@ read option nukleus:partition "part1"
 # receive DATA w/ extension
 read nukleus:data.ext [0x...]
 read [0x...]
+
+# receive DATA w/ extension and null payload
+read nukleus:data.ext [0x...]
+read nukleus:data.null
 
 # send RESET
 read abort
