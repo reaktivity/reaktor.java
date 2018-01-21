@@ -50,7 +50,7 @@
     <nukleus.plugin.version>0.18</nukleus.plugin.version>
 
     <jacoco.coverage.ratio>0.03</jacoco.coverage.ratio>
-    <jacoco.missed.count>119</jacoco.missed.count>
+    <jacoco.missed.count>122</jacoco.missed.count>
   </properties>
 
   <dependencies>
