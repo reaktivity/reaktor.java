@@ -64,7 +64,7 @@ public class MultipleStreamsIT
             .addScriptRoot("route", "org/reaktivity/specification/nukleus/control/route")
             .addScriptRoot("streams", "org/reaktivity/specification/nukleus/streams");
 
-    private final TestRule timeout = new DisableOnDebug(new Timeout(5, SECONDS));
+    private final TestRule timeout = new DisableOnDebug(new Timeout(10, SECONDS));
 
     private final ReaktorRule reaktor = new ReaktorRule()
         .nukleus("example"::equals)
@@ -137,6 +137,7 @@ public class MultipleStreamsIT
             when(serverStreamFactory.setRouteManager(router.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setWriteBuffer(writeBuffer.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setCounterSupplier(any(Function.class))).thenReturn(serverStreamFactory);
+            when(serverStreamFactory.setAccumulatorSupplier(any(Function.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setBufferPoolSupplier(any(Supplier.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.build()).thenReturn(streamFactory);
 
