@@ -86,7 +86,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
 
         final Map<RouteKind, StreamFactory> streamFactories = new EnumMap<>(RouteKind.class);
         final Function<String, LongSupplier> supplyCounter = name -> () -> context.counters().counter(name).increment() + 1;
-        final Function<String, LongConsumer> supplyStatsCounter = name -> (i) -> context.counters().counter(name).add(i);
+        final Function<String, LongConsumer> supplyAccumulator = name -> (i) -> context.counters().counter(name).add(i);
         final AtomicCounter streams = context.counters().streams();
         final LongSupplier supplyStreamId = () -> streams.increment() + 1;
         final AtomicCounter acquires = context.counters().acquires();
@@ -109,7 +109,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
                         .setGroupBudgetReleaser(groupBudgetReleaser)
                         .setCorrelationIdSupplier(supplyCorrelationId)
                         .setCounterSupplier(supplyCounter)
-                        .setAccumulatorSupplier(supplyStatsCounter)
+                        .setAccumulatorSupplier(supplyAccumulator)
                         .setBufferPoolSupplier(supplyCountingBufferPool)
                         .build();
                 streamFactories.put(kind, streamFactory);
