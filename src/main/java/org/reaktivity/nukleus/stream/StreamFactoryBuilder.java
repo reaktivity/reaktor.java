@@ -75,7 +75,7 @@ public interface StreamFactoryBuilder
     }
 
     default StreamFactoryBuilder setAccumulatorSupplier(
-        Function<String, LongConsumer> supplyStatsCounter)
+        Function<String, LongConsumer> supplyAccumulator)
     {
         return this;
     }
