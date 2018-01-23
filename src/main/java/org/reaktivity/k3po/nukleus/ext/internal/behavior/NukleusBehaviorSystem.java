@@ -22,7 +22,9 @@ import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtension
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind.DATA;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind.END;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.CONFIG_BEGIN_EXT;
+import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.CONFIG_DATA_EMPTY;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.CONFIG_DATA_EXT;
+import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.CONFIG_DATA_NULL;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.CONFIG_END_EXT;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_PARTITION;
 
@@ -33,6 +35,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import org.jboss.netty.channel.ChannelHandler;
 import org.kaazing.k3po.driver.internal.behavior.BehaviorSystemSpi;
 import org.kaazing.k3po.driver.internal.behavior.ReadConfigFactory;
 import org.kaazing.k3po.driver.internal.behavior.ReadOptionFactory;
@@ -55,6 +58,8 @@ import org.reaktivity.k3po.nukleus.ext.internal.behavior.config.NukleusExtension
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.config.ReadBeginExtHandler;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.config.ReadDataExtHandler;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.config.ReadEndExtHandler;
+import org.reaktivity.k3po.nukleus.ext.internal.behavior.config.ReadNullDataHandler;
+import org.reaktivity.k3po.nukleus.ext.internal.behavior.config.WriteEmptyDataHandler;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.option.ReadPartitionHandler;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.option.WritePartitionHandler;
 
@@ -74,11 +79,13 @@ public class NukleusBehaviorSystem implements BehaviorSystemSpi
         Map<StructuredTypeInfo, ReadConfigFactory> readConfigFactories = new LinkedHashMap<>();
         readConfigFactories.put(CONFIG_BEGIN_EXT, NukleusBehaviorSystem::newReadBeginExtHandler);
         readConfigFactories.put(CONFIG_DATA_EXT, NukleusBehaviorSystem::newReadDataExtHandler);
+        readConfigFactories.put(CONFIG_DATA_NULL, NukleusBehaviorSystem::newReadNullDataHandler);
         readConfigFactories.put(CONFIG_END_EXT, NukleusBehaviorSystem::newReadEndExtHandler);
         this.readConfigFactories = unmodifiableMap(readConfigFactories);
 
         Map<StructuredTypeInfo, WriteConfigFactory> writeConfigFactories = new LinkedHashMap<>();
         writeConfigFactories.put(CONFIG_BEGIN_EXT, NukleusBehaviorSystem::newWriteBeginExtHandler);
+        writeConfigFactories.put(CONFIG_DATA_EMPTY, NukleusBehaviorSystem::newWriteEmptyDataHandler);
         writeConfigFactories.put(CONFIG_DATA_EXT, NukleusBehaviorSystem::newWriteDataExtHandler);
         writeConfigFactories.put(CONFIG_END_EXT, NukleusBehaviorSystem::newWriteEndExtHandler);
         this.writeConfigFactories = unmodifiableMap(writeConfigFactories);
@@ -184,6 +191,16 @@ public class NukleusBehaviorSystem implements BehaviorSystemSpi
         return handler;
     }
 
+    private static ChannelHandler newReadNullDataHandler(
+        AstReadConfigNode node,
+        Function<AstValueMatcher, MessageDecoder> decoderFactory)
+    {
+        RegionInfo regionInfo = node.getRegionInfo();
+        ReadNullDataHandler handler = new ReadNullDataHandler();
+        handler.setRegionInfo(regionInfo);
+        return handler;
+    }
+
     private static ReadEndExtHandler newReadEndExtHandler(
         AstReadConfigNode node,
         Function<AstValueMatcher, MessageDecoder> decoderFactory)
@@ -217,6 +234,15 @@ public class NukleusBehaviorSystem implements BehaviorSystemSpi
         List<MessageEncoder> encoders = node.getValues().stream().map(encoderFactory).collect(toList());
 
         WriteConfigHandler handler = new WriteConfigHandler(new NukleusExtensionEncoder(DATA, type, encoders));
+        handler.setRegionInfo(node.getRegionInfo());
+        return handler;
+    }
+
+    private static WriteEmptyDataHandler newWriteEmptyDataHandler(
+        AstWriteConfigNode node,
+        Function<AstValue<?>, MessageEncoder> encoderFactory)
+    {
+        WriteEmptyDataHandler handler = new WriteEmptyDataHandler();
         handler.setRegionInfo(node.getRegionInfo());
         return handler;
     }
