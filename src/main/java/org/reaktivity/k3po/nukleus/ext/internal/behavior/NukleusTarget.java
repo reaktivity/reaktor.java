@@ -55,6 +55,7 @@ import org.jboss.netty.channel.MessageEvent;
 import org.kaazing.k3po.driver.internal.netty.channel.ChannelAddress;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.layout.Layout;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.layout.StreamsLayout;
+import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.OctetsFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.AbortFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.BeginFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.DataFW;
@@ -75,6 +76,7 @@ final class NukleusTarget implements AutoCloseable
 
     private final WindowFW windowRO = new WindowFW();
     private final ResetFW resetRO = new ResetFW();
+    private final OctetsFW octetsRO = new OctetsFW();
 
     private final Path partitionPath;
     private final Layout layout;
@@ -413,22 +415,23 @@ final class NukleusTarget implements AutoCloseable
                     final int writableExtBytes = writeExt.readableBytes();
                     final byte[] writeExtCopy = writeExtCopy(writeExt);
 
-                    // TODO: avoid allocation
-                    final byte[] writeCopy = new byte[writableBytes];
-                    writeBuf.getBytes(writeReaderIndex, writeCopy);
+                    // extension-only DATA frames should have null payload (default)
+                    OctetsFW writeCopy = null;
+                    if (writeBuf != NULL_BUFFER)
+                    {
+                        // TODO: avoid allocation
+                        byte[] writeCopyBytes = new byte[writableBytes];
+                        writeBuf.getBytes(writeReaderIndex, writeCopyBytes);
+                        writeCopy = octetsRO.wrap(new UnsafeBuffer(writeCopyBytes), 0, writableBytes);
+                    }
 
                     final long streamId = channel.targetId();
-                    dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                    final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                             .streamId(streamId)
                             .authorization(authorization)
                             .groupId(0)
-                            .padding(channel.writablePadding);
-                    // extension-only DATA frames should have null payload (default)
-                    if (writeBuf !=  NULL_BUFFER)
-                    {
-                        dataRW.payload(p -> p.set(writeCopy));
-                    }
-                    final DataFW data = dataRW
+                            .padding(channel.writablePadding)
+                            .payload(writeCopy)
                             .extension(p -> p.set(writeExtCopy))
                             .build();
 
