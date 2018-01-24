@@ -195,8 +195,10 @@ public class StreamsIT
                         public Object answer(
                             InvocationOnMock invocation) throws Throwable
                         {
+                            int offset = invocation.getArgument(2);
+                            int maxLimit = offset + (Integer) invocation.getArgument(3);
                             BeginFW begin = beginRO.wrap((DirectBuffer)invocation.getArgument(1),
-                                    invocation.getArgument(2), invocation.getArgument(3));
+                                    offset, maxLimit);
                             long sourceRef = begin.sourceRef();
                             long authorization = begin.authorization();
                             MessagePredicate filter = (m, b, i, l) ->

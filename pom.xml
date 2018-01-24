@@ -45,13 +45,13 @@
     <jacoco.coverage.ratio>0.41</jacoco.coverage.ratio>
     <jacoco.missed.count>65</jacoco.missed.count>
 
-    <nukleus.plugin.version>develop-SNAPSHOT</nukleus.plugin.version>
-    <nukleus.spec.version>develop-SNAPSHOT</nukleus.spec.version>
+    <nukleus.plugin.version>0.25</nukleus.plugin.version>
+    <nukleus.spec.version>0.16</nukleus.spec.version>
     <nukleus.version>0.17</nukleus.version>
     <jmock.version>2.6.0</jmock.version>
     <mockito.version>2.7.13</mockito.version>
     <k3po.version>3.0.0-alpha-88</k3po.version>
-    <k3po.nukleus.ext.version>develop-SNAPSHOT</k3po.nukleus.ext.version>
+    <k3po.nukleus.ext.version>0.18</k3po.nukleus.ext.version>
   </properties>
 
   <dependencies>
