@@ -97,35 +97,30 @@ public final class Router extends Nukleus.Composite
     {
 
         RouteTableFW routeTable = routeTableRO.wrap(routesBuffer, 0, routesBufferCapacity);
-        final boolean unrouted =
-            routeHandler.test(unroute.typeId(), unroute.buffer(), unroute.offset(), unroute.sizeof()) &&
-            routeTable.routeEntries().anyMatch(r -> routeMatchesUnroute(wrapRoute(r, routeRO), unroute));
 
-        if (unrouted)
-        {
-            int readLock = routesLayout.lock();
+        int readLock = routesLayout.lock();
 
-            routeTableRO.wrap(routesBuffer, 0, routesBufferCapacity);
-            routeTableRW.wrap(routesBuffer, 0, routesBufferCapacity);
+        routeTable.wrap(routesBuffer, 0, routesBufferCapacity);
+        int beforeSize = routeTableRO.routeEntries().sizeof();
+        routeTableRW.wrap(routesBuffer, 0, routesBufferCapacity);
 
-            routeTableRW.writeLockAcquires(readLock)
-                        .writeLockReleases(readLock - 1)
-                        .routeEntries(b ->
-                        {
-                            routeTableRO.routeEntries().forEach(e ->
-                            {
-                                RouteFW route = wrapRoute(e, routeRO);
-                                if (!routeMatchesUnroute(route, unroute))
-                                {
-                                    b.item(ob ->  ob.route(route.buffer(), route.offset(), route.sizeof()));
-                                }
-                            });
-                        });
+        routeTableRW.writeLockAcquires(readLock)
+            .writeLockReleases(readLock - 1)
+            .routeEntries(b ->
+            {
+                routeTableRO.routeEntries().forEach(e ->
+                {
+                    RouteFW route = wrapRoute(e, routeRO);
+                    if (!routeMatchesUnroute(routeHandler, route, unroute))
+                    {
+                        b.item(ob ->  ob.route(route.buffer(), route.offset(), route.sizeof()));
+                    }
+                });
+            });
 
-            routeTableRW.build();
-            routesLayout.unlock();
-        }
-        return unrouted;
+        int afterSize = routeTableRW.build().sizeof();
+        routesLayout.unlock();
+        return beforeSize > afterSize;
     }
 
     Object r;
@@ -158,6 +153,7 @@ public final class Router extends Nukleus.Composite
 
 
     private static boolean routeMatchesUnroute(
+        MessagePredicate routeHandler,
         RouteFW route,
         UnrouteFW unroute)
     {
@@ -166,7 +162,8 @@ public final class Router extends Nukleus.Composite
         unroute.sourceRef() == route.sourceRef() &&
         unroute.target().asString().equals(route.target().asString()) &&
         unroute.targetRef() == route.targetRef() &&
-        unroute.authorization() == route.authorization();
+        unroute.authorization() == route.authorization() &&
+        routeHandler.test(UnrouteFW.TYPE_ID, route.buffer(), route.offset(), route.limit());
     }
 
     private static RouteFW wrapRoute(
