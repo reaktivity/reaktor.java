@@ -38,7 +38,7 @@ public class SimplexIT
     private final K3poRule k3po = new K3poRule()
             .setScriptRoot("org/reaktivity/k3po/nukleus/ext/simplex");
 
-    private final TestRule timeout = new DisableOnDebug(new Timeout(10, SECONDS));
+    private final TestRule timeout = new DisableOnDebug(new Timeout(5, SECONDS));
 
     private final ExpectedException thrown = ExpectedException.none();
 
@@ -230,10 +230,30 @@ public class SimplexIT
 
     @Test
     @Specification({
-        "client.flush.data.ext/client",
-        "client.flush.data.ext/server"
+        "client.flush.empty.data.with.ext/client",
+        "client.flush.empty.data.with.ext/server"
     })
     public void shouldReceiveClientFlushedEmptyDataWithExtension() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "client.write.empty.data.with.ext/client",
+        "client.write.empty.data.with.ext/server"
+    })
+    public void shouldReceiveClientWrittenEmptyDataWithExtension() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "client.flush.null.data.with.ext/client",
+        "client.flush.null.data.with.ext/server"
+    })
+    public void shouldReceiveClientFlushedNullDataWithExtension() throws Exception
     {
         k3po.finish();
     }

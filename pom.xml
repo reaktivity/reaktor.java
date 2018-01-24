@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.reaktivity</groupId>
   <artifactId>k3po-nukleus-ext</artifactId>
-  <version>0.17</version>
+  <version>0.18</version>
   <name>K3PO Nukleus Extension</name>
   <description>K3PO Nukleus Extension</description>
   <url>https://github.com/reaktivity/k3po-nukleus-ext.java</url>
@@ -45,12 +45,12 @@
 
     <junit.version>4.12</junit.version>
     <k3po.version>3.0.0-alpha-88</k3po.version>
-    <nukleus.version>0.6.2</nukleus.version>
-    <nukleus.spec.version>0.13</nukleus.spec.version>
-    <nukleus.plugin.version>0.24</nukleus.plugin.version>
+    <nukleus.version>0.14</nukleus.version>
+    <nukleus.spec.version>0.16</nukleus.spec.version>
+    <nukleus.plugin.version>0.25</nukleus.plugin.version>
 
-    <jacoco.coverage.ratio>0.03</jacoco.coverage.ratio>
-    <jacoco.missed.count>125</jacoco.missed.count>
+    <jacoco.coverage.ratio>0.02</jacoco.coverage.ratio>
+    <jacoco.missed.count>128</jacoco.missed.count>
   </properties>
 
   <dependencies>

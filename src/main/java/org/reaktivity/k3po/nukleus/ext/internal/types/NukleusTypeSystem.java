@@ -44,6 +44,10 @@ public final class NukleusTypeSystem implements TypeSystemSpi
             new StructuredTypeInfo("nukleus", "begin.ext", emptyList(), MAX_VALUE);
     public static final StructuredTypeInfo CONFIG_DATA_EXT =
             new StructuredTypeInfo("nukleus", "data.ext", emptyList(), MAX_VALUE);
+    public static final StructuredTypeInfo CONFIG_DATA_EMPTY =
+            new StructuredTypeInfo("nukleus", "data.empty", emptyList(), 0);
+    public static final StructuredTypeInfo CONFIG_DATA_NULL =
+            new StructuredTypeInfo("nukleus", "data.null", emptyList(), 0);
     public static final StructuredTypeInfo CONFIG_END_EXT =
             new StructuredTypeInfo("nukleus", "end.ext", emptyList(), MAX_VALUE);
 
@@ -95,12 +99,14 @@ public final class NukleusTypeSystem implements TypeSystemSpi
         Set<StructuredTypeInfo> readConfigs = new LinkedHashSet<>();
         readConfigs.add(CONFIG_BEGIN_EXT);
         readConfigs.add(CONFIG_DATA_EXT);
+        readConfigs.add(CONFIG_DATA_NULL);
         readConfigs.add(CONFIG_END_EXT);
         this.readConfigs = readConfigs;
 
         Set<StructuredTypeInfo> writeConfigs = new LinkedHashSet<>();
         writeConfigs.add(CONFIG_BEGIN_EXT);
         writeConfigs.add(CONFIG_DATA_EXT);
+        writeConfigs.add(CONFIG_DATA_EMPTY);
         writeConfigs.add(CONFIG_END_EXT);
         this.writeConfigs = writeConfigs;
     }
