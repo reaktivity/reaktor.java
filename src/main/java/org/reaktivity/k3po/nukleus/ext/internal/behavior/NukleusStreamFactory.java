@@ -24,6 +24,7 @@ import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireInputS
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind.BEGIN;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind.DATA;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind.END;
+import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NullChannelBuffer.NULL_BUFFER;
 
 import java.util.function.LongConsumer;
 
@@ -142,7 +143,7 @@ public final class NukleusStreamFactory
         {
             final long streamId = data.streamId();
             final OctetsFW payload = data.payload();
-            final ChannelBuffer message = payload.get(this::readBuffer);
+            final ChannelBuffer message = payload == null ? NULL_BUFFER : payload.get(this::readBuffer);
             final int readableBytes = message.readableBytes();
             final OctetsFW dataExt = data.extension();
 
