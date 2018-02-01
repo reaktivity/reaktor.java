@@ -15,8 +15,7 @@
  */
 package org.reaktivity.reaktor.internal.memory;
 
-import static java.lang.Long.highestOneBit;
-import static java.lang.Long.numberOfTrailingZeros;
+import static java.lang.Integer.highestOneBit;
 import static org.reaktivity.reaktor.internal.memory.DefaultMemoryManager.BITS_PER_ENTRY;
 import static org.reaktivity.reaktor.internal.memory.DefaultMemoryManager.BITS_PER_LONG;
 
@@ -86,14 +85,9 @@ class BTreeFlyweight
         return this;
     }
 
-    private int order()
-    {
-        return numberOfTrailingZeros(highestOneBit(entryIndex + 1));
-    }
-
     private int orderSize()
     {
-        return 0x01 << order();
+        return highestOneBit(entryIndex + 1);
     }
 
     public int indexInOrder()
