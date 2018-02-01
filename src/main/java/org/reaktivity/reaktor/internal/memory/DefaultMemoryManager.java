@@ -17,6 +17,8 @@ package org.reaktivity.reaktor.internal.memory;
 
 import static org.agrona.BitUtil.findNextPositivePowerOfTwo;
 
+import java.util.Random;
+
 import org.agrona.BitUtil;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.reaktivity.nukleus.buffer.MemoryManager;
@@ -24,20 +26,19 @@ import org.reaktivity.nukleus.buffer.MemoryManager;
 // NOTE, order 0 is largest in terms of size
 public class DefaultMemoryManager implements MemoryManager
 {
-
     public static final int BITS_PER_LONG = BitUtil.SIZE_OF_LONG * 8;
     public static final int BITS_PER_ENTRY = 2;
     public static final int SIZE_OF_LOCK_FIELD = BitUtil.SIZE_OF_LONG;
 
+    private final long id = new Random().nextLong();
+
     private final BtreeFlyweight btreeRO;
 
     private final int smallestBlock;
-    private final int numOfOrders;
     private final int largestBlock;
 
     private final UnsafeBuffer buffer;
     private final int metaDataOffset;
-
 
     public DefaultMemoryManager(MemoryLayout memoryLayout)
     {
@@ -45,12 +46,51 @@ public class DefaultMemoryManager implements MemoryManager
         this.metaDataOffset = memoryLayout.capacity();
         this.smallestBlock = memoryLayout.smallestBlock();
         this.largestBlock = memoryLayout.largestBlock();
-        this.numOfOrders = numOfOrders(largestBlock, smallestBlock);
         this.btreeRO = new BtreeFlyweight(largestBlock, smallestBlock, metaDataOffset + SIZE_OF_LOCK_FIELD);
     }
 
+    public static int sizeOfMetaData(
+        int capacity,
+        int largestBlockSize,
+        int smallestBlockSize)
+    {
+        assert capacity == largestBlockSize;
+        final int bTreeLength = bTreeLength(largestBlockSize, smallestBlockSize);
+        return bTreeLength + SIZE_OF_LOCK_FIELD;
+    }
+
     @Override
-    public long acquire(int capacity)
+    public long acquire(
+        int capacity)
+    {
+        lock();
+        try
+        {
+            return acquire0(capacity);
+        }
+        finally
+        {
+            unlock();
+        }
+    }
+
+    @Override
+    public void release(
+        long offset,
+        int capacity)
+    {
+        lock();
+        try
+        {
+            release0(offset, capacity);
+        }
+        finally
+        {
+            unlock();
+        }
+    }
+
+    private long acquire0(int capacity)
     {
         if (capacity > this.largestBlock)
         {
@@ -106,13 +146,7 @@ public class DefaultMemoryManager implements MemoryManager
         return addressOffset;
     }
 
-    public BtreeFlyweight root()
-    {
-        return btreeRO.wrap(buffer, 0);
-    }
-
-    @Override
-    public void release(
+    public void release0(
         long offset,
         int capacity)
     {
@@ -137,6 +171,11 @@ public class DefaultMemoryManager implements MemoryManager
         }
     }
 
+    private BtreeFlyweight root()
+    {
+        return btreeRO.wrap(buffer, 0);
+    }
+
     private int calculateOrder(int blockSize)
     {
         int order = 0;
@@ -147,21 +186,10 @@ public class DefaultMemoryManager implements MemoryManager
         return order;
     }
 
-
     private int calculateBlockSize(
         int size)
     {
         return findNextPositivePowerOfTwo(size);
-    }
-
-    public static int sizeOfMetaData(
-            int capacity,
-            int largestBlockSize,
-            int smallestBlockSize)
-    {
-        assert capacity == largestBlockSize;
-        final int bTreeLength = bTreeLength(largestBlockSize, smallestBlockSize);
-        return bTreeLength + SIZE_OF_LOCK_FIELD;
     }
 
     private static int numOfOrders(
@@ -187,5 +215,18 @@ public class DefaultMemoryManager implements MemoryManager
     public boolean released()
     {
         return root().isFree();
+    }
+
+    private void lock()
+    {
+        while(!buffer.compareAndSetLong(metaDataOffset, 0L, this.id))
+        {
+            Thread.onSpinWait();
+        }
+    }
+
+    private void unlock()
+    {
+        assert buffer.compareAndSetLong(metaDataOffset, this.id, 0L);
     }
 }
