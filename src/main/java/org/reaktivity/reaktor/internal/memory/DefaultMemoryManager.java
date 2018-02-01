@@ -109,8 +109,7 @@ public class DefaultMemoryManager implements MemoryManager
                 }
                 if(node.isLeftChild())
                 {
-                    node = node.walkParent();
-                    node = node.walkRightChild();  // TODO optimize
+                    node = node.walkToRightSibling();
                 }
                 else
                 {
@@ -136,10 +135,13 @@ public class DefaultMemoryManager implements MemoryManager
         while (!node.isRoot())
         {
             node = node.walkParent();
-            // TODO optimize (can break out quick)
             if (node.isLeftFull() && node.isRightFull())
             {
                 node.fill();
+            }
+            else if (node.isSplit())
+            {
+                break;
             }
             node.split();
         }

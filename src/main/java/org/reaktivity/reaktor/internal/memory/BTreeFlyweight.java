@@ -15,7 +15,8 @@
  */
 package org.reaktivity.reaktor.internal.memory;
 
-import static java.lang.Long.numberOfLeadingZeros;
+import static java.lang.Long.highestOneBit;
+import static java.lang.Long.numberOfTrailingZeros;
 import static org.reaktivity.reaktor.internal.memory.DefaultMemoryManager.BITS_PER_ENTRY;
 import static org.reaktivity.reaktor.internal.memory.DefaultMemoryManager.BITS_PER_LONG;
 
@@ -79,9 +80,15 @@ class BTreeFlyweight
         return this;
     }
 
+    public BTreeFlyweight walkToRightSibling()
+    {
+        this.wrap(buffer, entryIndex + 1);
+        return this;
+    }
+
     private int order()
     {
-        return BITS_PER_LONG - numberOfLeadingZeros(entryIndex + 1) - 1;
+        return numberOfTrailingZeros(highestOneBit(entryIndex + 1));
     }
 
     private int orderSize()
