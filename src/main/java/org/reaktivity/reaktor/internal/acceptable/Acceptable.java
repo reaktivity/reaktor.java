@@ -104,13 +104,13 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
                         .setRouteManager(this)
                         .setWriteBuffer(writeBuffer)
                         .setStreamIdSupplier(supplyStreamId)
-                        .setGroupIdSupplier(supplyGroupId)
-                        .setGroupBudgetClaimer(groupBudgetClaimer)
-                        .setGroupBudgetReleaser(groupBudgetReleaser)
+//                        .setGroupIdSupplier(supplyGroupId)
+//                        .setGroupBudgetClaimer(groupBudgetClaimer)
+//                        .setGroupBudgetReleaser(groupBudgetReleaser)
                         .setCorrelationIdSupplier(supplyCorrelationId)
                         .setCounterSupplier(supplyCounter)
                         .setAccumulatorSupplier(supplyAccumulator)
-                        .setBufferPoolSupplier(supplyCountingBufferPool)
+//                        .setBufferPoolSupplier(supplyCountingBufferPool)
                         .build();
                 streamFactories.put(kind, streamFactory);
             }
