@@ -15,6 +15,7 @@
  */
 package org.reaktivity.reaktor.internal.memory;
 
+import static org.agrona.BitUtil.SIZE_OF_LONG;
 import static org.agrona.IoUtil.createEmptyFile;
 import static org.agrona.IoUtil.mapExistingFile;
 import static org.agrona.IoUtil.unmap;
@@ -112,15 +113,14 @@ public final class MemoryLayout extends Layout
         @Override
         public MemoryLayout build()
         {
-            final File routes = path.toFile();
-
-            if (!readonly)
-            {
-                CloseHelper.close(createEmptyFile(routes, capacity));
-            }
+            final File memory = path.toFile();
 
             long sizeToAllocate = sizeToAllocate(capacity, capacity, smallestBlockSize);
-            final MappedByteBuffer mappedMemory = mapExistingFile(routes, "memory", 0, sizeToAllocate);
+            if (!readonly)
+            {
+                CloseHelper.close(createEmptyFile(memory, sizeToAllocate));
+            }
+            final MappedByteBuffer mappedMemory = mapExistingFile(memory, "memory", 0, sizeToAllocate);
 
             final UnsafeBuffer unsafeBuffer = new UnsafeBuffer(mappedMemory);
 
@@ -136,7 +136,7 @@ public final class MemoryLayout extends Layout
                     capacity,
                     largestBlockSize,
                     smallestBlockSize);
-            return ((requiredSize + BitUtil.SIZE_OF_LONG - 1) / BitUtil.SIZE_OF_LONG) * BitUtil.SIZE_OF_LONG;
+            return BitUtil.align(requiredSize, SIZE_OF_LONG);
         }
 
     }

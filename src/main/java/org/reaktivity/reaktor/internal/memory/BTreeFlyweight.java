@@ -21,7 +21,7 @@ import static org.reaktivity.reaktor.internal.memory.DefaultMemoryManager.BITS_P
 
 import org.agrona.concurrent.UnsafeBuffer;
 
-class BtreeFlyweight
+class BTreeFlyweight
 {
     static final long EMPTY = 0x00L;
     static final long FULL = 0x01L;
@@ -30,23 +30,21 @@ class BtreeFlyweight
     static final long UNSPLIT_MASH = FULL;
 
     private final int largestBlock;
-    private final int smallestBlock;
     private final int offset;
 
     private int entryIndex;
     private UnsafeBuffer buffer;
 
-     BtreeFlyweight(
+     BTreeFlyweight(
         int largestBlock,
         int smallestBlock,
         int offset) // TODO move offset to wrap?
     {
         this.largestBlock = largestBlock;
-        this.smallestBlock = smallestBlock;
         this.offset = offset;
     }
 
-    public BtreeFlyweight wrap(
+    public BTreeFlyweight wrap(
         UnsafeBuffer buffer,
         int entryIndex)
     {
@@ -63,19 +61,19 @@ class BtreeFlyweight
         return value;
     }
 
-    public BtreeFlyweight walkParent()
+    public BTreeFlyweight walkParent()
     {
         this.wrap(buffer, (entryIndex - 1) >> 1);
         return this;
     }
 
-    public BtreeFlyweight walkLeftChild()
+    public BTreeFlyweight walkLeftChild()
     {
         this.wrap(buffer, 2 * entryIndex + 1);
         return this;
     }
 
-    public BtreeFlyweight walkRightChild()
+    public BTreeFlyweight walkRightChild()
     {
         this.wrap(buffer, 2 * entryIndex + 2);
         return this;

@@ -23,9 +23,9 @@ import static org.junit.Assert.assertTrue;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.junit.Test;
 
-public class BtreeFlyweightTest
+public class BTreeFlyweightTest
 {
-    private BtreeFlyweight node = new BtreeFlyweight(1024, 8, 0);
+    private BTreeFlyweight node = new BTreeFlyweight(1024, 8, 0);
 
     @Test
     public void shouldWorkOnRoot()

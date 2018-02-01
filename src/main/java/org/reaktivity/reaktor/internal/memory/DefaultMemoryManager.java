@@ -32,7 +32,7 @@ public class DefaultMemoryManager implements MemoryManager
 
     private final long id = new Random().nextLong();
 
-    private final BtreeFlyweight btreeRO;
+    private final BTreeFlyweight btreeRO;
 
     private final int smallestBlock;
     private final int largestBlock;
@@ -46,7 +46,7 @@ public class DefaultMemoryManager implements MemoryManager
         this.metaDataOffset = memoryLayout.capacity();
         this.smallestBlock = memoryLayout.smallestBlock();
         this.largestBlock = memoryLayout.largestBlock();
-        this.btreeRO = new BtreeFlyweight(largestBlock, smallestBlock, metaDataOffset + SIZE_OF_LOCK_FIELD);
+        this.btreeRO = new BTreeFlyweight(largestBlock, smallestBlock, metaDataOffset + SIZE_OF_LOCK_FIELD);
     }
 
     public static int sizeOfMetaData(
@@ -98,7 +98,7 @@ public class DefaultMemoryManager implements MemoryManager
         }
         int requestedBlockSize = calculateBlockSize(capacity);
 
-        BtreeFlyweight node = root();
+        BTreeFlyweight node = root();
         while (!(requestedBlockSize == node.blockSize() && node.isFree()))
         {
             if (requestedBlockSize > node.blockSize() || node.isFull())
@@ -155,7 +155,7 @@ public class DefaultMemoryManager implements MemoryManager
         final int order = calculateOrder(blockSize);
         final int orderSize = 0x01 << order;
         final int entryIndex = orderSize - 1 + (int) (offset / blockSize);
-        BtreeFlyweight node = btreeRO.wrap(buffer, entryIndex);
+        BTreeFlyweight node = btreeRO.wrap(buffer, entryIndex);
         node.empty();
         while (!node.isRoot())
         {
@@ -171,7 +171,7 @@ public class DefaultMemoryManager implements MemoryManager
         }
     }
 
-    private BtreeFlyweight root()
+    private BTreeFlyweight root()
     {
         return btreeRO.wrap(buffer, 0);
     }
