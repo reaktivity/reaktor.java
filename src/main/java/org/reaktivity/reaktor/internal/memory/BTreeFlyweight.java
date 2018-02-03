@@ -16,10 +16,9 @@
 package org.reaktivity.reaktor.internal.memory;
 
 import static java.lang.Integer.highestOneBit;
-import static org.reaktivity.reaktor.internal.memory.DefaultMemoryManager.BITS_PER_ENTRY;
-import static org.reaktivity.reaktor.internal.memory.DefaultMemoryManager.BITS_PER_LONG;
+import static org.reaktivity.reaktor.internal.layouts.MemoryLayout.BITS_PER_BTREE_ENTRY;
 
-import org.agrona.concurrent.UnsafeBuffer;
+import org.agrona.MutableDirectBuffer;
 
 class BTreeFlyweight
 {
@@ -29,23 +28,23 @@ class BTreeFlyweight
     static final long FULL_AND_SPLIT = 0x03L;
     static final long UNSPLIT_MASH = FULL;
 
-    private final int largestBlock;
-    private final int offset;
+    private final int maximumBlock;
+    private final int btreeOffset;
 
     private int entryIndex;
-    private UnsafeBuffer buffer;
+    private MutableDirectBuffer buffer;
 
      BTreeFlyweight(
-        int largestBlock,
-        int smallestBlock,
-        int offset) // TODO move offset to wrap?
+        int minimumBlockSize,
+        int maximumBlockSize,
+        int btreeOffset) // TODO move offset to wrap?
     {
-        this.largestBlock = largestBlock;
-        this.offset = offset;
+        this.maximumBlock = maximumBlockSize;
+        this.btreeOffset = btreeOffset;
     }
 
     public BTreeFlyweight wrap(
-        UnsafeBuffer buffer,
+        MutableDirectBuffer buffer,
         int entryIndex)
     {
         this.entryIndex = entryIndex;
@@ -57,7 +56,7 @@ class BTreeFlyweight
     {
         final int arrayIndex = arrayIndex();
         final long longValue = buffer.getLong(arrayIndex);
-        final long value = (longValue >> BITS_PER_LONG - bitOffset() - BITS_PER_ENTRY) & 0x3L;
+        final long value = (longValue >> Long.SIZE - bitOffset() - BITS_PER_BTREE_ENTRY) & 0x3L;
         return value;
     }
 
@@ -187,18 +186,18 @@ class BTreeFlyweight
 
     private int arrayIndex()
     {
-        return offset + (int) entryIndex / (BITS_PER_LONG >> (BITS_PER_ENTRY - 1));
+        return btreeOffset + (int) entryIndex / (Long.SIZE >> (BITS_PER_BTREE_ENTRY - 1));
     }
 
     private int bitOffset()
     {
-        return (entryIndex % (BITS_PER_LONG >> (BITS_PER_ENTRY - 1))) * BITS_PER_ENTRY;
+        return (entryIndex % (Long.SIZE >> (BITS_PER_BTREE_ENTRY - 1))) * BITS_PER_BTREE_ENTRY;
     }
 
     public int blockSize()
     {
         int index = entryIndex + 1;
-        int size = largestBlock;
+        int size = maximumBlock;
         while(index != 1)
         {
             size = size >> 1;
@@ -224,7 +223,7 @@ class BTreeFlyweight
 
     private long shiftToEntry(long v)
     {
-        return v << (BITS_PER_LONG - bitOffset() - BITS_PER_ENTRY);
+        return v << (Long.SIZE - bitOffset() - BITS_PER_BTREE_ENTRY);
     }
 
     @Override

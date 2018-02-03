@@ -33,20 +33,17 @@ import org.reaktivity.nukleus.route.RouteKind;
 import org.reaktivity.nukleus.stream.StreamFactory;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
 import org.reaktivity.reaktor.internal.router.ReferenceKind;
-import org.reaktivity.reaktor.internal.types.stream.AbortFW;
+import org.reaktivity.reaktor.internal.types.stream.AckFW;
 import org.reaktivity.reaktor.internal.types.stream.BeginFW;
-import org.reaktivity.reaktor.internal.types.stream.DataFW;
-import org.reaktivity.reaktor.internal.types.stream.EndFW;
 import org.reaktivity.reaktor.internal.types.stream.FrameFW;
-import org.reaktivity.reaktor.internal.types.stream.ResetFW;
-import org.reaktivity.reaktor.internal.types.stream.WindowFW;
+import org.reaktivity.reaktor.internal.types.stream.TransferFW;
 
 public final class Source implements Nukleus
 {
     private final FrameFW frameRO = new FrameFW();
     private final BeginFW beginRO = new BeginFW();
 
-    private final ResetFW.Builder resetRW = new ResetFW.Builder();
+    private final AckFW.Builder ackRW = new AckFW.Builder();
 
     private final String nukleusName;
     private final String sourceName;
@@ -57,7 +54,6 @@ public final class Source implements Nukleus
     private final Supplier<String> streamsDescriptor;
     private final Long2ObjectHashMap<MessageConsumer> streams;
     private final Function<RouteKind, StreamFactory> supplyStreamFactory;
-    private final int abortTypeId;
     private final MessageHandler readHandler;
     private final MessageConsumer writeHandler;
 
@@ -71,8 +67,7 @@ public final class Source implements Nukleus
         AtomicBuffer writeBuffer,
         Long2ObjectHashMap<MessageConsumer> streams,
         Function<String, Target> supplyTarget,
-        Function<RouteKind, StreamFactory> supplyStreamFactory,
-        int abortTypeId)
+        Function<RouteKind, StreamFactory> supplyStreamFactory)
     {
         this.nukleusName = nukleusName;
         this.sourceName = sourceName;
@@ -80,7 +75,6 @@ public final class Source implements Nukleus
         this.layout = layout;
         this.writeBuffer = writeBuffer;
         this.supplyStreamFactory = supplyStreamFactory;
-        this.abortTypeId = abortTypeId;
         this.streamsDescriptor = layout::toString;
         this.streamsBuffer = layout.streamsBuffer()::read;
         this.throttleBuffer = layout.throttleBuffer()::write;
@@ -139,14 +133,14 @@ public final class Source implements Nukleus
 
         switch (msgTypeId)
         {
-        case WindowFW.TYPE_ID:
-            handled = throttleBuffer.test(msgTypeId, buffer, index, length);
-            break;
-        case ResetFW.TYPE_ID:
+        case AckFW.TYPE_ID:
             handled = throttleBuffer.test(msgTypeId, buffer, index, length);
 
-            final FrameFW reset = frameRO.wrap(buffer, index, index + length);
-            streams.remove(reset.streamId());
+            final FrameFW frame = frameRO.wrap(buffer, index, index + length);
+            if ((frame.flags() & 0x03) != 0)
+            {
+                streams.remove(frame.streamId());
+            }
             break;
         default:
             handled = true;
@@ -165,10 +159,8 @@ public final class Source implements Nukleus
         int index,
         int length)
     {
-        frameRO.wrap(buffer, index, index + length);
-
-        final long streamId = frameRO.streamId();
-
+        final FrameFW frame = frameRO.wrap(buffer, index, index + length);
+        final long streamId = frame.streamId();
         final MessageConsumer handler = streams.get(streamId);
 
         try
@@ -178,16 +170,10 @@ public final class Source implements Nukleus
                 switch (msgTypeId)
                 {
                 case BeginFW.TYPE_ID:
-                case DataFW.TYPE_ID:
                     handler.accept(msgTypeId, buffer, index, length);
                     break;
-                case EndFW.TYPE_ID:
+                case TransferFW.TYPE_ID:
                     handler.accept(msgTypeId, buffer, index, length);
-                    streams.remove(streamId);
-                    break;
-                case AbortFW.TYPE_ID:
-                    handler.accept(abortTypeId, buffer, index, length);
-                    streams.remove(streamId);
                     break;
                 default:
                     handleUnrecognized(msgTypeId, buffer, index, length);
@@ -269,10 +255,11 @@ public final class Source implements Nukleus
     private void doReset(
         final long streamId)
     {
-        final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+        final AckFW ack = ackRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .streamId(streamId)
+                .flags(0x02) // rst
                 .build();
 
-        handleWrite(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
+        handleWrite(ack.typeId(), ack.buffer(), ack.offset(), ack.sizeof());
     }
 }

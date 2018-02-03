@@ -21,9 +21,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
-import java.util.function.LongSupplier;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -32,7 +30,7 @@ import org.agrona.MutableDirectBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.agrona.concurrent.status.AtomicCounter;
 import org.reaktivity.nukleus.Nukleus;
-import org.reaktivity.nukleus.buffer.BufferPool;
+import org.reaktivity.nukleus.buffer.MemoryManager;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteKind;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
@@ -57,14 +55,11 @@ public final class Acceptor extends Nukleus.Composite
     private final Map<String, Acceptable> acceptables;
     private final AtomicCounter routeRefs;
     private final MutableDirectBuffer routeBuf;
-    private final GroupBudgetManager groupBudgetManager;
 
     private Conductor conductor;
     private Router router;
-    private Supplier<BufferPool> supplyBufferPool;
-    private LongSupplier supplyGroupId;
+    private MemoryManager memoryManager;
     private Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder;
-    private int abortTypeId;
     private Function<Role, MessagePredicate> supplyRouteHandler;
     private Predicate<RouteKind> allowZeroRouteRef;
     private AtomicLong correlations;
@@ -77,9 +72,6 @@ public final class Acceptor extends Nukleus.Composite
         this.acceptables = new HashMap<>();
         this.routeBuf = new UnsafeBuffer(ByteBuffer.allocateDirect(context.maxControlCommandLength()));
         this.correlations  = new AtomicLong();
-        int groupId = 0;
-        this.supplyGroupId = () -> groupId + 1;
-        this.groupBudgetManager = new GroupBudgetManager();
     }
 
     public void setConductor(
@@ -94,22 +86,16 @@ public final class Acceptor extends Nukleus.Composite
         this.router = router;
     }
 
-    public void setBufferPoolSupplier(
-        Supplier<BufferPool> supplyBufferPool)
+    public void setMemoryManager(
+        MemoryManager memoryManager)
     {
-        this.supplyBufferPool = supplyBufferPool;
+        this.memoryManager = memoryManager;
     }
 
     public void setStreamFactoryBuilderSupplier(
         Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder)
     {
         this.supplyStreamFactoryBuilder = supplyStreamFactoryBuilder;
-    }
-
-    public void setAbortTypeId(
-        int abortTypeId)
-    {
-        this.abortTypeId = abortTypeId;
     }
 
     public void setRouteHandlerSupplier(
@@ -251,12 +237,8 @@ public final class Acceptor extends Nukleus.Composite
                 context,
                 router,
                 sourceName,
-                supplyGroupId,
-                groupBudgetManager::claim,
-                groupBudgetManager::release,
-                supplyBufferPool,
+                memoryManager,
                 supplyStreamFactoryBuilder,
-                abortTypeId,
                 correlations));
     }
 

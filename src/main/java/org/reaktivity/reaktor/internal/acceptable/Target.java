@@ -26,21 +26,16 @@ import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
-import org.reaktivity.reaktor.internal.types.stream.AbortFW;
+import org.reaktivity.reaktor.internal.types.stream.AckFW;
 import org.reaktivity.reaktor.internal.types.stream.BeginFW;
-import org.reaktivity.reaktor.internal.types.stream.DataFW;
-import org.reaktivity.reaktor.internal.types.stream.EndFW;
-import org.reaktivity.reaktor.internal.types.stream.FrameFW;
-import org.reaktivity.reaktor.internal.types.stream.ResetFW;
-import org.reaktivity.reaktor.internal.types.stream.WindowFW;
+import org.reaktivity.reaktor.internal.types.stream.TransferFW;
 
 public final class Target implements Nukleus
 {
-    private final FrameFW frameRO = new FrameFW();
+    private final AckFW ackRO = new AckFW();
 
     private final String name;
     private final AutoCloseable layout;
-    private final int abortTypeId;
     private final Long2ObjectHashMap<MessageConsumer> throttles;
     private final MessageHandler readHandler;
     private final MessageConsumer writeHandler;
@@ -50,12 +45,10 @@ public final class Target implements Nukleus
 
     public Target(
         String name,
-        StreamsLayout layout,
-        int abortTypeId)
+        StreamsLayout layout)
     {
         this.name = name;
         this.layout = layout;
-        this.abortTypeId = abortTypeId;
         this.streamsBuffer = layout.streamsBuffer()::write;
         this.throttleBuffer = layout.throttleBuffer()::read;
         this.throttles = new Long2ObjectHashMap<>();
@@ -112,20 +105,8 @@ public final class Target implements Nukleus
         case BeginFW.TYPE_ID:
             handled = streamsBuffer.test(msgTypeId, buffer, index, length);
             break;
-        case DataFW.TYPE_ID:
+        case TransferFW.TYPE_ID:
             handled = streamsBuffer.test(msgTypeId, buffer, index, length);
-            break;
-        case EndFW.TYPE_ID:
-            handled = streamsBuffer.test(msgTypeId, buffer, index, length);
-
-            final FrameFW end = frameRO.wrap(buffer, index, index + length);
-            throttles.remove(end.streamId());
-            break;
-        case AbortFW.TYPE_ID:
-            handled = streamsBuffer.test(abortTypeId, buffer, index, length);
-
-            final FrameFW abort = frameRO.wrap(buffer, index, index + length);
-            throttles.remove(abort.streamId());
             break;
         default:
             handled = true;
@@ -144,25 +125,25 @@ public final class Target implements Nukleus
         int index,
         int length)
     {
-        frameRO.wrap(buffer, index, index + length);
-
-        final long streamId = frameRO.streamId();
-        final MessageConsumer throttle = throttles.get(streamId);
-
-        if (throttle != null)
+        switch (msgTypeId)
         {
-            switch (msgTypeId)
+        case AckFW.TYPE_ID:
+            final AckFW ack = ackRO.wrap(buffer, index, index + length);
+            final long streamId = ack.streamId();
+            final MessageConsumer throttle = throttles.get(streamId);
+
+            if (throttle != null)
             {
-            case WindowFW.TYPE_ID:
                 throttle.accept(msgTypeId, buffer, index, length);
-                break;
-            case ResetFW.TYPE_ID:
-                throttle.accept(msgTypeId, buffer, index, length);
-                throttles.remove(streamId);
-                break;
-            default:
-                break;
+
+                if (ack.flags() != 0)
+                {
+                    throttles.remove(streamId);
+                }
             }
+            break;
+        default:
+            break;
         }
     }
 

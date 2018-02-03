@@ -18,7 +18,6 @@ package org.reaktivity.reaktor.internal.memory;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
-import static org.reaktivity.reaktor.internal.memory.DefaultMemoryManager.sizeOfMetaData;
 
 import java.util.function.LongSupplier;
 
@@ -27,11 +26,10 @@ import org.agrona.concurrent.UnsafeBuffer;
 import org.junit.Rule;
 import org.junit.Test;
 import org.reaktivity.nukleus.buffer.MemoryManager;
-
+import org.reaktivity.reaktor.internal.layouts.MemoryLayout;
 
 public class DefaultMemoryManagerTest
 {
-
     private UnsafeBuffer writeBuffer = new UnsafeBuffer(new byte[1]);
     private static final int KB = 1024;
     private static final int BYTES_64 = 64;
@@ -39,15 +37,6 @@ public class DefaultMemoryManagerTest
 
     @Rule
     public DefaultMemoryManagerRule memoryManagerRule = new DefaultMemoryManagerRule();
-
-
-    @Test
-    @ConfigureMemoryLayout(capacity = KB, smallestBlockSize = BYTES_64)
-    public void shouldCalculateMetaDataSize()
-    {
-        assertEquals(9, sizeOfMetaData(16, 16, 4));
-        assertEquals(10, sizeOfMetaData(128, 128, 4));
-    }
 
     @Test
     @ConfigureMemoryLayout(capacity = KB, smallestBlockSize = BYTES_64)

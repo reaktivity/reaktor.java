@@ -17,6 +17,8 @@ package org.reaktivity.reaktor;
 
 import static org.junit.Assert.assertNotSame;
 
+import java.util.function.BooleanSupplier;
+
 import org.agrona.ErrorHandler;
 import org.agrona.concurrent.IdleStrategy;
 import org.jmock.Expectations;
@@ -26,7 +28,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.reaktivity.nukleus.Controller;
 import org.reaktivity.nukleus.Nukleus;
-import org.reaktivity.nukleus.buffer.BufferPool;
 
 public class ReaktorTest
 {
@@ -45,7 +46,8 @@ public class ReaktorTest
         final Controller controller = context.mock(Controller.class);
         final IdleStrategy idleStrategy = context.mock(IdleStrategy.class);
         final ErrorHandler errorHandler = context.mock(ErrorHandler.class);
-        final BufferPool bufferPool = context.mock(BufferPool.class);
+        final BooleanSupplier memoryReleased = context.mock(BooleanSupplier.class);
+        final AutoCloseable memoryLayout = context.mock(AutoCloseable.class);
 
         context.checking(new Expectations()
         {
@@ -53,12 +55,14 @@ public class ReaktorTest
                 allowing(controller).process(); will(returnValue(0));
                 allowing(idleStrategy).idle(with(any(int.class)));
 
-                oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
+                oneOf(memoryReleased).getAsBoolean(); will(returnValue(true));
                 oneOf(controller).kind(); will(returnValue(Controller.class));
                 oneOf(controller).close();
+                oneOf(memoryLayout).close();
             }
         });
-        Reaktor reaktor = new Reaktor(idleStrategy, errorHandler, new Nukleus[0], new Controller[]{controller}, bufferPool);
+        Reaktor reaktor = new Reaktor(idleStrategy, errorHandler, new Nukleus[0], new Controller[]{controller},
+                                      memoryLayout, memoryReleased);
         reaktor.start();
         reaktor.close();
     }
@@ -69,7 +73,8 @@ public class ReaktorTest
         final Nukleus nukleus = context.mock(Nukleus.class);
         final IdleStrategy idleStrategy = context.mock(IdleStrategy.class);
         final ErrorHandler errorHandler = context.mock(ErrorHandler.class);
-        final BufferPool bufferPool = context.mock(BufferPool.class);
+        final BooleanSupplier memoryReleased = context.mock(BooleanSupplier.class);
+        final AutoCloseable memoryLayout = context.mock(AutoCloseable.class);
 
         context.checking(new Expectations()
         {
@@ -77,12 +82,14 @@ public class ReaktorTest
                 allowing(nukleus).process(); will(returnValue(0));
                 allowing(idleStrategy).idle(with(any(int.class)));
 
-                oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
+                oneOf(memoryReleased).getAsBoolean(); will(returnValue(true));
                 oneOf(nukleus).name(); will(returnValue("nukleus-name"));
                 oneOf(nukleus).close();
+                oneOf(memoryLayout).close();
             }
         });
-        Reaktor reaktor = new Reaktor(idleStrategy, errorHandler, new Nukleus[]{nukleus}, new Controller[0], bufferPool);
+        Reaktor reaktor = new Reaktor(idleStrategy, errorHandler, new Nukleus[]{nukleus}, new Controller[0],
+                                      memoryLayout, memoryReleased);
         reaktor.start();
         reaktor.close();
     }
@@ -93,7 +100,8 @@ public class ReaktorTest
         final Controller controller = context.mock(Controller.class);
         final IdleStrategy idleStrategy = context.mock(IdleStrategy.class);
         final ErrorHandler errorHandler = context.mock(ErrorHandler.class);
-        final BufferPool bufferPool = context.mock(BufferPool.class);
+        final BooleanSupplier memoryReleased = context.mock(BooleanSupplier.class);
+        final AutoCloseable memoryLayout = context.mock(AutoCloseable.class);
 
         context.checking(new Expectations()
         {
@@ -101,12 +109,14 @@ public class ReaktorTest
                 allowing(controller).process(); will(returnValue(0));
                 allowing(idleStrategy).idle(with(any(int.class)));
 
-                oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
+                oneOf(memoryReleased).getAsBoolean(); will(returnValue(true));
                 oneOf(controller).kind(); will(returnValue(Controller.class));
                 oneOf(controller).close(); will(throwException(new Exception("controller close failed")));
+                oneOf(memoryLayout).close();
             }
         });
-        Reaktor reaktor = new Reaktor(idleStrategy, errorHandler, new Nukleus[0], new Controller[]{controller}, bufferPool);
+        Reaktor reaktor = new Reaktor(idleStrategy, errorHandler, new Nukleus[0], new Controller[]{controller},
+                                      memoryLayout, memoryReleased);
         reaktor.start();
         try
         {
@@ -125,7 +135,8 @@ public class ReaktorTest
         final Nukleus nukleus = context.mock(Nukleus.class);
         final IdleStrategy idleStrategy = context.mock(IdleStrategy.class);
         final ErrorHandler errorHandler = context.mock(ErrorHandler.class);
-        final BufferPool bufferPool = context.mock(BufferPool.class);
+        final BooleanSupplier memoryReleased = context.mock(BooleanSupplier.class);
+        final AutoCloseable memoryLayout = context.mock(AutoCloseable.class);
 
         context.checking(new Expectations()
         {
@@ -133,12 +144,14 @@ public class ReaktorTest
                 allowing(nukleus).process(); will(returnValue(0));
                 allowing(idleStrategy).idle(with(any(int.class)));
 
-                oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
+                oneOf(memoryReleased).getAsBoolean(); will(returnValue(true));
                 oneOf(nukleus).name(); will(returnValue("nukleus-name"));
                 oneOf(nukleus).close(); will(throwException(new Exception("Nukleus close failed")));
+                oneOf(memoryLayout).close();
             }
         });
-        Reaktor reaktor = new Reaktor(idleStrategy, errorHandler, new Nukleus[]{nukleus}, new Controller[0], bufferPool);
+        Reaktor reaktor = new Reaktor(idleStrategy, errorHandler, new Nukleus[]{nukleus}, new Controller[0],
+                                      memoryLayout, memoryReleased);
         reaktor.start();
         try
         {
@@ -158,7 +171,8 @@ public class ReaktorTest
         final Nukleus nukleus = context.mock(Nukleus.class);
         final IdleStrategy idleStrategy = context.mock(IdleStrategy.class);
         final ErrorHandler errorHandler = context.mock(ErrorHandler.class);
-        final BufferPool bufferPool = context.mock(BufferPool.class);
+        final BooleanSupplier memoryReleased = context.mock(BooleanSupplier.class);
+        final AutoCloseable memoryLayout = context.mock(AutoCloseable.class);
 
         context.checking(new Expectations()
         {
@@ -167,15 +181,16 @@ public class ReaktorTest
                 allowing(nukleus).process(); will(returnValue(0));
                 allowing(idleStrategy).idle(with(any(int.class)));
 
-                oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
+                oneOf(memoryReleased).getAsBoolean(); will(returnValue(true));
                 oneOf(controller).kind(); will(returnValue(Controller.class));
                 oneOf(nukleus).name(); will(returnValue("nukleus-name"));
                 oneOf(controller).close(); will(throwException(new Exception("controller close failed")));
                 oneOf(nukleus).close(); will(throwException(new Exception("Nukleus close failed")));
+                oneOf(memoryLayout).close();
             }
         });
-        Reaktor reaktor =
-                new Reaktor(idleStrategy, errorHandler, new Nukleus[]{nukleus}, new Controller[]{controller}, bufferPool);
+        Reaktor reaktor = new Reaktor(idleStrategy, errorHandler, new Nukleus[]{nukleus}, new Controller[]{controller},
+                                      memoryLayout, memoryReleased);
         reaktor.start();
         try
         {

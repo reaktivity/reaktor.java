@@ -25,7 +25,7 @@ import org.junit.Test;
 
 public class BTreeFlyweightTest
 {
-    private BTreeFlyweight node = new BTreeFlyweight(1024, 8, 0);
+    private BTreeFlyweight node = new BTreeFlyweight(8, 1024, 0);
 
     @Test
     public void shouldWorkOnRoot()

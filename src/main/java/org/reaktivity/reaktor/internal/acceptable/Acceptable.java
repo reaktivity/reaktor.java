@@ -21,18 +21,15 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
-import java.util.function.IntUnaryOperator;
 import java.util.function.LongConsumer;
-import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
-import java.util.function.Supplier;
 
 import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.agrona.concurrent.status.AtomicCounter;
 import org.reaktivity.nukleus.Nukleus;
-import org.reaktivity.nukleus.buffer.BufferPool;
+import org.reaktivity.nukleus.buffer.MemoryManager;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessageFunction;
 import org.reaktivity.nukleus.function.MessagePredicate;
@@ -41,17 +38,17 @@ import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 import org.reaktivity.reaktor.internal.Context;
-import org.reaktivity.reaktor.internal.buffer.CountingBufferPool;
+import org.reaktivity.reaktor.internal.buffer.CountingMemoryManager;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
 import org.reaktivity.reaktor.internal.router.ReferenceKind;
 import org.reaktivity.reaktor.internal.router.Router;
-import org.reaktivity.reaktor.internal.types.stream.AbortFW;
-import org.reaktivity.reaktor.internal.types.stream.ResetFW;
+import org.reaktivity.reaktor.internal.types.stream.AckFW;
+import org.reaktivity.reaktor.internal.types.stream.TransferFW;
 
 public final class Acceptable extends Nukleus.Composite implements RouteManager
 {
-    private final AbortFW.Builder abortRW = new AbortFW.Builder();
-    private final ResetFW.Builder resetRW = new ResetFW.Builder();
+    private final TransferFW.Builder transferRW = new TransferFW.Builder();
+    private final AckFW.Builder ackRW = new AckFW.Builder();
 
     private final Context context;
     private final Router router;
@@ -61,19 +58,13 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
     private final Map<String, Source> sourcesByPartitionName;
     private final Map<String, Target> targetsByName;
     private final Function<RouteKind, StreamFactory> supplyStreamFactory;
-    private final int abortTypeId;
-
 
     public Acceptable(
         Context context,
         Router router,
         String sourceName,
-        LongSupplier supplyGroupId,
-        LongFunction<IntUnaryOperator> groupBudgetClaimer,
-        LongFunction<IntUnaryOperator> groupBudgetReleaser,
-        Supplier<BufferPool> supplyBufferPool,
+        MemoryManager memoryManager,
         Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder,
-        int abortTypeId,
         AtomicLong correlations)
     {
         this.context = context;
@@ -91,8 +82,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
         final LongSupplier supplyStreamId = () -> streams.increment() + 1;
         final AtomicCounter acquires = context.counters().acquires();
         final AtomicCounter releases = context.counters().releases();
-        Supplier<BufferPool> supplyCountingBufferPool =
-                () -> new CountingBufferPool(supplyBufferPool.get(), acquires::increment, releases::increment);
+        MemoryManager countingMemoryManager = new CountingMemoryManager(memoryManager, acquires::increment, releases::increment);
         for (RouteKind kind : EnumSet.allOf(RouteKind.class))
         {
             final ReferenceKind refKind = ReferenceKind.valueOf(kind);
@@ -103,20 +93,19 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
                 StreamFactory streamFactory = streamFactoryBuilder
                         .setRouteManager(this)
                         .setWriteBuffer(writeBuffer)
+                        .setMemoryManager(countingMemoryManager)
                         .setStreamIdSupplier(supplyStreamId)
-//                        .setGroupIdSupplier(supplyGroupId)
-//                        .setGroupBudgetClaimer(groupBudgetClaimer)
-//                        .setGroupBudgetReleaser(groupBudgetReleaser)
                         .setCorrelationIdSupplier(supplyCorrelationId)
                         .setCounterSupplier(supplyCounter)
                         .setAccumulatorSupplier(supplyAccumulator)
-//                        .setBufferPoolSupplier(supplyCountingBufferPool)
+                        .setCorrelationIdSupplier(supplyCorrelationId)
+                        .setCounterSupplier(supplyCounter)
+                        .setAccumulatorSupplier(supplyAccumulator)
                         .build();
                 streamFactories.put(kind, streamFactory);
             }
         }
         this.supplyStreamFactory = streamFactories::get;
-        this.abortTypeId = abortTypeId;
     }
 
     @Override
@@ -185,7 +174,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
             .build();
 
         return include(new Source(context.name(), sourceName, partitionName, layout, writeBuffer, streams,
-                                  this::supplyTargetInternal, supplyStreamFactory, abortTypeId));
+                                  this::supplyTargetInternal, supplyStreamFactory));
     }
 
     private Target supplyTargetInternal(
@@ -206,7 +195,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
                 .readonly(false)
                 .build();
 
-        return include(new Target(targetName, layout, abortTypeId));
+        return include(new Target(targetName, layout));
     }
 
     private void doAbort(
@@ -227,11 +216,12 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
         long streamId,
         MessageConsumer stream)
     {
-        final AbortFW abort = abortRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                                     .streamId(streamId)
-                                     .build();
+        final TransferFW transfer = transferRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                                              .streamId(streamId)
+                                              .flags(0x02) // rst
+                                              .build();
 
-        stream.accept(abortTypeId, abort.buffer(), abort.offset(), abort.sizeof());
+        stream.accept(transfer.typeId(), transfer.buffer(), transfer.offset(), transfer.sizeof());
     }
 
     private void doReset(
@@ -245,10 +235,11 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
         long throttleId,
         MessageConsumer throttle)
     {
-        final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                                     .streamId(throttleId)
-                                     .build();
+        final AckFW ack = ackRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                               .streamId(throttleId)
+                               .flags(0x02) // rst
+                               .build();
 
-        throttle.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
+        throttle.accept(ack.typeId(), ack.buffer(), ack.offset(), ack.sizeof());
     }
 }

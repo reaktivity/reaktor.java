@@ -24,11 +24,12 @@ import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
 import org.reaktivity.nukleus.buffer.MemoryManager;
+import org.reaktivity.reaktor.internal.layouts.MemoryLayout;
 
 public class DefaultMemoryManagerRule implements TestRule
 {
 
-    final Path outputFile = new File("target/nukleus-itests/memory").toPath();
+    final Path outputFile = new File("target/nukleus-itests/memory0").toPath();
     private MemoryLayout layout;
     private DefaultMemoryManager memoryManager;
 
@@ -45,8 +46,9 @@ public class DefaultMemoryManagerRule implements TestRule
             ConfigureMemoryLayout configures = description.getTestClass()
                     .getDeclaredMethod(testMethod)
                     .getAnnotation(ConfigureMemoryLayout.class);
-            mlb.capacity(configures.capacity())
-               .smallestBlockSize(configures.smallestBlockSize());
+            mlb.maximumBlockSize(configures.capacity())
+               .minimumBlockSize(configures.smallestBlockSize())
+               .create(true);
         }
         catch (Exception e)
         {

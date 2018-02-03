@@ -24,12 +24,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 
 import org.agrona.collections.Int2ObjectHashMap;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.NukleusBuilder;
-import org.reaktivity.nukleus.buffer.BufferPool;
+import org.reaktivity.nukleus.buffer.MemoryManager;
 import org.reaktivity.nukleus.function.CommandHandler;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteKind;
@@ -46,7 +45,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
 {
     private final ReaktorConfiguration config;
     private final String name;
-    private final Supplier<BufferPool> supplyBufferPool;
+    private final MemoryManager memoryManager;
     private final Int2ObjectHashMap<CommandHandler> commandHandlersByTypeId;
     private final Map<Role, MessagePredicate> routeHandlers;
     private final Map<RouteKind, StreamFactoryBuilder> streamFactoryBuilders;
@@ -56,11 +55,11 @@ public class NukleusBuilderImpl implements NukleusBuilder
     public NukleusBuilderImpl(
         ReaktorConfiguration config,
         String name,
-        Supplier<BufferPool> supplyBufferPool)
+        MemoryManager memoryManager)
     {
         this.config = config;
         this.name = name;
-        this.supplyBufferPool = supplyBufferPool;
+        this.memoryManager = memoryManager;
         this.commandHandlersByTypeId = new Int2ObjectHashMap<>();
         this.routeHandlers = new EnumMap<>(Role.class);
         this.streamFactoryBuilders = new EnumMap<>(RouteKind.class);
@@ -145,8 +144,6 @@ public class NukleusBuilderImpl implements NukleusBuilder
         Context context = new Context();
         context.name(name).conclude(config);
 
-        final int abortTypeId = config.abortStreamEventTypeId();
-
         Conductor conductor = new Conductor(context);
         Watcher watcher = new Watcher(context);
         Router router = new Router(context);
@@ -157,9 +154,8 @@ public class NukleusBuilderImpl implements NukleusBuilder
         watcher.setAcceptor(acceptor);
         acceptor.setConductor(conductor);
         acceptor.setRouter(router);
-        acceptor.setBufferPoolSupplier(supplyBufferPool);
+        acceptor.setMemoryManager(memoryManager);
         acceptor.setStreamFactoryBuilderSupplier(streamFactoryBuilders::get);
-        acceptor.setAbortTypeId(abortTypeId);
         acceptor.setRouteHandlerSupplier(routeHandlers::get);
         acceptor.setAllowZeroRouteRef(allowZeroRouteRef);
 

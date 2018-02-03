@@ -15,6 +15,7 @@
  */
 package org.reaktivity.reaktor;
 
+import static org.agrona.CloseHelper.quietClose;
 import static org.agrona.LangUtil.rethrowUnchecked;
 import static org.agrona.concurrent.AgentRunner.startOnThread;
 
@@ -23,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
 
 import org.agrona.ErrorHandler;
@@ -32,13 +34,13 @@ import org.agrona.concurrent.AgentRunner;
 import org.agrona.concurrent.IdleStrategy;
 import org.reaktivity.nukleus.Controller;
 import org.reaktivity.nukleus.Nukleus;
-import org.reaktivity.nukleus.buffer.BufferPool;
 
 public final class Reaktor implements AutoCloseable
 {
     private final IdleStrategy idleStrategy;
     private final ErrorHandler errorHandler;
-    private final BufferPool bufferPool;
+    private final AutoCloseable memoryLayout;
+    private final BooleanSupplier memoryReleased;
     private final Map<String, Nukleus> nukleiByName;
     private final Map<Class<? extends Controller>, Controller> controllersByKind;
 
@@ -50,11 +52,13 @@ public final class Reaktor implements AutoCloseable
         ErrorHandler errorHandler,
         Nukleus[] nuklei,
         Controller[] controllers,
-        BufferPool bufferPool)
+        AutoCloseable memoryLayout,
+        BooleanSupplier memoryReleased)
     {
         this.idleStrategy = idleStrategy;
         this.errorHandler = errorHandler;
-        this.bufferPool = bufferPool;
+        this.memoryLayout = memoryLayout;
+        this.memoryReleased = memoryReleased;
         this.nukleiByName = new ConcurrentHashMap<>();
         this.controllersByKind = new ConcurrentHashMap<>();
 
@@ -145,9 +149,9 @@ public final class Reaktor implements AutoCloseable
                     }
                 }
 
-                if (bufferPool.acquiredSlots() != 0)
+                if (!memoryReleased.getAsBoolean())
                 {
-                    errors.add(new IllegalStateException("Buffer pool has unreleased slots: " + bufferPool.acquiredSlots()));
+                    errors.add(new IllegalStateException("Acquired memory not released"));
                 }
 
                 if (!errors.isEmpty())
@@ -199,6 +203,10 @@ public final class Reaktor implements AutoCloseable
         catch (final Exception ex)
         {
             rethrowUnchecked(ex);
+        }
+        finally
+        {
+            quietClose(memoryLayout);
         }
     }
 
