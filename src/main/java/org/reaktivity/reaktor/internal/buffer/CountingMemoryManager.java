@@ -50,6 +50,13 @@ public final class CountingMemoryManager implements MemoryManager
     }
 
     @Override
+    public long resolve(
+        long address)
+    {
+        return memoryManager.resolve(address);
+    }
+
+    @Override
     public void release(
         long address,
         int capacity)

@@ -41,9 +41,7 @@ public final class MemoryLayout extends Layout
 
     public static final int LOCK_OFFSET = 0;
     public static final int LOCK_SIZE = Long.BYTES;
-    public static final int MEMORY_ADDRESS_OFFSET = LOCK_OFFSET + LOCK_SIZE;
-    public static final int MEMORY_ADDRESS_SIZE = Long.BYTES;
-    public static final int MINIMUM_BLOCK_SIZE_OFFSET = MEMORY_ADDRESS_OFFSET + MEMORY_ADDRESS_SIZE;
+    public static final int MINIMUM_BLOCK_SIZE_OFFSET = LOCK_OFFSET + LOCK_SIZE;
     public static final int MINIMUM_BLOCK_SIZE_SIZE = Integer.BYTES;
     public static final int MAXIMUM_BLOCK_SIZE_OFFSET = MINIMUM_BLOCK_SIZE_OFFSET + MINIMUM_BLOCK_SIZE_SIZE;
     public static final int MAXIMUM_BLOCK_SIZE_SIZE = Integer.BYTES;
@@ -158,7 +156,6 @@ public final class MemoryLayout extends Layout
 
                 metadataBuffer.putInt(MINIMUM_BLOCK_SIZE_OFFSET, minimumBlockSize);
                 metadataBuffer.putInt(MAXIMUM_BLOCK_SIZE_OFFSET, maximumBlockSize);
-                metadataBuffer.putLong(MEMORY_ADDRESS_OFFSET, memoryBuffer.addressOffset());
 
                 return new MemoryLayout(metadataBuffer, memoryBuffer);
             }

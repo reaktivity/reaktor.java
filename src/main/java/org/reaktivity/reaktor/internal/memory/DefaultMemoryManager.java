@@ -50,6 +50,13 @@ public class DefaultMemoryManager implements MemoryManager
     }
 
     @Override
+    public long resolve(
+        long address)
+    {
+        return memoryBuffer.addressOffset() + address;
+    }
+
+    @Override
     public long acquire(
         int capacity)
     {
@@ -119,8 +126,7 @@ public class DefaultMemoryManager implements MemoryManager
 
         node.fill();
 
-        int memoffset = node.indexInOrder() * node.blockSize();
-        long addressOffset = memoryBuffer.addressOffset() + memoffset;
+        long addressOffset = node.indexInOrder() * node.blockSize();
 
         while (!node.isRoot())
         {
@@ -142,7 +148,6 @@ public class DefaultMemoryManager implements MemoryManager
         long offset,
         int capacity)
     {
-        offset -= memoryBuffer.addressOffset();
         final int blockSize = calculateBlockSize(capacity);
         final int order = calculateOrder(blockSize);
         final int orderSize = 0x01 << order;
