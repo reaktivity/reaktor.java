@@ -23,6 +23,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.LongSupplier;
 import java.util.function.Predicate;
 
 import org.agrona.collections.Int2ObjectHashMap;
@@ -46,6 +47,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
     private final ReaktorConfiguration config;
     private final String name;
     private final MemoryManager memoryManager;
+    private final LongSupplier supplyStreamId;
     private final Int2ObjectHashMap<CommandHandler> commandHandlersByTypeId;
     private final Map<Role, MessagePredicate> routeHandlers;
     private final Map<RouteKind, StreamFactoryBuilder> streamFactoryBuilders;
@@ -55,11 +57,13 @@ public class NukleusBuilderImpl implements NukleusBuilder
     public NukleusBuilderImpl(
         ReaktorConfiguration config,
         String name,
-        MemoryManager memoryManager)
+        MemoryManager memoryManager,
+        LongSupplier supplyStreamId)
     {
         this.config = config;
         this.name = name;
         this.memoryManager = memoryManager;
+        this.supplyStreamId = supplyStreamId;
         this.commandHandlersByTypeId = new Int2ObjectHashMap<>();
         this.routeHandlers = new EnumMap<>(Role.class);
         this.streamFactoryBuilders = new EnumMap<>(RouteKind.class);
@@ -154,6 +158,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
         watcher.setAcceptor(acceptor);
         acceptor.setConductor(conductor);
         acceptor.setRouter(router);
+        acceptor.setStreamIdSupplier(supplyStreamId);
         acceptor.setMemoryManager(memoryManager);
         acceptor.setStreamFactoryBuilderSupplier(streamFactoryBuilders::get);
         acceptor.setRouteHandlerSupplier(routeHandlers::get);

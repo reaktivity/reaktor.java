@@ -21,6 +21,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.LongSupplier;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
@@ -111,13 +112,15 @@ public class ReaktorBuilder
                                                           .create(true)
                                                           .build();
         final DefaultMemoryManager memoryManager = new DefaultMemoryManager(memoryLayout);
+        final long[] nextStreamId = new long[1];
+        LongSupplier supplyStreamId = () -> ++nextStreamId[0];
 
         Nukleus[] nuklei = new Nukleus[0];
         for (String name : nukleusFactory.names())
         {
             if (nukleusMatcher.test(name))
             {
-                NukleusBuilder builder = new NukleusBuilderImpl(config, name, memoryManager);
+                NukleusBuilder builder = new NukleusBuilderImpl(config, name, memoryManager, supplyStreamId);
                 Nukleus nukleus = nukleusFactory.create(name, config, builder);
                 nuklei = ArrayUtil.add(nuklei, nukleus);
             }

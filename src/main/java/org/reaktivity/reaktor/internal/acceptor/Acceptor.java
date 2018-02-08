@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
+import java.util.function.LongSupplier;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -55,14 +56,16 @@ public final class Acceptor extends Nukleus.Composite
     private final Map<String, Acceptable> acceptables;
     private final AtomicCounter routeRefs;
     private final MutableDirectBuffer routeBuf;
+    private final AtomicLong correlations;
 
     private Conductor conductor;
     private Router router;
     private MemoryManager memoryManager;
+    private LongSupplier supplyStreamId;
     private Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder;
     private Function<Role, MessagePredicate> supplyRouteHandler;
     private Predicate<RouteKind> allowZeroRouteRef;
-    private AtomicLong correlations;
+
 
     public Acceptor(
         Context context)
@@ -90,6 +93,12 @@ public final class Acceptor extends Nukleus.Composite
         MemoryManager memoryManager)
     {
         this.memoryManager = memoryManager;
+    }
+
+    public void setStreamIdSupplier(
+        LongSupplier supplyStreamId)
+    {
+        this.supplyStreamId = supplyStreamId;
     }
 
     public void setStreamFactoryBuilderSupplier(
@@ -239,6 +248,7 @@ public final class Acceptor extends Nukleus.Composite
                 sourceName,
                 memoryManager,
                 supplyStreamFactoryBuilder,
+                supplyStreamId,
                 correlations));
     }
 
