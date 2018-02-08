@@ -28,6 +28,7 @@ import static org.reaktivity.nukleus.route.RouteKind.SERVER;
 
 import java.util.function.Function;
 import java.util.function.LongSupplier;
+import java.util.function.Supplier;
 
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
@@ -170,6 +171,7 @@ public class StreamsIT
             when(serverStreamFactory.setCounterSupplier(any(Function.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setAccumulatorSupplier(any(Function.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setMemoryManager(any(MemoryManager.class))).thenReturn(serverStreamFactory);
+            when(serverStreamFactory.setDirectBufferBuilderFactory(any(Supplier.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.build()).thenReturn(streamFactory);
 
             when(streamFactory.newStream(anyInt(), any(DirectBuffer.class), anyInt(), anyInt(), acceptThrottle.capture()))

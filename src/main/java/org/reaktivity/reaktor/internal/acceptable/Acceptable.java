@@ -38,8 +38,9 @@ import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 import org.reaktivity.reaktor.internal.Context;
-import org.reaktivity.reaktor.internal.buffer.CountingMemoryManager;
+import org.reaktivity.reaktor.internal.buffer.DefaultDirectBufferBuilder;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
+import org.reaktivity.reaktor.internal.memory.CountingMemoryManager;
 import org.reaktivity.reaktor.internal.router.ReferenceKind;
 import org.reaktivity.reaktor.internal.router.Router;
 import org.reaktivity.reaktor.internal.types.stream.AckFW;
@@ -94,6 +95,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
                         .setRouteManager(this)
                         .setWriteBuffer(writeBuffer)
                         .setMemoryManager(countingMemoryManager)
+                        .setDirectBufferBuilderFactory(DefaultDirectBufferBuilder::new)
                         .setStreamIdSupplier(supplyStreamId)
                         .setCorrelationIdSupplier(supplyCorrelationId)
                         .setCounterSupplier(supplyCounter)
