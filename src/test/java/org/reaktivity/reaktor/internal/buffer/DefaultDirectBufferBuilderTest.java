@@ -153,4 +153,61 @@ public class DefaultDirectBufferBuilderTest
         assertEquals(source2, new UnsafeBuffer(target, source1.capacity(), source2.capacity()));
         assertEquals(source3, new UnsafeBuffer(target, source1.capacity() + source2.capacity(), source3.capacity()));
     }
+
+    @Theory
+    public void shouldBuildOneDirectBufferWithOffsetAndLength(
+        @FromDataPoints("buffers") DirectBuffer source)
+    {
+        DirectBufferBuilder builder = new DefaultDirectBufferBuilder();
+
+        DirectBuffer target = builder.wrap(source, 0, source.capacity() >> 1)
+                                     .build();
+
+        assertEquals(new UnsafeBuffer(source, 0, source.capacity() >> 1), target);
+        assertSame(source.byteBuffer(), target.byteBuffer());
+        assertSame(source.byteArray(), target.byteArray());
+        assertEquals(source.addressOffset(), target.addressOffset());
+    }
+
+    @Theory
+    public void shouldBuildTwoDirectBuffersWithOffsetAndLength(
+        @FromDataPoints("buffers") DirectBuffer source1,
+        @FromDataPoints("buffers") DirectBuffer source2)
+    {
+        DirectBufferBuilder builder = new DefaultDirectBufferBuilder();
+
+        DirectBuffer target = builder.wrap(source1, 0, source1.capacity() >> 1)
+                                     .wrap(source2, 0, source2.capacity() >> 1)
+                                     .build();
+
+        assertEquals((source1.capacity() >> 1) + (source2.capacity() >> 1),
+                     target.capacity());
+        assertEquals(new UnsafeBuffer(source1, 0, source1.capacity() >> 1),
+                     new UnsafeBuffer(target, 0, source1.capacity() >> 1));
+        assertEquals(new UnsafeBuffer(source2, 0, source2.capacity() >> 1),
+                     new UnsafeBuffer(target, source1.capacity() >> 1, source2.capacity() >> 1));
+    }
+
+    @Theory
+    public void shouldBuildThreeDirectBuffersWithOffsetAndLength(
+        @FromDataPoints("buffers") DirectBuffer source1,
+        @FromDataPoints("buffers") DirectBuffer source2,
+        @FromDataPoints("buffers") DirectBuffer source3)
+    {
+        DirectBufferBuilder builder = new DefaultDirectBufferBuilder();
+
+        DirectBuffer target = builder.wrap(source1, 0, source1.capacity() >> 1)
+                                     .wrap(source2, 0, source2.capacity() >> 1)
+                                     .wrap(source3, 0, source3.capacity() >> 1)
+                                     .build();
+
+        assertEquals((source1.capacity() >> 1) + (source2.capacity() >> 1) + (source3.capacity() >> 1),
+                     target.capacity());
+        assertEquals(new UnsafeBuffer(source1, 0, source1.capacity() >> 1),
+                     new UnsafeBuffer(target, 0, source1.capacity() >> 1));
+        assertEquals(new UnsafeBuffer(source2, 0, source2.capacity() >> 1),
+                     new UnsafeBuffer(target, source1.capacity() >> 1, source2.capacity() >> 1));
+        assertEquals(new UnsafeBuffer(source3, 0, source3.capacity() >> 1),
+                     new UnsafeBuffer(target, (source1.capacity() >> 1) + (source2.capacity() >> 1), source3.capacity() >> 1));
+    }
 }

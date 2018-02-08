@@ -63,6 +63,22 @@ public final class DefaultDirectBufferBuilder implements DirectBufferBuilder
     }
 
     @Override
+    public DirectBufferBuilder wrap(
+        DirectBuffer buffer,
+        int offset,
+        int length)
+    {
+        if (limit == buffers.length)
+        {
+            buffers = ArrayUtil.add(buffers, new UnsafeBuffer(EMPTY_BYTE_ARRAY));
+        }
+
+        buffers[limit++].wrap(buffer, offset, length);
+
+        return this;
+    }
+
+    @Override
     public DirectBuffer build()
     {
         if (limit == 0)
