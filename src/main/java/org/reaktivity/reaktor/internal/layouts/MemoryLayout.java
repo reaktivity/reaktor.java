@@ -36,8 +36,11 @@ import org.agrona.concurrent.UnsafeBuffer;
 
 public final class MemoryLayout extends Layout
 {
-    private static final int BITS_PER_BTREE_ENTRY_SHIFT = 1;
-    public static final int BITS_PER_BTREE_ENTRY = 1 << BITS_PER_BTREE_ENTRY_SHIFT;
+    public static final int BITS_PER_BYTE_SHIFT = numberOfTrailingZeros(Byte.SIZE);
+
+    public static final int BITS_PER_BTREE_NODE_SHIFT = 1;
+    public static final int BITS_PER_BTREE_NODE = 1 << BITS_PER_BTREE_NODE_SHIFT;
+    public static final int MASK_PER_BTREE_NODE = (1 << BITS_PER_BTREE_NODE) - 1;
 
     public static final int LOCK_OFFSET = 0;
     public static final int LOCK_SIZE = Long.BYTES;
@@ -151,12 +154,11 @@ public final class MemoryLayout extends Layout
                 final MappedByteBuffer mappedMetadata = mapExistingFile(memory, "metadata", 0, metadataSizeAligned);
                 final MappedByteBuffer mappedMemory = mapExistingFile(memory, "memory", metadataSizeAligned, capacity);
 
-                final AtomicBuffer metadataBuffer = new UnsafeBuffer(mappedMetadata);
+                final AtomicBuffer metadataBuffer = new UnsafeBuffer(mappedMetadata, 0, metadataSize);
                 final MutableDirectBuffer memoryBuffer = new UnsafeBuffer(mappedMemory);
 
                 metadataBuffer.putInt(MINIMUM_BLOCK_SIZE_OFFSET, minimumBlockSize);
                 metadataBuffer.putInt(MAXIMUM_BLOCK_SIZE_OFFSET, maximumBlockSize);
-
                 return new MemoryLayout(metadataBuffer, memoryBuffer);
             }
             else
@@ -171,7 +173,7 @@ public final class MemoryLayout extends Layout
                 final int metadataSizeAligned = align(metadataSize, CACHE_LINE_LENGTH);
                 final int capacity = (int) memory.length() - metadataSizeAligned;
 
-                final MappedByteBuffer mappedMetadata = mapExistingFile(memory, "metadata", 0, metadataSizeAligned);
+                final MappedByteBuffer mappedMetadata = mapExistingFile(memory, "metadata", 0, metadataSize);
                 final MappedByteBuffer mappedMemory = mapExistingFile(memory, "memory", metadataSizeAligned, capacity);
 
                 final AtomicBuffer metadataBuffer = new UnsafeBuffer(mappedMetadata);
@@ -185,8 +187,8 @@ public final class MemoryLayout extends Layout
             int minimumBlockSize,
             int maximumBlockSize)
         {
-            int orderCount = numberOfTrailingZeros(maximumBlockSize) - numberOfTrailingZeros(minimumBlockSize) + 1;
-            return align(max(0x01 << orderCount << BITS_PER_BTREE_ENTRY_SHIFT >> Long.BYTES, Long.BYTES), Long.BYTES);
+            int orderCount = numberOfTrailingZeros(maximumBlockSize) - numberOfTrailingZeros(minimumBlockSize);
+            return align(max(2 << orderCount << BITS_PER_BTREE_NODE_SHIFT >> BITS_PER_BYTE_SHIFT, Byte.BYTES), Long.BYTES);
         }
     }
 }

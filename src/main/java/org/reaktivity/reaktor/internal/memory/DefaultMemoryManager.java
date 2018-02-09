@@ -15,9 +15,12 @@
  */
 package org.reaktivity.reaktor.internal.memory;
 
+import static java.lang.Integer.highestOneBit;
 import static java.lang.Integer.numberOfTrailingZeros;
-import static java.lang.Math.max;
-import static org.agrona.BitUtil.findNextPositivePowerOfTwo;
+import static org.reaktivity.reaktor.internal.layouts.MemoryLayout.BTREE_OFFSET;
+import static org.reaktivity.reaktor.internal.memory.BTreeFW.EMPTY;
+import static org.reaktivity.reaktor.internal.memory.BTreeFW.FULL;
+import static org.reaktivity.reaktor.internal.memory.BTreeFW.SPLIT;
 
 import java.util.Random;
 
@@ -32,21 +35,28 @@ public class DefaultMemoryManager implements MemoryManager
 {
     private final long id = new Random().nextLong();
 
-    private final BTreeFlyweight btreeRO;
+    private final BTreeFW btreeRO;
 
-    private final int minimumBlockSize;
+    private final int blockSizeShift;
     private final int maximumBlockSize;
+    private final int maximumOrder;
 
     private final MutableDirectBuffer memoryBuffer;
     private final AtomicBuffer metadataBuffer;
 
-    public DefaultMemoryManager(MemoryLayout memoryLayout)
+
+    public DefaultMemoryManager(
+        MemoryLayout memoryLayout)
     {
+        final int minimumBlockSize = memoryLayout.minimumBlockSize();
+        final int maximumBlockSize = memoryLayout.maximumBlockSize();
+
         this.memoryBuffer = memoryLayout.memoryBuffer();
         this.metadataBuffer = memoryLayout.metadataBuffer();
-        this.minimumBlockSize = memoryLayout.minimumBlockSize();
-        this.maximumBlockSize = memoryLayout.maximumBlockSize();
-        this.btreeRO = new BTreeFlyweight(minimumBlockSize, maximumBlockSize, MemoryLayout.BTREE_OFFSET);
+        this.blockSizeShift = numberOfTrailingZeros(minimumBlockSize);
+        this.maximumBlockSize = maximumBlockSize;
+        this.maximumOrder = numberOfTrailingZeros(maximumBlockSize) - numberOfTrailingZeros(minimumBlockSize);
+        this.btreeRO = new BTreeFW().wrap(metadataBuffer, BTREE_OFFSET, metadataBuffer.capacity() - BTREE_OFFSET);
     }
 
     @Override
@@ -87,106 +97,106 @@ public class DefaultMemoryManager implements MemoryManager
         }
     }
 
-    private long acquire0(int capacity)
+    private long acquire0(
+        int capacity)
     {
         if (capacity > this.maximumBlockSize)
         {
             return -1;
         }
-        int requestedBlockSize = calculateBlockSize(capacity);
 
-        BTreeFlyweight node = root();
-        while (!(requestedBlockSize == node.blockSize() && node.isFree()))
+        int allocationSize = Math.max(capacity >> blockSizeShift, 1) << blockSizeShift;
+        int allocationOrder = numberOfTrailingZeros(allocationSize >> blockSizeShift);
+
+        final BTreeFW node = btreeRO.walk(0);
+        while (node.order() != allocationOrder || node.flag(SPLIT) || node.flag(FULL))
         {
-            if (requestedBlockSize > node.blockSize() || node.isFull())
+            if (node.order() < allocationOrder || node.flag(FULL))
             {
-                while(node.isRightChild())
+                while (node.isRightChild())
                 {
-                    node = node.walkParent();
+                    node.walk(node.parentIndex());
                 }
-                if(node.isLeftChild())
+
+                if (node.isLeftChild())
                 {
-                    node = node.walkToRightSibling();
+                    node.walk(node.siblingIndex());
                 }
                 else
                 {
-                    break; // you are root
+                    break; // root
                 }
             }
             else
             {
-                node = node.walkLeftChild();
+                node.walk(node.leftIndex());
             }
         }
 
-        if (node.isFull())
+        if (node.flag(FULL))
         {
             return -1;
         }
 
-        node.fill();
+        node.set(FULL);
 
-        long addressOffset = node.indexInOrder() * node.blockSize();
+        final int nodeIndex = node.index();
+        final int nodeOrder = node.order();
 
-        while (!node.isRoot())
+        while (node.order() < maximumOrder)
         {
-            node = node.walkParent();
-            if (node.isLeftFull() && node.isRightFull())
+            node.walk(node.parentIndex());
+
+            if (node.flag(node.leftIndex(), FULL) && node.flag(node.rightIndex(), FULL))
             {
-                node.fill();
+                node.clear(SPLIT);
+                node.set(FULL);
             }
-            else if (node.isSplit())
+            else
             {
-                break;
+                if (node.flag(SPLIT))
+                {
+                    break;
+                }
+
+                node.set(SPLIT);
             }
-            node.split();
         }
-        return addressOffset;
+
+        return ((nodeIndex + 1) & ~highestOneBit(nodeIndex + 1)) << blockSizeShift << nodeOrder;
     }
 
     public void release0(
         long offset,
         int capacity)
     {
-        final int blockSize = calculateBlockSize(capacity);
-        final int order = calculateOrder(blockSize);
-        final int orderSize = 0x01 << order;
-        final int entryIndex = orderSize - 1 + (int) (offset / blockSize);
-        BTreeFlyweight node = btreeRO.wrap(metadataBuffer, entryIndex);
-        node.empty();
-        while (!node.isRoot())
+        final int allocationSize = Math.max(capacity >> blockSizeShift, 1) << blockSizeShift;
+        final int nodeOrder = numberOfTrailingZeros(allocationSize >> blockSizeShift);
+        final int nodeIndex = (((int) (offset >> nodeOrder >> blockSizeShift)) | (1 << (maximumOrder - nodeOrder))) - 1;
+
+        final BTreeFW node = btreeRO.walk(nodeIndex);
+        for (;; node.walk(node.parentIndex()))
         {
-            node = node.walkParent();
-            if(!node.isRightFullOrSplit() && !node.isLeftFullOrSplit())
+            node.clear(FULL);
+            if(node.order() == 0 || (node.flags(node.leftIndex()) == EMPTY && node.flags(node.rightIndex()) == EMPTY))
             {
-                node.empty();
+                node.clear(SPLIT);
             }
             else
             {
-                node.free();
+                node.set(SPLIT);
+            }
+
+            if (node.index() == 0)
+            {
+                 break;
             }
         }
     }
 
-    private BTreeFlyweight root()
-    {
-        return btreeRO.wrap(metadataBuffer, 0);
-    }
-
-    private int calculateOrder(int blockSize)
-    {
-        return max(numberOfTrailingZeros(maximumBlockSize) - numberOfTrailingZeros(blockSize), 0);
-    }
-
-    private int calculateBlockSize(
-        int size)
-    {
-        return findNextPositivePowerOfTwo(size);
-    }
-
     public boolean released()
     {
-        return root().isFree();
+        return btreeRO.walk(0).flags() == EMPTY;
     }
 
     private void lock()
