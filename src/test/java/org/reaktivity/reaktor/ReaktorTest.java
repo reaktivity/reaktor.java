@@ -55,7 +55,7 @@ public class ReaktorTest
                 allowing(controller).process(); will(returnValue(0));
                 allowing(idleStrategy).idle(with(any(int.class)));
 
-                atLeast(1).of(memoryReleased).getAsBoolean(); will(returnValue(true));
+                oneOf(memoryReleased).getAsBoolean(); will(returnValue(true));
                 oneOf(controller).kind(); will(returnValue(Controller.class));
                 oneOf(controller).close();
                 oneOf(memoryLayout).close();
@@ -82,7 +82,7 @@ public class ReaktorTest
                 allowing(nukleus).process(); will(returnValue(0));
                 allowing(idleStrategy).idle(with(any(int.class)));
 
-                atLeast(1).of(memoryReleased).getAsBoolean(); will(returnValue(true));
+                oneOf(memoryReleased).getAsBoolean(); will(returnValue(true));
                 oneOf(nukleus).name(); will(returnValue("nukleus-name"));
                 oneOf(nukleus).close();
                 oneOf(memoryLayout).close();
@@ -109,7 +109,7 @@ public class ReaktorTest
                 allowing(controller).process(); will(returnValue(0));
                 allowing(idleStrategy).idle(with(any(int.class)));
 
-                atLeast(1).of(memoryReleased).getAsBoolean(); will(returnValue(true));
+                oneOf(memoryReleased).getAsBoolean(); will(returnValue(true));
                 oneOf(controller).kind(); will(returnValue(Controller.class));
                 oneOf(controller).close(); will(throwException(new Exception("controller close failed")));
                 oneOf(memoryLayout).close();
@@ -144,7 +144,7 @@ public class ReaktorTest
                 allowing(nukleus).process(); will(returnValue(0));
                 allowing(idleStrategy).idle(with(any(int.class)));
 
-                atLeast(1).of(memoryReleased).getAsBoolean(); will(returnValue(true));
+                oneOf(memoryReleased).getAsBoolean(); will(returnValue(true));
                 oneOf(nukleus).name(); will(returnValue("nukleus-name"));
                 oneOf(nukleus).close(); will(throwException(new Exception("Nukleus close failed")));
                 oneOf(memoryLayout).close();
@@ -181,7 +181,7 @@ public class ReaktorTest
                 allowing(nukleus).process(); will(returnValue(0));
                 allowing(idleStrategy).idle(with(any(int.class)));
 
-                atLeast(1).of(memoryReleased).getAsBoolean(); will(returnValue(true));
+                oneOf(memoryReleased).getAsBoolean(); will(returnValue(true));
                 oneOf(controller).kind(); will(returnValue(Controller.class));
                 oneOf(nukleus).name(); will(returnValue("nukleus-name"));
                 oneOf(controller).close(); will(throwException(new Exception("controller close failed")));

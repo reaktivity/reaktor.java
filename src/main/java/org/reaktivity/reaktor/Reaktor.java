@@ -15,12 +15,10 @@
  */
 package org.reaktivity.reaktor;
 
-import static java.time.Instant.now;
 import static org.agrona.CloseHelper.quietClose;
 import static org.agrona.LangUtil.rethrowUnchecked;
 import static org.agrona.concurrent.AgentRunner.startOnThread;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -34,7 +32,6 @@ import org.agrona.LangUtil;
 import org.agrona.concurrent.Agent;
 import org.agrona.concurrent.AgentRunner;
 import org.agrona.concurrent.IdleStrategy;
-import org.agrona.hints.ThreadHints;
 import org.reaktivity.nukleus.Controller;
 import org.reaktivity.nukleus.Nukleus;
 
@@ -150,12 +147,6 @@ public final class Reaktor implements AutoCloseable
                     {
                         errors.add(t);
                     }
-                }
-
-                final Instant deadline = now().plusSeconds(5);
-                while (!memoryReleased.getAsBoolean() && now().isBefore(deadline))
-                {
-                    ThreadHints.onSpinWait();
                 }
 
                 if (!memoryReleased.getAsBoolean())
