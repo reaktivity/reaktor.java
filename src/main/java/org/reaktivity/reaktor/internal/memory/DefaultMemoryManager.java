@@ -83,13 +83,13 @@ public class DefaultMemoryManager implements MemoryManager
 
     @Override
     public void release(
-        long offset,
+        long address,
         int capacity)
     {
         lock();
         try
         {
-            release0(offset, capacity);
+            release0(address, capacity);
         }
         finally
         {
