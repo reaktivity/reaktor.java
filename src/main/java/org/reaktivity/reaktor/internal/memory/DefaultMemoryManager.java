@@ -56,7 +56,7 @@ public class DefaultMemoryManager implements MemoryManager
         this.blockSizeShift = numberOfTrailingZeros(minimumBlockSize);
         this.maximumBlockSize = maximumBlockSize;
         this.maximumOrder = numberOfTrailingZeros(maximumBlockSize) - numberOfTrailingZeros(minimumBlockSize);
-        this.btreeRO = new BTreeFW().wrap(metadataBuffer, BTREE_OFFSET, metadataBuffer.capacity() - BTREE_OFFSET);
+        this.btreeRO = new BTreeFW(maximumOrder).wrap(metadataBuffer, BTREE_OFFSET, metadataBuffer.capacity() - BTREE_OFFSET);
     }
 
     @Override

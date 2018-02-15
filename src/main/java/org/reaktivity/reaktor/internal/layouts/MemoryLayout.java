@@ -188,7 +188,7 @@ public final class MemoryLayout extends Layout
             int maximumBlockSize)
         {
             int orderCount = numberOfTrailingZeros(maximumBlockSize) - numberOfTrailingZeros(minimumBlockSize);
-            return align(max(2 << orderCount << BITS_PER_BTREE_NODE_SHIFT >> BITS_PER_BYTE_SHIFT, Byte.BYTES), Long.BYTES);
+            return align(max(2 << orderCount << BITS_PER_BTREE_NODE_SHIFT >> BITS_PER_BYTE_SHIFT, Byte.BYTES), Byte.BYTES);
         }
     }
 }

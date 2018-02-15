@@ -30,11 +30,18 @@ class BTreeFW
     static final int FULL = 0x01;
     static final int SPLIT = 0x02;
 
+    private final int maximumNodeOffset;
+
     private MutableDirectBuffer buffer;
     private int offset;
-    private int length;
 
     private int nodeOffset;
+
+    BTreeFW(
+        int maximumOrder)
+    {
+        this.maximumNodeOffset = (1 << (maximumOrder + 1)) - 1;
+    }
 
     public BTreeFW wrap(
         MutableDirectBuffer buffer,
@@ -43,7 +50,6 @@ class BTreeFW
     {
         this.buffer = buffer;
         this.offset = offset;
-        this.length = length;
 
         this.nodeOffset = 1;
 
@@ -53,13 +59,18 @@ class BTreeFW
     public BTreeFW walk(
         int nodeIndex)
     {
+        if (nodeIndex < 0 || nodeIndex + 1 > maximumNodeOffset)
+        {
+            throw new IllegalArgumentException("node not found");
+        }
+
         nodeOffset = nodeIndex + 1;
         return this;
     }
 
     public int leftIndex()
     {
-        if (nodeOffset == maximumNodeOffset())
+        if (nodeOffset == maximumNodeOffset)
         {
             throw new IllegalStateException("already at leaf");
         }
@@ -69,7 +80,7 @@ class BTreeFW
 
     public int rightIndex()
     {
-        if (nodeOffset == maximumNodeOffset())
+        if (nodeOffset == maximumNodeOffset)
         {
             throw new IllegalStateException("already at leaf");
         }
@@ -146,7 +157,7 @@ class BTreeFW
 
     public int order()
     {
-        return numberOfTrailingZeros(highestOneBit(maximumNodeOffset())) - numberOfTrailingZeros(highestOneBit(nodeOffset));
+        return numberOfTrailingZeros(highestOneBit(maximumNodeOffset)) - numberOfTrailingZeros(highestOneBit(nodeOffset));
     }
 
     public int index()
@@ -180,11 +191,6 @@ class BTreeFW
         final int byteShift = bitOffset & (Byte.SIZE - 1);
         final int byteValue = buffer.getByte(offset + byteOffset) & 0xff;
         return (byteValue >> byteShift) & MASK_PER_BTREE_NODE;
-    }
-
-    private int maximumNodeOffset()
-    {
-        return (length >> BITS_PER_BTREE_NODE_SHIFT << BITS_PER_BYTE_SHIFT) - 1;
     }
 
     @Override
