@@ -149,7 +149,6 @@ public class DefaultMemoryManager implements MemoryManager
 
             if (node.flag(node.leftIndex(), FULL) && node.flag(node.rightIndex(), FULL))
             {
-                node.clear(SPLIT);
                 node.set(FULL);
             }
             else
