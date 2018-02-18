@@ -53,8 +53,12 @@ import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
+import org.reaktivity.reaktor.internal.types.ListFW;
 import org.reaktivity.reaktor.internal.types.control.RouteFW;
+import org.reaktivity.reaktor.internal.types.stream.AckFW;
 import org.reaktivity.reaktor.internal.types.stream.BeginFW;
+import org.reaktivity.reaktor.internal.types.stream.RegionFW;
+import org.reaktivity.reaktor.internal.types.stream.TransferFW;
 import org.reaktivity.reaktor.test.ReaktorRule;
 
 public class MultipleStreamsIT
@@ -101,6 +105,7 @@ public class MultipleStreamsIT
         private ArgumentCaptor<RouteManager> router = forClass(RouteManager.class);
         private ArgumentCaptor<LongSupplier> supplyStreamId = forClass(LongSupplier.class);
         private ArgumentCaptor<MutableDirectBuffer> writeBuffer = forClass(MutableDirectBuffer.class);
+        private ArgumentCaptor<MessageConsumer> throttle = forClass(MessageConsumer.class);
 
         private MessageConsumer newStream1 = mock(MessageConsumer.class);
         private MessageConsumer replyStream1 = mock(MessageConsumer.class);
@@ -108,10 +113,13 @@ public class MultipleStreamsIT
         private MessageConsumer replyStream2 = mock(MessageConsumer.class);
         private boolean newStream1Started;
 
-        private final BeginFW beginRO = new BeginFW();
         private final RouteFW routeRO = new RouteFW();
 
+        private final BeginFW beginRO = new BeginFW();
+        private final TransferFW transferRO = new TransferFW();
+
         private final BeginFW.Builder beginRW = new BeginFW.Builder();
+        private final AckFW.Builder ackRW = new AckFW.Builder();
 
         private long newCorrelationId1;
         private long correlationId1;
@@ -119,6 +127,10 @@ public class MultipleStreamsIT
         private long newCorrelationId2;
         private long correlationId2;
         private String source2;
+        private MessageConsumer replyThrottle1;
+        private MessageConsumer replyThrottle2;
+        private MessageConsumer newThrottle1;
+        private MessageConsumer newThrottle2;
 
         @SuppressWarnings("unchecked")
         public TestNukleusFactorySpi()
@@ -133,7 +145,7 @@ public class MultipleStreamsIT
             when(serverStreamFactory.setDirectBufferBuilderFactory(any(Supplier.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.build()).thenReturn(streamFactory);
 
-            when(streamFactory.newStream(anyInt(), any(DirectBuffer.class), anyInt(), anyInt(), any(MessageConsumer.class)))
+            when(streamFactory.newStream(anyInt(), any(DirectBuffer.class), anyInt(), anyInt(), throttle.capture()))
                  .thenAnswer((invocation) ->
                  {
                      MessageConsumer result;
@@ -142,12 +154,30 @@ public class MultipleStreamsIT
                              invocation.getArgument(2), maxLength);
                      if (begin.sourceRef() == 0)
                      {
-                         result = begin.correlationId() == newCorrelationId1 ? replyStream1 : replyStream2;
+                         if (begin.correlationId() == newCorrelationId1)
+                         {
+                             replyThrottle1 = throttle.getValue();
+                             result = replyStream1;
+                         }
+                         else
+                         {
+                             replyThrottle2 = throttle.getValue();
+                             result = replyStream2;
+                         }
                      }
                      else
                      {
-                         result = newStream1Started ? newStream1 : newStream2;
-                         newStream1Started = true;
+                         if (!newStream1Started)
+                         {
+                             newThrottle1 = throttle.getValue();
+                             result = newStream1;
+                             newStream1Started = true;
+                         }
+                         else
+                         {
+                             newThrottle2 = throttle.getValue();
+                             result = newStream2;
+                         }
                      }
                      return result;
                  });
@@ -199,6 +229,36 @@ public class MultipleStreamsIT
                         public Object answer(
                             InvocationOnMock invocation) throws Throwable
                         {
+                            DirectBuffer buffer = (DirectBuffer) invocation.getArgument(1);
+                            int offset = (int) invocation.getArgument(2);
+                            int length = (int) invocation.getArgument(3);
+
+                            TransferFW transfer = transferRO.wrap(buffer, offset, offset + length);
+                            long streamId = transfer.streamId();
+                            int flags = transfer.flags();
+                            ListFW<RegionFW> regions = transfer.regions();
+
+                            MutableDirectBuffer writeBuffer0 = writeBuffer.getValue();
+                            AckFW ack = ackRW.wrap(writeBuffer0, 0, writeBuffer0.capacity())
+                                             .streamId(streamId)
+                                             .flags(flags)
+                                             .regions(rs -> regions.forEach(r -> rs.item(i -> i.address(r.address())
+                                                                                               .length(r.length())
+                                                                                               .streamId(r.streamId()))))
+                                             .build();
+
+                            newThrottle1.accept(ack.typeId(), ack.buffer(), ack.offset(), ack.sizeof());
+                            return null;
+                        }
+                    }
+            ).when(newStream1).accept(eq(TransferFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
+
+            doAnswer(new Answer<Object>()
+                    {
+                        @Override
+                        public Object answer(
+                            InvocationOnMock invocation) throws Throwable
+                        {
                             MessageConsumer acceptReply = router.getValue().supplyTarget(source1);
                             long newReplyId = supplyStreamId.getValue().getAsLong();
                             MutableDirectBuffer buffer = writeBuffer.getValue();
@@ -213,6 +273,36 @@ public class MultipleStreamsIT
                         }
                     }
             ).when(replyStream1).accept(eq(BeginFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
+
+            doAnswer(new Answer<Object>()
+                    {
+                        @Override
+                        public Object answer(
+                            InvocationOnMock invocation) throws Throwable
+                        {
+                            DirectBuffer buffer = (DirectBuffer) invocation.getArgument(1);
+                            int offset = (int) invocation.getArgument(2);
+                            int length = (int) invocation.getArgument(3);
+
+                            TransferFW transfer = transferRO.wrap(buffer, offset, offset + length);
+                            long streamId = transfer.streamId();
+                            int flags = transfer.flags();
+                            ListFW<RegionFW> regions = transfer.regions();
+
+                            MutableDirectBuffer writeBuffer0 = writeBuffer.getValue();
+                            AckFW ack = ackRW.wrap(writeBuffer0, 0, writeBuffer0.capacity())
+                                             .streamId(streamId)
+                                             .flags(flags)
+                                             .regions(rs -> regions.forEach(r -> rs.item(i -> i.address(r.address())
+                                                                                               .length(r.length())
+                                                                                               .streamId(r.streamId()))))
+                                             .build();
+
+                            replyThrottle1.accept(ack.typeId(), ack.buffer(), ack.offset(), ack.sizeof());
+                            return null;
+                        }
+                    }
+            ).when(replyStream1).accept(eq(TransferFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
 
             doAnswer(new Answer<Object>()
                     {
@@ -261,6 +351,36 @@ public class MultipleStreamsIT
                         public Object answer(
                             InvocationOnMock invocation) throws Throwable
                         {
+                            DirectBuffer buffer = (DirectBuffer) invocation.getArgument(1);
+                            int offset = (int) invocation.getArgument(2);
+                            int length = (int) invocation.getArgument(3);
+
+                            TransferFW transfer = transferRO.wrap(buffer, offset, offset + length);
+                            long streamId = transfer.streamId();
+                            int flags = transfer.flags();
+                            ListFW<RegionFW> regions = transfer.regions();
+
+                            MutableDirectBuffer writeBuffer0 = writeBuffer.getValue();
+                            AckFW ack = ackRW.wrap(writeBuffer0, 0, writeBuffer0.capacity())
+                                             .streamId(streamId)
+                                             .flags(flags)
+                                             .regions(rs -> regions.forEach(r -> rs.item(i -> i.address(r.address())
+                                                                                               .length(r.length())
+                                                                                               .streamId(r.streamId()))))
+                                             .build();
+
+                            newThrottle2.accept(ack.typeId(), ack.buffer(), ack.offset(), ack.sizeof());
+                            return null;
+                        }
+                    }
+            ).when(newStream2).accept(eq(TransferFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
+
+            doAnswer(new Answer<Object>()
+                    {
+                        @Override
+                        public Object answer(
+                            InvocationOnMock invocation) throws Throwable
+                        {
                             MessageConsumer acceptReply = router.getValue().supplyTarget(source2);
                             long newReplyId = supplyStreamId.getValue().getAsLong();
                             MutableDirectBuffer buffer = writeBuffer.getValue();
@@ -275,6 +395,36 @@ public class MultipleStreamsIT
                         }
                     }
             ).when(replyStream2).accept(eq(BeginFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
+
+            doAnswer(new Answer<Object>()
+                    {
+                        @Override
+                        public Object answer(
+                            InvocationOnMock invocation) throws Throwable
+                        {
+                            DirectBuffer buffer = (DirectBuffer) invocation.getArgument(1);
+                            int offset = (int) invocation.getArgument(2);
+                            int length = (int) invocation.getArgument(3);
+
+                            TransferFW transfer = transferRO.wrap(buffer, offset, offset + length);
+                            long streamId = transfer.streamId();
+                            int flags = transfer.flags();
+                            ListFW<RegionFW> regions = transfer.regions();
+
+                            MutableDirectBuffer writeBuffer0 = writeBuffer.getValue();
+                            AckFW ack = ackRW.wrap(writeBuffer0, 0, writeBuffer0.capacity())
+                                             .streamId(streamId)
+                                             .flags(flags)
+                                             .regions(rs -> regions.forEach(r -> rs.item(i -> i.address(r.address())
+                                                                                               .length(r.length())
+                                                                                               .streamId(r.streamId()))))
+                                             .build();
+
+                            replyThrottle2.accept(ack.typeId(), ack.buffer(), ack.offset(), ack.sizeof());
+                            return null;
+                        }
+                    }
+            ).when(replyStream2).accept(eq(TransferFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
         }
 
         @Override

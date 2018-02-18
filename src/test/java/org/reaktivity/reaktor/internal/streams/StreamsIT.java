@@ -53,9 +53,12 @@ import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
+import org.reaktivity.reaktor.internal.types.ListFW;
 import org.reaktivity.reaktor.internal.types.control.RouteFW;
 import org.reaktivity.reaktor.internal.types.stream.AckFW;
 import org.reaktivity.reaktor.internal.types.stream.BeginFW;
+import org.reaktivity.reaktor.internal.types.stream.RegionFW;
+import org.reaktivity.reaktor.internal.types.stream.TransferFW;
 import org.reaktivity.reaktor.test.ReaktorRule;
 
 public class StreamsIT
@@ -151,7 +154,9 @@ public class StreamsIT
         private ArgumentCaptor<MessageConsumer> connectReplyThrottle = forClass(MessageConsumer.class);
 
         private final RouteFW routeRO = new RouteFW();
+
         private final BeginFW beginRO = new BeginFW();
+        private final TransferFW transferRO = new TransferFW();
         private final AckFW ackRO = new AckFW();
 
         private final BeginFW.Builder beginRW = new BeginFW.Builder();
@@ -261,6 +266,36 @@ public class StreamsIT
             }).when(acceptStream).accept(eq(BeginFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
 
             doAnswer(new Answer<Object>()
+                    {
+                        @Override
+                        public Object answer(
+                            InvocationOnMock invocation) throws Throwable
+                        {
+                            DirectBuffer buffer = (DirectBuffer) invocation.getArgument(1);
+                            int offset = (int) invocation.getArgument(2);
+                            int length = (int) invocation.getArgument(3);
+
+                            TransferFW transfer = transferRO.wrap(buffer, offset, offset + length);
+                            long streamId = transfer.streamId();
+                            int flags = transfer.flags();
+                            ListFW<RegionFW> regions = transfer.regions();
+
+                            MutableDirectBuffer writeBuffer0 = writeBuffer.getValue();
+                            AckFW ack = ackRW.wrap(writeBuffer0, 0, writeBuffer0.capacity())
+                                             .streamId(streamId)
+                                             .flags(flags)
+                                             .regions(rs -> regions.forEach(r -> rs.item(i -> i.address(r.address())
+                                                                                               .length(r.length())
+                                                                                               .streamId(r.streamId()))))
+                                             .build();
+
+                            acceptThrottle.getValue().accept(ack.typeId(), ack.buffer(), ack.offset(), ack.sizeof());
+                            return null;
+                        }
+                    }
+            ).when(acceptStream).accept(eq(TransferFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
+
+            doAnswer(new Answer<Object>()
             {
                 @Override
                 public Object answer(
@@ -279,6 +314,37 @@ public class StreamsIT
                     return null;
                 }
             }).when(connectReplyStream).accept(eq(BeginFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
+
+            doAnswer(new Answer<Object>()
+                    {
+                        @Override
+                        public Object answer(
+                            InvocationOnMock invocation) throws Throwable
+                        {
+                            DirectBuffer buffer = (DirectBuffer) invocation.getArgument(1);
+                            int offset = (int) invocation.getArgument(2);
+                            int length = (int) invocation.getArgument(3);
+
+                            TransferFW transfer = transferRO.wrap(buffer, offset, offset + length);
+                            long streamId = transfer.streamId();
+                            int flags = transfer.flags();
+                            ListFW<RegionFW> regions = transfer.regions();
+
+                            MutableDirectBuffer writeBuffer0 = writeBuffer.getValue();
+                            AckFW ack = ackRW.wrap(writeBuffer0, 0, writeBuffer0.capacity())
+                                             .streamId(streamId)
+                                             .flags(flags)
+                                             .regions(rs -> regions.forEach(r -> rs.item(i -> i.address(r.address())
+                                                                                               .length(r.length())
+                                                                                               .streamId(r.streamId()))))
+                                             .build();
+
+                            connectReplyThrottle.getValue().accept(ack.typeId(), ack.buffer(), ack.offset(), ack.sizeof());
+                            return null;
+                        }
+                    }
+            ).when(connectReplyStream).accept(eq(TransferFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
+
         }
 
         @Override
