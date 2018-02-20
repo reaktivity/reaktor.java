@@ -38,12 +38,15 @@ public final class DefaultDirectBufferBuilder implements DirectBufferBuilder
         long address,
         int length)
     {
-        if (limit == buffers.length)
+        if (length != 0)
         {
-            buffers = ArrayUtil.add(buffers, new UnsafeBuffer(EMPTY_BYTE_ARRAY));
-        }
+            if (limit == buffers.length)
+            {
+                buffers = ArrayUtil.add(buffers, new UnsafeBuffer(EMPTY_BYTE_ARRAY));
+            }
 
-        buffers[limit++].wrap(address, length);
+            buffers[limit++].wrap(address, length);
+        }
 
         return this;
     }
@@ -52,12 +55,15 @@ public final class DefaultDirectBufferBuilder implements DirectBufferBuilder
     public DirectBufferBuilder wrap(
         DirectBuffer buffer)
     {
-        if (limit == buffers.length)
+        if (buffer.capacity() != 0)
         {
-            buffers = ArrayUtil.add(buffers, new UnsafeBuffer(EMPTY_BYTE_ARRAY));
-        }
+            if (limit == buffers.length)
+            {
+                buffers = ArrayUtil.add(buffers, new UnsafeBuffer(EMPTY_BYTE_ARRAY));
+            }
 
-        buffers[limit++].wrap(buffer);
+            buffers[limit++].wrap(buffer);
+        }
 
         return this;
     }
@@ -68,12 +74,15 @@ public final class DefaultDirectBufferBuilder implements DirectBufferBuilder
         int offset,
         int length)
     {
-        if (limit == buffers.length)
+        if (length != 0)
         {
-            buffers = ArrayUtil.add(buffers, new UnsafeBuffer(EMPTY_BYTE_ARRAY));
-        }
+            if (limit == buffers.length)
+            {
+                buffers = ArrayUtil.add(buffers, new UnsafeBuffer(EMPTY_BYTE_ARRAY));
+            }
 
-        buffers[limit++].wrap(buffer, offset, length);
+            buffers[limit++].wrap(buffer, offset, length);
+        }
 
         return this;
     }
