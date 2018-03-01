@@ -16,15 +16,14 @@
 
 property valueReceived 12L
 
-accept "nukleus://server/streams/client"
-       option nukleus:route 1234L
-       option nukleus:transmission "duplex"
-       option nukleus:window 8192
-
-accepted
+connect "nukleus://server/streams/client"
+        option nukleus:route 1234L
+        option nukleus:transmission "duplex"
+        option nukleus:window 8192
 connected
 
-read nukleus:data.ext [0x12 0x34] ${valueReceived} "Hello, world"
+read nukleus:data.ext ${valueReceived} "Hello, world"
+read nukleus:data.null
 
-read nukleus:data.ext [0x56 0x78] ${valueReceived} "Hello, world"
+read nukleus:data.ext ${valueReceived} "Hello, world"
 read "Hello, world"

@@ -51,11 +51,14 @@ public class ReadNullDataHandler extends AbstractEventHandler
             {
                 handlerFuture.setSuccess();
             }
+            else
+            {
+                super.messageReceived(ctx, e);
+            }
         }
         catch (Exception ex)
         {
             handlerFuture.setFailure(ex);
         }
-        super.messageReceived(ctx, e);
     }
 }
