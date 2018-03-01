@@ -22,7 +22,7 @@ connect "nukleus://server/streams/client"
         option nukleus:window 8192
 connected
 
-read nukleus:data.ext ${valueReceived}  "Hello, world"
+read nukleus:data.ext ${valueReceived} "Hello, world"
 read nukleus:data.null
 
 read nukleus:data.ext ${valueReceived} "Hello, world"
