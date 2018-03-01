@@ -422,6 +422,16 @@ public class DuplexIT
 
     @Test
     @Specification({
+        "client.receive.null.data.with.ext.and.expression/client",
+        "client.receive.null.data.with.ext.and.expression/server"
+    })
+    public void shouldReceiveServerFlushedNullDataWithExtensionUsingExpression() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "server.flush.null.data.with.ext/client",
         "server.flush.empty.data.with.ext/server"
     })

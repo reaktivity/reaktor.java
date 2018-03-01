@@ -14,8 +14,6 @@
 # under the License.
 #
 
-property valueReceived 12L
-
 accept "nukleus://server/streams/client"
        option nukleus:route 1234L
        option nukleus:transmission "duplex"
@@ -24,7 +22,8 @@ accept "nukleus://server/streams/client"
 accepted
 connected
 
-read nukleus:data.ext [0x12 0x34] ${valueReceived} "Hello, world"
+write nukleus:data.ext 12L "Hello, world"
+write flush
 
-read nukleus:data.ext [0x56 0x78] ${valueReceived} "Hello, world"
-read "Hello, world"
+write nukleus:data.ext 12L "Hello, world"
+write "Hello" ", " "world"
