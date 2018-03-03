@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.reaktivity</groupId>
   <artifactId>k3po-nukleus-ext</artifactId>
-  <version>develop-SNAPSHOT</version>
+  <version>0.19.2</version>
   <name>K3PO Nukleus Extension</name>
   <description>K3PO Nukleus Extension</description>
   <url>https://github.com/reaktivity/k3po-nukleus-ext.java</url>
