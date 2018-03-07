@@ -17,6 +17,7 @@ package org.reaktivity.reaktor.internal;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Function;
 import java.util.function.LongSupplier;
 
 import org.agrona.CloseHelper;
@@ -28,12 +29,15 @@ public final class Counters implements AutoCloseable
     private final CountersManager manager;
     private final ConcurrentMap<String, AtomicCounter> counters;
     private final ConcurrentMap<String, LongSupplier> readonlyCounters;
+    private final Function<? super String, ? extends AtomicCounter> newCounter;
 
-    Counters(CountersManager manager)
+    Counters(
+        CountersManager manager)
     {
         this.manager = manager;
-        counters = new ConcurrentHashMap<>();
-        readonlyCounters = new ConcurrentHashMap<>();
+        this.counters = new ConcurrentHashMap<>();
+        this.readonlyCounters = new ConcurrentHashMap<>();
+        this.newCounter = manager::newCounter;
     }
 
     @Override
@@ -65,7 +69,7 @@ public final class Counters implements AutoCloseable
     public AtomicCounter counter(
         String name)
     {
-        return counters.computeIfAbsent(name, manager::newCounter);
+        return counters.computeIfAbsent(name, newCounter);
     }
 
     public LongSupplier readonlyCounter(
