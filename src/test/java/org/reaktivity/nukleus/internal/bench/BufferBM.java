@@ -93,7 +93,7 @@ public class BufferBM
     }
 
     @Benchmark
-    @Group("throughput")
+    @Group("multiple")
     @GroupThreads(1)
     public void writer(
         final Control control) throws Exception
@@ -106,13 +106,42 @@ public class BufferBM
     }
 
     @Benchmark
-    @Group("throughput")
+    @Group("multiple")
     @GroupThreads(1)
     public void reader(
         final Control control) throws Exception
     {
         while (!control.stopMeasurement &&
                source.read((msgTypeId, buffer, offset, length) -> {}) == 0)
+        {
+            Thread.yield();
+        }
+    }
+
+    @Benchmark
+    public void single(
+        final Control control) throws Exception
+    {
+        while (!control.stopMeasurement &&
+                (!target.write(0x02, writeBuffer, 0, writeBuffer.capacity()) ||
+                 source.read((msgTypeId, buffer, offset, length) -> {}) == 0))
+        {
+            Thread.yield();
+        }
+    }
+
+    @Benchmark
+    public void batched(
+        final Control control) throws Exception
+    {
+        while (!control.stopMeasurement &&
+                !target.write(0x02, writeBuffer, 0, writeBuffer.capacity()))
+        {
+            Thread.yield();
+        }
+
+        while (!control.stopMeasurement &&
+                source.read((msgTypeId, buffer, offset, length) -> {}) == 0)
         {
             Thread.yield();
         }
