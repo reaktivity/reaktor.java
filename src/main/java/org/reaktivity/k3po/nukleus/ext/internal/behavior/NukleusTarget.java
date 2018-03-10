@@ -486,7 +486,7 @@ final class NukleusTarget implements AutoCloseable
         }
     }
 
-    private final MutableDirectBuffer resetBuffer = new UnsafeBuffer(new byte[2 * SIZE_OF_LONG]);
+    private final MutableDirectBuffer resetBuffer = new UnsafeBuffer(new byte[3 * SIZE_OF_LONG]);
     private final ResetFW.Builder resetRW = new ResetFW.Builder();
 
     private final class Throttle
