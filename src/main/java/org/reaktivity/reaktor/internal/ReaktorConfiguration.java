@@ -44,6 +44,8 @@ public class ReaktorConfiguration extends Configuration
 
     public static final String ROUTES_BUFFER_CAPACITY_PROPERTY_NAME = "reaktor.routes.buffer.capacity";
 
+    public static final String TIMESTAMPS_PROPERTY_NAME = "reaktor.timestamps";
+
     public static final int ABORT_STREAM_EVENT_TYPE_ID_DEFAULT = AbortFW.TYPE_ID;
 
     public static final int BUFFER_SLOT_CAPACITY_DEFAULT = 65536;
@@ -62,6 +64,7 @@ public class ReaktorConfiguration extends Configuration
 
     private static final int ROUTES_ENTRY_CAPACITY_DEFAULT = 1024 * 1024;
 
+    private static final boolean TIMESTAMPS_DEFAULT = true;
 
     public ReaktorConfiguration(
         Configuration config)
@@ -135,9 +138,13 @@ public class ReaktorConfiguration extends Configuration
         return getInteger(COUNTERS_BUFFER_CAPACITY_PROPERTY_NAME, COUNTERS_BUFFER_CAPACITY_DEFAULT) * 2;
     }
 
+    public boolean timestamps()
+    {
+        return getBoolean(TIMESTAMPS_PROPERTY_NAME, TIMESTAMPS_DEFAULT);
+    }
+
     private int calculateBufferPoolCapacity()
     {
         return bufferSlotCapacity() * 64;
     }
-
 }

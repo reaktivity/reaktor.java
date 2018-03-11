@@ -15,6 +15,8 @@
  */
 package org.reaktivity.reaktor.internal.acceptable;
 
+import static org.reaktivity.reaktor.internal.types.stream.FrameFW.FIELD_OFFSET_TIMESTAMP;
+
 import java.util.function.BiConsumer;
 import java.util.function.ToIntFunction;
 
@@ -41,6 +43,7 @@ public final class Target implements Nukleus
     private final String name;
     private final AutoCloseable layout;
     private final int abortTypeId;
+    private final boolean timestamps;
     private final Long2ObjectHashMap<MessageConsumer> throttles;
     private final MessageHandler readHandler;
     private final MessageConsumer writeHandler;
@@ -51,11 +54,13 @@ public final class Target implements Nukleus
     public Target(
         String name,
         StreamsLayout layout,
-        int abortTypeId)
+        int abortTypeId,
+        boolean timestamps)
     {
         this.name = name;
         this.layout = layout;
         this.abortTypeId = abortTypeId;
+        this.timestamps = timestamps;
         this.streamsBuffer = layout.streamsBuffer()::write;
         this.throttleBuffer = layout.throttleBuffer()::read;
         this.throttles = new Long2ObjectHashMap<>();
@@ -106,6 +111,11 @@ public final class Target implements Nukleus
         int length)
     {
         boolean handled;
+
+        if (timestamps)
+        {
+            ((MutableDirectBuffer) buffer).putLong(index + FIELD_OFFSET_TIMESTAMP, System.nanoTime());
+        }
 
         switch (msgTypeId)
         {
