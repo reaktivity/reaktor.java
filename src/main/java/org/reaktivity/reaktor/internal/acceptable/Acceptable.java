@@ -62,7 +62,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
     private final Map<String, Target> targetsByName;
     private final Function<RouteKind, StreamFactory> supplyStreamFactory;
     private final int abortTypeId;
-
+    private final boolean timestamps;
 
     public Acceptable(
         Context context,
@@ -74,6 +74,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
         Supplier<BufferPool> supplyBufferPool,
         Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder,
         int abortTypeId,
+        boolean timestamps,
         AtomicLong correlations)
     {
         this.context = context;
@@ -117,6 +118,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
         }
         this.supplyStreamFactory = streamFactories::get;
         this.abortTypeId = abortTypeId;
+        this.timestamps = timestamps;
     }
 
     @Override
@@ -185,7 +187,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
             .build();
 
         return include(new Source(context.name(), sourceName, partitionName, layout, writeBuffer, streams,
-                                  this::supplyTargetInternal, supplyStreamFactory, abortTypeId));
+                                  this::supplyTargetInternal, supplyStreamFactory, abortTypeId, timestamps));
     }
 
     private Target supplyTargetInternal(
@@ -206,7 +208,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
                 .readonly(false)
                 .build();
 
-        return include(new Target(targetName, layout, abortTypeId));
+        return include(new Target(targetName, layout, abortTypeId, timestamps));
     }
 
     private void doAbort(

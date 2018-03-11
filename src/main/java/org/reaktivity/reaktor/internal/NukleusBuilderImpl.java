@@ -146,6 +146,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
         context.name(name).conclude(config);
 
         final int abortTypeId = config.abortStreamEventTypeId();
+        final boolean timestamps = config.timestamps();
 
         Conductor conductor = new Conductor(context);
         Watcher watcher = new Watcher(context);
@@ -160,6 +161,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
         acceptor.setBufferPoolSupplier(supplyBufferPool);
         acceptor.setStreamFactoryBuilderSupplier(streamFactoryBuilders::get);
         acceptor.setAbortTypeId(abortTypeId);
+        acceptor.setTimestamps(timestamps);
         acceptor.setRouteHandlerSupplier(routeHandlers::get);
         acceptor.setAllowZeroRouteRef(allowZeroRouteRef);
 

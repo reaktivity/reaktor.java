@@ -65,6 +65,7 @@ public final class Acceptor extends Nukleus.Composite
     private LongSupplier supplyGroupId;
     private Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder;
     private int abortTypeId;
+    private boolean timestamps;
     private Function<Role, MessagePredicate> supplyRouteHandler;
     private Predicate<RouteKind> allowZeroRouteRef;
     private AtomicLong correlations;
@@ -110,6 +111,12 @@ public final class Acceptor extends Nukleus.Composite
         int abortTypeId)
     {
         this.abortTypeId = abortTypeId;
+    }
+
+    public void setTimestamps(
+        boolean timestamps)
+    {
+        this.timestamps = timestamps;
     }
 
     public void setRouteHandlerSupplier(
@@ -257,6 +264,7 @@ public final class Acceptor extends Nukleus.Composite
                 supplyBufferPool,
                 supplyStreamFactoryBuilder,
                 abortTypeId,
+                timestamps,
                 correlations));
     }
 

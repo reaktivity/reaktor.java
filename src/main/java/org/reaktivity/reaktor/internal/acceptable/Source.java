@@ -16,6 +16,7 @@
 package org.reaktivity.reaktor.internal.acceptable;
 
 import static org.agrona.LangUtil.rethrowUnchecked;
+import static org.reaktivity.reaktor.internal.types.stream.FrameFW.FIELD_OFFSET_TIMESTAMP;
 
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -58,6 +59,7 @@ public final class Source implements Nukleus
     private final Long2ObjectHashMap<MessageConsumer> streams;
     private final Function<RouteKind, StreamFactory> supplyStreamFactory;
     private final int abortTypeId;
+    private final boolean timestamps;
     private final MessageHandler readHandler;
     private final MessageConsumer writeHandler;
 
@@ -72,7 +74,8 @@ public final class Source implements Nukleus
         Long2ObjectHashMap<MessageConsumer> streams,
         Function<String, Target> supplyTarget,
         Function<RouteKind, StreamFactory> supplyStreamFactory,
-        int abortTypeId)
+        int abortTypeId,
+        boolean timestamps)
     {
         this.nukleusName = nukleusName;
         this.sourceName = sourceName;
@@ -85,6 +88,7 @@ public final class Source implements Nukleus
         this.streamsBuffer = layout.streamsBuffer()::read;
         this.throttleBuffer = layout.throttleBuffer()::write;
         this.streams = streams;
+        this.timestamps = timestamps;
         this.readHandler = this::handleRead;
         this.writeHandler = this::handleWrite;
     }
@@ -136,6 +140,11 @@ public final class Source implements Nukleus
         int length)
     {
         boolean handled;
+
+        if (timestamps)
+        {
+            ((MutableDirectBuffer) buffer).putLong(index + FIELD_OFFSET_TIMESTAMP, System.nanoTime());
+        }
 
         switch (msgTypeId)
         {
