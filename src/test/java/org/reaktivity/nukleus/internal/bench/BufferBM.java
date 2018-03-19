@@ -28,7 +28,7 @@ import java.util.Random;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
-import org.agrona.concurrent.ringbuffer.OneToOneRingBuffer;
+import org.agrona.concurrent.ringbuffer.ManyToOneRingBuffer;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -58,8 +58,8 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 public class BufferBM
 {
     private AtomicBuffer buffer;
-    private OneToOneRingBuffer source;
-    private OneToOneRingBuffer target;
+    private ManyToOneRingBuffer source;
+    private ManyToOneRingBuffer target;
 
     private MutableDirectBuffer writeBuffer;
 
@@ -72,8 +72,8 @@ public class BufferBM
         final File bufferFile = new File("target/benchmarks/baseline/buffer").getAbsoluteFile();
 
         this.buffer = new UnsafeBuffer(mapNewFile(bufferFile, capacity));
-        this.source = new OneToOneRingBuffer(buffer);
-        this.target = new OneToOneRingBuffer(buffer);
+        this.source = new ManyToOneRingBuffer(buffer);
+        this.target = new ManyToOneRingBuffer(buffer);
 
         this.writeBuffer = new UnsafeBuffer(allocateDirect(payload).order(nativeOrder()));
         this.writeBuffer.setMemory(0, payload, (byte)new Random().nextInt(256));
@@ -93,8 +93,8 @@ public class BufferBM
     }
 
     @Benchmark
-    @Group("throughput")
-    @GroupThreads(1)
+    @Group("multiple")
+    @GroupThreads(2)
     public void writer(
         final Control control) throws Exception
     {
@@ -106,13 +106,42 @@ public class BufferBM
     }
 
     @Benchmark
-    @Group("throughput")
+    @Group("multiple")
     @GroupThreads(1)
     public void reader(
         final Control control) throws Exception
     {
         while (!control.stopMeasurement &&
                source.read((msgTypeId, buffer, offset, length) -> {}) == 0)
+        {
+            Thread.yield();
+        }
+    }
+
+    @Benchmark
+    public void single(
+        final Control control) throws Exception
+    {
+        while (!control.stopMeasurement &&
+                (!target.write(0x02, writeBuffer, 0, writeBuffer.capacity()) ||
+                 source.read((msgTypeId, buffer, offset, length) -> {}) == 0))
+        {
+            Thread.yield();
+        }
+    }
+
+    @Benchmark
+    public void batched(
+        final Control control) throws Exception
+    {
+        while (!control.stopMeasurement &&
+                !target.write(0x02, writeBuffer, 0, writeBuffer.capacity()))
+        {
+            Thread.yield();
+        }
+
+        while (!control.stopMeasurement &&
+                source.read((msgTypeId, buffer, offset, length) -> {}) == 0)
         {
             Thread.yield();
         }
