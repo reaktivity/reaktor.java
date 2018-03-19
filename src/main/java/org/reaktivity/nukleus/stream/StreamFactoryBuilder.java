@@ -40,6 +40,12 @@ public interface StreamFactoryBuilder
         return this;
     }
 
+    default StreamFactoryBuilder setTraceSupplier(
+        LongSupplier supplyTrace)
+    {
+        return this;
+    }
+
     /*
      * Use the given object to claim group budget for a groupId.
      * For e.g.:
