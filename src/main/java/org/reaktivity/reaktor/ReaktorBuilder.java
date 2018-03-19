@@ -21,6 +21,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.LongSupplier;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
@@ -108,14 +109,18 @@ public class ReaktorBuilder
         final int bufferPoolCapacity = config.bufferPoolCapacity();
         final int bufferSlotCapacity = config.bufferSlotCapacity();
         final DefaultBufferPool bufferPool = new DefaultBufferPool(bufferPoolCapacity, bufferSlotCapacity);
-        Supplier<BufferPool> supplyBufferPool = () -> bufferPool;
+        final Supplier<BufferPool> supplyBufferPool = () -> bufferPool;
+        final long[] streamId = new long[1];
+        final long[] traceId = new long[1];
+        final LongSupplier supplyStreamId = () -> ++streamId[0];
+        final LongSupplier supplyTrace = () -> ++traceId[0];
 
         Nukleus[] nuklei = new Nukleus[0];
         for (String name : nukleusFactory.names())
         {
             if (nukleusMatcher.test(name))
             {
-                NukleusBuilder builder = new NukleusBuilderImpl(config, name, supplyBufferPool);
+                NukleusBuilder builder = new NukleusBuilderImpl(config, name, supplyBufferPool, supplyStreamId, supplyTrace);
                 Nukleus nukleus = nukleusFactory.create(name, config, builder);
                 nuklei = ArrayUtil.add(nuklei, nukleus);
             }
