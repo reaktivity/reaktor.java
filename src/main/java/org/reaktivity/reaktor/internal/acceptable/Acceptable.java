@@ -68,6 +68,8 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
         Context context,
         Router router,
         String sourceName,
+        LongSupplier supplyStreamId,
+        LongSupplier supplyTrace,
         LongSupplier supplyGroupId,
         LongFunction<IntUnaryOperator> groupBudgetClaimer,
         LongFunction<IntUnaryOperator> groupBudgetReleaser,
@@ -88,8 +90,6 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
         final Map<RouteKind, StreamFactory> streamFactories = new EnumMap<>(RouteKind.class);
         final Function<String, LongSupplier> supplyCounter = name -> () -> context.counters().counter(name).increment() + 1;
         final Function<String, LongConsumer> supplyAccumulator = name -> (i) -> context.counters().counter(name).add(i);
-        final AtomicCounter streams = context.counters().streams();
-        final LongSupplier supplyStreamId = () -> streams.increment() + 1;
         final AtomicCounter acquires = context.counters().acquires();
         final AtomicCounter releases = context.counters().releases();
         Supplier<BufferPool> supplyCountingBufferPool =
@@ -105,6 +105,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
                         .setRouteManager(this)
                         .setWriteBuffer(writeBuffer)
                         .setStreamIdSupplier(supplyStreamId)
+                        .setTraceSupplier(supplyTrace)
                         .setGroupIdSupplier(supplyGroupId)
                         .setGroupBudgetClaimer(groupBudgetClaimer)
                         .setGroupBudgetReleaser(groupBudgetReleaser)

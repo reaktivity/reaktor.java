@@ -23,6 +23,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.LongSupplier;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
@@ -47,6 +48,8 @@ public class NukleusBuilderImpl implements NukleusBuilder
     private final ReaktorConfiguration config;
     private final String name;
     private final Supplier<BufferPool> supplyBufferPool;
+    private final LongSupplier supplyStreamId;
+    private final LongSupplier supplyTrace;
     private final Int2ObjectHashMap<CommandHandler> commandHandlersByTypeId;
     private final Map<Role, MessagePredicate> routeHandlers;
     private final Map<RouteKind, StreamFactoryBuilder> streamFactoryBuilders;
@@ -56,11 +59,15 @@ public class NukleusBuilderImpl implements NukleusBuilder
     public NukleusBuilderImpl(
         ReaktorConfiguration config,
         String name,
-        Supplier<BufferPool> supplyBufferPool)
+        Supplier<BufferPool> supplyBufferPool,
+        LongSupplier supplyStreamId,
+        LongSupplier supplyTrace)
     {
         this.config = config;
         this.name = name;
         this.supplyBufferPool = supplyBufferPool;
+        this.supplyStreamId = supplyStreamId;
+        this.supplyTrace = supplyTrace;
         this.commandHandlersByTypeId = new Int2ObjectHashMap<>();
         this.routeHandlers = new EnumMap<>(Role.class);
         this.streamFactoryBuilders = new EnumMap<>(RouteKind.class);
@@ -159,6 +166,8 @@ public class NukleusBuilderImpl implements NukleusBuilder
         acceptor.setConductor(conductor);
         acceptor.setRouter(router);
         acceptor.setBufferPoolSupplier(supplyBufferPool);
+        acceptor.setStreamIdSupplier(supplyStreamId);
+        acceptor.setTraceSupplier(supplyTrace);
         acceptor.setStreamFactoryBuilderSupplier(streamFactoryBuilders::get);
         acceptor.setAbortTypeId(abortTypeId);
         acceptor.setTimestamps(timestamps);

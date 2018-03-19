@@ -62,6 +62,8 @@ public final class Acceptor extends Nukleus.Composite
     private Conductor conductor;
     private Router router;
     private Supplier<BufferPool> supplyBufferPool;
+    private LongSupplier supplyStreamId;
+    private LongSupplier supplyTrace;
     private LongSupplier supplyGroupId;
     private Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder;
     private int abortTypeId;
@@ -99,6 +101,18 @@ public final class Acceptor extends Nukleus.Composite
         Supplier<BufferPool> supplyBufferPool)
     {
         this.supplyBufferPool = supplyBufferPool;
+    }
+
+    public void setStreamIdSupplier(
+        LongSupplier supplyStreamId)
+    {
+        this.supplyStreamId = supplyStreamId;
+    }
+
+    public void setTraceSupplier(
+        LongSupplier supplyTrace)
+    {
+        this.supplyTrace = supplyTrace;
     }
 
     public void setStreamFactoryBuilderSupplier(
@@ -258,6 +272,8 @@ public final class Acceptor extends Nukleus.Composite
                 context,
                 router,
                 sourceName,
+                supplyStreamId,
+                supplyTrace,
                 supplyGroupId,
                 groupBudgetManager::claim,
                 groupBudgetManager::release,
