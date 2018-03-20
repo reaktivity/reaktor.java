@@ -75,7 +75,7 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
 
         this.reaktor = reaktor;
         this.writeRequests = new LinkedList<>();
-        this.targetId = getId();
+        this.targetId = getId() | Long.MIN_VALUE;
     }
 
     @Override

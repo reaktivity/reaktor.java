@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.agrona.CloseHelper;
 import org.agrona.LangUtil;
@@ -53,6 +54,7 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
 
     private final Configuration config;
     private final Deque<Runnable> taskQueue;
+    private final AtomicLong traceIds;
     private final Map<Path, NukleusScope> scopesByPath;
 
     private final CountDownLatch shutdownLatch = new CountDownLatch(1);
@@ -66,6 +68,7 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
         this.config = config;
         this.scopesByPath = new LinkedHashMap<>();
         this.taskQueue = new ConcurrentLinkedDeque<>();
+        this.traceIds = new AtomicLong(Long.MIN_VALUE); // negative
         this.scopes = new NukleusScope[0];
     }
 
@@ -216,7 +219,8 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
     private NukleusScope newScope(
         Path scopePath)
     {
-        NukleusScope scope = new NukleusScope(config, scopePath, NukleusReaktor::watchService);
+        NukleusScope scope = new NukleusScope(config, scopePath, NukleusReaktor::watchService,
+                                              System::nanoTime, traceIds::incrementAndGet);
         this.scopes = ArrayUtil.add(this.scopes, scope);
         return scope;
     }

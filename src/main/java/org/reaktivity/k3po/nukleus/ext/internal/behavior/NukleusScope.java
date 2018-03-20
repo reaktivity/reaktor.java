@@ -19,6 +19,7 @@ import java.nio.file.Path;
 import java.nio.file.WatchService;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -47,6 +48,8 @@ public final class NukleusScope implements AutoCloseable
     private final MutableDirectBuffer writeBuffer;
     private final Long2ObjectHashMap<MessageHandler> throttlesById;
     private final Long2ObjectHashMap<NukleusCorrelation> correlations;
+    private final LongSupplier supplyTimestamp;
+    private final LongSupplier supplyTrace;
 
     private NukleusSource[] sources = new NukleusSource[0];
     private NukleusTarget[] targets = new NukleusTarget[0];
@@ -54,7 +57,9 @@ public final class NukleusScope implements AutoCloseable
     public NukleusScope(
         Configuration config,
         Path directory,
-        Supplier<WatchService> watchService)
+        Supplier<WatchService> watchService,
+        LongSupplier supplyTimeStamp,
+        LongSupplier supplyTrace)
     {
         this.config = config;
         this.streamsDirectory = directory.resolve("streams");
@@ -68,6 +73,8 @@ public final class NukleusScope implements AutoCloseable
         this.correlations = new Long2ObjectHashMap<>();
         this.sourcesByName = new LinkedHashMap<>();
         this.targetsByPath = new LinkedHashMap<>();
+        this.supplyTimestamp = supplyTimeStamp;
+        this.supplyTrace = supplyTrace;
     }
 
     @Override
@@ -214,7 +221,7 @@ public final class NukleusScope implements AutoCloseable
         String sourceName)
     {
         NukleusSource source = new NukleusSource(config, streamsDirectory, sourceName, writeBuffer,
-                correlations::remove, this::supplyTarget);
+                correlations::remove, this::supplyTarget, supplyTimestamp, supplyTrace);
 
         this.sources = ArrayUtil.add(this.sources, source);
 
@@ -262,7 +269,7 @@ public final class NukleusScope implements AutoCloseable
 
         NukleusTarget target = new NukleusTarget(targetPath, layout, writeBuffer,
                 throttlesById::get, throttlesById::put, throttlesById::remove,
-                correlations::put);
+                correlations::put, supplyTimestamp, supplyTrace);
 
         this.targets = ArrayUtil.add(this.targets, target);
 
