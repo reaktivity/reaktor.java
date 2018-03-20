@@ -181,6 +181,7 @@ public final class NukleusStreamFactory
             EndFW end)
         {
             final long streamId = end.streamId();
+
             if (end.authorization() != channel.sourceAuth())
             {
                 partition.doReset(streamId);
@@ -219,6 +220,7 @@ public final class NukleusStreamFactory
             AbortFW abort)
         {
             final long streamId = abort.streamId();
+
             if (abort.authorization() != channel.sourceAuth())
             {
                 partition.doReset(streamId);

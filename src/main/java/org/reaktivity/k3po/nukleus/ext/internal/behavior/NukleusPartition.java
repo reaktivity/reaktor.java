@@ -24,6 +24,7 @@ import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusTransmiss
 import java.nio.file.Path;
 import java.util.function.BiFunction;
 import java.util.function.LongFunction;
+import java.util.function.LongSupplier;
 
 import org.agrona.LangUtil;
 import org.agrona.MutableDirectBuffer;
@@ -61,6 +62,8 @@ final class NukleusPartition implements AutoCloseable
     private final NukleusStreamFactory streamFactory;
     private final LongFunction<NukleusCorrelation> correlateEstablished;
     private final BiFunction<String, String, NukleusTarget> supplyTarget;
+    private final LongSupplier supplyTimestamp;
+    private final LongSupplier supplyTrace;
 
     NukleusPartition(
         Path partitionPath,
@@ -71,7 +74,9 @@ final class NukleusPartition implements AutoCloseable
         MutableDirectBuffer writeBuffer,
         NukleusStreamFactory streamFactory,
         LongFunction<NukleusCorrelation> correlateEstablished,
-        BiFunction<String, String, NukleusTarget> supplyTarget)
+        BiFunction<String, String, NukleusTarget> supplyTarget,
+        LongSupplier supplyTimestamp,
+        LongSupplier supplyTrace)
     {
         this.partitionPath = partitionPath;
         this.layout = layout;
@@ -86,6 +91,8 @@ final class NukleusPartition implements AutoCloseable
         this.streamFactory = streamFactory;
         this.correlateEstablished = correlateEstablished;
         this.supplyTarget = supplyTarget;
+        this.supplyTimestamp = supplyTimestamp;
+        this.supplyTrace = supplyTrace;
     }
 
     public int process()
@@ -140,9 +147,9 @@ final class NukleusPartition implements AutoCloseable
         }
         else
         {
-            frameRO.wrap(buffer, index, index + length);
+            final FrameFW frame = frameRO.wrap(buffer, index, index + length);
 
-            final long streamId = frameRO.streamId();
+            final long streamId = frame.streamId();
 
             doReset(streamId);
         }
@@ -212,8 +219,10 @@ final class NukleusPartition implements AutoCloseable
         {
             final ChannelFuture handshakeFuture = correlation.correlatedFuture();
             final NukleusClientChannel clientChannel = (NukleusClientChannel) handshakeFuture.getChannel();
+
             final MessageHandler newStream = streamFactory.newStream(clientChannel, this, handshakeFuture);
             registerStream.accept(sourceId, newStream);
+
             newStream.onMessage(begin.typeId(), (MutableDirectBuffer) begin.buffer(), begin.offset(), begin.sizeof());
         }
         else
@@ -234,6 +243,8 @@ final class NukleusPartition implements AutoCloseable
 
         final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .streamId(streamId)
+                .timestamp(supplyTimestamp.getAsLong())
+                .trace(supplyTrace.getAsLong())
                 .credit(credit)
                 .padding(padding)
                 .groupId(groupId)
@@ -246,7 +257,10 @@ final class NukleusPartition implements AutoCloseable
         final long streamId)
     {
         final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                .streamId(streamId).build();
+                .streamId(streamId)
+                .timestamp(supplyTimestamp.getAsLong())
+                .trace(supplyTrace.getAsLong())
+                .build();
 
         throttleBuffer.write(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
     }

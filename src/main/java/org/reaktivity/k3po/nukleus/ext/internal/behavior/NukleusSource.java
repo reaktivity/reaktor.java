@@ -20,6 +20,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.LongFunction;
+import java.util.function.LongSupplier;
 
 import org.agrona.CloseHelper;
 import org.agrona.MutableDirectBuffer;
@@ -47,6 +48,8 @@ public final class NukleusSource implements AutoCloseable
     private final NukleusStreamFactory streamFactory;
     private final LongFunction<NukleusCorrelation> correlateEstablished;
     private final BiFunction<String, String, NukleusTarget> supplyTarget;
+    private final LongSupplier supplyTimestamp;
+    private final LongSupplier supplyTrace;
 
     private NukleusPartition[] partitions;
 
@@ -56,7 +59,9 @@ public final class NukleusSource implements AutoCloseable
         String sourceName,
         MutableDirectBuffer writeBuffer,
         LongFunction<NukleusCorrelation> correlateEstablished,
-        BiFunction<String, String, NukleusTarget> supplyTarget)
+        BiFunction<String, String, NukleusTarget> supplyTarget,
+        LongSupplier supplyTimestamp,
+        LongSupplier supplyTrace)
     {
         this.config = config;
         this.streamsDirectory = streamsDirectory;
@@ -68,6 +73,8 @@ public final class NukleusSource implements AutoCloseable
         this.streamFactory = new NukleusStreamFactory(streamsById::remove);
         this.correlateEstablished = correlateEstablished;
         this.supplyTarget = supplyTarget;
+        this.supplyTimestamp = supplyTimestamp;
+        this.supplyTrace = supplyTrace;
     }
 
     @Override
@@ -208,7 +215,7 @@ public final class NukleusSource implements AutoCloseable
         NukleusPartition partition = new NukleusPartition(partitionPath, layout,
                 (r, a) -> routesByRefAndAuth.computeIfAbsent(r, key -> new Long2ObjectHashMap<NukleusServerChannel>()).get(a),
                 streamsById::get, streamsById::put,
-                writeBuffer, streamFactory, correlateEstablished, supplyTarget);
+                writeBuffer, streamFactory, correlateEstablished, supplyTarget, supplyTimestamp, supplyTrace);
 
         this.partitions = ArrayUtil.add(this.partitions, partition);
 
