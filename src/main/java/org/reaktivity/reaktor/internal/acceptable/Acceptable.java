@@ -162,6 +162,13 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
     }
 
     @Override
+    public void forEach(
+        MessageConsumer consumer)
+    {
+        router.foreach(consumer);
+    }
+
+    @Override
     public MessageConsumer supplyTarget(
         String targetName)
     {
