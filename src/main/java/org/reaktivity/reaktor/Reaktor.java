@@ -51,16 +51,6 @@ public final class Reaktor implements AutoCloseable
         ErrorHandler errorHandler,
         Nukleus[] nuklei,
         Controller[] controllers,
-        BufferPool bufferPool)
-    {
-        this(idleStrategy, errorHandler, nuklei, controllers, bufferPool, "reaktor");
-    }
-
-    Reaktor(
-        IdleStrategy idleStrategy,
-        ErrorHandler errorHandler,
-        Nukleus[] nuklei,
-        Controller[] controllers,
         BufferPool bufferPool,
         String roleName)
     {
