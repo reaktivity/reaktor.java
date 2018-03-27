@@ -16,8 +16,6 @@
 package org.reaktivity.reaktor;
 
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -144,7 +142,11 @@ public class ReaktorBuilder
         IdleStrategy idleStrategy = this.idleStrategy;
         if (idleStrategy == null)
         {
-            idleStrategy = new BackoffIdleStrategy(64, 64, NANOSECONDS.toNanos(64L), MILLISECONDS.toNanos(1L));
+            idleStrategy = new BackoffIdleStrategy(
+                config.maxSpins(),
+                config.maxYields(),
+                config.minParkPeriodNanos(),
+                config.maxParkPeriodNanos());
         }
         ErrorHandler errorHandler = requireNonNull(this.errorHandler, "errorHandler");
 
