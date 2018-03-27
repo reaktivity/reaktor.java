@@ -47,6 +47,7 @@ public class ReaktorBuilder
     private IdleStrategy idleStrategy;
     private ErrorHandler errorHandler;
     private Supplier<NukleusFactory> supplyNukleusFactory;
+    private String roleName = "reaktor";
 
     ReaktorBuilder()
     {
@@ -95,6 +96,13 @@ public class ReaktorBuilder
     {
         requireNonNull(loader);
         this.supplyNukleusFactory = () -> NukleusFactory.instantiate(loader);
+        return this;
+    }
+
+    public ReaktorBuilder roleName(
+        String roleName)
+    {
+        this.roleName = requireNonNull(roleName);
         return this;
     }
 
@@ -150,6 +158,6 @@ public class ReaktorBuilder
         }
         ErrorHandler errorHandler = requireNonNull(this.errorHandler, "errorHandler");
 
-        return new Reaktor(idleStrategy, errorHandler, nuklei, controllers, bufferPool);
+        return new Reaktor(idleStrategy, errorHandler, nuklei, controllers, bufferPool, roleName);
     }
 }
