@@ -43,7 +43,7 @@ public class ReaktorBuilder
 {
     private Configuration config;
     private Predicate<String> nukleusMatcher;
-    private Predicate<Class<? extends Controller>> controllerMatcher;
+    private Predicate<String> controllerMatcher;
     private IdleStrategy idleStrategy;
     private ErrorHandler errorHandler;
     private Supplier<NukleusFactory> supplyNukleusFactory;
@@ -71,7 +71,7 @@ public class ReaktorBuilder
     }
 
     public ReaktorBuilder controller(
-        Predicate<Class<? extends Controller>> matcher)
+        Predicate<String> matcher)
     {
         this.controllerMatcher = requireNonNull(matcher);
         return this;
@@ -138,7 +138,7 @@ public class ReaktorBuilder
         Map<Class<? extends Controller>, Controller> controllersByKind = new HashMap<>();
         for (Class<? extends Controller> kind : controllerFactory.kinds())
         {
-            if (controllerMatcher.test(kind))
+            if (controllerMatcher.test(controllerFactory.name(kind)))
             {
                 ControllerBuilderImpl<? extends Controller> builder = new ControllerBuilderImpl<>(config, kind);
                 Controller controller = controllerFactory.create(config, builder);
