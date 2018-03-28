@@ -44,19 +44,22 @@ public final class Reaktor implements AutoCloseable
 
     private volatile AgentRunner runner;
     private volatile IntSupplier worker;
+    private String roleName;
 
     Reaktor(
         IdleStrategy idleStrategy,
         ErrorHandler errorHandler,
         Nukleus[] nuklei,
         Controller[] controllers,
-        BufferPool bufferPool)
+        BufferPool bufferPool,
+        String roleName)
     {
         this.idleStrategy = idleStrategy;
         this.errorHandler = errorHandler;
         this.bufferPool = bufferPool;
         this.nukleiByName = new ConcurrentHashMap<>();
         this.controllersByKind = new ConcurrentHashMap<>();
+        this.roleName = roleName;
 
         for (Nukleus nukleus : nuklei)
         {
@@ -107,7 +110,7 @@ public final class Reaktor implements AutoCloseable
             @Override
             public String roleName()
             {
-                return "reaktor";
+                return roleName;
             }
 
             @Override

@@ -15,6 +15,9 @@
  */
 package org.reaktivity.reaktor.internal;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
+
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Properties;
@@ -46,6 +49,14 @@ public class ReaktorConfiguration extends Configuration
 
     public static final String TIMESTAMPS_PROPERTY_NAME = "reaktor.timestamps";
 
+    public static final String BACKOFF_IDLE_STRATEGY_MAX_SPINS = "reaktor.backoff.idle.strategy.max.spins";
+
+    public static final String BACKOFF_IDLE_STRATEGY_MAX_YIELDS = "reaktor.backoff.idle.strategy.max.yields";
+
+    public static final String BACKOFF_IDLE_STRATEGY_MIN_PARK_PERIOD_NANOS = "reaktor.backoff.idle.strategy.min.park.period";
+
+    public static final String BACKOFF_IDLE_STRATEGY_MAX_PARK_PERIOD_NANOS = "reaktor.backoff.idle.strategy.max.park.period";
+
     public static final int ABORT_STREAM_EVENT_TYPE_ID_DEFAULT = AbortFW.TYPE_ID;
 
     public static final int BUFFER_SLOT_CAPACITY_DEFAULT = 65536;
@@ -62,7 +73,13 @@ public class ReaktorConfiguration extends Configuration
 
     public static final int ROUTES_BUFFER_CAPACITY_DEFAULT = 1024 * 1024;
 
-    private static final int ROUTES_ENTRY_CAPACITY_DEFAULT = 1024 * 1024;
+    private static final long BACKOFF_IDLE_STRATEGY_MAX_SPINS_DEFAULT = 64L;
+
+    private static final long BACKOFF_IDLE_STRATEGY_MAX_YIELDS_DEFAULT = 64L;
+
+    private static final long BACKOFF_IDLE_STRATEGY_MIN_PARK_PERIOD_NANOS_DEFAULT = NANOSECONDS.toNanos(64L);
+
+    private static final long BACKOFF_IDLE_STRATEGY_MAX_PARK_PERIOD_NANOS_DEFAULT = MILLISECONDS.toNanos(1L);
 
     private static final boolean TIMESTAMPS_DEFAULT = true;
 
@@ -146,5 +163,35 @@ public class ReaktorConfiguration extends Configuration
     private int calculateBufferPoolCapacity()
     {
         return bufferSlotCapacity() * 64;
+    }
+
+    public long maxSpins()
+    {
+        return getLong(BACKOFF_IDLE_STRATEGY_MAX_SPINS, BACKOFF_IDLE_STRATEGY_MAX_SPINS_DEFAULT);
+    }
+
+    public long maxYields()
+    {
+        return getLong(BACKOFF_IDLE_STRATEGY_MAX_YIELDS, BACKOFF_IDLE_STRATEGY_MAX_YIELDS_DEFAULT);
+    }
+
+    public long minParkPeriodNanos()
+    {
+        return getLong(BACKOFF_IDLE_STRATEGY_MIN_PARK_PERIOD_NANOS, BACKOFF_IDLE_STRATEGY_MIN_PARK_PERIOD_NANOS_DEFAULT);
+    }
+
+    public long maxParkPeriodNanos()
+    {
+        return getLong(BACKOFF_IDLE_STRATEGY_MAX_PARK_PERIOD_NANOS, BACKOFF_IDLE_STRATEGY_MAX_PARK_PERIOD_NANOS_DEFAULT);
+    }
+
+    protected final long getLong(String key, long defaultValue)
+    {
+        String value = getProperty(key, (String) null);
+        if (value == null)
+        {
+            return defaultValue;
+        }
+        return Long.decode(value);
     }
 }

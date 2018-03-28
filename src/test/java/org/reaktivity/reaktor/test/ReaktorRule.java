@@ -126,7 +126,7 @@ public final class ReaktorRule implements TestRule
     }
 
     public ReaktorRule controller(
-        Predicate<Class<? extends Controller>> matcher)
+        Predicate<String> matcher)
     {
         builder.controller(matcher);
         return this;
