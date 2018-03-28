@@ -16,8 +16,6 @@
 package org.reaktivity.reaktor;
 
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -45,10 +43,11 @@ public class ReaktorBuilder
 {
     private Configuration config;
     private Predicate<String> nukleusMatcher;
-    private Predicate<Class<? extends Controller>> controllerMatcher;
+    private Predicate<String> controllerMatcher;
     private IdleStrategy idleStrategy;
     private ErrorHandler errorHandler;
     private Supplier<NukleusFactory> supplyNukleusFactory;
+    private String roleName = "reaktor";
 
     ReaktorBuilder()
     {
@@ -72,7 +71,7 @@ public class ReaktorBuilder
     }
 
     public ReaktorBuilder controller(
-        Predicate<Class<? extends Controller>> matcher)
+        Predicate<String> matcher)
     {
         this.controllerMatcher = requireNonNull(matcher);
         return this;
@@ -97,6 +96,13 @@ public class ReaktorBuilder
     {
         requireNonNull(loader);
         this.supplyNukleusFactory = () -> NukleusFactory.instantiate(loader);
+        return this;
+    }
+
+    public ReaktorBuilder roleName(
+        String roleName)
+    {
+        this.roleName = requireNonNull(roleName);
         return this;
     }
 
@@ -132,7 +138,7 @@ public class ReaktorBuilder
         Map<Class<? extends Controller>, Controller> controllersByKind = new HashMap<>();
         for (Class<? extends Controller> kind : controllerFactory.kinds())
         {
-            if (controllerMatcher.test(kind))
+            if (controllerMatcher.test(controllerFactory.name(kind)))
             {
                 ControllerBuilderImpl<? extends Controller> builder = new ControllerBuilderImpl<>(config, kind);
                 Controller controller = controllerFactory.create(config, builder);
@@ -144,10 +150,14 @@ public class ReaktorBuilder
         IdleStrategy idleStrategy = this.idleStrategy;
         if (idleStrategy == null)
         {
-            idleStrategy = new BackoffIdleStrategy(64, 64, NANOSECONDS.toNanos(64L), MILLISECONDS.toNanos(1L));
+            idleStrategy = new BackoffIdleStrategy(
+                config.maxSpins(),
+                config.maxYields(),
+                config.minParkPeriodNanos(),
+                config.maxParkPeriodNanos());
         }
         ErrorHandler errorHandler = requireNonNull(this.errorHandler, "errorHandler");
 
-        return new Reaktor(idleStrategy, errorHandler, nuklei, controllers, bufferPool);
+        return new Reaktor(idleStrategy, errorHandler, nuklei, controllers, bufferPool, roleName);
     }
 }
