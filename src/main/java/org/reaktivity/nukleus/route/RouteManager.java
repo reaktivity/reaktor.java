@@ -26,6 +26,9 @@ public interface RouteManager
         MessagePredicate filter,
         MessageFunction<R> mapper);
 
+    void forEach(
+        MessageConsumer consumer);
+
     MessageConsumer supplyTarget(
         String targetName);
 

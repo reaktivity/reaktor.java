@@ -37,7 +37,7 @@ public final class ControllerFactory
 
     public Iterable<? extends Class<? extends Controller>> kinds()
     {
-        return factorySpisByName.keySet();
+        return factorySpisByKind.keySet();
     }
 
     public <T extends Controller> String name(
@@ -45,7 +45,7 @@ public final class ControllerFactory
     {
         requireNonNull(kind, "kind");
 
-        ControllerFactorySpi<?> factorySpi = factorySpisByName.get(kind);
+        ControllerFactorySpi<?> factorySpi = factorySpisByKind.get(kind);
         if (factorySpi == null)
         {
             throw new IllegalArgumentException("Unregonized controller kind: " + kind.getName());
@@ -64,7 +64,7 @@ public final class ControllerFactory
         Class<T> kind = builder.kind();
 
         @SuppressWarnings("unchecked")
-        ControllerFactorySpi<T> factorySpi = factorySpisByName.get(kind);
+        ControllerFactorySpi<T> factorySpi = factorySpisByKind.get(kind);
         if (factorySpi == null)
         {
             throw new IllegalArgumentException("Unregonized controller kind: " + kind.getName());
@@ -84,13 +84,13 @@ public final class ControllerFactory
     }
 
     @SuppressWarnings("rawtypes")
-    private final Map<Class<? extends Controller>, ControllerFactorySpi> factorySpisByName;
+    private final Map<Class<? extends Controller>, ControllerFactorySpi> factorySpisByKind;
 
     @SuppressWarnings("rawtypes")
     private ControllerFactory(
         Map<Class<? extends Controller>,
         ControllerFactorySpi> factorySpisByName)
     {
-        this.factorySpisByName = factorySpisByName;
+        this.factorySpisByKind = factorySpisByName;
     }
 }
