@@ -117,16 +117,19 @@ public class ReaktorBuilder
         final DefaultBufferPool bufferPool = new DefaultBufferPool(bufferPoolCapacity, bufferSlotCapacity);
         final Supplier<BufferPool> supplyBufferPool = () -> bufferPool;
         final long[] streamId = new long[1];
+        final long[] groupId = new long[1];
         final long[] traceId = new long[1];
         final LongSupplier supplyStreamId = () -> ++streamId[0];
         final LongSupplier supplyTrace = () -> ++traceId[0];
+        final LongSupplier supplyGroupId = () -> ++groupId[0];
 
         Nukleus[] nuklei = new Nukleus[0];
         for (String name : nukleusFactory.names())
         {
             if (nukleusMatcher.test(name))
             {
-                NukleusBuilder builder = new NukleusBuilderImpl(config, name, supplyBufferPool, supplyStreamId, supplyTrace);
+                NukleusBuilder builder = new NukleusBuilderImpl(config, name, supplyBufferPool, supplyStreamId,
+                        supplyTrace, supplyGroupId);
                 Nukleus nukleus = nukleusFactory.create(name, config, builder);
                 nuklei = ArrayUtil.add(nuklei, nukleus);
             }

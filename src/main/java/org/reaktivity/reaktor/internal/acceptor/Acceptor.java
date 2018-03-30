@@ -80,8 +80,6 @@ public final class Acceptor extends Nukleus.Composite
         this.acceptables = new HashMap<>();
         this.routeBuf = new UnsafeBuffer(ByteBuffer.allocateDirect(context.maxControlCommandLength()));
         this.correlations  = new AtomicLong();
-        int groupId = 0;
-        this.supplyGroupId = () -> groupId + 1;
         this.groupBudgetManager = new GroupBudgetManager();
     }
 
@@ -113,6 +111,12 @@ public final class Acceptor extends Nukleus.Composite
         LongSupplier supplyTrace)
     {
         this.supplyTrace = supplyTrace;
+    }
+
+    public void setGroupIdSupplier(
+            LongSupplier supplyGroupId)
+    {
+        this.supplyGroupId = supplyGroupId;
     }
 
     public void setStreamFactoryBuilderSupplier(
