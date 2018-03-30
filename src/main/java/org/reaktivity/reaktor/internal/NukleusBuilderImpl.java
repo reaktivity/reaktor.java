@@ -174,7 +174,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
         acceptor.setRouteHandlerSupplier(routeHandlers::get);
         acceptor.setAllowZeroRouteRef(allowZeroRouteRef);
 
-        return new NukleusImpl(name, conductor, watcher, router, acceptor, context, components);
+        return new NukleusImpl(name, conductor, watcher, acceptor, context, components);
     }
 
     private static final class NukleusImpl extends Nukleus.Composite
@@ -186,12 +186,11 @@ public class NukleusBuilderImpl implements NukleusBuilder
             String name,
             Conductor conductor,
             Watcher watcher,
-            Router router,
             Acceptor acceptor,
             Closeable cleanup,
             List<Nukleus> components)
         {
-            super(conductor, watcher, router, acceptor);
+            super(conductor, watcher, acceptor);
             this.name = name;
             this.cleanup = cleanup;
 

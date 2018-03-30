@@ -17,7 +17,6 @@ package org.reaktivity.reaktor.internal.router;
 
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
-import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessageFunction;
 import org.reaktivity.nukleus.function.MessagePredicate;
@@ -30,7 +29,7 @@ import org.reaktivity.reaktor.internal.types.control.UnrouteFW;
 import org.reaktivity.reaktor.internal.types.state.RouteEntryFW;
 import org.reaktivity.reaktor.internal.types.state.RouteTableFW;
 
-public final class Router extends Nukleus.Composite
+public final class Router
 {
     private final RoutesLayout routesLayout;
     private final RouteTableFW.Builder routeTableRW;
@@ -48,12 +47,6 @@ public final class Router extends Nukleus.Composite
         this.routeRO = new RouteFW();
         this.routesBuffer = routesLayout.routesBuffer();
         this.routesBufferCapacity = routesLayout.capacity();
-    }
-
-    @Override
-    public String name()
-    {
-        return "router";
     }
 
     public boolean doRoute(
