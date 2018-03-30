@@ -17,6 +17,7 @@ package org.reaktivity.reaktor.internal.router;
 
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
+import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessageFunction;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.reaktor.internal.Context;
@@ -142,6 +143,17 @@ public final class Router
             result = mapper.apply(route.typeId(), route.buffer(), route.offset(), route.sizeof());
         }
         return result;
+    }
+
+    public void foreach(
+        MessageConsumer consumer)
+    {
+        RouteTableFW routeTable = routeTableRO.wrap(routesBuffer, 0, routesBufferCapacity);
+        routeTable.routeEntries().forEach(re ->
+        {
+            final RouteFW route = wrapRoute(re, routeRO);
+            consumer.accept(route.typeId(), route.buffer(), route.offset(), route.sizeof());
+        });
     }
 
 
