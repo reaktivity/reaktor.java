@@ -50,6 +50,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
     private final Supplier<BufferPool> supplyBufferPool;
     private final LongSupplier supplyStreamId;
     private final LongSupplier supplyTrace;
+    private final LongSupplier supplyGroupId;
     private final Int2ObjectHashMap<CommandHandler> commandHandlersByTypeId;
     private final Map<Role, MessagePredicate> routeHandlers;
     private final Map<RouteKind, StreamFactoryBuilder> streamFactoryBuilders;
@@ -61,6 +62,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
         String name,
         Supplier<BufferPool> supplyBufferPool,
         LongSupplier supplyStreamId,
+        LongSupplier supplyGroupId,
         LongSupplier supplyTrace)
     {
         this.config = config;
@@ -68,6 +70,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
         this.supplyBufferPool = supplyBufferPool;
         this.supplyStreamId = supplyStreamId;
         this.supplyTrace = supplyTrace;
+        this.supplyGroupId = supplyGroupId;
         this.commandHandlersByTypeId = new Int2ObjectHashMap<>();
         this.routeHandlers = new EnumMap<>(Role.class);
         this.streamFactoryBuilders = new EnumMap<>(RouteKind.class);
@@ -167,6 +170,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
         acceptor.setRouter(router);
         acceptor.setBufferPoolSupplier(supplyBufferPool);
         acceptor.setStreamIdSupplier(supplyStreamId);
+        acceptor.setGroupIdSupplier(supplyGroupId);
         acceptor.setTraceSupplier(supplyTrace);
         acceptor.setStreamFactoryBuilderSupplier(streamFactoryBuilders::get);
         acceptor.setAbortTypeId(abortTypeId);
