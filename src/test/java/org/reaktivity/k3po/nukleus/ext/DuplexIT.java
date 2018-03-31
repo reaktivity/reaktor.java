@@ -84,6 +84,16 @@ public class DuplexIT
 
     @Test
     @Specification({
+        "handshake.group/client",
+        "handshake.group/server"
+    })
+    public void shouldHandshakeWithGroup() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "handshake.unequal.authorization/client",
         "handshake.unequal.authorization/server"
     })

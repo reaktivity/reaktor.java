@@ -235,7 +235,7 @@ final class NukleusPartition implements AutoCloseable
         final NukleusChannel channel,
         final int credit,
         final int padding,
-        final int groupId)
+        final long groupId)
     {
         final long streamId = channel.sourceId();
 
@@ -291,6 +291,7 @@ final class NukleusPartition implements AutoCloseable
             childConfig.setReadPartition(serverConfig.getReadPartition());
             childConfig.setWritePartition(serverConfig.getWritePartition());
             childConfig.setWindow(serverConfig.getWindow());
+            childConfig.setGroup(serverConfig.getGroup());
             childConfig.setPadding(serverConfig.getPadding());
 
             childConfig.setCorrelation(correlationId);

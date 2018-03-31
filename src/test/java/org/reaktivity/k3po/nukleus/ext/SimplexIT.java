@@ -97,6 +97,16 @@ public class SimplexIT
 
     @Test
     @Specification({
+        "handshake.group/client",
+        "handshake.group/server"
+    })
+    public void shouldHandshakeWithGroup() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "client.sent.data/client",
         "client.sent.data/server"
     })

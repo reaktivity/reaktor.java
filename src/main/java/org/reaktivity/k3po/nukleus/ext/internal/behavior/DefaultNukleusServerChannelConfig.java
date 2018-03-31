@@ -34,6 +34,7 @@ public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfi
     private String writePartition;
     private NukleusTransmission transmission = SIMPLEX;
     private int window;
+    private long group;
     private int padding;
     private NukleusThrottleMode throttle = STREAM;
     private boolean update = true;
@@ -109,6 +110,19 @@ public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfi
     }
 
     @Override
+    public void setGroup(
+        long group)
+    {
+        this.group = group;
+    }
+
+    @Override
+    public long getGroup()
+    {
+        return group;
+    }
+
+    @Override
     public void setPadding(int padding)
     {
         this.padding = padding;
@@ -180,6 +194,10 @@ public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfi
         else if ("window".equals(key))
         {
             setWindow(convertToInt(value));
+        }
+        else if ("group".equals(key))
+        {
+            setGroup(convertToLong(value));
         }
         else if ("padding".equals(key))
         {
