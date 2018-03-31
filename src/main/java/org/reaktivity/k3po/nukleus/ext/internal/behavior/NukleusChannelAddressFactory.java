@@ -19,6 +19,7 @@ import static java.util.Arrays.asList;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_AUTHORIZATION;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_BYTE_ORDER;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_CORRELATION;
+import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_GROUP;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_PADDING;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_PARTITION;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_REPLY_TO;
@@ -84,9 +85,9 @@ public class NukleusChannelAddressFactory extends ChannelAddressFactorySpi
             }
         }
 
-        Collection<TypeInfo<?>> allOptionTypes = asList(OPTION_ROUTE, OPTION_REPLY_TO, OPTION_WINDOW, OPTION_PADDING,
-                OPTION_UPDATE, OPTION_PARTITION, OPTION_AUTHORIZATION, OPTION_CORRELATION, OPTION_THROTTLE, OPTION_TRANSMISSION,
-                OPTION_BYTE_ORDER);
+        Collection<TypeInfo<?>> allOptionTypes = asList(OPTION_ROUTE, OPTION_REPLY_TO, OPTION_WINDOW, OPTION_GROUP,
+                OPTION_PADDING, OPTION_UPDATE, OPTION_PARTITION, OPTION_AUTHORIZATION, OPTION_CORRELATION, OPTION_THROTTLE,
+                OPTION_TRANSMISSION, OPTION_BYTE_ORDER);
         for (TypeInfo<?> optionType : allOptionTypes)
         {
             if (options != null && options.containsKey(optionType.getName()))
