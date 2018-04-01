@@ -15,15 +15,20 @@
  */
 package org.reaktivity.reaktor.internal.router;
 
+import java.util.function.Predicate;
+
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessageFunction;
 import org.reaktivity.nukleus.function.MessagePredicate;
+import org.reaktivity.nukleus.route.RouteKind;
 import org.reaktivity.reaktor.internal.Context;
+import org.reaktivity.reaktor.internal.acceptor.Acceptor;
 import org.reaktivity.reaktor.internal.layouts.RoutesLayout;
 import org.reaktivity.reaktor.internal.types.ListFW;
 import org.reaktivity.reaktor.internal.types.OctetsFW;
+import org.reaktivity.reaktor.internal.types.control.Role;
 import org.reaktivity.reaktor.internal.types.control.RouteFW;
 import org.reaktivity.reaktor.internal.types.control.UnrouteFW;
 import org.reaktivity.reaktor.internal.types.state.RouteEntryFW;
@@ -38,6 +43,10 @@ public final class Router
     private final int routesBufferCapacity;
     private final RouteFW routeRO;
 
+    private Acceptor acceptor;
+    private Predicate<RouteKind> layoutSource;
+    private Predicate<RouteKind> layoutTarget;
+
     public Router(
         Context context)
     {
@@ -47,6 +56,24 @@ public final class Router
         this.routeRO = new RouteFW();
         this.routesBuffer = routesLayout.routesBuffer();
         this.routesBufferCapacity = routesLayout.capacity();
+    }
+
+    public void setAcceptor(
+        Acceptor acceptor)
+    {
+        this.acceptor = acceptor;
+    }
+
+    public void setLayoutSource(
+        Predicate<RouteKind> layoutSource)
+    {
+        this.layoutSource = layoutSource;
+    }
+
+    public void setLayoutTarget(
+        Predicate<RouteKind> layoutTarget)
+    {
+        this.layoutTarget = layoutTarget;
     }
 
     public boolean doRoute(
@@ -79,6 +106,22 @@ public final class Router
                     b.item(b2 -> b2.route(route.buffer(), route.offset(), route.sizeof()));
                 });
             routeTableRW.build();
+
+            final Role role = route.role().get();
+            final RouteKind kind = ReferenceKind.valueOf(role).toRouteKind();
+
+            if (layoutSource.test(kind))
+            {
+                String sourceName = route.source().asString();
+                acceptor.supplyAcceptable(sourceName);
+            }
+
+            if (layoutTarget.test(kind))
+            {
+                String targetName = route.target().asString();
+                acceptor.supplyAcceptable(targetName);
+            }
+
             routesLayout.unlock();
         }
 
@@ -89,7 +132,6 @@ public final class Router
         UnrouteFW unroute,
         MessagePredicate routeHandler)
     {
-
         RouteTableFW routeTable = routeTableRO.wrap(routesBuffer, 0, routesBufferCapacity);
 
         int readLock = routesLayout.lock();
@@ -117,7 +159,6 @@ public final class Router
         return beforeSize > afterSize;
     }
 
-    Object r;
     public <R> R resolve(
         final long authorization,
         MessagePredicate filter,

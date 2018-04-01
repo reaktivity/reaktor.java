@@ -58,7 +58,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
     private final String sourceName;
     private final AtomicBuffer writeBuffer;
     private final Long2ObjectHashMap<MessageConsumer> streams;
-    private final Map<String, Source> sourcesByPartitionName;
+    private final Map<String, Source> sourcesByName;
     private final Map<String, Target> targetsByName;
     private final Function<RouteKind, StreamFactory> supplyStreamFactory;
     private final int abortTypeId;
@@ -84,7 +84,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
         this.sourceName = sourceName;
         this.writeBuffer = new UnsafeBuffer(new byte[context.maxMessageLength()]);
         this.streams = new Long2ObjectHashMap<>();
-        this.sourcesByPartitionName = new HashMap<>();
+        this.sourcesByName = new HashMap<>();
         this.targetsByName = new HashMap<>();
 
         final Map<RouteKind, StreamFactory> streamFactories = new EnumMap<>(RouteKind.class);
@@ -132,7 +132,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
     public void close() throws Exception
     {
         targetsByName.forEach(this::doAbort);
-        sourcesByPartitionName.forEach(this::doReset);
+        sourcesByName.forEach(this::doReset);
 
         streams.forEach(this::doAbort);
         targetsByName.forEach(this::doReset);
@@ -140,16 +140,10 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
         super.close();
     }
 
-    public void onReadable(
-        String partitionName)
+    public Source supplySource(
+        String sourceName)
     {
-        sourcesByPartitionName.computeIfAbsent(partitionName, this::newSource);
-    }
-
-    public void onWritable(
-        String targetName)
-    {
-        supplyTargetInternal(targetName);
+        return sourcesByName.computeIfAbsent(sourceName, this::newSource);
     }
 
     @Override
@@ -191,11 +185,11 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
             .path(context.sourceStreamsPath().apply(partitionName))
             .streamsCapacity(context.streamsBufferCapacity())
             .throttleCapacity(context.throttleBufferCapacity())
-            .readonly(true)
+            .readonly(false)
             .build();
 
         return include(new Source(context.name(), sourceName, partitionName, layout, writeBuffer, streams,
-                                  this::supplyTargetInternal, supplyStreamFactory, abortTypeId, timestamps));
+                                  supplyStreamFactory, abortTypeId, timestamps));
     }
 
     private Target supplyTargetInternal(
@@ -207,13 +201,11 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
     private Target newTarget(
         String targetName)
     {
-        String targetPartition = String.format("%s#%s", targetName, sourceName);
-
         StreamsLayout layout = new StreamsLayout.Builder()
-                .path(context.targetStreamsPath().apply(targetPartition))
+                .path(context.targetStreamsPath().apply(targetName))
                 .streamsCapacity(context.streamsBufferCapacity())
                 .throttleCapacity(context.throttleBufferCapacity())
-                .readonly(false)
+                .readonly(true)
                 .build();
 
         return include(new Target(targetName, layout, abortTypeId, timestamps));

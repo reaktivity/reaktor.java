@@ -27,6 +27,12 @@ public enum ReferenceKind
     SERVER
     {
         @Override
+        public RouteKind toRouteKind()
+        {
+            return RouteKind.SERVER;
+        }
+
+        @Override
         protected long nextRef(
             LongSupplier getAndIncrement,
             LongSupplier get)
@@ -40,6 +46,12 @@ public enum ReferenceKind
     CLIENT
     {
         @Override
+        public RouteKind toRouteKind()
+        {
+            return RouteKind.CLIENT;
+        }
+
+        @Override
         protected long nextRef(
             LongSupplier getAndIncrement,
             LongSupplier get)
@@ -51,6 +63,12 @@ public enum ReferenceKind
 
     PROXY
     {
+        @Override
+        public RouteKind toRouteKind()
+        {
+            return RouteKind.PROXY;
+        }
+
         @Override
         protected long nextRef(
             LongSupplier getAndIncrement,
@@ -73,6 +91,8 @@ public enum ReferenceKind
     {
         return nextRef(counter::getAndIncrement, counter::get);
     }
+
+    public abstract RouteKind toRouteKind();
 
     protected abstract long nextRef(
         LongSupplier getAndIncrement,

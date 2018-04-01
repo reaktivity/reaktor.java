@@ -16,7 +16,6 @@
 package org.reaktivity.reaktor.internal.acceptor;
 
 import java.nio.ByteBuffer;
-import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
@@ -24,8 +23,6 @@ import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.agrona.LangUtil;
 import org.agrona.MutableDirectBuffer;
@@ -49,8 +46,6 @@ import org.reaktivity.reaktor.internal.types.control.UnrouteFW;
 
 public final class Acceptor extends Nukleus.Composite
 {
-    private static final Pattern SOURCE_NAME = Pattern.compile("([^#]+).*");
-
     private final RouteFW.Builder routeRW = new RouteFW.Builder();
 
     private final Context context;
@@ -158,14 +153,11 @@ public final class Acceptor extends Nukleus.Composite
     public void doRoute(
         RouteFW route)
     {
-        final String sourceName = route.source().asString();
-
-        acceptables.computeIfAbsent(sourceName, this::newAcceptable);
-
         try
         {
             Role role = route.role().get();
             MessagePredicate routeHandler = supplyRouteHandler.apply(role);
+
             if (!allowZeroRouteRef.test(RouteKind.valueOf(role.ordinal())))
             {
                 route = generateSourceRefIfNecessary(route);
@@ -180,6 +172,7 @@ public final class Acceptor extends Nukleus.Composite
                     routeHandler = defaultHandler.and(routeHandler);
                 }
             }
+
             if (routeHandler == null)
             {
                 routeHandler = (t, b, i, l) -> true;
@@ -204,75 +197,43 @@ public final class Acceptor extends Nukleus.Composite
     public void doUnroute(
         UnrouteFW unroute)
     {
-        final String sourceName = unroute.source().asString();
         final long correlationId = unroute.correlationId();
 
-        final Acceptable acceptable = acceptables.get(sourceName);
-        if (acceptable != null)
+        try
         {
-            try
+            Role role = unroute.role().get();
+            MessagePredicate routeHandler = supplyRouteHandler.apply(role);
+            if (routeHandler == null)
             {
-                Role role = unroute.role().get();
-                MessagePredicate routeHandler = supplyRouteHandler.apply(role);
-                if (routeHandler == null)
-                {
-                    routeHandler = (t, b, i, l) -> true;
-                }
-
-                if (router.doUnroute(unroute, routeHandler))
-                {
-                    conductor.onUnrouted(correlationId);
-                }
-                else
-                {
-                    conductor.onError(correlationId);
-                }
+                routeHandler = (t, b, i, l) -> true;
             }
-            catch (Exception ex)
+
+            if (router.doUnroute(unroute, routeHandler))
+            {
+                conductor.onUnrouted(correlationId);
+            }
+            else
             {
                 conductor.onError(correlationId);
-                LangUtil.rethrowUnchecked(ex);
             }
         }
-        else
+        catch (Exception ex)
         {
             conductor.onError(correlationId);
+            LangUtil.rethrowUnchecked(ex);
         }
     }
 
-    public void onReadable(
-        Path sourcePath)
+    public Acceptable supplyAcceptable(
+        String sourceName)
     {
-        String sourceName = source(sourcePath);
-        Acceptable acceptable = acceptables.computeIfAbsent(sourceName, this::newAcceptable);
-        String partitionName = sourcePath.getFileName().toString();
-        acceptable.onReadable(partitionName);
-    }
-
-    public void onExpired(
-        Path sourcePath)
-    {
-        // TODO:
-    }
-
-    private static String source(
-        Path path)
-    {
-        Matcher matcher = SOURCE_NAME.matcher(path.getName(path.getNameCount() - 1).toString());
-        if (matcher.matches())
-        {
-            return matcher.group(1);
-        }
-        else
-        {
-            throw new IllegalStateException();
-        }
+        return acceptables.computeIfAbsent(sourceName, this::newAcceptable);
     }
 
     private Acceptable newAcceptable(
         String sourceName)
     {
-        return include(new Acceptable(
+        final Acceptable acceptable = new Acceptable(
                 context,
                 router,
                 sourceName,
@@ -285,7 +246,11 @@ public final class Acceptor extends Nukleus.Composite
                 supplyStreamFactoryBuilder,
                 abortTypeId,
                 timestamps,
-                correlations));
+                correlations);
+
+        acceptable.supplySource(sourceName);
+
+        return include(acceptable);
     }
 
     private RouteFW generateSourceRefIfNecessary(

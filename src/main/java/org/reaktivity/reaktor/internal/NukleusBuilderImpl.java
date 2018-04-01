@@ -16,6 +16,7 @@
 package org.reaktivity.reaktor.internal;
 
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 import java.io.Closeable;
 import java.util.EnumMap;
@@ -41,7 +42,6 @@ import org.reaktivity.reaktor.internal.router.Router;
 import org.reaktivity.reaktor.internal.types.control.Role;
 import org.reaktivity.reaktor.internal.types.control.auth.ResolveFW;
 import org.reaktivity.reaktor.internal.types.control.auth.UnresolveFW;
-import org.reaktivity.reaktor.internal.watcher.Watcher;
 
 public class NukleusBuilderImpl implements NukleusBuilder
 {
@@ -55,7 +55,10 @@ public class NukleusBuilderImpl implements NukleusBuilder
     private final Map<Role, MessagePredicate> routeHandlers;
     private final Map<RouteKind, StreamFactoryBuilder> streamFactoryBuilders;
     private final List<Nukleus> components;
+
     private Predicate<RouteKind> allowZeroRouteRef = r -> false;
+    private Predicate<RouteKind> layoutSource = r -> true;
+    private Predicate<RouteKind> layoutTarget = r -> true;
 
     public NukleusBuilderImpl(
         ReaktorConfiguration config,
@@ -150,6 +153,22 @@ public class NukleusBuilderImpl implements NukleusBuilder
     }
 
     @Override
+    public NukleusBuilder layoutSource(
+        Predicate<RouteKind> layoutSource)
+    {
+        this.layoutSource = requireNonNull(layoutSource);
+        return this;
+    }
+
+    @Override
+    public NukleusBuilder layoutTarget(
+        Predicate<RouteKind> layoutTarget)
+    {
+        this.layoutTarget = requireNonNull(layoutTarget);
+        return this;
+    }
+
+    @Override
     public Nukleus build()
     {
         Context context = new Context();
@@ -159,13 +178,14 @@ public class NukleusBuilderImpl implements NukleusBuilder
         final boolean timestamps = config.timestamps();
 
         Conductor conductor = new Conductor(context);
-        Watcher watcher = new Watcher(context);
         Router router = new Router(context);
         Acceptor acceptor = new Acceptor(context);
 
         conductor.setAcceptor(acceptor);
         conductor.setCommandHandlerSupplier(commandHandlersByTypeId::get);
-        watcher.setAcceptor(acceptor);
+        router.setAcceptor(acceptor);
+        router.setLayoutSource(layoutSource);
+        router.setLayoutTarget(layoutTarget);
         acceptor.setConductor(conductor);
         acceptor.setRouter(router);
         acceptor.setBufferPoolSupplier(supplyBufferPool);
@@ -178,7 +198,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
         acceptor.setRouteHandlerSupplier(routeHandlers::get);
         acceptor.setAllowZeroRouteRef(allowZeroRouteRef);
 
-        return new NukleusImpl(name, conductor, watcher, acceptor, context, components);
+        return new NukleusImpl(name, conductor, acceptor, context, components);
     }
 
     private static final class NukleusImpl extends Nukleus.Composite
@@ -189,12 +209,11 @@ public class NukleusBuilderImpl implements NukleusBuilder
         NukleusImpl(
             String name,
             Conductor conductor,
-            Watcher watcher,
             Acceptor acceptor,
             Closeable cleanup,
             List<Nukleus> components)
         {
-            super(conductor, watcher, acceptor);
+            super(conductor, acceptor);
             this.name = name;
             this.cleanup = cleanup;
 
