@@ -152,10 +152,10 @@ public final class NukleusSource implements AutoCloseable
         }
     }
 
-    public void onReadable(
-        String partitionName)
+    public NukleusPartition supplyPartition(
+        String sourceName)
     {
-        partitionsByName.computeIfAbsent(partitionName, this::newPartition);
+        return partitionsByName.computeIfAbsent(sourceName, this::newPartition);
     }
 
     public int process()
@@ -184,20 +184,8 @@ public final class NukleusSource implements AutoCloseable
     {
         NukleusChannelAddress localAddress = channel.getLocalAddress();
         String senderName = localAddress.getSenderName();
-        String partitionName = localAddress.getSenderPartition();
 
-        NukleusPartition partition = partitionsByName.get(partitionName);
-        if (partition == null)
-        {
-            partition = partitionsByName.entrySet()
-                                        .stream()
-                                        .filter(e -> e.getKey().startsWith(senderName + "#"))
-                                        .findFirst()
-                                        .map(e -> e.getValue())
-                                        .orElse(null);
-        }
-
-        return partition;
+        return partitionsByName.get(senderName);
     }
 
     private NukleusPartition newPartition(
@@ -209,7 +197,7 @@ public final class NukleusSource implements AutoCloseable
                 .path(partitionPath)
                 .streamsCapacity(config.streamsBufferCapacity())
                 .throttleCapacity(config.throttleBufferCapacity())
-                .readonly(true)
+                .readonly(false)
                 .build();
 
         NukleusPartition partition = new NukleusPartition(partitionPath, layout,

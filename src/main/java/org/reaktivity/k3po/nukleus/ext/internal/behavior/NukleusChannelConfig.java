@@ -23,14 +23,6 @@ public interface NukleusChannelConfig extends ChannelConfig
 
     long getCorrelation();
 
-    void setReadPartition(String readPartition);
-
-    String getReadPartition();
-
-    void setWritePartition(String writePartition);
-
-    String getWritePartition();
-
     void setTransmission(NukleusTransmission transmission);
 
     NukleusTransmission getTransmission();

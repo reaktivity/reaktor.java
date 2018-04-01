@@ -15,7 +15,7 @@
  */
 package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 
-import static java.util.Collections.singletonMap;
+import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.stream.Collectors.toList;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind.BEGIN;
@@ -26,14 +26,12 @@ import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.C
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.CONFIG_DATA_EXT;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.CONFIG_DATA_NULL;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.CONFIG_END_EXT;
-import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_PARTITION;
 
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 import org.jboss.netty.channel.ChannelHandler;
 import org.kaazing.k3po.driver.internal.behavior.BehaviorSystemSpi;
@@ -46,9 +44,7 @@ import org.kaazing.k3po.driver.internal.behavior.handler.codec.MessageEncoder;
 import org.kaazing.k3po.driver.internal.behavior.handler.command.WriteConfigHandler;
 import org.kaazing.k3po.lang.internal.RegionInfo;
 import org.kaazing.k3po.lang.internal.ast.AstReadConfigNode;
-import org.kaazing.k3po.lang.internal.ast.AstReadOptionNode;
 import org.kaazing.k3po.lang.internal.ast.AstWriteConfigNode;
-import org.kaazing.k3po.lang.internal.ast.AstWriteOptionNode;
 import org.kaazing.k3po.lang.internal.ast.matcher.AstValueMatcher;
 import org.kaazing.k3po.lang.internal.ast.value.AstValue;
 import org.kaazing.k3po.lang.types.StructuredTypeInfo;
@@ -60,8 +56,6 @@ import org.reaktivity.k3po.nukleus.ext.internal.behavior.config.ReadDataExtHandl
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.config.ReadEndExtHandler;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.config.ReadNullDataHandler;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.config.WriteEmptyDataHandler;
-import org.reaktivity.k3po.nukleus.ext.internal.behavior.option.ReadPartitionHandler;
-import org.reaktivity.k3po.nukleus.ext.internal.behavior.option.WritePartitionHandler;
 
 public class NukleusBehaviorSystem implements BehaviorSystemSpi
 {
@@ -73,8 +67,8 @@ public class NukleusBehaviorSystem implements BehaviorSystemSpi
 
     public NukleusBehaviorSystem()
     {
-        this.readOptionFactories = singletonMap(OPTION_PARTITION, NukleusBehaviorSystem::newReadPartitionHandler);
-        this.writeOptionFactories = singletonMap(OPTION_PARTITION, NukleusBehaviorSystem::newWritePartitionHandler);
+        this.readOptionFactories = emptyMap();
+        this.writeOptionFactories = emptyMap();
 
         Map<StructuredTypeInfo, ReadConfigFactory> readConfigFactories = new LinkedHashMap<>();
         readConfigFactories.put(CONFIG_BEGIN_EXT, NukleusBehaviorSystem::newReadBeginExtHandler);
@@ -141,28 +135,6 @@ public class NukleusBehaviorSystem implements BehaviorSystemSpi
         TypeInfo<?> optionType)
     {
         return writeOptionFactories.get(optionType);
-    }
-
-    @SuppressWarnings("unchecked")
-    private static ReadPartitionHandler newReadPartitionHandler(
-        AstReadOptionNode node)
-    {
-        Supplier<String> partition = ((AstValue<String>) node.getOptionValue())::getValue;
-
-        ReadPartitionHandler handler = new ReadPartitionHandler(partition);
-        handler.setRegionInfo(node.getRegionInfo());
-        return handler;
-    }
-
-    @SuppressWarnings("unchecked")
-    private static WritePartitionHandler newWritePartitionHandler(
-        AstWriteOptionNode node)
-    {
-        Supplier<String> partition = ((AstValue<String>) node.getOptionValue())::getValue;
-
-        WritePartitionHandler handler = new WritePartitionHandler(partition);
-        handler.setRegionInfo(node.getRegionInfo());
-        return handler;
     }
 
     private static ReadBeginExtHandler newReadBeginExtHandler(

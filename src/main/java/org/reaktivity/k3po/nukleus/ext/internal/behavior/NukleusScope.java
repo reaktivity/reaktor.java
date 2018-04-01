@@ -16,13 +16,9 @@
 package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 
 import java.nio.file.Path;
-import java.nio.file.WatchService;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.LongSupplier;
-import java.util.function.Supplier;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.agrona.CloseHelper;
 import org.agrona.MutableDirectBuffer;
@@ -37,14 +33,11 @@ import org.reaktivity.nukleus.Configuration;
 
 public final class NukleusScope implements AutoCloseable
 {
-    private static final Pattern SOURCE_NAME = Pattern.compile("([^#]+).*");
-
     private final Map<String, NukleusSource> sourcesByName;
     private final Map<Path, NukleusTarget> targetsByPath;
 
     private final Configuration config;
     private final Path streamsDirectory;
-    private final NukleusWatcher watcher;
     private final MutableDirectBuffer writeBuffer;
     private final Long2ObjectHashMap<MessageHandler> throttlesById;
     private final Long2ObjectHashMap<NukleusCorrelation> correlations;
@@ -57,23 +50,18 @@ public final class NukleusScope implements AutoCloseable
     public NukleusScope(
         Configuration config,
         Path directory,
-        Supplier<WatchService> watchService,
-        LongSupplier supplyTimeStamp,
+        LongSupplier supplyTimestamp,
         LongSupplier supplyTrace)
     {
         this.config = config;
         this.streamsDirectory = directory.resolve("streams");
-
-        NukleusWatcher watcher = new NukleusWatcher(watchService, streamsDirectory);
-        watcher.setRouter(this);
-        this.watcher = watcher;
 
         this.writeBuffer = new UnsafeBuffer(new byte[config.streamsBufferCapacity() / 8]);
         this.throttlesById = new Long2ObjectHashMap<>();
         this.correlations = new Long2ObjectHashMap<>();
         this.sourcesByName = new LinkedHashMap<>();
         this.targetsByPath = new LinkedHashMap<>();
-        this.supplyTimestamp = supplyTimeStamp;
+        this.supplyTimestamp = supplyTimestamp;
         this.supplyTrace = supplyTrace;
     }
 
@@ -84,23 +72,25 @@ public final class NukleusScope implements AutoCloseable
     }
 
     public void doRoute(
-        String sourceName,
-        long sourceRef,
+        String senderName,
+        String receiverName,
+        long routeRef,
         long authorization,
         NukleusServerChannel serverChannel)
     {
-        NukleusSource source = supplySource(sourceName);
-        source.doRoute(sourceRef, authorization, serverChannel);
+        NukleusSource source = supplySource(senderName);
+        source.doRoute(routeRef, authorization, serverChannel);
+        supplySource(receiverName);
     }
 
     public void doUnroute(
-        String sourceName,
-        long sourceRef,
+        String senderName,
+        long routeRef,
         long authorization,
         NukleusServerChannel serverChannel)
     {
-        NukleusSource source = supplySource(sourceName);
-        source.doUnroute(sourceRef, authorization, serverChannel);
+        NukleusSource source = supplySource(senderName);
+        source.doUnroute(routeRef, authorization, serverChannel);
     }
 
     public void doConnect(
@@ -108,6 +98,8 @@ public final class NukleusScope implements AutoCloseable
         NukleusChannelAddress remoteAddress,
         ChannelFuture connectFuture)
     {
+        supplySource(remoteAddress.getReceiverName());
+
         NukleusTarget target = supplyTarget(clientChannel, remoteAddress);
         target.doConnect(clientChannel, remoteAddress, connectFuture);
     }
@@ -161,26 +153,9 @@ public final class NukleusScope implements AutoCloseable
         target.doClose(channel, handlerFuture);
     }
 
-    public void onReadable(
-        Path sourcePath)
-    {
-        String sourceName = source(sourcePath);
-        NukleusSource source = supplySource(sourceName);
-        String partitionName = sourcePath.getFileName().toString();
-        source.onReadable(partitionName);
-    }
-
-    public void onExpired(
-        Path sourcePath)
-    {
-        // TODO
-    }
-
     public int process()
     {
         int workCount = 0;
-
-        workCount += watcher.process();
 
         for (int i=0; i < sources.length; i++)
         {
@@ -198,8 +173,6 @@ public final class NukleusScope implements AutoCloseable
     @Override
     public void close()
     {
-        CloseHelper.quietClose(watcher);
-
         for(NukleusSource source : sourcesByName.values())
         {
             CloseHelper.quietClose(source);
@@ -211,7 +184,7 @@ public final class NukleusScope implements AutoCloseable
         }
     }
 
-    private NukleusSource supplySource(
+    public NukleusSource supplySource(
         String source)
     {
         return sourcesByName.computeIfAbsent(source, this::newSource);
@@ -222,6 +195,8 @@ public final class NukleusScope implements AutoCloseable
     {
         NukleusSource source = new NukleusSource(config, streamsDirectory, sourceName, writeBuffer,
                 correlations::remove, this::supplyTarget, supplyTimestamp, supplyTrace);
+
+        source.supplyPartition(sourceName);
 
         this.sources = ArrayUtil.add(this.sources, source);
 
@@ -238,21 +213,19 @@ public final class NukleusScope implements AutoCloseable
         NukleusChannel channel,
         NukleusChannelAddress remoteAddress)
     {
-        final NukleusChannelConfig channelConfig = channel.getConfig();
-        final String partitionName = channelConfig.getWritePartition();
-
         String receiverName = remoteAddress.getReceiverName();
-        return supplyTarget(receiverName, partitionName);
+        final String senderName = remoteAddress.getSenderName();
+        return supplyTarget(receiverName, senderName);
     }
 
     private NukleusTarget supplyTarget(
         String receiverName,
-        String senderPartitionName)
+        String senderName)
     {
         final Path targetPath = config.directory()
                 .resolve(receiverName)
                 .resolve("streams")
-                .resolve(senderPartitionName);
+                .resolve(senderName);
 
         return targetsByPath.computeIfAbsent(targetPath, this::newTarget);
     }
@@ -264,7 +237,7 @@ public final class NukleusScope implements AutoCloseable
                 .path(targetPath)
                 .streamsCapacity(config.streamsBufferCapacity())
                 .throttleCapacity(config.throttleBufferCapacity())
-                .readonly(false)
+                .readonly(true)
                 .build();
 
         NukleusTarget target = new NukleusTarget(targetPath, layout, writeBuffer,
@@ -274,19 +247,5 @@ public final class NukleusScope implements AutoCloseable
         this.targets = ArrayUtil.add(this.targets, target);
 
         return target;
-    }
-
-    private static String source(
-        Path path)
-    {
-        Matcher matcher = SOURCE_NAME.matcher(path.getName(path.getNameCount() - 1).toString());
-        if (matcher.matches())
-        {
-            return matcher.group(1);
-        }
-        else
-        {
-            throw new IllegalStateException();
-        }
     }
 }
