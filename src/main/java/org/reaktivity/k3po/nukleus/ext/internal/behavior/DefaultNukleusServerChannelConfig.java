@@ -30,8 +30,6 @@ import org.kaazing.k3po.driver.internal.netty.bootstrap.channel.DefaultServerCha
 public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfig implements NukleusServerChannelConfig
 {
     private long correlation;
-    private String readPartition;
-    private String writePartition;
     private NukleusTransmission transmission = SIMPLEX;
     private int window;
     private long group;
@@ -56,32 +54,6 @@ public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfi
     public long getCorrelation()
     {
         return correlation;
-    }
-
-    @Override
-    public void setReadPartition(
-        String partition)
-    {
-        this.readPartition = partition;
-    }
-
-    @Override
-    public String getReadPartition()
-    {
-        return readPartition;
-    }
-
-    @Override
-    public void setWritePartition(
-        String writePartition)
-    {
-        this.writePartition = writePartition;
-    }
-
-    @Override
-    public String getWritePartition()
-    {
-        return writePartition;
     }
 
     @Override
@@ -178,14 +150,6 @@ public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfi
         if ("correlation".equals(key))
         {
             setCorrelation(convertToLong(value));
-        }
-        else if ("readPartition".equals(key))
-        {
-            setReadPartition(Objects.toString(value, null));
-        }
-        else if ("writePartition".equals(key))
-        {
-            setWritePartition(Objects.toString(value, null));
         }
         else if ("transmission".equals(key))
         {

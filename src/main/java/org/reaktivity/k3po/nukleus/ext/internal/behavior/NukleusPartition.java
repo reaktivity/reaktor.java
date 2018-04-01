@@ -196,9 +196,9 @@ final class NukleusPartition implements AutoCloseable
 
         NukleusChannelConfig childConfig = childChannel.getConfig();
         NukleusChannelAddress remoteAddress = childChannel.getRemoteAddress();
-        String remoteName = remoteAddress.getReceiverName();
-        String partitionName = childConfig.getWritePartition();
-        NukleusTarget remoteTarget = supplyTarget.apply(remoteName, partitionName);
+        String receiverName = remoteAddress.getReceiverName();
+        String senderName = remoteAddress.getSenderName();
+        NukleusTarget remoteTarget = supplyTarget.apply(receiverName, senderName);
 
         if (childConfig.getTransmission() == DUPLEX)
         {
@@ -288,8 +288,6 @@ final class NukleusPartition implements AutoCloseable
             childConfig.setBufferFactory(serverConfig.getBufferFactory());
             childConfig.setTransmission(serverConfig.getTransmission());
             childConfig.setThrottle(serverConfig.getThrottle());
-            childConfig.setReadPartition(serverConfig.getReadPartition());
-            childConfig.setWritePartition(serverConfig.getWritePartition());
             childConfig.setWindow(serverConfig.getWindow());
             childConfig.setGroup(serverConfig.getGroup());
             childConfig.setPadding(serverConfig.getPadding());
@@ -299,13 +297,6 @@ final class NukleusPartition implements AutoCloseable
             if (childConfig.getTransmission() == SIMPLEX)
             {
                 childChannel.setWriteClosed();
-            }
-
-            String partitionName = childConfig.getWritePartition();
-            if (partitionName == null)
-            {
-                String senderName = remoteAddress.getSenderName();
-                childConfig.setWritePartition(senderName);
             }
 
             childChannel.setLocalAddress(serverAddress);
