@@ -80,6 +80,20 @@ public final class NukleusFactoryTest
             {
                 return this;
             }
+
+            @Override
+            public NukleusBuilder layoutSource(
+                Predicate<RouteKind> layoutSource)
+            {
+                return this;
+            }
+
+            @Override
+            public NukleusBuilder layoutTarget(
+                Predicate<RouteKind> layoutTarget)
+            {
+                return this;
+            }
         };
 
         Nukleus nukleus = factory.create("test", config, builder);

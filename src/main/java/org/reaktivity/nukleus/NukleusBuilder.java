@@ -42,5 +42,11 @@ public interface NukleusBuilder
         int msgTypeId,
         CommandHandler handler);
 
+    NukleusBuilder layoutSource(
+            Predicate<RouteKind> layoutSource);
+
+    NukleusBuilder layoutTarget(
+            Predicate<RouteKind> layoutTarget);
+
     Nukleus build();
 }
