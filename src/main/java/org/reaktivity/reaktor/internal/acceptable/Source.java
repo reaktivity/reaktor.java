@@ -72,7 +72,6 @@ public final class Source implements Nukleus
         StreamsLayout layout,
         AtomicBuffer writeBuffer,
         Long2ObjectHashMap<MessageConsumer> streams,
-        Function<String, Target> supplyTarget,
         Function<RouteKind, StreamFactory> supplyStreamFactory,
         int abortTypeId,
         boolean timestamps)
