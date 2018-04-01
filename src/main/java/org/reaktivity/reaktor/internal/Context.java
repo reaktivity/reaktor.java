@@ -21,9 +21,7 @@ import static org.agrona.LangUtil.rethrowUnchecked;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.nio.file.FileSystems;
 import java.nio.file.Path;
-import java.nio.file.WatchService;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.logging.Logger;
@@ -61,8 +59,6 @@ public final class Context implements Closeable
     private RingBuffer toConductorCommands;
     private AtomicBuffer fromConductorResponseBuffer;
     private BroadcastTransmitter fromConductorResponses;
-
-    private WatchService watchService;
 
     private Path streamsPath;
 
@@ -112,18 +108,6 @@ public final class Context implements Closeable
     public int maxControlCommandLength()
     {
         return maximumControlCommandLength;
-    }
-
-    public Context watchService(
-        WatchService watchService)
-    {
-        this.watchService = watchService;
-        return this;
-    }
-
-    public WatchService watchService()
-    {
-        return watchService;
     }
 
     public Context streamsPath(
@@ -294,8 +278,6 @@ public final class Context implements Closeable
 
             this.maximumControlResponseLength = config.responseBufferCapacity() / 8;
 
-            // default FileSystem cannot be closed
-            watchService(FileSystems.getDefault().newWatchService());
             streamsPath(configDirectory.resolve(format("%s/streams", name)));
 
             sourceStreamsPath(source -> configDirectory.resolve(format("%s/streams/%s", name, source)));
@@ -335,7 +317,6 @@ public final class Context implements Closeable
     @Override
     public void close() throws IOException
     {
-        quietClose(watchService);
         quietClose(controlRO);
     }
 
