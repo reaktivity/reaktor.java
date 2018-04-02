@@ -38,6 +38,8 @@ import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
 import org.reaktivity.reaktor.internal.types.control.ErrorFW;
 import org.reaktivity.reaktor.internal.types.control.FrameFW;
+import org.reaktivity.reaktor.internal.types.control.FreezeFW;
+import org.reaktivity.reaktor.internal.types.control.FrozenFW;
 import org.reaktivity.reaktor.internal.types.control.RouteFW;
 import org.reaktivity.reaktor.internal.types.control.RoutedFW;
 import org.reaktivity.reaktor.internal.types.control.UnrouteFW;
@@ -106,6 +108,7 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
         private final ResolvedFW resolvedRO = new ResolvedFW();
         private final UnresolvedFW unresolvedRO = new UnresolvedFW();
         private final UnroutedFW unroutedRO = new UnroutedFW();
+        private final FrozenFW frozenRO = new FrozenFW();
         private final ErrorFW errorRO = new ErrorFW();
 
         private final Context context;
@@ -196,6 +199,18 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
             int length)
         {
             assert msgTypeId == UnrouteFW.TYPE_ID;
+
+            return handleCommand(msgTypeId, buffer, index, length);
+        }
+
+        @Override
+        public CompletableFuture<Void> doFreeze(
+            int msgTypeId,
+            DirectBuffer buffer,
+            int index,
+            int length)
+        {
+            assert msgTypeId == FreezeFW.TYPE_ID;
 
             return handleCommand(msgTypeId, buffer, index, length);
         }
@@ -299,6 +314,9 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
             case UnroutedFW.TYPE_ID:
                 handleUnroutedResponse(buffer, index, length);
                 break;
+            case FrozenFW.TYPE_ID:
+                handleFrozenResponse(buffer, index, length);
+                break;
             default:
                 break;
             }
@@ -377,6 +395,21 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
         {
             final UnroutedFW unrouted = unroutedRO.wrap(buffer, index, length);
             final long correlationId = unrouted.correlationId();
+
+            CompletableFuture<?> promise = promisesByCorrelationId.remove(correlationId);
+            if (promise != null)
+            {
+                commandSucceeded(promise);
+            }
+        }
+
+        private void handleFrozenResponse(
+            DirectBuffer buffer,
+            int index,
+            int length)
+        {
+            final FrozenFW frozen = frozenRO.wrap(buffer, index, length);
+            final long correlationId = frozen.correlationId();
 
             CompletableFuture<?> promise = promisesByCorrelationId.remove(correlationId);
             if (promise != null)
