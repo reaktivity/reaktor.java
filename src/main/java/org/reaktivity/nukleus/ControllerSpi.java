@@ -55,6 +55,12 @@ public interface ControllerSpi
         int index,
         int length);
 
+    CompletableFuture<Void> doFreeze(
+        int msgTypeId,
+        DirectBuffer buffer,
+        int index,
+        int length);
+
     <R> R doSupplySource(
         String source,
         BiFunction<MessagePredicate, ToIntFunction<MessageConsumer>, R> factory);
