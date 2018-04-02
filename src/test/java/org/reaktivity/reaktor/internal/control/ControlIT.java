@@ -161,6 +161,15 @@ public class ControlIT
         k3po.finish();
     }
 
+    @Test
+    @Specification({
+        "${control}/freeze/controller",
+    })
+    public void shouldFreeze() throws Exception
+    {
+        k3po.finish();
+    }
+
     public static class TestNukleusFactorySpi implements NukleusFactorySpi
     {
 

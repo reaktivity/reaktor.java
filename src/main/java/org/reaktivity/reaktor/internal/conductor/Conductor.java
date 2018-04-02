@@ -31,6 +31,8 @@ import org.reaktivity.reaktor.internal.Context;
 import org.reaktivity.reaktor.internal.acceptor.Acceptor;
 import org.reaktivity.reaktor.internal.types.control.ErrorFW;
 import org.reaktivity.reaktor.internal.types.control.FrameFW;
+import org.reaktivity.reaktor.internal.types.control.FreezeFW;
+import org.reaktivity.reaktor.internal.types.control.FrozenFW;
 import org.reaktivity.reaktor.internal.types.control.RouteFW;
 import org.reaktivity.reaktor.internal.types.control.RoutedFW;
 import org.reaktivity.reaktor.internal.types.control.UnrouteFW;
@@ -41,10 +43,12 @@ public final class Conductor implements Nukleus
     private final FrameFW frameRO = new FrameFW();
     private final RouteFW routeRO = new RouteFW();
     private final UnrouteFW unrouteRO = new UnrouteFW();
+    private final FreezeFW freezeRO = new FreezeFW();
 
     private final ErrorFW.Builder errorRW = new ErrorFW.Builder();
     private final RoutedFW.Builder routedRW = new RoutedFW.Builder();
     private final UnroutedFW.Builder unroutedRW = new UnroutedFW.Builder();
+    private final FrozenFW.Builder frozenRW = new FrozenFW.Builder();
 
     private final RingBuffer conductorCommands;
     private final BroadcastTransmitter conductorResponses;
@@ -53,6 +57,8 @@ public final class Conductor implements Nukleus
 
     private Acceptor acceptor;
     private IntFunction<CommandHandler> commandHandlerSupplier;
+    private Runnable handleFreeze;
+    private long freezeId;
 
     public Conductor(
         Context context)
@@ -61,6 +67,7 @@ public final class Conductor implements Nukleus
         this.conductorResponses = context.conductorResponses();
         this.sendBuffer = new UnsafeBuffer(allocateDirect(context.maxControlResponseLength()));
         this.commandHandler = this::handleCommand;
+        this.freezeId = -1L;
     }
 
     public void setAcceptor(
@@ -101,10 +108,36 @@ public final class Conductor implements Nukleus
         conductorResponses.transmit(unrouted.typeId(), unrouted.buffer(), unrouted.offset(), unrouted.sizeof());
     }
 
+    public void onFrozen(
+        long correlationId)
+    {
+        FrozenFW frozen = frozenRW.wrap(sendBuffer, 0, sendBuffer.capacity())
+                .correlationId(correlationId)
+                .build();
+
+        conductorResponses.transmit(frozen.typeId(), frozen.buffer(), frozen.offset(), frozen.sizeof());
+    }
+
     @Override
     public int process()
     {
-        return conductorCommands.read(commandHandler);
+        final int work = conductorCommands.read(commandHandler);
+
+        if (freezeId != -1L)
+        {
+            if (handleFreeze != null)
+            {
+                onFrozen(freezeId);
+                handleFreeze.run();
+            }
+            else
+            {
+                onError(freezeId);
+                freezeId = -1L;
+            }
+        }
+
+        return work;
     }
 
     public void setCommandHandlerSupplier(
@@ -117,6 +150,12 @@ public final class Conductor implements Nukleus
     public String name()
     {
         return "conductor";
+    }
+
+    public void freezeHandler(
+        Runnable handleFreeze)
+    {
+        this.handleFreeze = handleFreeze;
     }
 
     private void handleCommand(
@@ -134,6 +173,10 @@ public final class Conductor implements Nukleus
         case UnrouteFW.TYPE_ID:
             final UnrouteFW unroute = unrouteRO.wrap(buffer, index, index + length);
             acceptor.doUnroute(unroute);
+            break;
+        case FreezeFW.TYPE_ID:
+            final FreezeFW freeze = freezeRO.wrap(buffer, index, index + length);
+            handleFreeze(freeze);
             break;
         default:
             handleUnrecognized(msgTypeId, buffer, index, length);
@@ -157,5 +200,11 @@ public final class Conductor implements Nukleus
             final FrameFW frame = frameRO.wrap(buffer, index, index + length);
             onError(frame.correlationId());
         }
+    }
+
+    private void handleFreeze(
+        FreezeFW freeze)
+    {
+        freezeId = freeze.correlationId();
     }
 }

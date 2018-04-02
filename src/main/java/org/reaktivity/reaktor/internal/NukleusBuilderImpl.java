@@ -18,7 +18,6 @@ package org.reaktivity.reaktor.internal;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-import java.io.Closeable;
 import java.util.EnumMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -198,24 +197,34 @@ public class NukleusBuilderImpl implements NukleusBuilder
         acceptor.setRouteHandlerSupplier(routeHandlers::get);
         acceptor.setAllowZeroRouteRef(allowZeroRouteRef);
 
-        return new NukleusImpl(name, conductor, acceptor, context, components);
+        NukleusImpl nukleus = new NukleusImpl(name, conductor, acceptor, context, components);
+
+        conductor.freezeHandler(nukleus::freeze);
+
+        return nukleus;
     }
 
     private static final class NukleusImpl extends Nukleus.Composite
     {
         private final String name;
-        private final Closeable cleanup;
+        private final Context context;
+        private final Runnable handleFreeze;
 
         NukleusImpl(
             String name,
             Conductor conductor,
             Acceptor acceptor,
-            Closeable cleanup,
+            Context context,
             List<Nukleus> components)
         {
             super(conductor, acceptor);
             this.name = name;
-            this.cleanup = cleanup;
+            this.context = context;
+            this.handleFreeze = () ->
+            {
+                exclude(conductor);
+                context.freeze();
+            };
 
             components.forEach(this::include);
         }
@@ -230,7 +239,12 @@ public class NukleusBuilderImpl implements NukleusBuilder
         public void close() throws Exception
         {
             super.close();
-            cleanup.close();
+            context.close();
+        }
+
+        public void freeze()
+        {
+            handleFreeze.run();
         }
     }
 }

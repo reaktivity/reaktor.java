@@ -25,8 +25,6 @@ import java.nio.file.Path;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.agrona.ErrorHandler;
 import org.agrona.concurrent.AtomicBuffer;
@@ -67,8 +65,7 @@ public final class Context implements Closeable
 
     private String name;
 
-    public Context readonly(
-        boolean readonly)
+    public Context readonly(boolean readonly)
     {
         this.readonly = readonly;
         return this;
@@ -110,8 +107,7 @@ public final class Context implements Closeable
         return maximumControlCommandLength;
     }
 
-    public Context streamsPath(
-        Path streamsPath)
+    public Context streamsPath(Path streamsPath)
     {
         this.streamsPath = streamsPath;
         return this;
@@ -122,8 +118,7 @@ public final class Context implements Closeable
         return streamsPath;
     }
 
-    public Context sourceStreamsPath(
-        Function<String, Path> sourceStreamsFile)
+    public Context sourceStreamsPath(Function<String, Path> sourceStreamsFile)
     {
         this.sourceStreamsPath = sourceStreamsFile;
         return this;
@@ -134,8 +129,7 @@ public final class Context implements Closeable
         return sourceStreamsPath;
     }
 
-    public Context targetStreamsPath(
-        Function<String, Path> targetStreamsPath)
+    public Context targetStreamsPath(Function<String, Path> targetStreamsPath)
     {
         this.targetStreamsPath = targetStreamsPath;
         return this;
@@ -146,8 +140,7 @@ public final class Context implements Closeable
         return targetStreamsPath;
     }
 
-    public Context idleStrategy(
-        IdleStrategy idleStrategy)
+    public Context idleStrategy(IdleStrategy idleStrategy)
     {
         this.idleStrategy = idleStrategy;
         return this;
@@ -158,8 +151,7 @@ public final class Context implements Closeable
         return idleStrategy;
     }
 
-    public Context errorHandler(
-        ErrorHandler errorHandler)
+    public Context errorHandler(ErrorHandler errorHandler)
     {
         this.errorHandler = errorHandler;
         return this;
@@ -170,22 +162,19 @@ public final class Context implements Closeable
         return errorHandler;
     }
 
-    public Context counterLabelsBuffer(
-        AtomicBuffer counterLabelsBuffer)
+    public Context counterLabelsBuffer(AtomicBuffer counterLabelsBuffer)
     {
         controlRW.counterLabelsBuffer(counterLabelsBuffer);
         return this;
     }
 
-    public Context counterValuesBuffer(
-        AtomicBuffer counterValuesBuffer)
+    public Context counterValuesBuffer(AtomicBuffer counterValuesBuffer)
     {
         controlRW.counterValuesBuffer(counterValuesBuffer);
         return this;
     }
 
-    public Context conductorCommands(
-        RingBuffer conductorCommands)
+    public Context conductorCommands(RingBuffer conductorCommands)
     {
         this.toConductorCommands = conductorCommands;
         return this;
@@ -196,8 +185,7 @@ public final class Context implements Closeable
         return toConductorCommands;
     }
 
-    public Context conductorResponseBuffer(
-        AtomicBuffer conductorResponseBuffer)
+    public Context conductorResponseBuffer(AtomicBuffer conductorResponseBuffer)
     {
         this.fromConductorResponseBuffer = conductorResponseBuffer;
         return this;
@@ -208,8 +196,7 @@ public final class Context implements Closeable
         return fromConductorResponseBuffer;
     }
 
-    public Context conductorResponses(
-        BroadcastTransmitter conductorResponses)
+    public Context conductorResponses(BroadcastTransmitter conductorResponses)
     {
         this.fromConductorResponses = conductorResponses;
         return this;
@@ -225,8 +212,7 @@ public final class Context implements Closeable
         return Logger.getLogger(Context.class.getPackage().getName());
     }
 
-    public Context countersManager(
-        CountersManager countersManager)
+    public Context countersManager(CountersManager countersManager)
     {
         this.countersManager = countersManager;
         return this;
@@ -242,8 +228,7 @@ public final class Context implements Closeable
         return counters;
     }
 
-    public Context name(
-        String name)
+    public Context name(String name)
     {
         this.name = name;
         return this;
@@ -259,8 +244,7 @@ public final class Context implements Closeable
         return routesRO;
     }
 
-    public Context conclude(
-        ReaktorConfiguration config)
+    public Context conclude(ReaktorConfiguration config)
     {
         try
         {
@@ -284,13 +268,14 @@ public final class Context implements Closeable
 
             targetStreamsPath(target -> configDirectory.resolve(targetPath(target)));
 
-            this.controlRO = controlRW.controlPath(config.directory().resolve(format("%s/control", name)))
-                                      .commandBufferCapacity(config.commandBufferCapacity())
-                                      .responseBufferCapacity(config.responseBufferCapacity())
-                                      .counterLabelsBufferCapacity(config.counterLabelsBufferCapacity())
-                                      .counterValuesBufferCapacity(config.counterValuesBufferCapacity())
-                                      .readonly(readonly())
-                                      .build();
+            this.controlRO = controlRW
+                    .controlPath(config.directory().resolve(format("%s/control", name)))
+                    .commandBufferCapacity(config.commandBufferCapacity())
+                    .responseBufferCapacity(config.responseBufferCapacity())
+                    .counterLabelsBufferCapacity(config.counterLabelsBufferCapacity())
+                    .counterValuesBufferCapacity(config.counterValuesBufferCapacity())
+                    .readonly(readonly())
+                    .build();
 
             conductorCommands(new ManyToOneRingBuffer(controlRO.commandBuffer()));
 
@@ -301,9 +286,9 @@ public final class Context implements Closeable
             concludeCounters();
 
             this.routesRO = routesRW.routesPath(config.directory().resolve(format("%s/routes", name)))
-                                    .routesBufferCapacity(config.routesBufferCapacity())
-                                    .readonly(false)
-                                    .build();
+                    .routesBufferCapacity(config.routesBufferCapacity())
+                    .readonly(readonly())
+                    .build();
 
         }
         catch (Exception ex)
@@ -314,35 +299,31 @@ public final class Context implements Closeable
         return this;
     }
 
+    public void freeze()
+    {
+        if (controlRO != null)
+        {
+            quietClose(controlRO);
+            controlRO = null;
+        }
+    }
+
     @Override
     public void close() throws IOException
     {
-        quietClose(controlRO);
+        freeze();
     }
 
-    private static final Pattern PARTITION_NAME = Pattern.compile("([^#]+)#(.*)");
-
-    private String targetPath(
-        String target)
+    private String targetPath(String target)
     {
-        String source = name;
-        Matcher matcher = PARTITION_NAME.matcher(target);
-        if (matcher.matches())
-        {
-            target = matcher.group(1);
-            source = format("%s#%s", source, matcher.group(2));
-        }
-
-        return format("%s/streams/%s", target, source);
+        return format("%s/streams/%s", target, name);
     }
 
     private void concludeCounters()
     {
         if (countersManager == null)
         {
-            countersManager(new CountersManager(
-                    controlRO.counterLabelsBuffer(),
-                    controlRO.counterValuesBuffer()));
+            countersManager(new CountersManager(controlRO.counterLabelsBuffer(), controlRO.counterValuesBuffer()));
         }
 
         if (counters == null)
