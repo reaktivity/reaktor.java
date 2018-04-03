@@ -241,6 +241,11 @@ public final class Context implements Closeable
 
     public RoutesLayout routesLayout()
     {
+        if (routesRO == null)
+        {
+            routesRO = routesRW.build();
+        }
+
         return routesRO;
     }
 
@@ -285,10 +290,9 @@ public final class Context implements Closeable
 
             concludeCounters();
 
-            this.routesRO = routesRW.routesPath(config.directory().resolve(format("%s/routes", name)))
+            routesRW.routesPath(config.directory().resolve(format("%s/routes", name)))
                     .routesBufferCapacity(config.routesBufferCapacity())
-                    .readonly(readonly())
-                    .build();
+                    .readonly(readonly());
 
         }
         catch (Exception ex)
@@ -301,17 +305,18 @@ public final class Context implements Closeable
 
     public void freeze()
     {
-        if (controlRO != null)
-        {
-            quietClose(controlRO);
-            controlRO = null;
-        }
+        quietClose(controlRO);
+        controlRO = null;
     }
 
     @Override
     public void close() throws IOException
     {
-        freeze();
+        quietClose(routesRO);
+        quietClose(controlRO);
+
+        routesRO = null;
+        controlRO = null;
     }
 
     private String targetPath(String target)
