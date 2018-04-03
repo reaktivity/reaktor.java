@@ -46,7 +46,7 @@
     <junit.version>4.12</junit.version>
     <k3po.version>3.0.0-alpha-88</k3po.version>
     <nukleus.version>0.21</nukleus.version>
-    <nukleus.spec.version>0.20</nukleus.spec.version>
+    <nukleus.spec.version>0.21</nukleus.spec.version>
     <nukleus.plugin.version>0.28</nukleus.plugin.version>
 
     <jacoco.coverage.ratio>0.02</jacoco.coverage.ratio>
