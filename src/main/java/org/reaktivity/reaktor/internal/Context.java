@@ -303,12 +303,6 @@ public final class Context implements Closeable
         return this;
     }
 
-    public void freeze()
-    {
-        quietClose(controlRO);
-        controlRO = null;
-    }
-
     @Override
     public void close() throws IOException
     {
