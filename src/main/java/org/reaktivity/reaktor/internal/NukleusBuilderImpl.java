@@ -220,11 +220,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
             super(conductor, acceptor);
             this.name = name;
             this.context = context;
-            this.handleFreeze = () ->
-            {
-                exclude(conductor);
-                context.freeze();
-            };
+            this.handleFreeze = () -> exclude(conductor);
 
             components.forEach(this::include);
         }
