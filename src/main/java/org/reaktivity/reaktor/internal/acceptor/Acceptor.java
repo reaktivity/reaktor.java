@@ -20,20 +20,18 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
-import java.util.function.LongSupplier;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 
 import org.agrona.LangUtil;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.agrona.concurrent.status.AtomicCounter;
 import org.reaktivity.nukleus.Nukleus;
-import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteKind;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 import org.reaktivity.reaktor.internal.Context;
+import org.reaktivity.reaktor.internal.State;
 import org.reaktivity.reaktor.internal.acceptable.Acceptable;
 import org.reaktivity.reaktor.internal.conductor.Conductor;
 import org.reaktivity.reaktor.internal.router.ReferenceKind;
@@ -56,10 +54,7 @@ public final class Acceptor extends Nukleus.Composite
 
     private Conductor conductor;
     private Router router;
-    private Supplier<BufferPool> supplyBufferPool;
-    private LongSupplier supplyStreamId;
-    private LongSupplier supplyTrace;
-    private LongSupplier supplyGroupId;
+    private State state;
     private Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder;
     private boolean timestamps;
     private Function<Role, MessagePredicate> supplyRouteHandler;
@@ -89,28 +84,10 @@ public final class Acceptor extends Nukleus.Composite
         this.router = router;
     }
 
-    public void setBufferPoolSupplier(
-        Supplier<BufferPool> supplyBufferPool)
+    public void setState(
+        State state)
     {
-        this.supplyBufferPool = supplyBufferPool;
-    }
-
-    public void setStreamIdSupplier(
-        LongSupplier supplyStreamId)
-    {
-        this.supplyStreamId = supplyStreamId;
-    }
-
-    public void setTraceSupplier(
-        LongSupplier supplyTrace)
-    {
-        this.supplyTrace = supplyTrace;
-    }
-
-    public void setGroupIdSupplier(
-            LongSupplier supplyGroupId)
-    {
-        this.supplyGroupId = supplyGroupId;
+        this.state = state;
     }
 
     public void setStreamFactoryBuilderSupplier(
@@ -230,12 +207,9 @@ public final class Acceptor extends Nukleus.Composite
                 context,
                 router,
                 sourceName,
-                supplyStreamId,
-                supplyTrace,
-                supplyGroupId,
+                state,
                 groupBudgetManager::claim,
                 groupBudgetManager::release,
-                supplyBufferPool,
                 supplyStreamFactoryBuilder,
                 timestamps,
                 correlations);

@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.IntSupplier;
+import java.util.function.Supplier;
 
 import org.agrona.ErrorHandler;
 import org.agrona.LangUtil;
@@ -33,12 +34,13 @@ import org.agrona.concurrent.IdleStrategy;
 import org.reaktivity.nukleus.Controller;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.buffer.BufferPool;
+import org.reaktivity.reaktor.internal.State;
 
 public final class Reaktor implements AutoCloseable
 {
     private final IdleStrategy idleStrategy;
     private final ErrorHandler errorHandler;
-    private final BufferPool bufferPool;
+    private final Set<State> states;
     private final Map<String, Nukleus> nukleiByName;
     private final Map<Class<? extends Controller>, Controller> controllersByKind;
 
@@ -51,12 +53,12 @@ public final class Reaktor implements AutoCloseable
         ErrorHandler errorHandler,
         Nukleus[] nuklei,
         Controller[] controllers,
-        BufferPool bufferPool,
+        Set<State> states,
         String roleName)
     {
         this.idleStrategy = idleStrategy;
         this.errorHandler = errorHandler;
-        this.bufferPool = bufferPool;
+        this.states = states;
         this.nukleiByName = new ConcurrentHashMap<>();
         this.controllersByKind = new ConcurrentHashMap<>();
         this.roleName = roleName;
@@ -148,9 +150,14 @@ public final class Reaktor implements AutoCloseable
                     }
                 }
 
-                if (bufferPool.acquiredSlots() != 0)
+                for (State state : states)
                 {
-                    errors.add(new IllegalStateException("Buffer pool has unreleased slots: " + bufferPool.acquiredSlots()));
+                    final Supplier<BufferPool> supplyBufferPool = state.supplyBufferPool();
+                    final BufferPool bufferPool = supplyBufferPool.get();
+                    if (bufferPool.acquiredSlots() != 0)
+                    {
+                        errors.add(new IllegalStateException("Buffer pool has unreleased slots: " + bufferPool.acquiredSlots()));
+                    }
                 }
 
                 if (!errors.isEmpty())

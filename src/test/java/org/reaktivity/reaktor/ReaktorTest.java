@@ -15,7 +15,10 @@
  */
 package org.reaktivity.reaktor;
 
+import static java.util.Collections.singleton;
 import static org.junit.Assert.assertNotSame;
+
+import java.util.function.Supplier;
 
 import org.agrona.ErrorHandler;
 import org.agrona.concurrent.IdleStrategy;
@@ -27,6 +30,7 @@ import org.junit.Test;
 import org.reaktivity.nukleus.Controller;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.buffer.BufferPool;
+import org.reaktivity.reaktor.internal.State;
 
 public class ReaktorTest
 {
@@ -40,11 +44,14 @@ public class ReaktorTest
     };
 
     @Test
+    @SuppressWarnings("unchecked")
     public void shouldCloseControllers() throws Exception
     {
         final Controller controller = context.mock(Controller.class);
         final IdleStrategy idleStrategy = context.mock(IdleStrategy.class);
         final ErrorHandler errorHandler = context.mock(ErrorHandler.class);
+        final State state = context.mock(State.class);
+        final Supplier<BufferPool> supplyBufferPool = context.mock(Supplier.class);
         final BufferPool bufferPool = context.mock(BufferPool.class);
 
         context.checking(new Expectations()
@@ -53,6 +60,8 @@ public class ReaktorTest
                 allowing(controller).process(); will(returnValue(0));
                 allowing(idleStrategy).idle(with(any(int.class)));
 
+                oneOf(state).supplyBufferPool(); will(returnValue(supplyBufferPool));
+                oneOf(supplyBufferPool).get(); will(returnValue(bufferPool));
                 oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
                 oneOf(controller).kind(); will(returnValue(Controller.class));
                 oneOf(controller).close();
@@ -63,18 +72,21 @@ public class ReaktorTest
             errorHandler,
             new Nukleus[0],
             new Controller[]{controller},
-            bufferPool,
+            singleton(state),
             "reaktor");
         reaktor.start();
         reaktor.close();
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     public void shouldCloseNuklei() throws Exception
     {
         final Nukleus nukleus = context.mock(Nukleus.class);
         final IdleStrategy idleStrategy = context.mock(IdleStrategy.class);
         final ErrorHandler errorHandler = context.mock(ErrorHandler.class);
+        final State state = context.mock(State.class);
+        final Supplier<BufferPool> supplyBufferPool = context.mock(Supplier.class);
         final BufferPool bufferPool = context.mock(BufferPool.class);
 
         context.checking(new Expectations()
@@ -83,6 +95,8 @@ public class ReaktorTest
                 allowing(nukleus).process(); will(returnValue(0));
                 allowing(idleStrategy).idle(with(any(int.class)));
 
+                oneOf(state).supplyBufferPool(); will(returnValue(supplyBufferPool));
+                oneOf(supplyBufferPool).get(); will(returnValue(bufferPool));
                 oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
                 oneOf(nukleus).name(); will(returnValue("nukleus-name"));
                 oneOf(nukleus).close();
@@ -93,18 +107,21 @@ public class ReaktorTest
             errorHandler,
             new Nukleus[]{nukleus},
             new Controller[0],
-            bufferPool,
+            singleton(state),
             "reaktor");
         reaktor.start();
         reaktor.close();
     }
 
     @Test(expected = Exception.class)
+    @SuppressWarnings("unchecked")
     public void shouldReportControllerCloseError() throws Exception
     {
         final Controller controller = context.mock(Controller.class);
         final IdleStrategy idleStrategy = context.mock(IdleStrategy.class);
         final ErrorHandler errorHandler = context.mock(ErrorHandler.class);
+        final State state = context.mock(State.class);
+        final Supplier<BufferPool> supplyBufferPool = context.mock(Supplier.class);
         final BufferPool bufferPool = context.mock(BufferPool.class);
 
         context.checking(new Expectations()
@@ -113,6 +130,8 @@ public class ReaktorTest
                 allowing(controller).process(); will(returnValue(0));
                 allowing(idleStrategy).idle(with(any(int.class)));
 
+                oneOf(state).supplyBufferPool(); will(returnValue(supplyBufferPool));
+                oneOf(supplyBufferPool).get(); will(returnValue(bufferPool));
                 oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
                 oneOf(controller).kind(); will(returnValue(Controller.class));
                 oneOf(controller).close(); will(throwException(new Exception("controller close failed")));
@@ -123,7 +142,7 @@ public class ReaktorTest
                 errorHandler,
                 new Nukleus[0],
                 new Controller[]{controller},
-                bufferPool,
+                singleton(state),
                 "reaktor");
         reaktor.start();
         try
@@ -138,11 +157,14 @@ public class ReaktorTest
     }
 
     @Test(expected = Exception.class)
+    @SuppressWarnings("unchecked")
     public void shouldReportNukleusCloseError() throws Exception
     {
         final Nukleus nukleus = context.mock(Nukleus.class);
         final IdleStrategy idleStrategy = context.mock(IdleStrategy.class);
         final ErrorHandler errorHandler = context.mock(ErrorHandler.class);
+        final State state = context.mock(State.class);
+        final Supplier<BufferPool> supplyBufferPool = context.mock(Supplier.class);
         final BufferPool bufferPool = context.mock(BufferPool.class);
 
         context.checking(new Expectations()
@@ -151,6 +173,8 @@ public class ReaktorTest
                 allowing(nukleus).process(); will(returnValue(0));
                 allowing(idleStrategy).idle(with(any(int.class)));
 
+                oneOf(state).supplyBufferPool(); will(returnValue(supplyBufferPool));
+                oneOf(supplyBufferPool).get(); will(returnValue(bufferPool));
                 oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
                 oneOf(nukleus).name(); will(returnValue("nukleus-name"));
                 oneOf(nukleus).close(); will(throwException(new Exception("Nukleus close failed")));
@@ -161,7 +185,7 @@ public class ReaktorTest
                 errorHandler,
                 new Nukleus[]{nukleus},
                 new Controller[0],
-                bufferPool,
+                singleton(state),
                 "reaktor");
         reaktor.start();
         try
@@ -176,12 +200,15 @@ public class ReaktorTest
     }
 
     @Test(expected = Exception.class)
+    @SuppressWarnings("unchecked")
     public void shouldReportAllCloseErrors() throws Exception
     {
         final Controller controller = context.mock(Controller.class);
         final Nukleus nukleus = context.mock(Nukleus.class);
         final IdleStrategy idleStrategy = context.mock(IdleStrategy.class);
         final ErrorHandler errorHandler = context.mock(ErrorHandler.class);
+        final State state = context.mock(State.class);
+        final Supplier<BufferPool> supplyBufferPool = context.mock(Supplier.class);
         final BufferPool bufferPool = context.mock(BufferPool.class);
 
         context.checking(new Expectations()
@@ -191,6 +218,8 @@ public class ReaktorTest
                 allowing(nukleus).process(); will(returnValue(0));
                 allowing(idleStrategy).idle(with(any(int.class)));
 
+                oneOf(state).supplyBufferPool(); will(returnValue(supplyBufferPool));
+                oneOf(supplyBufferPool).get(); will(returnValue(bufferPool));
                 oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
                 oneOf(controller).kind(); will(returnValue(Controller.class));
                 oneOf(nukleus).name(); will(returnValue("nukleus-name"));
@@ -203,7 +232,7 @@ public class ReaktorTest
                 errorHandler,
                 new Nukleus[]{nukleus},
                 new Controller[]{controller},
-                bufferPool,
+                singleton(state),
                 "reaktor");
         reaktor.start();
         try

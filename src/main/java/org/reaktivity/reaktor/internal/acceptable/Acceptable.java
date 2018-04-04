@@ -41,6 +41,7 @@ import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 import org.reaktivity.reaktor.internal.Context;
+import org.reaktivity.reaktor.internal.State;
 import org.reaktivity.reaktor.internal.buffer.CountingBufferPool;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
 import org.reaktivity.reaktor.internal.router.ReferenceKind;
@@ -67,12 +68,9 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
         Context context,
         Router router,
         String sourceName,
-        LongSupplier supplyStreamId,
-        LongSupplier supplyTrace,
-        LongSupplier supplyGroupId,
+        State state,
         LongFunction<IntUnaryOperator> groupBudgetClaimer,
         LongFunction<IntUnaryOperator> groupBudgetReleaser,
-        Supplier<BufferPool> supplyBufferPool,
         Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder,
         boolean timestamps,
         AtomicLong correlations)
@@ -91,7 +89,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
         final AtomicCounter acquires = context.counters().acquires();
         final AtomicCounter releases = context.counters().releases();
         Supplier<BufferPool> supplyCountingBufferPool =
-                () -> new CountingBufferPool(supplyBufferPool.get(), acquires::increment, releases::increment);
+                () -> new CountingBufferPool(state.supplyBufferPool().get(), acquires::increment, releases::increment);
         for (RouteKind kind : EnumSet.allOf(RouteKind.class))
         {
             final ReferenceKind refKind = ReferenceKind.valueOf(kind);
@@ -102,9 +100,9 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
                 StreamFactory streamFactory = streamFactoryBuilder
                         .setRouteManager(this)
                         .setWriteBuffer(writeBuffer)
-                        .setStreamIdSupplier(supplyStreamId)
-                        .setTraceSupplier(supplyTrace)
-                        .setGroupIdSupplier(supplyGroupId)
+                        .setStreamIdSupplier(state.supplyStreamId())
+                        .setTraceSupplier(state.supplyTrace())
+                        .setGroupIdSupplier(state.supplyGroupId())
                         .setGroupBudgetClaimer(groupBudgetClaimer)
                         .setGroupBudgetReleaser(groupBudgetReleaser)
                         .setCorrelationIdSupplier(supplyCorrelationId)

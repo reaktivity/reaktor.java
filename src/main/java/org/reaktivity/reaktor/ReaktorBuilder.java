@@ -19,7 +19,9 @@ import static java.util.Objects.requireNonNull;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.LongSupplier;
+import java.util.Set;
+import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
@@ -33,11 +35,11 @@ import org.reaktivity.nukleus.ControllerFactory;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.NukleusBuilder;
 import org.reaktivity.nukleus.NukleusFactory;
-import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.reaktor.internal.ControllerBuilderImpl;
 import org.reaktivity.reaktor.internal.NukleusBuilderImpl;
 import org.reaktivity.reaktor.internal.ReaktorConfiguration;
-import org.reaktivity.reaktor.internal.buffer.DefaultBufferPool;
+import org.reaktivity.reaktor.internal.State;
+import org.reaktivity.reaktor.internal.StateImpl;
 
 public class ReaktorBuilder
 {
@@ -111,25 +113,22 @@ public class ReaktorBuilder
         final ReaktorConfiguration config = new ReaktorConfiguration(this.config != null ? this.config : new Configuration());
         final NukleusFactory nukleusFactory = supplyNukleusFactory.get();
 
-        // TODO: bufferPool per thread
-        final int bufferPoolCapacity = config.bufferPoolCapacity();
-        final int bufferSlotCapacity = config.bufferSlotCapacity();
-        final DefaultBufferPool bufferPool = new DefaultBufferPool(bufferPoolCapacity, bufferSlotCapacity);
-        final Supplier<BufferPool> supplyBufferPool = () -> bufferPool;
-        final long[] streamId = new long[1];
-        final long[] groupId = new long[1];
-        final long[] traceId = new long[1];
-        final LongSupplier supplyStreamId = () -> ++streamId[0];
-        final LongSupplier supplyTrace = () -> ++traceId[0];
-        final LongSupplier supplyGroupId = () -> ++groupId[0];
+        final AtomicInteger index = new AtomicInteger();
+        final Set<State> states = new ConcurrentSkipListSet<State>();
+        final Supplier<State> initialState = () ->
+        {
+            final State state = new StateImpl(config, index.getAndIncrement());
+            states.add(state);
+            return state;
+        };
+        final Supplier<State> supplyState = ThreadLocal.withInitial(initialState)::get;
 
         Nukleus[] nuklei = new Nukleus[0];
         for (String name : nukleusFactory.names())
         {
             if (nukleusMatcher.test(name))
             {
-                NukleusBuilder builder = new NukleusBuilderImpl(config, name, supplyBufferPool, supplyStreamId,
-                        supplyTrace, supplyGroupId);
+                NukleusBuilder builder = new NukleusBuilderImpl(config, name, supplyState);
                 Nukleus nukleus = nukleusFactory.create(name, config, builder);
                 nuklei = ArrayUtil.add(nuklei, nukleus);
             }
@@ -161,6 +160,6 @@ public class ReaktorBuilder
         }
         ErrorHandler errorHandler = requireNonNull(this.errorHandler, "errorHandler");
 
-        return new Reaktor(idleStrategy, errorHandler, nuklei, controllers, bufferPool, roleName);
+        return new Reaktor(idleStrategy, errorHandler, nuklei, controllers, states, roleName);
     }
 }

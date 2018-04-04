@@ -24,14 +24,12 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.LongSupplier;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import org.agrona.collections.Int2ObjectHashMap;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.NukleusBuilder;
-import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.function.CommandHandler;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteKind;
@@ -47,10 +45,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
 {
     private final ReaktorConfiguration config;
     private final String name;
-    private final Supplier<BufferPool> supplyBufferPool;
-    private final LongSupplier supplyStreamId;
-    private final LongSupplier supplyTrace;
-    private final LongSupplier supplyGroupId;
+    private final Supplier<State> supplyState;
     private final Int2ObjectHashMap<CommandHandler> commandHandlersByTypeId;
     private final Map<Role, MessagePredicate> routeHandlers;
     private final Map<RouteKind, StreamFactoryBuilder> streamFactoryBuilders;
@@ -63,17 +58,11 @@ public class NukleusBuilderImpl implements NukleusBuilder
     public NukleusBuilderImpl(
         ReaktorConfiguration config,
         String name,
-        Supplier<BufferPool> supplyBufferPool,
-        LongSupplier supplyStreamId,
-        LongSupplier supplyGroupId,
-        LongSupplier supplyTrace)
+        Supplier<State> supplyState)
     {
         this.config = config;
         this.name = name;
-        this.supplyBufferPool = supplyBufferPool;
-        this.supplyStreamId = supplyStreamId;
-        this.supplyTrace = supplyTrace;
-        this.supplyGroupId = supplyGroupId;
+        this.supplyState = supplyState;
         this.commandHandlersByTypeId = new Int2ObjectHashMap<>();
         this.routeHandlers = new EnumMap<>(Role.class);
         this.streamFactoryBuilders = new EnumMap<>(RouteKind.class);
@@ -180,6 +169,8 @@ public class NukleusBuilderImpl implements NukleusBuilder
         Router router = new Router(context);
         Acceptor acceptor = new Acceptor(context);
 
+        State state = supplyState.get();
+
         conductor.setAcceptor(acceptor);
         conductor.setCommandHandlerSupplier(commandHandlersByTypeId::get);
         router.setAcceptor(acceptor);
@@ -187,10 +178,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
         router.setLayoutTarget(layoutTarget);
         acceptor.setConductor(conductor);
         acceptor.setRouter(router);
-        acceptor.setBufferPoolSupplier(supplyBufferPool);
-        acceptor.setStreamIdSupplier(supplyStreamId);
-        acceptor.setGroupIdSupplier(supplyGroupId);
-        acceptor.setTraceSupplier(supplyTrace);
+        acceptor.setState(state);
         acceptor.setStreamFactoryBuilderSupplier(streamFactoryBuilders::get);
         acceptor.setTimestamps(timestamps);
         acceptor.setRouteHandlerSupplier(routeHandlers::get);
