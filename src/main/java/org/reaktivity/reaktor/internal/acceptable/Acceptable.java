@@ -61,7 +61,6 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
     private final Map<String, Source> sourcesByName;
     private final Map<String, Target> targetsByName;
     private final Function<RouteKind, StreamFactory> supplyStreamFactory;
-    private final int abortTypeId;
     private final boolean timestamps;
 
     public Acceptable(
@@ -75,7 +74,6 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
         LongFunction<IntUnaryOperator> groupBudgetReleaser,
         Supplier<BufferPool> supplyBufferPool,
         Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder,
-        int abortTypeId,
         boolean timestamps,
         AtomicLong correlations)
     {
@@ -118,7 +116,6 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
             }
         }
         this.supplyStreamFactory = streamFactories::get;
-        this.abortTypeId = abortTypeId;
         this.timestamps = timestamps;
     }
 
@@ -189,7 +186,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
             .build();
 
         return include(new Source(context.name(), partitionName, layout, writeBuffer, streams, supplyStreamFactory,
-                                  abortTypeId, timestamps));
+                                  timestamps));
     }
 
     private Target supplyTargetInternal(
@@ -208,7 +205,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
                 .readonly(true)
                 .build();
 
-        return include(new Target(targetName, layout, abortTypeId, timestamps));
+        return include(new Target(targetName, layout, timestamps));
     }
 
     private void doAbort(
@@ -233,7 +230,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
                                      .streamId(streamId)
                                      .build();
 
-        stream.accept(abortTypeId, abort.buffer(), abort.offset(), abort.sizeof());
+        stream.accept(abort.typeId(), abort.buffer(), abort.offset(), abort.sizeof());
     }
 
     private void doReset(

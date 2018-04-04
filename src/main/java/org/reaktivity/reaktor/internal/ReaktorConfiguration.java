@@ -23,7 +23,6 @@ import java.nio.file.Paths;
 import java.util.Properties;
 
 import org.reaktivity.nukleus.Configuration;
-import org.reaktivity.reaktor.internal.types.stream.AbortFW;
 
 public class ReaktorConfiguration extends Configuration
 {
@@ -38,8 +37,6 @@ public class ReaktorConfiguration extends Configuration
     public static final String RESPONSE_BUFFER_CAPACITY_PROPERTY_NAME = "reaktor.response.buffer.capacity";
 
     public static final String COUNTERS_BUFFER_CAPACITY_PROPERTY_NAME = "reaktor.counters.buffer.capacity";
-
-    public static final String ABORT_STREAM_FRAME_TYPE_ID = "reaktor.abort.stream.frame.type.id";
 
     public static final String BUFFER_POOL_CAPACITY_PROPERTY = "reaktor.buffer.pool.capacity";
 
@@ -56,8 +53,6 @@ public class ReaktorConfiguration extends Configuration
     public static final String BACKOFF_IDLE_STRATEGY_MIN_PARK_PERIOD_NANOS = "reaktor.backoff.idle.strategy.min.park.period";
 
     public static final String BACKOFF_IDLE_STRATEGY_MAX_PARK_PERIOD_NANOS = "reaktor.backoff.idle.strategy.max.park.period";
-
-    public static final int ABORT_STREAM_EVENT_TYPE_ID_DEFAULT = AbortFW.TYPE_ID;
 
     public static final int BUFFER_SLOT_CAPACITY_DEFAULT = 65536;
 
@@ -108,11 +103,6 @@ public class ReaktorConfiguration extends Configuration
     public int bufferSlotCapacity()
     {
         return getInteger(BUFFER_SLOT_CAPACITY_PROPERTY, BUFFER_SLOT_CAPACITY_DEFAULT);
-    }
-
-    public int abortStreamEventTypeId()
-    {
-        return getInteger(ABORT_STREAM_FRAME_TYPE_ID, ABORT_STREAM_EVENT_TYPE_ID_DEFAULT);
     }
 
     public int maximumStreamsCount()

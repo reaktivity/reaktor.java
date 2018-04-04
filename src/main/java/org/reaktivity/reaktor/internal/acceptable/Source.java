@@ -57,7 +57,6 @@ public final class Source implements Nukleus
     private final Supplier<String> streamsDescriptor;
     private final Long2ObjectHashMap<MessageConsumer> streams;
     private final Function<RouteKind, StreamFactory> supplyStreamFactory;
-    private final int abortTypeId;
     private final boolean timestamps;
     private final MessageHandler readHandler;
     private final MessageConsumer writeHandler;
@@ -71,7 +70,6 @@ public final class Source implements Nukleus
         AtomicBuffer writeBuffer,
         Long2ObjectHashMap<MessageConsumer> streams,
         Function<RouteKind, StreamFactory> supplyStreamFactory,
-        int abortTypeId,
         boolean timestamps)
     {
         this.nukleusName = nukleusName;
@@ -79,7 +77,6 @@ public final class Source implements Nukleus
         this.layout = layout;
         this.writeBuffer = writeBuffer;
         this.supplyStreamFactory = supplyStreamFactory;
-        this.abortTypeId = abortTypeId;
         this.streamsDescriptor = layout::toString;
         this.streamsBuffer = layout.streamsBuffer()::read;
         this.throttleBuffer = layout.throttleBuffer()::write;
@@ -175,7 +172,7 @@ public final class Source implements Nukleus
                     streams.remove(streamId);
                     break;
                 case AbortFW.TYPE_ID:
-                    handler.accept(abortTypeId, buffer, index, length);
+                    handler.accept(msgTypeId, buffer, index, length);
                     streams.remove(streamId);
                     break;
                 default:

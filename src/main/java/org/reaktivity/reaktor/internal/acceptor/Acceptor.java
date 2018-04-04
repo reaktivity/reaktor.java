@@ -61,7 +61,6 @@ public final class Acceptor extends Nukleus.Composite
     private LongSupplier supplyTrace;
     private LongSupplier supplyGroupId;
     private Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder;
-    private int abortTypeId;
     private boolean timestamps;
     private Function<Role, MessagePredicate> supplyRouteHandler;
     private Predicate<RouteKind> allowZeroRouteRef;
@@ -118,12 +117,6 @@ public final class Acceptor extends Nukleus.Composite
         Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder)
     {
         this.supplyStreamFactoryBuilder = supplyStreamFactoryBuilder;
-    }
-
-    public void setAbortTypeId(
-        int abortTypeId)
-    {
-        this.abortTypeId = abortTypeId;
     }
 
     public void setTimestamps(
@@ -244,7 +237,6 @@ public final class Acceptor extends Nukleus.Composite
                 groupBudgetManager::release,
                 supplyBufferPool,
                 supplyStreamFactoryBuilder,
-                abortTypeId,
                 timestamps,
                 correlations);
 
