@@ -51,7 +51,6 @@ public final class Source implements Nukleus
 
     private final String nukleusName;
     private final String sourceName;
-    private final String partitionName;
     private final StreamsLayout layout;
     private final AtomicBuffer writeBuffer;
     private final ToIntFunction<MessageHandler> streamsBuffer;
@@ -68,7 +67,6 @@ public final class Source implements Nukleus
     Source(
         String nukleusName,
         String sourceName,
-        String partitionName,
         StreamsLayout layout,
         AtomicBuffer writeBuffer,
         Long2ObjectHashMap<MessageConsumer> streams,
@@ -78,7 +76,6 @@ public final class Source implements Nukleus
     {
         this.nukleusName = nukleusName;
         this.sourceName = sourceName;
-        this.partitionName = partitionName;
         this.layout = layout;
         this.writeBuffer = writeBuffer;
         this.supplyStreamFactory = supplyStreamFactory;
@@ -107,29 +104,13 @@ public final class Source implements Nukleus
     @Override
     public String name()
     {
-        return partitionName;
-    }
-
-    public String routableName()
-    {
         return sourceName;
     }
 
     @Override
     public String toString()
     {
-        return String.format("%s[name=%s]", getClass().getSimpleName(), partitionName);
-    }
-
-    public MessageConsumer writeHandler()
-    {
-        return writeHandler;
-    }
-
-    public void cleanup(
-        long streamId)
-    {
-        streams.remove(streamId);
+        return String.format("%s[name=%s]", getClass().getSimpleName(), sourceName);
     }
 
     private void handleWrite(
@@ -210,7 +191,7 @@ public final class Source implements Nukleus
         catch (Throwable ex)
         {
             ex.addSuppressed(new Exception(String.format("[%s/%s]\t[0x%016x] %s",
-                                                         nukleusName, partitionName, streamId, streamsDescriptor.get())));
+                                                         nukleusName, sourceName, streamId, streamsDescriptor.get())));
             rethrowUnchecked(ex);
         }
     }
