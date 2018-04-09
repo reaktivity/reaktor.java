@@ -15,6 +15,8 @@
  */
 package org.reaktivity.reaktor;
 
+import static java.lang.Integer.bitCount;
+import static java.lang.Integer.numberOfTrailingZeros;
 import static java.util.Objects.requireNonNull;
 
 import java.util.function.Predicate;
@@ -52,7 +54,7 @@ public class ReaktorBuilder
     {
         this.nukleusMatcher = n -> false;
         this.controllerMatcher = c -> false;
-        this.supplyAffinity = n -> 0;
+        this.supplyAffinity = n -> 1;
         this.supplyNukleusFactory = NukleusFactory::instantiate;
     }
 
@@ -137,7 +139,15 @@ public class ReaktorBuilder
         {
             if (nukleusMatcher.test(name))
             {
-                int affinity = supplyAffinity.applyAsInt(name);
+                int affinityMask = supplyAffinity.applyAsInt(name);
+
+                if (bitCount(affinityMask) != 1)
+                {
+                    throw new IllegalStateException(String.format("affinity mask for must specify exactly one core: %s %d",
+                                                                  name, affinityMask));
+                }
+
+                int affinity = numberOfTrailingZeros(affinityMask);
                 StateImpl state = states[affinity];
 
                 NukleusBuilder builder = new NukleusBuilderImpl(config, name, state);
