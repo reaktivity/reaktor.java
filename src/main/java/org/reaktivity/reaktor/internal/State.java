@@ -15,18 +15,23 @@
  */
 package org.reaktivity.reaktor.internal;
 
-import java.util.function.LongSupplier;
-import java.util.function.Supplier;
+import java.util.List;
 
+import org.reaktivity.nukleus.Controller;
+import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.buffer.BufferPool;
 
 public interface State
 {
-    LongSupplier supplyStreamId();
+    BufferPool bufferPool();
 
-    Supplier<BufferPool> supplyBufferPool();
+    long supplyStreamId();
 
-    LongSupplier supplyTrace();
+    long supplyTrace();
 
-    LongSupplier supplyGroupId();
+    long supplyGroupId();
+
+    List<? extends Nukleus> nuklei();
+
+    List<? extends Controller> controllers();
 }

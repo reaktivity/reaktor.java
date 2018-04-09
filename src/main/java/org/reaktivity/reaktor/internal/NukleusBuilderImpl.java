@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 
 import org.agrona.collections.Int2ObjectHashMap;
 import org.reaktivity.nukleus.Nukleus;
@@ -45,7 +44,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
 {
     private final ReaktorConfiguration config;
     private final String name;
-    private final Supplier<State> supplyState;
+    private final State state;
     private final Int2ObjectHashMap<CommandHandler> commandHandlersByTypeId;
     private final Map<Role, MessagePredicate> routeHandlers;
     private final Map<RouteKind, StreamFactoryBuilder> streamFactoryBuilders;
@@ -58,11 +57,11 @@ public class NukleusBuilderImpl implements NukleusBuilder
     public NukleusBuilderImpl(
         ReaktorConfiguration config,
         String name,
-        Supplier<State> supplyState)
+        State state)
     {
         this.config = config;
         this.name = name;
-        this.supplyState = supplyState;
+        this.state = state;
         this.commandHandlersByTypeId = new Int2ObjectHashMap<>();
         this.routeHandlers = new EnumMap<>(Role.class);
         this.streamFactoryBuilders = new EnumMap<>(RouteKind.class);
@@ -168,8 +167,6 @@ public class NukleusBuilderImpl implements NukleusBuilder
         Conductor conductor = new Conductor(context);
         Router router = new Router(context);
         Acceptor acceptor = new Acceptor(context);
-
-        State state = supplyState.get();
 
         conductor.setAcceptor(acceptor);
         conductor.setCommandHandlerSupplier(commandHandlersByTypeId::get);

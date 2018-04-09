@@ -15,62 +15,81 @@
  */
 package org.reaktivity.reaktor.internal;
 
-import java.util.function.LongSupplier;
-import java.util.function.Supplier;
+import static java.lang.Integer.numberOfTrailingZeros;
+import static org.agrona.BitUtil.findNextPositivePowerOfTwo;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import org.reaktivity.nukleus.Controller;
+import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.reaktor.internal.buffer.DefaultBufferPool;
 
 public final class StateImpl implements State, Comparable<StateImpl>
 {
     private final int index;
-    private final LongSupplier supplyStreamId;
-    private final Supplier<BufferPool> supplyBufferPool;
-    private final LongSupplier supplyTrace;
-    private final LongSupplier supplyGroupId;
+    private final BufferPool bufferPool;
+    private final long mask;
+    private final List<Nukleus> nuklei;
+    private final List<Controller> controllers;
+
+    private long streamId;
+    private long traceId;
+    private long groupId;
 
     public StateImpl(
-        ReaktorConfiguration config,
-        int index)
+        int index,
+        int count,
+        ReaktorConfiguration config)
     {
         final int bufferPoolCapacity = config.bufferPoolCapacity();
         final int bufferSlotCapacity = config.bufferSlotCapacity();
         final BufferPool bufferPool = new DefaultBufferPool(bufferPoolCapacity, bufferSlotCapacity);
 
-        final long mask = index << 60;
-        final long[] streamId = new long[1];
-        final long[] groupId = new long[1];
-        final long[] traceId = new long[1];
+        final int reserved = numberOfTrailingZeros(findNextPositivePowerOfTwo(count));
+        final int bits = Long.SIZE - reserved;
+        final long initial = ((long) index) << bits;
+        final long mask = initial | (-1L >>> reserved);
 
         this.index = index;
-        this.supplyBufferPool = () -> bufferPool;
-        this.supplyStreamId = () -> ++streamId[0] | mask;
-        this.supplyTrace = () -> ++traceId[0] | mask;
-        this.supplyGroupId = () -> ++groupId[0] | mask;
+        this.mask = mask;
+        this.bufferPool = bufferPool;
+        this.streamId = initial;
+        this.traceId = initial;
+        this.groupId = initial;
+        this.nuklei = new ArrayList<>();
+        this.controllers = new ArrayList<>();
     }
 
     @Override
-    public LongSupplier supplyStreamId()
+    public BufferPool bufferPool()
     {
-        return supplyStreamId;
+        return bufferPool;
     }
 
     @Override
-    public Supplier<BufferPool> supplyBufferPool()
+    public long supplyStreamId()
     {
-        return supplyBufferPool;
+        streamId++;
+        streamId &= mask;
+        return streamId;
     }
 
     @Override
-    public LongSupplier supplyTrace()
+    public long supplyTrace()
     {
-        return supplyTrace;
+        traceId++;
+        traceId &= mask;
+        return traceId;
     }
 
     @Override
-    public LongSupplier supplyGroupId()
+    public long supplyGroupId()
     {
-        return supplyGroupId;
+        groupId++;
+        groupId &= mask;
+        return groupId;
     }
 
     @Override
@@ -102,5 +121,27 @@ public final class StateImpl implements State, Comparable<StateImpl>
         StateImpl that)
     {
         return this.index - that.index;
+    }
+
+    public void assign(
+        Nukleus nukleus)
+    {
+        nuklei.add(nukleus);
+    }
+
+    public List<? extends Nukleus> nuklei()
+    {
+        return nuklei;
+    }
+
+    public void assign(
+        Controller controller)
+    {
+        controllers.add(controller);
+    }
+
+    public List<? extends Controller> controllers()
+    {
+        return controllers;
     }
 }
