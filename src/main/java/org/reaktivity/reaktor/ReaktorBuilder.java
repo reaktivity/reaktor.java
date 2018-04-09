@@ -42,7 +42,7 @@ public class ReaktorBuilder
     private Configuration config;
     private Predicate<String> nukleusMatcher;
     private Predicate<String> controllerMatcher;
-    private ToIntFunction<String> supplyAffinity;
+    private ToIntFunction<String> affinityMask;
     private IdleStrategy idleStrategy;
     private ErrorHandler errorHandler;
     private Supplier<NukleusFactory> supplyNukleusFactory;
@@ -54,7 +54,7 @@ public class ReaktorBuilder
     {
         this.nukleusMatcher = n -> false;
         this.controllerMatcher = c -> false;
-        this.supplyAffinity = n -> 1;
+        this.affinityMask = n -> 1;
         this.supplyNukleusFactory = NukleusFactory::instantiate;
     }
 
@@ -88,10 +88,10 @@ public class ReaktorBuilder
         return this;
     }
 
-    public ReaktorBuilder affinity(
-        ToIntFunction<String> supplyAffinity)
+    public ReaktorBuilder affinityMask(
+        ToIntFunction<String> affinityMask)
     {
-        this.supplyAffinity = supplyAffinity;
+        this.affinityMask = affinityMask;
         return this;
     }
 
@@ -139,15 +139,7 @@ public class ReaktorBuilder
         {
             if (nukleusMatcher.test(name))
             {
-                int affinityMask = supplyAffinity.applyAsInt(name);
-
-                if (bitCount(affinityMask) != 1)
-                {
-                    throw new IllegalStateException(String.format("affinity mask for must specify exactly one core: %s %d",
-                                                                  name, affinityMask));
-                }
-
-                int affinity = numberOfTrailingZeros(affinityMask);
+                int affinity = supplyAffinity(name);
                 StateImpl state = states[affinity];
 
                 NukleusBuilder builder = new NukleusBuilderImpl(config, name, state);
@@ -163,7 +155,7 @@ public class ReaktorBuilder
             final String name = controllerFactory.name(kind);
             if (controllerMatcher.test(name))
             {
-                int affinity = supplyAffinity.applyAsInt(name);
+                int affinity = supplyAffinity(name);
                 StateImpl state = states[affinity];
 
                 ControllerBuilderImpl<? extends Controller> builder = new ControllerBuilderImpl<>(config, kind);
@@ -185,5 +177,19 @@ public class ReaktorBuilder
         ErrorHandler errorHandler = requireNonNull(this.errorHandler, "errorHandler");
 
         return new Reaktor(idleStrategy, errorHandler, states, t -> roleName);
+    }
+
+    private int supplyAffinity(
+        String name)
+    {
+        int mask = affinityMask.applyAsInt(name);
+
+        if (bitCount(mask) != 1)
+        {
+            throw new IllegalStateException(String.format("affinity mask for must specify exactly one core: %s %d",
+                                                          name, mask));
+        }
+
+        return numberOfTrailingZeros(mask);
     }
 }
