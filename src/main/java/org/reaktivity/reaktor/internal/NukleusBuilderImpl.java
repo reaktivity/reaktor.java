@@ -18,19 +18,17 @@ package org.reaktivity.reaktor.internal;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
+import java.io.Closeable;
 import java.util.EnumMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.LongSupplier;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 
 import org.agrona.collections.Int2ObjectHashMap;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.NukleusBuilder;
-import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.function.CommandHandler;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteKind;
@@ -46,10 +44,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
 {
     private final ReaktorConfiguration config;
     private final String name;
-    private final Supplier<BufferPool> supplyBufferPool;
-    private final LongSupplier supplyStreamId;
-    private final LongSupplier supplyTrace;
-    private final LongSupplier supplyGroupId;
+    private final State state;
     private final Int2ObjectHashMap<CommandHandler> commandHandlersByTypeId;
     private final Map<Role, MessagePredicate> routeHandlers;
     private final Map<RouteKind, StreamFactoryBuilder> streamFactoryBuilders;
@@ -62,17 +57,11 @@ public class NukleusBuilderImpl implements NukleusBuilder
     public NukleusBuilderImpl(
         ReaktorConfiguration config,
         String name,
-        Supplier<BufferPool> supplyBufferPool,
-        LongSupplier supplyStreamId,
-        LongSupplier supplyGroupId,
-        LongSupplier supplyTrace)
+        State state)
     {
         this.config = config;
         this.name = name;
-        this.supplyBufferPool = supplyBufferPool;
-        this.supplyStreamId = supplyStreamId;
-        this.supplyTrace = supplyTrace;
-        this.supplyGroupId = supplyGroupId;
+        this.state = state;
         this.commandHandlersByTypeId = new Int2ObjectHashMap<>();
         this.routeHandlers = new EnumMap<>(Role.class);
         this.streamFactoryBuilders = new EnumMap<>(RouteKind.class);
@@ -173,7 +162,6 @@ public class NukleusBuilderImpl implements NukleusBuilder
         Context context = new Context();
         context.name(name).conclude(config);
 
-        final int abortTypeId = config.abortStreamEventTypeId();
         final boolean timestamps = config.timestamps();
 
         Conductor conductor = new Conductor(context);
@@ -187,12 +175,8 @@ public class NukleusBuilderImpl implements NukleusBuilder
         router.setLayoutTarget(layoutTarget);
         acceptor.setConductor(conductor);
         acceptor.setRouter(router);
-        acceptor.setBufferPoolSupplier(supplyBufferPool);
-        acceptor.setStreamIdSupplier(supplyStreamId);
-        acceptor.setGroupIdSupplier(supplyGroupId);
-        acceptor.setTraceSupplier(supplyTrace);
+        acceptor.setState(state);
         acceptor.setStreamFactoryBuilderSupplier(streamFactoryBuilders::get);
-        acceptor.setAbortTypeId(abortTypeId);
         acceptor.setTimestamps(timestamps);
         acceptor.setRouteHandlerSupplier(routeHandlers::get);
         acceptor.setAllowZeroRouteRef(allowZeroRouteRef);
@@ -207,19 +191,19 @@ public class NukleusBuilderImpl implements NukleusBuilder
     private static final class NukleusImpl extends Nukleus.Composite
     {
         private final String name;
-        private final Context context;
+        private final Closeable cleanup;
         private final Runnable handleFreeze;
 
         NukleusImpl(
             String name,
             Conductor conductor,
             Acceptor acceptor,
-            Context context,
+            Context cleanup,
             List<Nukleus> components)
         {
             super(conductor, acceptor);
             this.name = name;
-            this.context = context;
+            this.cleanup = cleanup;
             this.handleFreeze = () -> exclude(conductor);
 
             components.forEach(this::include);
@@ -235,7 +219,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
         public void close() throws Exception
         {
             super.close();
-            context.close();
+            cleanup.close();
         }
 
         public void freeze()

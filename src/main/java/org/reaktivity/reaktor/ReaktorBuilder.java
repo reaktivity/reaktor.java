@@ -17,14 +17,11 @@ package org.reaktivity.reaktor;
 
 import static java.util.Objects.requireNonNull;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.function.LongSupplier;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.function.ToIntFunction;
 
 import org.agrona.ErrorHandler;
-import org.agrona.collections.ArrayUtil;
 import org.agrona.concurrent.BackoffIdleStrategy;
 import org.agrona.concurrent.IdleStrategy;
 import org.reaktivity.nukleus.Configuration;
@@ -33,26 +30,29 @@ import org.reaktivity.nukleus.ControllerFactory;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.NukleusBuilder;
 import org.reaktivity.nukleus.NukleusFactory;
-import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.reaktor.internal.ControllerBuilderImpl;
 import org.reaktivity.reaktor.internal.NukleusBuilderImpl;
 import org.reaktivity.reaktor.internal.ReaktorConfiguration;
-import org.reaktivity.reaktor.internal.buffer.DefaultBufferPool;
+import org.reaktivity.reaktor.internal.StateImpl;
 
 public class ReaktorBuilder
 {
     private Configuration config;
     private Predicate<String> nukleusMatcher;
     private Predicate<String> controllerMatcher;
+    private ToIntFunction<String> supplyAffinity;
     private IdleStrategy idleStrategy;
     private ErrorHandler errorHandler;
     private Supplier<NukleusFactory> supplyNukleusFactory;
+
     private String roleName = "reaktor";
+    private int threads = 1;
 
     ReaktorBuilder()
     {
-        this.nukleusMatcher = x -> false;
-        this.controllerMatcher = x -> false;
+        this.nukleusMatcher = n -> false;
+        this.controllerMatcher = c -> false;
+        this.supplyAffinity = n -> 0;
         this.supplyNukleusFactory = NukleusFactory::instantiate;
     }
 
@@ -63,17 +63,33 @@ public class ReaktorBuilder
         return this;
     }
 
+    public ReaktorBuilder threads(
+        int threads)
+    {
+        this.threads = threads;
+        return this;
+    }
+
     public ReaktorBuilder nukleus(
         Predicate<String> matcher)
     {
-        this.nukleusMatcher = requireNonNull(matcher);
+        requireNonNull(matcher);
+        this.nukleusMatcher = n -> matcher.test(n);
         return this;
     }
 
     public ReaktorBuilder controller(
         Predicate<String> matcher)
     {
-        this.controllerMatcher = requireNonNull(matcher);
+        requireNonNull(matcher);
+        this.controllerMatcher = c -> matcher.test(c);
+        return this;
+    }
+
+    public ReaktorBuilder affinity(
+        ToIntFunction<String> supplyAffinity)
+    {
+        this.supplyAffinity = supplyAffinity;
         return this;
     }
 
@@ -109,44 +125,41 @@ public class ReaktorBuilder
     public Reaktor build()
     {
         final ReaktorConfiguration config = new ReaktorConfiguration(this.config != null ? this.config : new Configuration());
+
+        final StateImpl[] states = new StateImpl[threads];
+        for (int thread=0; thread < threads; thread++)
+        {
+            states[thread] = new StateImpl(thread, threads, config);
+        }
+
         final NukleusFactory nukleusFactory = supplyNukleusFactory.get();
-
-        // TODO: bufferPool per thread
-        final int bufferPoolCapacity = config.bufferPoolCapacity();
-        final int bufferSlotCapacity = config.bufferSlotCapacity();
-        final DefaultBufferPool bufferPool = new DefaultBufferPool(bufferPoolCapacity, bufferSlotCapacity);
-        final Supplier<BufferPool> supplyBufferPool = () -> bufferPool;
-        final long[] streamId = new long[1];
-        final long[] groupId = new long[1];
-        final long[] traceId = new long[1];
-        final LongSupplier supplyStreamId = () -> ++streamId[0];
-        final LongSupplier supplyTrace = () -> ++traceId[0];
-        final LongSupplier supplyGroupId = () -> ++groupId[0];
-
-        Nukleus[] nuklei = new Nukleus[0];
         for (String name : nukleusFactory.names())
         {
             if (nukleusMatcher.test(name))
             {
-                NukleusBuilder builder = new NukleusBuilderImpl(config, name, supplyBufferPool, supplyStreamId,
-                        supplyTrace, supplyGroupId);
+                int affinity = supplyAffinity.applyAsInt(name);
+                StateImpl state = states[affinity];
+
+                NukleusBuilder builder = new NukleusBuilderImpl(config, name, state);
                 Nukleus nukleus = nukleusFactory.create(name, config, builder);
-                nuklei = ArrayUtil.add(nuklei, nukleus);
+
+                state.assign(nukleus);
             }
         }
 
         ControllerFactory controllerFactory = ControllerFactory.instantiate();
-
-        Controller[] controllers = new Controller[0];
-        Map<Class<? extends Controller>, Controller> controllersByKind = new HashMap<>();
         for (Class<? extends Controller> kind : controllerFactory.kinds())
         {
-            if (controllerMatcher.test(controllerFactory.name(kind)))
+            final String name = controllerFactory.name(kind);
+            if (controllerMatcher.test(name))
             {
+                int affinity = supplyAffinity.applyAsInt(name);
+                StateImpl state = states[affinity];
+
                 ControllerBuilderImpl<? extends Controller> builder = new ControllerBuilderImpl<>(config, kind);
                 Controller controller = controllerFactory.create(config, builder);
-                controllersByKind.put(kind, controller);
-                controllers = ArrayUtil.add(controllers, controller);
+
+                state.assign(controller);
             }
         }
 
@@ -161,6 +174,6 @@ public class ReaktorBuilder
         }
         ErrorHandler errorHandler = requireNonNull(this.errorHandler, "errorHandler");
 
-        return new Reaktor(idleStrategy, errorHandler, nuklei, controllers, bufferPool, roleName);
+        return new Reaktor(idleStrategy, errorHandler, states, t -> roleName);
     }
 }

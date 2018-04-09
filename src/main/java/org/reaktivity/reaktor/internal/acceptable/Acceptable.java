@@ -41,6 +41,7 @@ import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 import org.reaktivity.reaktor.internal.Context;
+import org.reaktivity.reaktor.internal.State;
 import org.reaktivity.reaktor.internal.buffer.CountingBufferPool;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
 import org.reaktivity.reaktor.internal.router.ReferenceKind;
@@ -61,21 +62,16 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
     private final Map<String, Source> sourcesByName;
     private final Map<String, Target> targetsByName;
     private final Function<RouteKind, StreamFactory> supplyStreamFactory;
-    private final int abortTypeId;
     private final boolean timestamps;
 
     public Acceptable(
         Context context,
         Router router,
         String sourceName,
-        LongSupplier supplyStreamId,
-        LongSupplier supplyTrace,
-        LongSupplier supplyGroupId,
+        State state,
         LongFunction<IntUnaryOperator> groupBudgetClaimer,
         LongFunction<IntUnaryOperator> groupBudgetReleaser,
-        Supplier<BufferPool> supplyBufferPool,
         Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder,
-        int abortTypeId,
         boolean timestamps,
         AtomicLong correlations)
     {
@@ -92,8 +88,8 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
         final Function<String, LongConsumer> supplyAccumulator = name -> (i) -> context.counters().counter(name).add(i);
         final AtomicCounter acquires = context.counters().acquires();
         final AtomicCounter releases = context.counters().releases();
-        Supplier<BufferPool> supplyCountingBufferPool =
-                () -> new CountingBufferPool(supplyBufferPool.get(), acquires::increment, releases::increment);
+        final BufferPool bufferPool = new CountingBufferPool(state.bufferPool(), acquires::increment, releases::increment);
+        final Supplier<BufferPool> supplyCountingBufferPool = () -> bufferPool;
         for (RouteKind kind : EnumSet.allOf(RouteKind.class))
         {
             final ReferenceKind refKind = ReferenceKind.valueOf(kind);
@@ -104,9 +100,9 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
                 StreamFactory streamFactory = streamFactoryBuilder
                         .setRouteManager(this)
                         .setWriteBuffer(writeBuffer)
-                        .setStreamIdSupplier(supplyStreamId)
-                        .setTraceSupplier(supplyTrace)
-                        .setGroupIdSupplier(supplyGroupId)
+                        .setStreamIdSupplier(state::supplyStreamId)
+                        .setTraceSupplier(state::supplyTrace)
+                        .setGroupIdSupplier(state::supplyGroupId)
                         .setGroupBudgetClaimer(groupBudgetClaimer)
                         .setGroupBudgetReleaser(groupBudgetReleaser)
                         .setCorrelationIdSupplier(supplyCorrelationId)
@@ -118,7 +114,6 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
             }
         }
         this.supplyStreamFactory = streamFactories::get;
-        this.abortTypeId = abortTypeId;
         this.timestamps = timestamps;
     }
 
@@ -188,8 +183,8 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
             .readonly(false)
             .build();
 
-        return include(new Source(context.name(), sourceName, partitionName, layout, writeBuffer, streams,
-                                  supplyStreamFactory, abortTypeId, timestamps));
+        return include(new Source(context.name(), partitionName, layout, writeBuffer, streams, supplyStreamFactory,
+                                  timestamps));
     }
 
     private Target supplyTargetInternal(
@@ -208,7 +203,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
                 .readonly(true)
                 .build();
 
-        return include(new Target(targetName, layout, abortTypeId, timestamps));
+        return include(new Target(targetName, layout, timestamps));
     }
 
     private void doAbort(
@@ -233,7 +228,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
                                      .streamId(streamId)
                                      .build();
 
-        stream.accept(abortTypeId, abort.buffer(), abort.offset(), abort.sizeof());
+        stream.accept(abort.typeId(), abort.buffer(), abort.offset(), abort.sizeof());
     }
 
     private void doReset(
