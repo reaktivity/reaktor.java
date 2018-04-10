@@ -176,7 +176,7 @@ public class ReaktorBuilder
         }
         ErrorHandler errorHandler = requireNonNull(this.errorHandler, "errorHandler");
 
-        return new Reaktor(idleStrategy, errorHandler, states, t -> roleName);
+        return new Reaktor(idleStrategy, errorHandler, states, t -> String.format("%s%d", roleName, t));
     }
 
     private int supplyAffinity(
