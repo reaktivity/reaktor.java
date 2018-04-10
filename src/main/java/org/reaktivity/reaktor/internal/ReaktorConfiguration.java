@@ -90,6 +90,13 @@ public class ReaktorConfiguration extends Configuration
         super(properties);
     }
 
+    public ReaktorConfiguration(
+        Configuration config,
+        Properties defaultOverrides)
+    {
+        super(config, defaultOverrides);
+    }
+
     public final Path directory()
     {
         return Paths.get(getProperty(DIRECTORY_PROPERTY_NAME, "."));
