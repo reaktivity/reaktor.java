@@ -27,15 +27,12 @@ import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
+import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Long2ObjectHashMap;
-import org.agrona.concurrent.AtomicBuffer;
-import org.agrona.concurrent.UnsafeBuffer;
 import org.agrona.concurrent.status.AtomicCounter;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.function.MessageConsumer;
-import org.reaktivity.nukleus.function.MessageFunction;
-import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteKind;
 import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
@@ -45,28 +42,24 @@ import org.reaktivity.reaktor.internal.State;
 import org.reaktivity.reaktor.internal.buffer.CountingBufferPool;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
 import org.reaktivity.reaktor.internal.router.ReferenceKind;
-import org.reaktivity.reaktor.internal.router.Router;
 import org.reaktivity.reaktor.internal.types.stream.AbortFW;
-import org.reaktivity.reaktor.internal.types.stream.ResetFW;
 
-public final class Acceptable extends Nukleus.Composite implements RouteManager
+public final class Acceptable extends Nukleus.Composite
 {
     private final AbortFW.Builder abortRW = new AbortFW.Builder();
-    private final ResetFW.Builder resetRW = new ResetFW.Builder();
 
     private final Context context;
-    private final Router router;
     private final String sourceName;
-    private final AtomicBuffer writeBuffer;
+    private final MutableDirectBuffer writeBuffer;
     private final Long2ObjectHashMap<MessageConsumer> streams;
     private final Map<String, Source> sourcesByName;
-    private final Map<String, Target> targetsByName;
     private final Function<RouteKind, StreamFactory> supplyStreamFactory;
     private final boolean timestamps;
 
     public Acceptable(
         Context context,
-        Router router,
+        MutableDirectBuffer writeBuffer,
+        RouteManager router,
         String sourceName,
         State state,
         LongFunction<IntUnaryOperator> groupBudgetClaimer,
@@ -76,12 +69,10 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
         AtomicLong correlations)
     {
         this.context = context;
-        this.router = router;
         this.sourceName = sourceName;
-        this.writeBuffer = new UnsafeBuffer(new byte[context.maxMessageLength()]);
+        this.writeBuffer = writeBuffer;
         this.streams = new Long2ObjectHashMap<>();
         this.sourcesByName = new HashMap<>();
-        this.targetsByName = new HashMap<>();
 
         final Map<RouteKind, StreamFactory> streamFactories = new EnumMap<>(RouteKind.class);
         final Function<String, LongSupplier> supplyCounter = name -> () -> context.counters().counter(name).increment() + 1;
@@ -98,7 +89,7 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
             if (streamFactoryBuilder != null)
             {
                 StreamFactory streamFactory = streamFactoryBuilder
-                        .setRouteManager(this)
+                        .setRouteManager(router)
                         .setWriteBuffer(writeBuffer)
                         .setStreamIdSupplier(state::supplyStreamId)
                         .setTraceSupplier(state::supplyTrace)
@@ -126,11 +117,8 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
     @Override
     public void close() throws Exception
     {
-        targetsByName.forEach(this::doAbort);
         sourcesByName.forEach(this::doReset);
-
         streams.forEach(this::doAbort);
-        targetsByName.forEach(this::doReset);
 
         super.close();
     }
@@ -139,38 +127,6 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
         String sourceName)
     {
         return sourcesByName.computeIfAbsent(sourceName, this::newSource);
-    }
-
-    @Override
-    public <R> R resolve(
-        long authorization,
-        MessagePredicate filter,
-        MessageFunction<R> mapper)
-    {
-        return router.resolve(authorization, filter, mapper);
-    }
-
-    @Override
-    public void forEach(
-        MessageConsumer consumer)
-    {
-        router.foreach(consumer);
-    }
-
-    @Override
-    public MessageConsumer supplyTarget(
-        String targetName)
-    {
-        return supplyTargetInternal(targetName).writeHandler();
-    }
-
-    @Override
-    public void setThrottle(
-        String targetName,
-        long streamId,
-        MessageConsumer throttle)
-    {
-        supplyTargetInternal(targetName).setThrottle(streamId, throttle);
     }
 
     private Source newSource(
@@ -185,32 +141,6 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
 
         return include(new Source(context.name(), partitionName, layout, writeBuffer, streams, supplyStreamFactory,
                                   timestamps));
-    }
-
-    private Target supplyTargetInternal(
-        String targetName)
-    {
-        return targetsByName.computeIfAbsent(targetName, this::newTarget);
-    }
-
-    private Target newTarget(
-        String targetName)
-    {
-        StreamsLayout layout = new StreamsLayout.Builder()
-                .path(context.targetStreamsPath().apply(targetName))
-                .streamsCapacity(context.streamsBufferCapacity())
-                .throttleCapacity(context.throttleBufferCapacity())
-                .readonly(true)
-                .build();
-
-        return include(new Target(targetName, layout, timestamps));
-    }
-
-    private void doAbort(
-        String targetName,
-        Target target)
-    {
-        target.abort();
     }
 
     private void doReset(
@@ -229,23 +159,5 @@ public final class Acceptable extends Nukleus.Composite implements RouteManager
                                      .build();
 
         stream.accept(abort.typeId(), abort.buffer(), abort.offset(), abort.sizeof());
-    }
-
-    private void doReset(
-        String targetName,
-        Target target)
-    {
-        target.reset(this::doReset);
-    }
-
-    private void doReset(
-        long throttleId,
-        MessageConsumer throttle)
-    {
-        final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                                     .streamId(throttleId)
-                                     .build();
-
-        throttle.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
     }
 }
