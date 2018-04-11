@@ -17,7 +17,6 @@ package org.reaktivity.reaktor.internal.acceptable;
 
 import java.util.EnumMap;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
@@ -52,9 +51,9 @@ public final class Acceptable extends Nukleus.Composite
     private final String sourceName;
     private final MutableDirectBuffer writeBuffer;
     private final Long2ObjectHashMap<MessageConsumer> streams;
-    private final Map<String, Source> sourcesByName;
     private final Function<RouteKind, StreamFactory> supplyStreamFactory;
     private final boolean timestamps;
+    private final Source source;
 
     public Acceptable(
         Context context,
@@ -72,7 +71,6 @@ public final class Acceptable extends Nukleus.Composite
         this.sourceName = sourceName;
         this.writeBuffer = writeBuffer;
         this.streams = new Long2ObjectHashMap<>();
-        this.sourcesByName = new HashMap<>();
 
         final Map<RouteKind, StreamFactory> streamFactories = new EnumMap<>(RouteKind.class);
         final Function<String, LongSupplier> supplyCounter = name -> () -> context.counters().counter(name).increment() + 1;
@@ -106,6 +104,7 @@ public final class Acceptable extends Nukleus.Composite
         }
         this.supplyStreamFactory = streamFactories::get;
         this.timestamps = timestamps;
+        this.source = newSource(sourceName);
     }
 
     @Override
@@ -117,29 +116,23 @@ public final class Acceptable extends Nukleus.Composite
     @Override
     public void close() throws Exception
     {
-        sourcesByName.forEach(this::doReset);
+        doReset(sourceName, source);
         streams.forEach(this::doAbort);
 
         super.close();
     }
 
-    public Source supplySource(
+    private Source newSource(
         String sourceName)
     {
-        return sourcesByName.computeIfAbsent(sourceName, this::newSource);
-    }
-
-    private Source newSource(
-        String partitionName)
-    {
         StreamsLayout layout = new StreamsLayout.Builder()
-            .path(context.sourceStreamsPath().apply(partitionName))
+            .path(context.sourceStreamsPath().apply(sourceName))
             .streamsCapacity(context.streamsBufferCapacity())
             .throttleCapacity(context.throttleBufferCapacity())
             .readonly(false)
             .build();
 
-        return include(new Source(context.name(), partitionName, layout, writeBuffer, streams, supplyStreamFactory,
+        return include(new Source(context.name(), sourceName, layout, writeBuffer, streams, supplyStreamFactory,
                                   timestamps));
     }
 

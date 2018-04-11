@@ -274,7 +274,7 @@ public final class Acceptor extends Nukleus.Composite implements RouteManager
     private Acceptable newAcceptable(
         String sourceName)
     {
-        final Acceptable acceptable = new Acceptable(
+        return include(new Acceptable(
                 context,
                 writeBuffer,
                 this,
@@ -284,11 +284,7 @@ public final class Acceptor extends Nukleus.Composite implements RouteManager
                 groupBudgetManager::release,
                 supplyStreamFactoryBuilder,
                 timestamps,
-                correlations);
-
-        acceptable.supplySource(sourceName);
-
-        return include(acceptable);
+                correlations));
     }
 
     private RouteFW generateSourceRefIfNecessary(
