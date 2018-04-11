@@ -43,7 +43,7 @@ import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
 import org.reaktivity.reaktor.internal.router.ReferenceKind;
 import org.reaktivity.reaktor.internal.types.stream.AbortFW;
 
-public final class Acceptable extends Nukleus.Composite
+public final class Acceptable implements Nukleus
 {
     private final AbortFW.Builder abortRW = new AbortFW.Builder();
 
@@ -114,12 +114,18 @@ public final class Acceptable extends Nukleus.Composite
     }
 
     @Override
+    public int process()
+    {
+        return source.process();
+    }
+
+    @Override
     public void close() throws Exception
     {
         doReset(sourceName, source);
         streams.forEach(this::doAbort);
 
-        super.close();
+        source.close();
     }
 
     private Source newSource(
@@ -132,8 +138,7 @@ public final class Acceptable extends Nukleus.Composite
             .readonly(false)
             .build();
 
-        return include(new Source(context.name(), sourceName, layout, writeBuffer, streams, supplyStreamFactory,
-                                  timestamps));
+        return new Source(context.name(), sourceName, layout, writeBuffer, streams, supplyStreamFactory, timestamps);
     }
 
     private void doReset(
