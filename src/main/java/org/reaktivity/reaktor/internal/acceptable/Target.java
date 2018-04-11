@@ -173,12 +173,12 @@ public final class Target implements Nukleus
         }
     }
 
-    void abort()
+    public void abort()
     {
         streamsBuffer = (t, b, i, l) -> true;
     }
 
-    void reset(
+    public void reset(
         BiConsumer<Long, MessageConsumer> resetHandler)
     {
         throttles.forEach(resetHandler);

@@ -25,7 +25,6 @@ import java.util.function.ToIntFunction;
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Long2ObjectHashMap;
-import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.MessageHandler;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.function.MessageConsumer;
@@ -52,7 +51,7 @@ public final class Source implements Nukleus
     private final String nukleusName;
     private final String sourceName;
     private final StreamsLayout layout;
-    private final AtomicBuffer writeBuffer;
+    private final MutableDirectBuffer writeBuffer;
     private final ToIntFunction<MessageHandler> streamsBuffer;
     private final Supplier<String> streamsDescriptor;
     private final Long2ObjectHashMap<MessageConsumer> streams;
@@ -67,7 +66,7 @@ public final class Source implements Nukleus
         String nukleusName,
         String sourceName,
         StreamsLayout layout,
-        AtomicBuffer writeBuffer,
+        MutableDirectBuffer writeBuffer,
         Long2ObjectHashMap<MessageConsumer> streams,
         Function<RouteKind, StreamFactory> supplyStreamFactory,
         boolean timestamps)

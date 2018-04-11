@@ -186,7 +186,7 @@ public final class Router
         return result;
     }
 
-    public void foreach(
+    public void forEach(
         MessageConsumer consumer)
     {
         RouteTableFW routeTable = routeTableRO.wrap(routesBuffer, 0, routesBufferCapacity);
@@ -196,7 +196,6 @@ public final class Router
             consumer.accept(route.typeId(), route.buffer(), route.offset(), route.sizeof());
         });
     }
-
 
     private static boolean routeMatchesUnroute(
         MessagePredicate routeHandler,

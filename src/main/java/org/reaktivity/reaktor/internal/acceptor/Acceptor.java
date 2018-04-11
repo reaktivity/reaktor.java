@@ -27,13 +27,18 @@ import org.agrona.MutableDirectBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.agrona.concurrent.status.AtomicCounter;
 import org.reaktivity.nukleus.Nukleus;
+import org.reaktivity.nukleus.function.MessageConsumer;
+import org.reaktivity.nukleus.function.MessageFunction;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteKind;
+import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 import org.reaktivity.reaktor.internal.Context;
 import org.reaktivity.reaktor.internal.State;
 import org.reaktivity.reaktor.internal.acceptable.Acceptable;
+import org.reaktivity.reaktor.internal.acceptable.Target;
 import org.reaktivity.reaktor.internal.conductor.Conductor;
+import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
 import org.reaktivity.reaktor.internal.router.ReferenceKind;
 import org.reaktivity.reaktor.internal.router.Router;
 import org.reaktivity.reaktor.internal.types.OctetsFW;
@@ -41,13 +46,17 @@ import org.reaktivity.reaktor.internal.types.StringFW;
 import org.reaktivity.reaktor.internal.types.control.Role;
 import org.reaktivity.reaktor.internal.types.control.RouteFW;
 import org.reaktivity.reaktor.internal.types.control.UnrouteFW;
+import org.reaktivity.reaktor.internal.types.stream.ResetFW;
 
-public final class Acceptor extends Nukleus.Composite
+public final class Acceptor extends Nukleus.Composite implements RouteManager
 {
     private final RouteFW.Builder routeRW = new RouteFW.Builder();
+    private final ResetFW.Builder resetRW = new ResetFW.Builder();
 
     private final Context context;
+    private final MutableDirectBuffer writeBuffer;
     private final Map<String, Acceptable> acceptables;
+    private final Map<String, Target> targetsByName;
     private final AtomicCounter routeRefs;
     private final MutableDirectBuffer routeBuf;
     private final GroupBudgetManager groupBudgetManager;
@@ -65,8 +74,10 @@ public final class Acceptor extends Nukleus.Composite
         Context context)
     {
         this.context = context;
+        this.writeBuffer = new UnsafeBuffer(new byte[context.maxMessageLength()]);
         this.routeRefs = context.counters().routes();
         this.acceptables = new HashMap<>();
+        this.targetsByName = new HashMap<>();
         this.routeBuf = new UnsafeBuffer(ByteBuffer.allocateDirect(context.maxControlCommandLength()));
         this.correlations  = new AtomicLong();
         this.groupBudgetManager = new GroupBudgetManager();
@@ -118,6 +129,66 @@ public final class Acceptor extends Nukleus.Composite
     public String name()
     {
         return "acceptor";
+    }
+
+    @Override
+    public void close() throws Exception
+    {
+        targetsByName.forEach(this::doAbort);
+        targetsByName.forEach(this::doReset);
+
+        super.close();
+    }
+
+    @Override
+    public <R> R resolve(
+        long authorization,
+        MessagePredicate filter,
+        MessageFunction<R> mapper)
+    {
+        return router.resolve(authorization, filter, mapper);
+    }
+
+    @Override
+    public void forEach(
+        MessageConsumer consumer)
+    {
+        router.forEach(consumer);
+    }
+
+    @Override
+    public MessageConsumer supplyTarget(
+        String targetName)
+    {
+        return supplyTargetInternal(targetName).writeHandler();
+    }
+
+    @Override
+    public void setThrottle(
+        String targetName,
+        long streamId,
+        MessageConsumer throttle)
+    {
+        supplyTargetInternal(targetName).setThrottle(streamId, throttle);
+    }
+
+    private Target supplyTargetInternal(
+        String targetName)
+    {
+        return targetsByName.computeIfAbsent(targetName, this::newTarget);
+    }
+
+    private Target newTarget(
+        String targetName)
+    {
+        StreamsLayout layout = new StreamsLayout.Builder()
+                .path(context.targetStreamsPath().apply(targetName))
+                .streamsCapacity(context.streamsBufferCapacity())
+                .throttleCapacity(context.throttleBufferCapacity())
+                .readonly(true)
+                .build();
+
+        return include(new Target(targetName, layout, timestamps));
     }
 
     public void doRoute(
@@ -205,7 +276,8 @@ public final class Acceptor extends Nukleus.Composite
     {
         final Acceptable acceptable = new Acceptable(
                 context,
-                router,
+                writeBuffer,
+                this,
                 sourceName,
                 state,
                 groupBudgetManager::claim,
@@ -246,5 +318,30 @@ public final class Acceptor extends Nukleus.Composite
         }
 
         return route;
+    }
+
+    private void doAbort(
+        String targetName,
+        Target target)
+    {
+        target.abort();
+    }
+
+    private void doReset(
+        String targetName,
+        Target target)
+    {
+        target.reset(this::doReset);
+    }
+
+    private void doReset(
+        long throttleId,
+        MessageConsumer throttle)
+    {
+        final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                                     .streamId(throttleId)
+                                     .build();
+
+        throttle.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
     }
 }
