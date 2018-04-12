@@ -452,6 +452,7 @@ public final class Router extends Nukleus.Composite implements RouteManager
         unroute.target().asString().equals(route.target().asString()) &&
         unroute.targetRef() == route.targetRef() &&
         unroute.authorization() == route.authorization() &&
+        unroute.extension().equals(route. extension()) &&
         routeHandler.test(UnrouteFW.TYPE_ID, route.buffer(), route.offset(), route.limit());
     }
 
