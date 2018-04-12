@@ -15,53 +15,122 @@
  */
 package org.reaktivity.reaktor.internal.router;
 
+import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 import org.agrona.DirectBuffer;
+import org.agrona.LangUtil;
 import org.agrona.MutableDirectBuffer;
+import org.agrona.concurrent.UnsafeBuffer;
+import org.agrona.concurrent.status.AtomicCounter;
+import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessageFunction;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteKind;
+import org.reaktivity.nukleus.route.RouteManager;
+import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 import org.reaktivity.reaktor.internal.Context;
-import org.reaktivity.reaktor.internal.acceptor.Acceptor;
+import org.reaktivity.reaktor.internal.State;
+import org.reaktivity.reaktor.internal.conductor.Conductor;
 import org.reaktivity.reaktor.internal.layouts.RoutesLayout;
+import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
 import org.reaktivity.reaktor.internal.types.ListFW;
 import org.reaktivity.reaktor.internal.types.OctetsFW;
+import org.reaktivity.reaktor.internal.types.StringFW;
 import org.reaktivity.reaktor.internal.types.control.Role;
 import org.reaktivity.reaktor.internal.types.control.RouteFW;
 import org.reaktivity.reaktor.internal.types.control.UnrouteFW;
 import org.reaktivity.reaktor.internal.types.state.RouteEntryFW;
 import org.reaktivity.reaktor.internal.types.state.RouteTableFW;
+import org.reaktivity.reaktor.internal.types.stream.ResetFW;
 
-public final class Router
+public final class Router extends Nukleus.Composite implements RouteManager
 {
+    private final RouteFW routeRO = new RouteFW();
+    private final RouteTableFW routeTableRO = new RouteTableFW();
+
+    private final RouteFW.Builder routeRW = new RouteFW.Builder();
+    private final RouteTableFW.Builder routeTableRW = new RouteTableFW.Builder();
+
+    private final ResetFW.Builder resetRW = new ResetFW.Builder();
+
+    private final Context context;
+    private final MutableDirectBuffer writeBuffer;
+    private final Map<String, Source> sourcesByName;
+    private final Map<String, Target> targetsByName;
+    private final AtomicCounter routeRefs;
+    private final MutableDirectBuffer routeBuf;
+    private final AtomicLong correlations;
+    private final GroupBudgetManager groupBudgetManager;
+
     private final RoutesLayout routesLayout;
-    private final RouteTableFW.Builder routeTableRW;
-    private final RouteTableFW routeTableRO;
     private final MutableDirectBuffer routesBuffer;
     private final int routesBufferCapacity;
-    private final RouteFW routeRO;
 
-    private Acceptor acceptor;
+    private Conductor conductor;
+    private State state;
+    private Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder;
+    private boolean timestamps;
+    private Function<Role, MessagePredicate> supplyRouteHandler;
+    private Predicate<RouteKind> allowZeroRouteRef;
     private Predicate<RouteKind> layoutSource;
     private Predicate<RouteKind> layoutTarget;
 
     public Router(
         Context context)
     {
+        this.context = context;
+        this.writeBuffer = new UnsafeBuffer(new byte[context.maxMessageLength()]);
+        this.routeRefs = context.counters().routes();
+        this.sourcesByName = new HashMap<>();
+        this.targetsByName = new HashMap<>();
+        this.routeBuf = new UnsafeBuffer(ByteBuffer.allocateDirect(context.maxControlCommandLength()));
+        this.correlations  = new AtomicLong();
+        this.groupBudgetManager = new GroupBudgetManager();
         this.routesLayout = context.routesLayout();
-        this.routeTableRW = new RouteTableFW.Builder();
-        this.routeTableRO = new RouteTableFW();
-        this.routeRO = new RouteFW();
         this.routesBuffer = routesLayout.routesBuffer();
         this.routesBufferCapacity = routesLayout.capacity();
     }
 
-    public void setAcceptor(
-        Acceptor acceptor)
+    public void setConductor(
+        Conductor conductor)
     {
-        this.acceptor = acceptor;
+        this.conductor = conductor;
+    }
+
+    public void setState(
+        State state)
+    {
+        this.state = state;
+    }
+
+    public void setStreamFactoryBuilderSupplier(
+        Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder)
+    {
+        this.supplyStreamFactoryBuilder = supplyStreamFactoryBuilder;
+    }
+
+    public void setTimestamps(
+        boolean timestamps)
+    {
+        this.timestamps = timestamps;
+    }
+
+    public void setRouteHandlerSupplier(
+        Function<Role, MessagePredicate> supplyRouteHandler)
+    {
+        this.supplyRouteHandler = supplyRouteHandler;
+    }
+
+    public void setAllowZeroRouteRef(
+        Predicate<RouteKind> allowZeroRouteRef)
+    {
+        this.allowZeroRouteRef = allowZeroRouteRef;
     }
 
     public void setLayoutSource(
@@ -76,7 +145,146 @@ public final class Router
         this.layoutTarget = layoutTarget;
     }
 
-    public boolean doRoute(
+    @Override
+    public void close() throws Exception
+    {
+        targetsByName.forEach(this::doAbort);
+        targetsByName.forEach(this::doReset);
+
+        super.close();
+    }
+
+    @Override
+    public MessageConsumer supplyTarget(
+        String targetName)
+    {
+        return supplyTargetInternal(targetName).writeHandler();
+    }
+
+    @Override
+    public void setThrottle(
+        String targetName,
+        long streamId,
+        MessageConsumer throttle)
+    {
+        supplyTargetInternal(targetName).setThrottle(streamId, throttle);
+    }
+
+    public void doRoute(
+        RouteFW route)
+    {
+        try
+        {
+            Role role = route.role().get();
+            MessagePredicate routeHandler = supplyRouteHandler.apply(role);
+
+            if (!allowZeroRouteRef.test(RouteKind.valueOf(role.ordinal())))
+            {
+                route = generateSourceRefIfNecessary(route);
+                final long sourceRef = route.sourceRef();
+                MessagePredicate defaultHandler = (t, b, i, l) -> ReferenceKind.resolve(sourceRef).ordinal() == role.ordinal();
+                if (routeHandler == null)
+                {
+                    routeHandler = defaultHandler;
+                }
+                else
+                {
+                    routeHandler = defaultHandler.and(routeHandler);
+                }
+            }
+
+            if (routeHandler == null)
+            {
+                routeHandler = (t, b, i, l) -> true;
+            }
+
+            if (doRouteInternal(route, routeHandler))
+            {
+                conductor.onRouted(route.correlationId(), route.sourceRef());
+            }
+            else
+            {
+                conductor.onError(route.correlationId());
+            }
+        }
+        catch (Exception ex)
+        {
+            conductor.onError(route.correlationId());
+            LangUtil.rethrowUnchecked(ex);
+        }
+    }
+
+    public void doUnroute(
+        UnrouteFW unroute)
+    {
+        final long correlationId = unroute.correlationId();
+
+        try
+        {
+            Role role = unroute.role().get();
+            MessagePredicate routeHandler = supplyRouteHandler.apply(role);
+            if (routeHandler == null)
+            {
+                routeHandler = (t, b, i, l) -> true;
+            }
+
+            if (doUnrouteInternal(unroute, routeHandler))
+            {
+                conductor.onUnrouted(correlationId);
+            }
+            else
+            {
+                conductor.onError(correlationId);
+            }
+        }
+        catch (Exception ex)
+        {
+            conductor.onError(correlationId);
+            LangUtil.rethrowUnchecked(ex);
+        }
+    }
+
+    @Override
+    public <R> R resolve(
+        final long authorization,
+        MessagePredicate filter,
+        MessageFunction<R> mapper)
+    {
+        RouteTableFW routeTable = routeTableRO.wrap(routesBuffer, 0, routesBufferCapacity);
+        RouteEntryFW routeEntry = routeTable.routeEntries().matchFirst(re ->
+        {
+            final RouteFW candidate = wrapRoute(re, routeRO);
+            final int typeId = candidate.typeId();
+            final DirectBuffer buffer = candidate.buffer();
+            final int offset = candidate.offset();
+            final int length = candidate.sizeof();
+            final long routeAuthorization = candidate.authorization();
+            return filter.test(typeId, buffer, offset, offset + length) &&
+            (authorization & routeAuthorization) == routeAuthorization;
+        });
+
+        R result = null;
+        if (routeEntry != null)
+        {
+            final RouteFW route = wrapRoute(routeEntry, routeRO);
+            result = mapper.apply(route.typeId(), route.buffer(), route.offset(), route.sizeof());
+        }
+        return result;
+    }
+
+    @Override
+    public void forEach(
+        MessageConsumer consumer)
+    {
+        RouteTableFW routeTable = routeTableRO.wrap(routesBuffer, 0, routesBufferCapacity);
+        routeTable.routeEntries().forEach(re ->
+        {
+            final RouteFW route = wrapRoute(re, routeRO);
+            consumer.accept(route.typeId(), route.buffer(), route.offset(), route.sizeof());
+        });
+    }
+
+    private boolean doRouteInternal(
         RouteFW route,
         MessagePredicate routeHandler)
     {
@@ -113,13 +321,13 @@ public final class Router
             if (layoutSource.test(kind))
             {
                 String sourceName = route.source().asString();
-                acceptor.supplySource(sourceName);
+                supplySource(sourceName);
             }
 
             if (layoutTarget.test(kind))
             {
                 String targetName = route.target().asString();
-                acceptor.supplySource(targetName);
+                supplySource(targetName);
             }
 
             routesLayout.unlock();
@@ -128,7 +336,8 @@ public final class Router
         return routed;
     }
 
-    public boolean doUnroute(
+
+    private boolean doUnrouteInternal(
         UnrouteFW unroute,
         MessagePredicate routeHandler)
     {
@@ -159,42 +368,99 @@ public final class Router
         return beforeSize > afterSize;
     }
 
-    public <R> R resolve(
-        final long authorization,
-        MessagePredicate filter,
-        MessageFunction<R> mapper)
+    private Target supplyTargetInternal(
+        String targetName)
     {
-        RouteTableFW routeTable = routeTableRO.wrap(routesBuffer, 0, routesBufferCapacity);
-        RouteEntryFW routeEntry = routeTable.routeEntries().matchFirst(re ->
-        {
-            final RouteFW candidate = wrapRoute(re, routeRO);
-            final int typeId = candidate.typeId();
-            final DirectBuffer buffer = candidate.buffer();
-            final int offset = candidate.offset();
-            final int length = candidate.sizeof();
-            final long routeAuthorization = candidate.authorization();
-            return filter.test(typeId, buffer, offset, offset + length) &&
-            (authorization & routeAuthorization) == routeAuthorization;
-        });
-
-        R result = null;
-        if (routeEntry != null)
-        {
-            final RouteFW route = wrapRoute(routeEntry, routeRO);
-            result = mapper.apply(route.typeId(), route.buffer(), route.offset(), route.sizeof());
-        }
-        return result;
+        return targetsByName.computeIfAbsent(targetName, this::newTarget);
     }
 
-    public void forEach(
-        MessageConsumer consumer)
+    private Target newTarget(
+        String targetName)
     {
-        RouteTableFW routeTable = routeTableRO.wrap(routesBuffer, 0, routesBufferCapacity);
-        routeTable.routeEntries().forEach(re ->
+        StreamsLayout layout = new StreamsLayout.Builder()
+                .path(context.targetStreamsPath().apply(targetName))
+                .streamsCapacity(context.streamsBufferCapacity())
+                .throttleCapacity(context.throttleBufferCapacity())
+                .readonly(true)
+                .build();
+
+        return include(new Target(targetName, layout, timestamps));
+    }
+
+    private void doAbort(
+        String targetName,
+        Target target)
+    {
+        target.abort();
+    }
+
+    private void doReset(
+        String targetName,
+        Target target)
+    {
+        target.reset(this::doReset);
+    }
+
+    private void doReset(
+        long throttleId,
+        MessageConsumer throttle)
+    {
+        final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                                     .streamId(throttleId)
+                                     .build();
+
+        throttle.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
+    }
+
+    private Source supplySource(
+        String sourceName)
+    {
+        return sourcesByName.computeIfAbsent(sourceName, this::newSource);
+    }
+
+    private Source newSource(
+        String sourceName)
+    {
+        return include(new Source(
+                context,
+                writeBuffer,
+                this,
+                sourceName,
+                state,
+                groupBudgetManager::claim,
+                groupBudgetManager::release,
+                supplyStreamFactoryBuilder,
+                timestamps,
+                correlations));
+    }
+
+    private RouteFW generateSourceRefIfNecessary(
+        RouteFW route)
+    {
+        if (route.sourceRef() == 0L)
         {
-            final RouteFW route = wrapRoute(re, routeRO);
-            consumer.accept(route.typeId(), route.buffer(), route.offset(), route.sizeof());
-        });
+            final Role role = route.role().get();
+            final ReferenceKind routeKind = ReferenceKind.valueOf(role);
+            final long newSourceRef = routeKind.nextRef(routeRefs);
+            final StringFW source = route.source();
+            final StringFW target = route.target();
+            final long targetRef = route.targetRef();
+            final long authorization = route.authorization();
+            final OctetsFW extension = route.extension();
+
+            route = routeRW.wrap(routeBuf, 0, routeBuf.capacity())
+                           .correlationId(route.correlationId())
+                           .role(b -> b.set(role))
+                           .source(source)
+                           .sourceRef(newSourceRef)
+                           .target(target)
+                           .targetRef(targetRef)
+                           .authorization(authorization)
+                           .extension(b -> b.set(extension))
+                           .build();
+        }
+
+        return route;
     }
 
     private static boolean routeMatchesUnroute(

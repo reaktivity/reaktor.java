@@ -28,7 +28,7 @@ import org.agrona.concurrent.ringbuffer.RingBuffer;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.function.CommandHandler;
 import org.reaktivity.reaktor.internal.Context;
-import org.reaktivity.reaktor.internal.acceptor.Acceptor;
+import org.reaktivity.reaktor.internal.router.Router;
 import org.reaktivity.reaktor.internal.types.control.ErrorFW;
 import org.reaktivity.reaktor.internal.types.control.FrameFW;
 import org.reaktivity.reaktor.internal.types.control.FreezeFW;
@@ -55,7 +55,7 @@ public final class Conductor implements Nukleus
     private final MutableDirectBuffer sendBuffer;
     private final MessageHandler commandHandler;
 
-    private Acceptor acceptor;
+    private Router router;
     private IntFunction<CommandHandler> commandHandlerSupplier;
     private Runnable handleFreeze;
     private long freezeId;
@@ -70,10 +70,10 @@ public final class Conductor implements Nukleus
         this.freezeId = -1L;
     }
 
-    public void setAcceptor(
-        Acceptor acceptor)
+    public void setRouter(
+        Router router)
     {
-        this.acceptor = acceptor;
+        this.router = router;
     }
 
     public void onError(
@@ -168,11 +168,11 @@ public final class Conductor implements Nukleus
         {
         case RouteFW.TYPE_ID:
             final RouteFW route = routeRO.wrap(buffer, index, index + length);
-            acceptor.doRoute(route);
+            router.doRoute(route);
             break;
         case UnrouteFW.TYPE_ID:
             final UnrouteFW unroute = unrouteRO.wrap(buffer, index, index + length);
-            acceptor.doUnroute(unroute);
+            router.doUnroute(unroute);
             break;
         case FreezeFW.TYPE_ID:
             final FreezeFW freeze = freezeRO.wrap(buffer, index, index + length);
