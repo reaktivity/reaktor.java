@@ -13,7 +13,7 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.reaktor.internal.acceptable;
+package org.reaktivity.reaktor.internal.acceptor;
 
 import static org.reaktivity.reaktor.internal.types.stream.FrameFW.FIELD_OFFSET_TIMESTAMP;
 
@@ -36,7 +36,7 @@ import org.reaktivity.reaktor.internal.types.stream.FrameFW;
 import org.reaktivity.reaktor.internal.types.stream.ResetFW;
 import org.reaktivity.reaktor.internal.types.stream.WindowFW;
 
-public final class Target implements Nukleus
+final class Target implements Nukleus
 {
     private final FrameFW frameRO = new FrameFW();
 
@@ -50,7 +50,7 @@ public final class Target implements Nukleus
     private ToIntFunction<MessageHandler> throttleBuffer;
     private MessagePredicate streamsBuffer;
 
-    public Target(
+    Target(
         String name,
         StreamsLayout layout,
         boolean timestamps)

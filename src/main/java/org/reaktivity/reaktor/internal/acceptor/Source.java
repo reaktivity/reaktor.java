@@ -13,7 +13,7 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.reaktor.internal.acceptable;
+package org.reaktivity.reaktor.internal.acceptor;
 
 import static org.agrona.LangUtil.rethrowUnchecked;
 import static org.reaktivity.reaktor.internal.types.stream.FrameFW.FIELD_OFFSET_TIMESTAMP;
@@ -56,7 +56,7 @@ import org.reaktivity.reaktor.internal.types.stream.FrameFW;
 import org.reaktivity.reaktor.internal.types.stream.ResetFW;
 import org.reaktivity.reaktor.internal.types.stream.WindowFW;
 
-public final class Acceptable implements Nukleus
+final class Source implements Nukleus
 {
     private final FrameFW frameRO = new FrameFW();
     private final BeginFW beginRO = new BeginFW();
@@ -79,7 +79,7 @@ public final class Acceptable implements Nukleus
 
     private MessagePredicate throttleBuffer;
 
-    public Acceptable(
+    Source(
         Context context,
         MutableDirectBuffer writeBuffer,
         RouteManager router,

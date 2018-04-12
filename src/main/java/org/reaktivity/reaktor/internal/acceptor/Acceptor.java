@@ -35,8 +35,6 @@ import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 import org.reaktivity.reaktor.internal.Context;
 import org.reaktivity.reaktor.internal.State;
-import org.reaktivity.reaktor.internal.acceptable.Acceptable;
-import org.reaktivity.reaktor.internal.acceptable.Target;
 import org.reaktivity.reaktor.internal.conductor.Conductor;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
 import org.reaktivity.reaktor.internal.router.ReferenceKind;
@@ -55,7 +53,7 @@ public final class Acceptor extends Nukleus.Composite implements RouteManager
 
     private final Context context;
     private final MutableDirectBuffer writeBuffer;
-    private final Map<String, Acceptable> acceptables;
+    private final Map<String, Source> sourcesByName;
     private final Map<String, Target> targetsByName;
     private final AtomicCounter routeRefs;
     private final MutableDirectBuffer routeBuf;
@@ -76,7 +74,7 @@ public final class Acceptor extends Nukleus.Composite implements RouteManager
         this.context = context;
         this.writeBuffer = new UnsafeBuffer(new byte[context.maxMessageLength()]);
         this.routeRefs = context.counters().routes();
-        this.acceptables = new HashMap<>();
+        this.sourcesByName = new HashMap<>();
         this.targetsByName = new HashMap<>();
         this.routeBuf = new UnsafeBuffer(ByteBuffer.allocateDirect(context.maxControlCommandLength()));
         this.correlations  = new AtomicLong();
@@ -265,16 +263,16 @@ public final class Acceptor extends Nukleus.Composite implements RouteManager
         }
     }
 
-    public Acceptable supplyAcceptable(
+    public Source supplyAcceptable(
         String sourceName)
     {
-        return acceptables.computeIfAbsent(sourceName, this::newAcceptable);
+        return sourcesByName.computeIfAbsent(sourceName, this::newSource);
     }
 
-    private Acceptable newAcceptable(
+    private Source newSource(
         String sourceName)
     {
-        return include(new Acceptable(
+        return include(new Source(
                 context,
                 writeBuffer,
                 this,
