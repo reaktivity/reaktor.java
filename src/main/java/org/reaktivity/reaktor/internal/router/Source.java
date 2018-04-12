@@ -64,7 +64,7 @@ final class Source implements Nukleus
     private final ResetFW.Builder resetRW = new ResetFW.Builder();
 
     private final String nukleusName;
-    private final String sourceName;
+    private final String name;
     private final StreamsLayout layout;
     private final MutableDirectBuffer writeBuffer;
     private final ToIntFunction<MessageHandler> streamsBuffer;
@@ -91,7 +91,7 @@ final class Source implements Nukleus
         AtomicLong correlations)
     {
         this.nukleusName = context.name();
-        this.sourceName = sourceName;
+        this.name = sourceName;
         this.writeBuffer = writeBuffer;
         this.streams = new Long2ObjectHashMap<>();
         this.timestamps = timestamps;
@@ -146,7 +146,7 @@ final class Source implements Nukleus
     @Override
     public String name()
     {
-        return sourceName;
+        return name;
     }
 
     @Override
@@ -168,7 +168,7 @@ final class Source implements Nukleus
     @Override
     public String toString()
     {
-        return String.format("%s[name=%s]", getClass().getSimpleName(), sourceName);
+        return String.format("%s (read)", name);
     }
 
     private void handleWrite(
@@ -249,7 +249,7 @@ final class Source implements Nukleus
         catch (Throwable ex)
         {
             ex.addSuppressed(new Exception(String.format("[%s/%s]\t[0x%016x] %s",
-                                                         nukleusName, sourceName, streamId, streamsDescriptor.get())));
+                                                         nukleusName, name, streamId, streamsDescriptor.get())));
             rethrowUnchecked(ex);
         }
     }

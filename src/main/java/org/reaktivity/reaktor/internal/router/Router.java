@@ -146,6 +146,12 @@ public final class Router extends Nukleus.Composite implements RouteManager
     }
 
     @Override
+    public String name()
+    {
+        return "router";
+    }
+
+    @Override
     public void close() throws Exception
     {
         targetsByName.forEach(this::doAbort);

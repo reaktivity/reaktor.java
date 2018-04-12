@@ -140,6 +140,12 @@ public final class Conductor implements Nukleus
         return work;
     }
 
+    @Override
+    public String toString()
+    {
+        return name();
+    }
+
     public void setCommandHandlerSupplier(
         IntFunction<CommandHandler> commandHandlerSupplier)
     {

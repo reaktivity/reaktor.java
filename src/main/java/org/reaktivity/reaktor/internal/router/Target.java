@@ -86,7 +86,7 @@ final class Target implements Nukleus
     @Override
     public String toString()
     {
-        return name;
+        return String.format("%s (write)", name);
     }
 
     public void setThrottle(
