@@ -263,7 +263,7 @@ public final class Acceptor extends Nukleus.Composite implements RouteManager
         }
     }
 
-    public Source supplyAcceptable(
+    public Source supplySource(
         String sourceName)
     {
         return sourcesByName.computeIfAbsent(sourceName, this::newSource);

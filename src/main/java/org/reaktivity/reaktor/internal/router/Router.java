@@ -113,13 +113,13 @@ public final class Router
             if (layoutSource.test(kind))
             {
                 String sourceName = route.source().asString();
-                acceptor.supplyAcceptable(sourceName);
+                acceptor.supplySource(sourceName);
             }
 
             if (layoutTarget.test(kind))
             {
                 String targetName = route.target().asString();
-                acceptor.supplyAcceptable(targetName);
+                acceptor.supplySource(targetName);
             }
 
             routesLayout.unlock();
