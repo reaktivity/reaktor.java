@@ -47,7 +47,6 @@ import org.reaktivity.reaktor.internal.types.control.RouteFW;
 import org.reaktivity.reaktor.internal.types.control.UnrouteFW;
 import org.reaktivity.reaktor.internal.types.state.RouteEntryFW;
 import org.reaktivity.reaktor.internal.types.state.RouteTableFW;
-import org.reaktivity.reaktor.internal.types.stream.ResetFW;
 
 public final class Router extends Nukleus.Composite implements RouteManager
 {
@@ -56,8 +55,6 @@ public final class Router extends Nukleus.Composite implements RouteManager
 
     private final RouteFW.Builder routeRW = new RouteFW.Builder();
     private final RouteTableFW.Builder routeTableRW = new RouteTableFW.Builder();
-
-    private final ResetFW.Builder resetRW = new ResetFW.Builder();
 
     private final Context context;
     private final MutableDirectBuffer writeBuffer;
@@ -149,15 +146,6 @@ public final class Router extends Nukleus.Composite implements RouteManager
     public String name()
     {
         return "router";
-    }
-
-    @Override
-    public void close() throws Exception
-    {
-        super.close();
-
-        targetsByName.forEach(this::doAbort);
-        targetsByName.forEach(this::doReset);
     }
 
     @Override
@@ -374,6 +362,15 @@ public final class Router extends Nukleus.Composite implements RouteManager
         return beforeSize > afterSize;
     }
 
+    @Override
+    public void close() throws Exception
+    {
+        sourcesByName.forEach((k, v) -> v.detach());
+        targetsByName.forEach((k, v) -> v.detach());
+
+        super.close();
+    }
+
     private Target supplyTargetInternal(
         String targetName)
     {
@@ -390,32 +387,7 @@ public final class Router extends Nukleus.Composite implements RouteManager
                 .readonly(true)
                 .build();
 
-        return include(new Target(targetName, layout, timestamps));
-    }
-
-    private void doAbort(
-        String targetName,
-        Target target)
-    {
-        target.abort();
-    }
-
-    private void doReset(
-        String targetName,
-        Target target)
-    {
-        target.reset(this::doReset);
-    }
-
-    private void doReset(
-        long throttleId,
-        MessageConsumer throttle)
-    {
-        final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                                     .streamId(throttleId)
-                                     .build();
-
-        throttle.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
+        return include(new Target(targetName, layout, writeBuffer, timestamps));
     }
 
     private Source supplySource(

@@ -155,11 +155,14 @@ final class Source implements Nukleus
         return streamsBuffer.applyAsInt(readHandler);
     }
 
+    public void detach()
+    {
+        throttleBuffer = (t, b, i, l) -> true;
+    }
+
     @Override
     public void close() throws Exception
     {
-        throttleBuffer = (t, b, i, l) -> true;
-
         streams.forEach(this::doAbort);
 
         layout.close();
