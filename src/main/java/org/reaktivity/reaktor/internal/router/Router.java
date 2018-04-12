@@ -154,10 +154,10 @@ public final class Router extends Nukleus.Composite implements RouteManager
     @Override
     public void close() throws Exception
     {
+        super.close();
+
         targetsByName.forEach(this::doAbort);
         targetsByName.forEach(this::doReset);
-
-        super.close();
     }
 
     @Override
