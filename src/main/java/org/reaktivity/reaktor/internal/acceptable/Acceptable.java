@@ -15,6 +15,9 @@
  */
 package org.reaktivity.reaktor.internal.acceptable;
 
+import static org.agrona.LangUtil.rethrowUnchecked;
+import static org.reaktivity.reaktor.internal.types.stream.FrameFW.FIELD_OFFSET_TIMESTAMP;
+
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.Map;
@@ -25,13 +28,17 @@ import java.util.function.LongConsumer;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
+import java.util.function.ToIntFunction;
 
+import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Long2ObjectHashMap;
+import org.agrona.concurrent.MessageHandler;
 import org.agrona.concurrent.status.AtomicCounter;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.function.MessageConsumer;
+import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteKind;
 import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
@@ -42,18 +49,35 @@ import org.reaktivity.reaktor.internal.buffer.CountingBufferPool;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
 import org.reaktivity.reaktor.internal.router.ReferenceKind;
 import org.reaktivity.reaktor.internal.types.stream.AbortFW;
+import org.reaktivity.reaktor.internal.types.stream.BeginFW;
+import org.reaktivity.reaktor.internal.types.stream.DataFW;
+import org.reaktivity.reaktor.internal.types.stream.EndFW;
+import org.reaktivity.reaktor.internal.types.stream.FrameFW;
+import org.reaktivity.reaktor.internal.types.stream.ResetFW;
+import org.reaktivity.reaktor.internal.types.stream.WindowFW;
 
 public final class Acceptable implements Nukleus
 {
+    private final FrameFW frameRO = new FrameFW();
+    private final BeginFW beginRO = new BeginFW();
     private final AbortFW.Builder abortRW = new AbortFW.Builder();
 
-    private final Context context;
+    private final ResetFW.Builder resetRW = new ResetFW.Builder();
+
+    private final String nukleusName;
     private final String sourceName;
+    private final StreamsLayout layout;
     private final MutableDirectBuffer writeBuffer;
+    private final ToIntFunction<MessageHandler> streamsBuffer;
+    private final Supplier<String> streamsDescriptor;
+    private final MessageHandler readHandler;
+    private final MessageConsumer writeHandler;
+    private final boolean timestamps;
+
     private final Long2ObjectHashMap<MessageConsumer> streams;
     private final Function<RouteKind, StreamFactory> supplyStreamFactory;
-    private final boolean timestamps;
-    private final Source source;
+
+    private MessagePredicate throttleBuffer;
 
     public Acceptable(
         Context context,
@@ -67,10 +91,25 @@ public final class Acceptable implements Nukleus
         boolean timestamps,
         AtomicLong correlations)
     {
-        this.context = context;
+        this.nukleusName = context.name();
         this.sourceName = sourceName;
         this.writeBuffer = writeBuffer;
         this.streams = new Long2ObjectHashMap<>();
+        this.timestamps = timestamps;
+        this.readHandler = this::handleRead;
+        this.writeHandler = this::handleWrite;
+
+        final StreamsLayout layout = new StreamsLayout.Builder()
+                .path(context.sourceStreamsPath().apply(sourceName))
+                .streamsCapacity(context.streamsBufferCapacity())
+                .throttleCapacity(context.throttleBufferCapacity())
+                .readonly(false)
+                .build();
+
+        this.layout = layout;
+        this.streamsDescriptor = layout::toString;
+        this.streamsBuffer = layout.streamsBuffer()::read;
+        this.throttleBuffer = layout.throttleBuffer()::write;
 
         final Map<RouteKind, StreamFactory> streamFactories = new EnumMap<>(RouteKind.class);
         final Function<String, LongSupplier> supplyCounter = name -> () -> context.counters().counter(name).increment() + 1;
@@ -103,8 +142,6 @@ public final class Acceptable implements Nukleus
             }
         }
         this.supplyStreamFactory = streamFactories::get;
-        this.timestamps = timestamps;
-        this.source = newSource(sourceName);
     }
 
     @Override
@@ -116,36 +153,170 @@ public final class Acceptable implements Nukleus
     @Override
     public int process()
     {
-        return source.process();
+        return streamsBuffer.applyAsInt(readHandler);
     }
 
     @Override
     public void close() throws Exception
     {
-        doReset(sourceName, source);
+        throttleBuffer = (t, b, i, l) -> true;
+
         streams.forEach(this::doAbort);
 
-        source.close();
+        layout.close();
     }
 
-    private Source newSource(
-        String sourceName)
+    @Override
+    public String toString()
     {
-        StreamsLayout layout = new StreamsLayout.Builder()
-            .path(context.sourceStreamsPath().apply(sourceName))
-            .streamsCapacity(context.streamsBufferCapacity())
-            .throttleCapacity(context.throttleBufferCapacity())
-            .readonly(false)
-            .build();
+        return String.format("%s[name=%s]", getClass().getSimpleName(), sourceName);
+    }
 
-        return new Source(context.name(), sourceName, layout, writeBuffer, streams, supplyStreamFactory, timestamps);
+    private void handleWrite(
+        int msgTypeId,
+        DirectBuffer buffer,
+        int index,
+        int length)
+    {
+        boolean handled;
+
+        if (timestamps)
+        {
+            ((MutableDirectBuffer) buffer).putLong(index + FIELD_OFFSET_TIMESTAMP, System.nanoTime());
+        }
+
+        switch (msgTypeId)
+        {
+        case WindowFW.TYPE_ID:
+            handled = throttleBuffer.test(msgTypeId, buffer, index, length);
+            break;
+        case ResetFW.TYPE_ID:
+            handled = throttleBuffer.test(msgTypeId, buffer, index, length);
+
+            final FrameFW reset = frameRO.wrap(buffer, index, index + length);
+            streams.remove(reset.streamId());
+            break;
+        default:
+            handled = true;
+            break;
+        }
+
+        if (!handled)
+        {
+            throw new IllegalStateException("Unable to write to throttle buffer");
+        }
+    }
+
+    private void handleRead(
+        int msgTypeId,
+        MutableDirectBuffer buffer,
+        int index,
+        int length)
+    {
+        frameRO.wrap(buffer, index, index + length);
+
+        final long streamId = frameRO.streamId();
+
+        final MessageConsumer handler = streams.get(streamId);
+
+        try
+        {
+            if (handler != null)
+            {
+                switch (msgTypeId)
+                {
+                case BeginFW.TYPE_ID:
+                case DataFW.TYPE_ID:
+                    handler.accept(msgTypeId, buffer, index, length);
+                    break;
+                case EndFW.TYPE_ID:
+                    handler.accept(msgTypeId, buffer, index, length);
+                    streams.remove(streamId);
+                    break;
+                case AbortFW.TYPE_ID:
+                    handler.accept(msgTypeId, buffer, index, length);
+                    streams.remove(streamId);
+                    break;
+                default:
+                    handleUnrecognized(msgTypeId, buffer, index, length);
+                    break;
+                }
+            }
+            else
+            {
+                handleUnrecognized(msgTypeId, buffer, index, length);
+            }
+        }
+        catch (Throwable ex)
+        {
+            ex.addSuppressed(new Exception(String.format("[%s/%s]\t[0x%016x] %s",
+                                                         nukleusName, sourceName, streamId, streamsDescriptor.get())));
+            rethrowUnchecked(ex);
+        }
+    }
+
+    private void handleUnrecognized(
+        int msgTypeId,
+        MutableDirectBuffer buffer,
+        int index,
+        int length)
+    {
+        if (msgTypeId == BeginFW.TYPE_ID)
+        {
+            handleBegin(msgTypeId, buffer, index, length);
+        }
+        else
+        {
+            frameRO.wrap(buffer, index, index + length);
+
+            final long streamId = frameRO.streamId();
+
+            doReset(streamId);
+        }
+    }
+
+    private void handleBegin(
+        int msgTypeId,
+        DirectBuffer buffer,
+        int index,
+        int length)
+    {
+        final BeginFW begin = beginRO.wrap(buffer, index, index + length);
+        final long sourceId = begin.streamId();
+        final long sourceRef = begin.sourceRef();
+        final long correlationId = begin.correlationId();
+
+        final long resolveId = (sourceRef == 0L) ? correlationId : sourceRef;
+        RouteKind routeKind = ReferenceKind.resolve(resolveId);
+
+        StreamFactory streamFactory = supplyStreamFactory.apply(routeKind);
+        if (streamFactory != null)
+        {
+            final MessageConsumer newStream = streamFactory.newStream(msgTypeId, buffer, index, length, writeHandler);
+            if (newStream != null)
+            {
+                streams.put(sourceId, newStream);
+                newStream.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
+            }
+            else
+            {
+                doReset(sourceId);
+            }
+        }
+        else
+        {
+            doReset(sourceId);
+        }
     }
 
     private void doReset(
-        String sourceName,
-        Source source)
+        final long streamId)
     {
-        source.reset();
+        final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                .streamId(streamId)
+                .build();
+
+        handleWrite(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
     }
 
     private void doAbort(
