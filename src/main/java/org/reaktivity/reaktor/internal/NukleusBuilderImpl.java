@@ -33,7 +33,6 @@ import org.reaktivity.nukleus.function.CommandHandler;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteKind;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
-import org.reaktivity.reaktor.internal.acceptor.Acceptor;
 import org.reaktivity.reaktor.internal.conductor.Conductor;
 import org.reaktivity.reaktor.internal.router.Router;
 import org.reaktivity.reaktor.internal.types.control.Role;
@@ -166,22 +165,19 @@ public class NukleusBuilderImpl implements NukleusBuilder
 
         Conductor conductor = new Conductor(context);
         Router router = new Router(context);
-        Acceptor acceptor = new Acceptor(context);
 
-        conductor.setAcceptor(acceptor);
+        conductor.setRouter(router);
         conductor.setCommandHandlerSupplier(commandHandlersByTypeId::get);
-        router.setAcceptor(acceptor);
         router.setLayoutSource(layoutSource);
         router.setLayoutTarget(layoutTarget);
-        acceptor.setConductor(conductor);
-        acceptor.setRouter(router);
-        acceptor.setState(state);
-        acceptor.setStreamFactoryBuilderSupplier(streamFactoryBuilders::get);
-        acceptor.setTimestamps(timestamps);
-        acceptor.setRouteHandlerSupplier(routeHandlers::get);
-        acceptor.setAllowZeroRouteRef(allowZeroRouteRef);
+        router.setConductor(conductor);
+        router.setState(state);
+        router.setStreamFactoryBuilderSupplier(streamFactoryBuilders::get);
+        router.setTimestamps(timestamps);
+        router.setRouteHandlerSupplier(routeHandlers::get);
+        router.setAllowZeroRouteRef(allowZeroRouteRef);
 
-        NukleusImpl nukleus = new NukleusImpl(name, conductor, acceptor, context, components);
+        NukleusImpl nukleus = new NukleusImpl(name, conductor, router, context, components);
 
         conductor.freezeHandler(nukleus::freeze);
 
@@ -197,11 +193,11 @@ public class NukleusBuilderImpl implements NukleusBuilder
         NukleusImpl(
             String name,
             Conductor conductor,
-            Acceptor acceptor,
+            Router router,
             Context cleanup,
             List<Nukleus> components)
         {
-            super(conductor, acceptor);
+            super(conductor, router);
             this.name = name;
             this.cleanup = cleanup;
             this.handleFreeze = () -> exclude(conductor);

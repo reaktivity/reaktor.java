@@ -13,12 +13,20 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.reaktor.internal.acceptable;
+package org.reaktivity.reaktor.internal.router;
 
 import static org.agrona.LangUtil.rethrowUnchecked;
 import static org.reaktivity.reaktor.internal.types.stream.FrameFW.FIELD_OFFSET_TIMESTAMP;
 
+import java.util.EnumMap;
+import java.util.EnumSet;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
+import java.util.function.IntUnaryOperator;
+import java.util.function.LongConsumer;
+import java.util.function.LongFunction;
+import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.function.ToIntFunction;
 
@@ -26,13 +34,19 @@ import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.concurrent.MessageHandler;
+import org.agrona.concurrent.status.AtomicCounter;
 import org.reaktivity.nukleus.Nukleus;
+import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteKind;
+import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
+import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
+import org.reaktivity.reaktor.internal.Context;
+import org.reaktivity.reaktor.internal.State;
+import org.reaktivity.reaktor.internal.buffer.CountingBufferPool;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
-import org.reaktivity.reaktor.internal.router.ReferenceKind;
 import org.reaktivity.reaktor.internal.types.stream.AbortFW;
 import org.reaktivity.reaktor.internal.types.stream.BeginFW;
 import org.reaktivity.reaktor.internal.types.stream.DataFW;
@@ -41,48 +55,98 @@ import org.reaktivity.reaktor.internal.types.stream.FrameFW;
 import org.reaktivity.reaktor.internal.types.stream.ResetFW;
 import org.reaktivity.reaktor.internal.types.stream.WindowFW;
 
-public final class Source implements Nukleus
+final class Source implements Nukleus
 {
     private final FrameFW frameRO = new FrameFW();
     private final BeginFW beginRO = new BeginFW();
+    private final AbortFW.Builder abortRW = new AbortFW.Builder();
 
     private final ResetFW.Builder resetRW = new ResetFW.Builder();
 
     private final String nukleusName;
-    private final String sourceName;
+    private final String name;
     private final StreamsLayout layout;
     private final MutableDirectBuffer writeBuffer;
     private final ToIntFunction<MessageHandler> streamsBuffer;
     private final Supplier<String> streamsDescriptor;
-    private final Long2ObjectHashMap<MessageConsumer> streams;
-    private final Function<RouteKind, StreamFactory> supplyStreamFactory;
-    private final boolean timestamps;
     private final MessageHandler readHandler;
     private final MessageConsumer writeHandler;
+    private final boolean timestamps;
+
+    private final Long2ObjectHashMap<MessageConsumer> streams;
+    private final Function<RouteKind, StreamFactory> supplyStreamFactory;
 
     private MessagePredicate throttleBuffer;
 
     Source(
-        String nukleusName,
-        String sourceName,
-        StreamsLayout layout,
+        Context context,
         MutableDirectBuffer writeBuffer,
-        Long2ObjectHashMap<MessageConsumer> streams,
-        Function<RouteKind, StreamFactory> supplyStreamFactory,
-        boolean timestamps)
+        RouteManager router,
+        String sourceName,
+        State state,
+        LongFunction<IntUnaryOperator> groupBudgetClaimer,
+        LongFunction<IntUnaryOperator> groupBudgetReleaser,
+        Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder,
+        boolean timestamps,
+        AtomicLong correlations)
     {
-        this.nukleusName = nukleusName;
-        this.sourceName = sourceName;
-        this.layout = layout;
+        this.nukleusName = context.name();
+        this.name = sourceName;
         this.writeBuffer = writeBuffer;
-        this.supplyStreamFactory = supplyStreamFactory;
-        this.streamsDescriptor = layout::toString;
-        this.streamsBuffer = layout.streamsBuffer()::read;
-        this.throttleBuffer = layout.throttleBuffer()::write;
-        this.streams = streams;
+        this.streams = new Long2ObjectHashMap<>();
         this.timestamps = timestamps;
         this.readHandler = this::handleRead;
         this.writeHandler = this::handleWrite;
+
+        final StreamsLayout layout = new StreamsLayout.Builder()
+                .path(context.sourceStreamsPath().apply(sourceName))
+                .streamsCapacity(context.streamsBufferCapacity())
+                .throttleCapacity(context.throttleBufferCapacity())
+                .readonly(false)
+                .build();
+
+        this.layout = layout;
+        this.streamsDescriptor = layout::toString;
+        this.streamsBuffer = layout.streamsBuffer()::read;
+        this.throttleBuffer = layout.throttleBuffer()::write;
+
+        final Map<RouteKind, StreamFactory> streamFactories = new EnumMap<>(RouteKind.class);
+        final Function<String, LongSupplier> supplyCounter = name -> () -> context.counters().counter(name).increment() + 1;
+        final Function<String, LongConsumer> supplyAccumulator = name -> (i) -> context.counters().counter(name).add(i);
+        final AtomicCounter acquires = context.counters().acquires();
+        final AtomicCounter releases = context.counters().releases();
+        final BufferPool bufferPool = new CountingBufferPool(state.bufferPool(), acquires::increment, releases::increment);
+        final Supplier<BufferPool> supplyCountingBufferPool = () -> bufferPool;
+        for (RouteKind kind : EnumSet.allOf(RouteKind.class))
+        {
+            final ReferenceKind refKind = ReferenceKind.valueOf(kind);
+            final LongSupplier supplyCorrelationId = () -> refKind.nextRef(correlations);
+            final StreamFactoryBuilder streamFactoryBuilder = supplyStreamFactoryBuilder.apply(kind);
+            if (streamFactoryBuilder != null)
+            {
+                StreamFactory streamFactory = streamFactoryBuilder
+                        .setRouteManager(router)
+                        .setWriteBuffer(writeBuffer)
+                        .setStreamIdSupplier(state::supplyStreamId)
+                        .setTraceSupplier(state::supplyTrace)
+                        .setGroupIdSupplier(state::supplyGroupId)
+                        .setGroupBudgetClaimer(groupBudgetClaimer)
+                        .setGroupBudgetReleaser(groupBudgetReleaser)
+                        .setCorrelationIdSupplier(supplyCorrelationId)
+                        .setCounterSupplier(supplyCounter)
+                        .setAccumulatorSupplier(supplyAccumulator)
+                        .setBufferPoolSupplier(supplyCountingBufferPool)
+                        .build();
+                streamFactories.put(kind, streamFactory);
+            }
+        }
+        this.supplyStreamFactory = streamFactories::get;
+    }
+
+    @Override
+    public String name()
+    {
+        return name;
     }
 
     @Override
@@ -91,22 +155,23 @@ public final class Source implements Nukleus
         return streamsBuffer.applyAsInt(readHandler);
     }
 
-    @Override
-    public void close() throws Exception
+    public void detach()
     {
-        layout.close();
+        throttleBuffer = (t, b, i, l) -> true;
     }
 
     @Override
-    public String name()
+    public void close() throws Exception
     {
-        return sourceName;
+        streams.forEach(this::doAbort);
+
+        layout.close();
     }
 
     @Override
     public String toString()
     {
-        return String.format("%s[name=%s]", getClass().getSimpleName(), sourceName);
+        return String.format("%s (read)", name);
     }
 
     private void handleWrite(
@@ -187,7 +252,7 @@ public final class Source implements Nukleus
         catch (Throwable ex)
         {
             ex.addSuppressed(new Exception(String.format("[%s/%s]\t[0x%016x] %s",
-                                                         nukleusName, sourceName, streamId, streamsDescriptor.get())));
+                                                         nukleusName, name, streamId, streamsDescriptor.get())));
             rethrowUnchecked(ex);
         }
     }
@@ -246,11 +311,6 @@ public final class Source implements Nukleus
         }
     }
 
-    void reset()
-    {
-        throttleBuffer = (t, b, i, l) -> true;
-    }
-
     private void doReset(
         final long streamId)
     {
@@ -259,5 +319,16 @@ public final class Source implements Nukleus
                 .build();
 
         handleWrite(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
+    }
+
+    private void doAbort(
+        long streamId,
+        MessageConsumer stream)
+    {
+        final AbortFW abort = abortRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                                     .streamId(streamId)
+                                     .build();
+
+        stream.accept(abort.typeId(), abort.buffer(), abort.offset(), abort.sizeof());
     }
 }

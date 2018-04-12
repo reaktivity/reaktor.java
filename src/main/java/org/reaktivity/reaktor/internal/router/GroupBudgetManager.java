@@ -13,7 +13,7 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.reaktor.internal.acceptor;
+package org.reaktivity.reaktor.internal.router;
 
 import org.agrona.collections.Long2LongHashMap;
 

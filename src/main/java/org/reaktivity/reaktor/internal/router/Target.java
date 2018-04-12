@@ -13,11 +13,10 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.reaktor.internal.acceptable;
+package org.reaktivity.reaktor.internal.router;
 
 import static org.reaktivity.reaktor.internal.types.stream.FrameFW.FIELD_OFFSET_TIMESTAMP;
 
-import java.util.function.BiConsumer;
 import java.util.function.ToIntFunction;
 
 import org.agrona.DirectBuffer;
@@ -36,27 +35,32 @@ import org.reaktivity.reaktor.internal.types.stream.FrameFW;
 import org.reaktivity.reaktor.internal.types.stream.ResetFW;
 import org.reaktivity.reaktor.internal.types.stream.WindowFW;
 
-public final class Target implements Nukleus
+final class Target implements Nukleus
 {
     private final FrameFW frameRO = new FrameFW();
 
+    private final ResetFW.Builder resetRW = new ResetFW.Builder();
+
     private final String name;
     private final AutoCloseable layout;
+    private final MutableDirectBuffer writeBuffer;
     private final boolean timestamps;
     private final Long2ObjectHashMap<MessageConsumer> throttles;
     private final MessageHandler readHandler;
     private final MessageConsumer writeHandler;
+    private final ToIntFunction<MessageHandler> throttleBuffer;
 
-    private ToIntFunction<MessageHandler> throttleBuffer;
     private MessagePredicate streamsBuffer;
 
-    public Target(
+    Target(
         String name,
         StreamsLayout layout,
+        MutableDirectBuffer writeBuffer,
         boolean timestamps)
     {
         this.name = name;
         this.layout = layout;
+        this.writeBuffer = writeBuffer;
         this.timestamps = timestamps;
         this.streamsBuffer = layout.streamsBuffer()::write;
         this.throttleBuffer = layout.throttleBuffer()::read;
@@ -71,9 +75,16 @@ public final class Target implements Nukleus
         return throttleBuffer.applyAsInt(readHandler);
     }
 
+    public void detach()
+    {
+        streamsBuffer = (t, b, i, l) -> true;
+    }
+
     @Override
     public void close() throws Exception
     {
+        throttles.forEach(this::doReset);
+
         layout.close();
     }
 
@@ -86,7 +97,7 @@ public final class Target implements Nukleus
     @Override
     public String toString()
     {
-        return name;
+        return String.format("%s (write)", name);
     }
 
     public void setThrottle(
@@ -173,14 +184,14 @@ public final class Target implements Nukleus
         }
     }
 
-    public void abort()
+    private void doReset(
+        long throttleId,
+        MessageConsumer throttle)
     {
-        streamsBuffer = (t, b, i, l) -> true;
-    }
+        final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                                     .streamId(throttleId)
+                                     .build();
 
-    public void reset(
-        BiConsumer<Long, MessageConsumer> resetHandler)
-    {
-        throttles.forEach(resetHandler);
+        throttle.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
     }
 }
