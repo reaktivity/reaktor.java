@@ -101,6 +101,15 @@ public class ControlIT
 
     @Test
     @Specification({
+        "${control}/route/server/multiple.extensions/controller"
+    })
+    public void shouldRouteByExtensionAsServer() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "${control}/route/server/controller"
     })
     @ScriptProperty("routeAuthorization 0x0001_000000000000L")
@@ -157,6 +166,28 @@ public class ControlIT
     @ScriptProperty({"route1Authorization 0x0001_000000000000L",
                      "route2Authorization 0x0001_000000000001L"})
     public void shouldUnrouteAsServerWithMultipleRoutes() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${control}/route/server/multiple.authorizations/controller",
+        "${control}/unroute/server/multiple.authorizations/controller"
+    })
+    @ScriptProperty({"route1Authorization 0x0001_000000000000L",
+                     "route2Authorization 0x0002_000000000000L"})
+    public void shouldUnrouteByAuthorizationAsServer() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "${control}/route/server/multiple.extensions/controller",
+        "${control}/unroute/server/multiple.extensions/controller"
+    })
+    public void shouldUnrouteByExtensionAsServer() throws Exception
     {
         k3po.finish();
     }
