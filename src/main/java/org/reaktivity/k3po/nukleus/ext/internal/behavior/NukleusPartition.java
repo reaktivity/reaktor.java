@@ -291,6 +291,7 @@ final class NukleusPartition implements AutoCloseable
             childConfig.setWindow(serverConfig.getWindow());
             childConfig.setGroup(serverConfig.getGroup());
             childConfig.setPadding(serverConfig.getPadding());
+            childConfig.setAlignment(serverConfig.getAlignment());
 
             childConfig.setCorrelation(correlationId);
 

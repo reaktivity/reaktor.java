@@ -382,6 +382,26 @@ public class DuplexIT
 
     @Test
     @Specification({
+        "server.sent.throttle.initial.only.message.aligned/client",
+        "server.sent.throttle.initial.only.message.aligned/server"
+    })
+    public void shouldThrottleInitialOnlyClientSentDataWhenMessageAligned() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "client.sent.throttle.initial.only.message.aligned/client",
+        "client.sent.throttle.initial.only.message.aligned/server"
+    })
+    public void shouldThrottleInitialOnlyServerSentDataWhenMessageAligned() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "server.sent.overflow/client",
         "server.sent.overflow/server"
     })

@@ -18,6 +18,7 @@ package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 import static org.jboss.netty.channel.Channels.fireChannelClosed;
 import static org.jboss.netty.channel.Channels.fireChannelDisconnected;
 import static org.jboss.netty.channel.Channels.fireChannelUnbound;
+import static org.jboss.netty.channel.Channels.fireExceptionCaught;
 import static org.jboss.netty.channel.Channels.fireMessageReceived;
 import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireInputAborted;
 import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireInputShutdown;
@@ -67,6 +68,7 @@ public final class NukleusStreamFactory
         private final NukleusChannel channel;
         private final NukleusPartition partition;
         private final ChannelFuture handshakeFuture;
+        private int fragments;
 
         private Stream(
             NukleusChannel channel,
@@ -143,6 +145,7 @@ public final class NukleusStreamFactory
             DataFW data)
         {
             final long streamId = data.streamId();
+            final int flags = data.flags();
             final OctetsFW payload = data.payload();
             final ChannelBuffer message = payload == null ? NULL_BUFFER : payload.get(this::readBuffer);
             final int readableBytes = message.readableBytes();
@@ -165,14 +168,34 @@ public final class NukleusStreamFactory
                     channel.readExtBuffer(DATA).writeBytes(dataExtCopy);
                 }
 
-                final NukleusChannelConfig config = channel.getConfig();
-                if (config.getUpdate())
+                if ((flags & 0x02) != 0x00 && fragments != 0)
                 {
-                    int padding = config.getPadding();
-                    long group = config.getGroup();
-                    partition.doWindow(channel, readableBytes + data.padding(), padding, group);
+                    // INIT flag set on non-initial message fragment
+                    fireExceptionCaught(channel, new IllegalStateException("invalid message boundary"));
+                    partition.doReset(streamId);
                 }
-                fireMessageReceived(channel, message);
+                else
+                {
+                    final NukleusChannelConfig config = channel.getConfig();
+                    if (config.getUpdate())
+                    {
+                        int padding = config.getPadding();
+                        long group = config.getGroup();
+                        partition.doWindow(channel, readableBytes + data.padding(), padding, group);
+                    }
+
+                    if ((flags & 0x01) != 0x00)
+                    {
+                        message.markWriterIndex(); // FIN
+                        fragments = 0;
+                    }
+                    else
+                    {
+                        fragments++;
+                    }
+
+                    fireMessageReceived(channel, message);
+                }
             }
             else
             {
