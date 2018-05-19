@@ -207,6 +207,16 @@ public class SimplexIT
         k3po.finish();
     }
 
+    @Test
+    @Specification({
+        "server.sent.throttle.initial.only.message.aligned/client",
+        "server.sent.throttle.initial.only.message.aligned/server"
+    })
+    public void shouldThrottleInitialOnlyClientSentDataWhenMessageAligned() throws Exception
+    {
+        k3po.finish();
+    }
+
     @Ignore ("Please see issue #22: https://github.com/reaktivity/k3po-nukleus-ext.java/issues/22")
     @Test
     @Specification({

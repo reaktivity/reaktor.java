@@ -431,5 +431,6 @@ read closed
 
 
 NOTE:
-The "nukleus:window" option specifies the number of bytes that will be advertised in the first Window frame sent back in response to a Begin
-The "nukleus:throttle" option determines how and whether writes will respect Window frames received from the other end. When set to "stream" or "message", window frames are honored, when set to "none" they are not.
+The `nukleus:window` option specifies the number of bytes that will be advertised in the first `WINDOW` frame sent back in response to a `BEGIN`
+The `nukleus:throttle` option determines how and whether writes will respect `WINDOW` frames received from the other end. When set to `"stream"` or `"message"`, window frames are honored, when set to `"none"` they are not.
+The `nukleus:alignment` option with value `"message"` requires a complete message to be matched by each `read` statement, even if fragmented into multiple `DATA` frames.
