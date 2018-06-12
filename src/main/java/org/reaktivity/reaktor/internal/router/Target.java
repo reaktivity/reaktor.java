@@ -15,6 +15,7 @@
  */
 package org.reaktivity.reaktor.internal.router;
 
+import static org.agrona.LangUtil.rethrowUnchecked;
 import static org.reaktivity.reaktor.internal.types.stream.FrameFW.FIELD_OFFSET_TIMESTAMP;
 
 import java.util.function.ToIntFunction;
@@ -41,7 +42,8 @@ final class Target implements Nukleus
 
     private final ResetFW.Builder resetRW = new ResetFW.Builder();
 
-    private final String name;
+    private final String nukleusName;
+    private final String targetName;
     private final AutoCloseable layout;
     private final MutableDirectBuffer writeBuffer;
     private final boolean timestamps;
@@ -53,12 +55,14 @@ final class Target implements Nukleus
     private MessagePredicate streamsBuffer;
 
     Target(
-        String name,
+        String nukleusName,
+        String targetName,
         StreamsLayout layout,
         MutableDirectBuffer writeBuffer,
         boolean timestamps)
     {
-        this.name = name;
+        this.nukleusName = nukleusName;
+        this.targetName = targetName;
         this.layout = layout;
         this.writeBuffer = writeBuffer;
         this.timestamps = timestamps;
@@ -91,13 +95,13 @@ final class Target implements Nukleus
     @Override
     public String name()
     {
-        return name;
+        return targetName;
     }
 
     @Override
     public String toString()
     {
-        return String.format("%s (write)", name);
+        return String.format("%s (write)", targetName);
     }
 
     public void setThrottle(
@@ -167,20 +171,29 @@ final class Target implements Nukleus
         final long streamId = frameRO.streamId();
         final MessageConsumer throttle = throttles.get(streamId);
 
-        if (throttle != null)
+        try
         {
-            switch (msgTypeId)
+            if (throttle != null)
             {
-            case WindowFW.TYPE_ID:
-                throttle.accept(msgTypeId, buffer, index, length);
-                break;
-            case ResetFW.TYPE_ID:
-                throttle.accept(msgTypeId, buffer, index, length);
-                throttles.remove(streamId);
-                break;
-            default:
-                break;
+                switch (msgTypeId)
+                {
+                case WindowFW.TYPE_ID:
+                    throttle.accept(msgTypeId, buffer, index, length);
+                    break;
+                case ResetFW.TYPE_ID:
+                    throttle.accept(msgTypeId, buffer, index, length);
+                    throttles.remove(streamId);
+                    break;
+                default:
+                    break;
+                }
             }
+        }
+        catch (Throwable ex)
+        {
+            ex.addSuppressed(new Exception(String.format("[%s/%s]\t[0x%016x] %s",
+                                                         targetName, nukleusName, streamId, layout)));
+            rethrowUnchecked(ex);
         }
     }
 
