@@ -151,7 +151,7 @@ public final class NukleusStreamFactory
             final int readableBytes = message.readableBytes();
             final OctetsFW dataExt = data.extension();
 
-            if (channel.readableBytes() >= readableBytes && data.authorization() == channel.sourceAuth())
+            if (channel.readableBytes() >= readableBytes)
             {
                 channel.readableBytes(-readableBytes);
 
