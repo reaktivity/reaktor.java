@@ -243,6 +243,16 @@ public class HalfDuplexIT
         k3po.finish();
     }
 
+    @Test
+    @Specification({
+        "client.sent.write.abort.server.replied.write.close/client",
+        "client.sent.write.abort.server.replied.write.close/server"
+    })
+    public void shouldReceiveClientSentWriteAbortAndReplyWriteClose() throws Exception
+    {
+        k3po.finish();
+    }
+
     @Ignore("BEGIN vs RESET read order not yet guaranteed to match write order")
     @Test
     @Specification({
@@ -282,6 +292,16 @@ public class HalfDuplexIT
         "client.sent.read.abort/server"
     })
     public void shouldReceiveClientSentReadAbort() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "client.sent.read.abort.server.replied.read.abort/client",
+        "client.sent.read.abort.server.replied.read.abort/server"
+    })
+    public void shouldReceiveClientSentReadAbortAndReplyReadAbort() throws Exception
     {
         k3po.finish();
     }

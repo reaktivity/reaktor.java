@@ -255,7 +255,17 @@ public final class NukleusStreamFactory
 
             if (channel.setReadAborted())
             {
-                fireInputAborted(channel);
+                if (channel.setReadClosed())
+                {
+                    fireInputAborted(channel);
+                    fireChannelDisconnected(channel);
+                    fireChannelUnbound(channel);
+                    fireChannelClosed(channel);
+                }
+                else
+                {
+                    fireInputAborted(channel);
+                }
             }
         }
 
