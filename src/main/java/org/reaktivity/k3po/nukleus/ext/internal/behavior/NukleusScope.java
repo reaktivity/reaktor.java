@@ -149,19 +149,8 @@ public final class NukleusScope implements AutoCloseable
         NukleusChannel channel,
         ChannelFuture handlerFuture)
     {
-        if (!channel.isWriteClosed())
-        {
-            NukleusTarget target = supplyTarget(channel);
-            target.doClose(channel, handlerFuture);
-        }
-        else if (!channel.isReadClosed())
-        {
-            doAbortInput(channel, handlerFuture);
-        }
-        else
-        {
-            handlerFuture.setSuccess();
-        }
+        NukleusTarget target = supplyTarget(channel);
+        target.doClose(channel, handlerFuture);
     }
 
     public int process()
