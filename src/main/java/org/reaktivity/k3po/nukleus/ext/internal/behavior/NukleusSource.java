@@ -15,6 +15,10 @@
  */
 package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 
+import static org.jboss.netty.channel.Channels.fireChannelClosed;
+import static org.jboss.netty.channel.Channels.fireChannelDisconnected;
+import static org.jboss.netty.channel.Channels.fireChannelUnbound;
+
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -145,6 +149,12 @@ public final class NukleusSource implements AutoCloseable
         {
             partition.doReset(channel.sourceId());
             abortFuture.setSuccess();
+            if (channel.setReadClosed())
+            {
+                fireChannelDisconnected(channel);
+                fireChannelUnbound(channel);
+                fireChannelClosed(channel);
+            }
         }
         else
         {
