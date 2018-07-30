@@ -98,7 +98,8 @@ public class MultipleStreamsIT
         private StreamFactoryBuilder serverStreamFactory = mock(StreamFactoryBuilder.class);
         private StreamFactory streamFactory = mock(StreamFactory.class);
 
-        private ArgumentCaptor<LongSupplier> supplyCorrelationId = forClass(LongSupplier.class);
+        private ArgumentCaptor<LongSupplier> supplySourceCorrelationId = forClass(LongSupplier.class);
+        private ArgumentCaptor<LongSupplier> supplyTargetCorrelationId = forClass(LongSupplier.class);
         private ArgumentCaptor<RouteManager> router = forClass(RouteManager.class);
         private ArgumentCaptor<LongSupplier> supplyStreamId = forClass(LongSupplier.class);
         private ArgumentCaptor<LongSupplier> supplyGroupId = forClass(LongSupplier.class);
@@ -129,7 +130,10 @@ public class MultipleStreamsIT
         @SuppressWarnings("unchecked")
         public TestNukleusFactorySpi()
         {
-            when(serverStreamFactory.setCorrelationIdSupplier(supplyCorrelationId.capture())).thenReturn(serverStreamFactory);
+            when(serverStreamFactory.setSourceCorrelationIdSupplier(supplySourceCorrelationId.capture()))
+                .thenReturn(serverStreamFactory);
+            when(serverStreamFactory.setTargetCorrelationIdSupplier(supplyTargetCorrelationId.capture()))
+                .thenReturn(serverStreamFactory);
             when(serverStreamFactory.setStreamIdSupplier(supplyStreamId.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setTraceSupplier(any(LongSupplier.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setGroupIdSupplier(supplyGroupId.capture())).thenReturn(serverStreamFactory);
@@ -185,7 +189,7 @@ public class MultipleStreamsIT
                             {
                                 MessageConsumer target = router.getValue().supplyTarget(route.target().asString());
                                 long newConnectId = supplyStreamId.getValue().getAsLong();
-                                newCorrelationId1 = supplyCorrelationId.getValue().getAsLong();
+                                newCorrelationId1 = supplyTargetCorrelationId.getValue().getAsLong();
                                 correlationId1 = begin.correlationId();
                                 source1 = begin.source().asString();
                                 final BeginFW newBegin = beginRW.wrap(buffer,  0, buffer.capacity())
@@ -247,7 +251,7 @@ public class MultipleStreamsIT
                             {
                                 MessageConsumer target = router.getValue().supplyTarget(route.target().asString());
                                 long newConnectId = supplyStreamId.getValue().getAsLong();
-                                newCorrelationId2 = supplyCorrelationId.getValue().getAsLong();
+                                newCorrelationId2 = supplyTargetCorrelationId.getValue().getAsLong();
                                 correlationId2 = begin.correlationId();
                                 source2 = begin.source().asString();
                                 final BeginFW newBegin = beginRW.wrap(buffer,  0, buffer.capacity())
