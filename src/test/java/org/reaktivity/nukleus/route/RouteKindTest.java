@@ -39,9 +39,21 @@ public final class RouteKindTest
         assertEquals(RouteKind.PROXY, RouteKind.valueOf(2));
     }
 
+    @Test
+    public void shouldReturnServerReverseFromValueOf() throws Exception
+    {
+        assertEquals(RouteKind.SERVER_REVERSE, RouteKind.valueOf(3));
+    }
+
+    @Test
+    public void shouldReturnClientReverseFromValueOf() throws Exception
+    {
+        assertEquals(RouteKind.CLIENT_REVERSE, RouteKind.valueOf(4));
+    }
+
     @Test(expected = IllegalArgumentException.class)
     public void shouldThrowExceptionFromValueOfWithInvalidOrdinal() throws Exception
     {
-        assertEquals(RouteKind.SERVER, RouteKind.valueOf(3));
+        assertEquals(RouteKind.SERVER, RouteKind.valueOf(5));
     }
 }

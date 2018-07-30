@@ -28,8 +28,11 @@ public interface NukleusBuilder
         RouteKind kind,
         MessagePredicate handler);
 
-    NukleusBuilder allowZeroRouteRef(
-        Predicate<RouteKind> predicate);
+    NukleusBuilder allowZeroSourceRef(
+            Predicate<RouteKind> predicate);
+
+    NukleusBuilder allowZeroTargetRef(
+            Predicate<RouteKind> predicate);
 
     NukleusBuilder streamFactory(
         RouteKind kind,

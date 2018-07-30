@@ -19,7 +19,9 @@ public enum RouteKind
 {
     SERVER,
     CLIENT,
-    PROXY;
+    PROXY,
+    SERVER_REVERSE,
+    CLIENT_REVERSE;
 
     public static RouteKind valueOf(
         int ordinal)
@@ -32,6 +34,10 @@ public enum RouteKind
             return CLIENT;
         case 2:
             return PROXY;
+        case 3:
+            return SERVER_REVERSE;
+        case 4:
+            return CLIENT_REVERSE;
         default:
             throw new IllegalArgumentException(String.format("Unrecognized value: %d", ordinal));
         }
