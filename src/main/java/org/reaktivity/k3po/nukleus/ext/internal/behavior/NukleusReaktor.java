@@ -450,13 +450,15 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
         {
             try
             {
-                NukleusReaktor reaktor = channel.reaktor;
-                NukleusChannelAddress localAddress = channel.getLocalAddress();
-                String receiverName = localAddress.getReceiverName();
-                Path scopePath = scopePath(receiverName);
-
-                NukleusScope scope = reaktor.scopesByPath.computeIfAbsent(scopePath, reaktor::newScope);
-                scope.doAbortInput(channel, handlerFuture);
+                if (!channel.isReadClosed())
+                {
+                    NukleusReaktor reaktor = channel.reaktor;
+                    NukleusChannelAddress localAddress = channel.getLocalAddress();
+                    String receiverName = localAddress.getReceiverName();
+                    Path scopePath = scopePath(receiverName);
+                    NukleusScope scope = reaktor.scopesByPath.computeIfAbsent(scopePath, reaktor::newScope);
+                    scope.doAbortInput(channel, handlerFuture);
+                }
             }
             catch (Exception ex)
             {
