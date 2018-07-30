@@ -75,7 +75,14 @@ public final class NukleusFactoryTest
             }
 
             @Override
-            public NukleusBuilder allowZeroRouteRef(
+            public NukleusBuilder allowZeroSourceRef(
+                Predicate<RouteKind> predicate)
+            {
+                return this;
+            }
+
+            @Override
+            public NukleusBuilder allowZeroTargetRef(
                 Predicate<RouteKind> predicate)
             {
                 return this;

@@ -65,8 +65,17 @@ public interface StreamFactoryBuilder
     StreamFactoryBuilder setGroupBudgetReleaser(
         LongFunction<IntUnaryOperator> releaseGroupBudget);
 
-    StreamFactoryBuilder setCorrelationIdSupplier(
-        LongSupplier supplyCorrelationId);
+    default StreamFactoryBuilder setSourceCorrelationIdSupplier(
+        LongSupplier supplySourceCorrelationId)
+    {
+        return this;
+    }
+
+    default StreamFactoryBuilder setTargetCorrelationIdSupplier(
+        LongSupplier supplyTargetCorrelationId)
+    {
+        return this;
+    }
 
     StreamFactoryBuilder setWriteBuffer(
         MutableDirectBuffer writeBuffer);
