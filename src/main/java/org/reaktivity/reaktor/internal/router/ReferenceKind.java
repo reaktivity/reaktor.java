@@ -37,9 +37,9 @@ public enum ReferenceKind
             LongSupplier getAndIncrement,
             LongSupplier get)
         {
-            // positive, even, non-zero
+            // positive, modulo 4 = 0, non-zero
             getAndIncrement.getAsLong();
-            return get.getAsLong() << 1L;
+            return get.getAsLong() << 2L;
         }
     },
 
@@ -56,8 +56,8 @@ public enum ReferenceKind
             LongSupplier getAndIncrement,
             LongSupplier get)
         {
-            // positive, odd
-            return (getAndIncrement.getAsLong() << 1L) | 1L;
+            // positive, modulo 4 = 1
+            return (getAndIncrement.getAsLong() << 2L) | 1L;
         }
     },
 
@@ -74,9 +74,45 @@ public enum ReferenceKind
             LongSupplier getAndIncrement,
             LongSupplier get)
         {
-            // negative, even, non-zero
+            // negative, modulo 4 = 2, non-zero
             getAndIncrement.getAsLong();
-            return 0x80000000_00000000L | (get.getAsLong() << 1L);
+            return 0x80000000_00000000L | (get.getAsLong() << 2L);
+        }
+    },
+
+    SERVER_REVERSE
+    {
+        @Override
+        public RouteKind toRouteKind()
+        {
+            return RouteKind.SERVER_REVERSE;
+        }
+
+        @Override
+        protected long nextRef(
+            LongSupplier getAndIncrement,
+            LongSupplier get)
+        {
+            // positive, modulo 4 = 2
+            return (getAndIncrement.getAsLong() << 2L) | 2L;
+        }
+    },
+
+    CLIENT_REVERSE
+    {
+        @Override
+        public RouteKind toRouteKind()
+        {
+            return RouteKind.CLIENT_REVERSE;
+        }
+
+        @Override
+        protected long nextRef(
+            LongSupplier getAndIncrement,
+            LongSupplier get)
+        {
+            // positive, modulo 4 = 3
+            return (getAndIncrement.getAsLong() << 2L) | 3L;
         }
     };
 
@@ -101,12 +137,16 @@ public enum ReferenceKind
     public static RouteKind resolve(
         long resolveId)
     {
-        switch ((int)resolveId & 0x01 | (int)(resolveId >> 32) & 0x80000000)
+        switch ((int)resolveId & 0x03 | (int)(resolveId >> 32) & 0x80000000)
         {
-        case 0x00000001:
-            return RouteKind.CLIENT;
         case 0x00000000:
             return RouteKind.SERVER;
+        case 0x00000001:
+            return RouteKind.CLIENT;
+        case 0x00000002:
+            return RouteKind.SERVER_REVERSE;
+        case 0x00000003:
+            return RouteKind.CLIENT_REVERSE;
         case 0x80000000:
             return RouteKind.PROXY;
         default:
@@ -117,10 +157,12 @@ public enum ReferenceKind
     public static boolean valid(
         long referenceId)
     {
-        switch ((int)referenceId & 0x01 | (int)(referenceId >> 32) & 0x80000000)
+        switch ((int)referenceId & 0x03 | (int)(referenceId >> 32) & 0x80000000)
         {
-        case 0x00000001:
         case 0x00000000:
+        case 0x00000001:
+        case 0x00000002:
+        case 0x00000003:
         case 0x80000000:
             return true;
         default:
@@ -128,7 +170,7 @@ public enum ReferenceKind
         }
     }
 
-    public static ReferenceKind valueOf(
+    public static ReferenceKind sourceKind(
         Role role)
     {
         switch (role)
@@ -139,12 +181,36 @@ public enum ReferenceKind
             return CLIENT;
         case PROXY:
             return PROXY;
+        case SERVER_REVERSE:
+            return SERVER_REVERSE;
+        case CLIENT_REVERSE:
+            return CLIENT_REVERSE;
         }
 
         throw new IllegalArgumentException("Unexpected role");
     }
 
-    public static ReferenceKind valueOf(
+    public static ReferenceKind targetKind(
+        Role role)
+    {
+        switch (role)
+        {
+        case SERVER:
+            return SERVER;
+        case CLIENT:
+            return CLIENT;
+        case PROXY:
+            return PROXY;
+        case SERVER_REVERSE:
+            return CLIENT_REVERSE;
+        case CLIENT_REVERSE:
+            return SERVER_REVERSE;
+        }
+
+        throw new IllegalArgumentException("Unexpected role");
+    }
+
+    public static ReferenceKind sourceKind(
         RouteKind kind)
     {
         switch (kind)
@@ -155,6 +221,30 @@ public enum ReferenceKind
             return CLIENT;
         case PROXY:
             return PROXY;
+        case SERVER_REVERSE:
+            return SERVER_REVERSE;
+        case CLIENT_REVERSE:
+            return CLIENT_REVERSE;
+        }
+
+        throw new IllegalArgumentException("Unexpected route kind");
+    }
+
+    public static ReferenceKind targetKind(
+        RouteKind kind)
+    {
+        switch (kind)
+        {
+        case SERVER:
+            return SERVER;
+        case CLIENT:
+            return CLIENT;
+        case PROXY:
+            return PROXY;
+        case SERVER_REVERSE:
+            return CLIENT_REVERSE;
+        case CLIENT_REVERSE:
+            return SERVER_REVERSE;
         }
 
         throw new IllegalArgumentException("Unexpected route kind");

@@ -74,7 +74,8 @@ public final class Router extends Nukleus.Composite implements RouteManager
     private Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder;
     private boolean timestamps;
     private Function<Role, MessagePredicate> supplyRouteHandler;
-    private Predicate<RouteKind> allowZeroRouteRef;
+    private Predicate<RouteKind> allowZeroSourceRef;
+    private Predicate<RouteKind> allowZeroTargetRef;
     private Predicate<RouteKind> layoutSource;
     private Predicate<RouteKind> layoutTarget;
 
@@ -124,10 +125,16 @@ public final class Router extends Nukleus.Composite implements RouteManager
         this.supplyRouteHandler = supplyRouteHandler;
     }
 
-    public void setAllowZeroRouteRef(
-        Predicate<RouteKind> allowZeroRouteRef)
+    public void setAllowZeroSourceRef(
+        Predicate<RouteKind> allowZeroSourceRef)
     {
-        this.allowZeroRouteRef = allowZeroRouteRef;
+        this.allowZeroSourceRef = allowZeroSourceRef;
+    }
+
+    public void setAllowZeroTargetRef(
+        Predicate<RouteKind> allowZeroTargetRef)
+    {
+        this.allowZeroTargetRef = allowZeroTargetRef;
     }
 
     public void setLayoutSource(
@@ -172,9 +179,14 @@ public final class Router extends Nukleus.Composite implements RouteManager
             Role role = route.role().get();
             MessagePredicate routeHandler = supplyRouteHandler.apply(role);
 
-            if (!allowZeroRouteRef.test(RouteKind.valueOf(role.ordinal())))
+            final boolean requireNonZeroSourceRef = !allowZeroSourceRef.test(RouteKind.valueOf(role.ordinal()));
+            final boolean requireNonZeroTargetRef = !allowZeroTargetRef.test(RouteKind.valueOf(role.ordinal()));
+
+            if (requireNonZeroSourceRef || requireNonZeroTargetRef)
             {
-                route = generateSourceRefIfNecessary(route);
+                route = generateSourceRefIfNecessary(route, requireNonZeroSourceRef);
+                route = generateTargetRefIfNecessary(route, requireNonZeroTargetRef);
+
                 final long sourceRef = route.sourceRef();
                 MessagePredicate defaultHandler = (t, b, i, l) -> ReferenceKind.resolve(sourceRef).ordinal() == role.ordinal();
                 if (routeHandler == null)
@@ -194,7 +206,7 @@ public final class Router extends Nukleus.Composite implements RouteManager
 
             if (doRouteInternal(route, routeHandler))
             {
-                conductor.onRouted(route.correlationId(), route.sourceRef());
+                conductor.onRouted(route.correlationId(), route.sourceRef(), route.targetRef());
             }
             else
             {
@@ -310,7 +322,7 @@ public final class Router extends Nukleus.Composite implements RouteManager
             routeTableRW.build();
 
             final Role role = route.role().get();
-            final RouteKind kind = ReferenceKind.valueOf(role).toRouteKind();
+            final RouteKind kind = ReferenceKind.sourceKind(role).toRouteKind();
 
             if (layoutSource.test(kind))
             {
@@ -413,12 +425,13 @@ public final class Router extends Nukleus.Composite implements RouteManager
     }
 
     private RouteFW generateSourceRefIfNecessary(
-        RouteFW route)
+        RouteFW route,
+        boolean requireNonZeroSourceRef)
     {
-        if (route.sourceRef() == 0L)
+        if (requireNonZeroSourceRef && route.sourceRef() == 0L)
         {
             final Role role = route.role().get();
-            final ReferenceKind routeKind = ReferenceKind.valueOf(role);
+            final ReferenceKind routeKind = ReferenceKind.sourceKind(role);
             final long newSourceRef = routeKind.nextRef(routeRefs);
             final StringFW source = route.source();
             final StringFW target = route.target();
@@ -433,6 +446,36 @@ public final class Router extends Nukleus.Composite implements RouteManager
                            .sourceRef(newSourceRef)
                            .target(target)
                            .targetRef(targetRef)
+                           .authorization(authorization)
+                           .extension(b -> b.set(extension))
+                           .build();
+        }
+
+        return route;
+    }
+
+    private RouteFW generateTargetRefIfNecessary(
+        RouteFW route,
+        boolean requireNonZeroTargetRef)
+    {
+        if (requireNonZeroTargetRef && route.targetRef() == 0L)
+        {
+            final Role role = route.role().get();
+            final ReferenceKind routeKind = ReferenceKind.targetKind(role);
+            final long sourceRef = route.sourceRef();
+            final StringFW source = route.source();
+            final StringFW target = route.target();
+            final long newTargetRef = routeKind.nextRef(routeRefs);
+            final long authorization = route.authorization();
+            final OctetsFW extension = route.extension();
+
+            route = routeRW.wrap(routeBuf, 0, routeBuf.capacity())
+                           .correlationId(route.correlationId())
+                           .role(b -> b.set(role))
+                           .source(source)
+                           .sourceRef(sourceRef)
+                           .target(target)
+                           .targetRef(newTargetRef)
                            .authorization(authorization)
                            .extension(b -> b.set(extension))
                            .build();

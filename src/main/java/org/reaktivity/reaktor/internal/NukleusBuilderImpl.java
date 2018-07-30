@@ -49,7 +49,8 @@ public class NukleusBuilderImpl implements NukleusBuilder
     private final Map<RouteKind, StreamFactoryBuilder> streamFactoryBuilders;
     private final List<Nukleus> components;
 
-    private Predicate<RouteKind> allowZeroRouteRef = r -> false;
+    private Predicate<RouteKind> allowZeroSourceRef = r -> false;
+    private Predicate<RouteKind> allowZeroTargetRef = r -> true;
     private Predicate<RouteKind> layoutSource = r -> true;
     private Predicate<RouteKind> layoutTarget = r -> true;
 
@@ -112,10 +113,18 @@ public class NukleusBuilderImpl implements NukleusBuilder
     }
 
     @Override
-    public NukleusBuilder allowZeroRouteRef(
-        Predicate<RouteKind> allowZeroRouteRef)
+    public NukleusBuilder allowZeroSourceRef(
+        Predicate<RouteKind> allowZeroSourceRef)
     {
-        this.allowZeroRouteRef = allowZeroRouteRef;
+        this.allowZeroSourceRef = allowZeroSourceRef;
+        return this;
+    }
+
+    @Override
+    public NukleusBuilder allowZeroTargetRef(
+        Predicate<RouteKind> allowZeroTargetRef)
+    {
+        this.allowZeroTargetRef = allowZeroTargetRef;
         return this;
     }
 
@@ -175,7 +184,8 @@ public class NukleusBuilderImpl implements NukleusBuilder
         router.setStreamFactoryBuilderSupplier(streamFactoryBuilders::get);
         router.setTimestamps(timestamps);
         router.setRouteHandlerSupplier(routeHandlers::get);
-        router.setAllowZeroRouteRef(allowZeroRouteRef);
+        router.setAllowZeroSourceRef(allowZeroSourceRef);
+        router.setAllowZeroTargetRef(allowZeroTargetRef);
 
         NukleusImpl nukleus = new NukleusImpl(name, conductor, router, context, components);
 

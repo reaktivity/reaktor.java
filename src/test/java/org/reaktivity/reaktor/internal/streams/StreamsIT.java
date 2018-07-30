@@ -140,7 +140,8 @@ public class StreamsIT
         private StreamFactoryBuilder serverStreamFactory = mock(StreamFactoryBuilder.class);
         private StreamFactory streamFactory = mock(StreamFactory.class);
 
-        private ArgumentCaptor<LongSupplier> supplyCorrelationId = forClass(LongSupplier.class);
+        private ArgumentCaptor<LongSupplier> supplySourceCorrelationId = forClass(LongSupplier.class);
+        private ArgumentCaptor<LongSupplier> supplyTargetCorrelationId = forClass(LongSupplier.class);
         private ArgumentCaptor<RouteManager> router = forClass(RouteManager.class);
         private ArgumentCaptor<LongSupplier> supplyStreamId = forClass(LongSupplier.class);
         private ArgumentCaptor<LongSupplier> supplyGroupId = forClass(LongSupplier.class);
@@ -168,7 +169,10 @@ public class StreamsIT
         @SuppressWarnings("unchecked")
         public TestNukleusFactorySpi()
         {
-            when(serverStreamFactory.setCorrelationIdSupplier(supplyCorrelationId.capture())).thenReturn(serverStreamFactory);
+            when(serverStreamFactory.setSourceCorrelationIdSupplier(supplySourceCorrelationId.capture()))
+                .thenReturn(serverStreamFactory);
+            when(serverStreamFactory.setTargetCorrelationIdSupplier(supplyTargetCorrelationId.capture()))
+                .thenReturn(serverStreamFactory);
             when(serverStreamFactory.setStreamIdSupplier(supplyStreamId.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setTraceSupplier(any(LongSupplier.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setGroupIdSupplier(supplyGroupId.capture())).thenReturn(serverStreamFactory);
@@ -215,7 +219,7 @@ public class StreamsIT
                             {
                                 MessageConsumer target = router.getValue().supplyTarget(route.target().asString());
                                 long newConnectId = supplyStreamId.getValue().getAsLong();
-                                newCorrelationId = supplyCorrelationId.getValue().getAsLong();
+                                newCorrelationId = supplyTargetCorrelationId.getValue().getAsLong();
                                 correlationId = begin.correlationId();
                                 source = begin.source().asString();
                                 final BeginFW newBegin = beginRW.wrap(buffer,  0, buffer.capacity())

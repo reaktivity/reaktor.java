@@ -119,8 +119,10 @@ final class Source implements Nukleus
         final Supplier<BufferPool> supplyCountingBufferPool = () -> bufferPool;
         for (RouteKind kind : EnumSet.allOf(RouteKind.class))
         {
-            final ReferenceKind refKind = ReferenceKind.valueOf(kind);
-            final LongSupplier supplyCorrelationId = () -> refKind.nextRef(correlations);
+            final ReferenceKind sourceRefKind = ReferenceKind.sourceKind(kind);
+            final LongSupplier supplySourceCorrelationId = () -> sourceRefKind.nextRef(correlations);
+            final ReferenceKind targetRefKind = ReferenceKind.targetKind(kind);
+            final LongSupplier supplyTargetCorrelationId = () -> targetRefKind.nextRef(correlations);
             final StreamFactoryBuilder streamFactoryBuilder = supplyStreamFactoryBuilder.apply(kind);
             if (streamFactoryBuilder != null)
             {
@@ -132,7 +134,8 @@ final class Source implements Nukleus
                         .setGroupIdSupplier(state::supplyGroupId)
                         .setGroupBudgetClaimer(groupBudgetClaimer)
                         .setGroupBudgetReleaser(groupBudgetReleaser)
-                        .setCorrelationIdSupplier(supplyCorrelationId)
+                        .setSourceCorrelationIdSupplier(supplySourceCorrelationId)
+                        .setTargetCorrelationIdSupplier(supplyTargetCorrelationId)
                         .setCounterSupplier(supplyCounter)
                         .setAccumulatorSupplier(supplyAccumulator)
                         .setBufferPoolSupplier(supplyCountingBufferPool)

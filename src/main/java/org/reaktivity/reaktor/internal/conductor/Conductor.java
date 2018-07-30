@@ -88,11 +88,13 @@ public final class Conductor implements Nukleus
 
     public void onRouted(
         long correlationId,
-        long sourceRef)
+        long sourceRef,
+        long targetRef)
     {
         RoutedFW routed = routedRW.wrap(sendBuffer, 0, sendBuffer.capacity())
                 .correlationId(correlationId)
                 .sourceRef(sourceRef)
+                .targetRef(targetRef)
                 .build();
 
         conductorResponses.transmit(routed.typeId(), routed.buffer(), routed.offset(), routed.sizeof());
