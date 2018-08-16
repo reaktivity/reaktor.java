@@ -23,6 +23,7 @@ import java.util.Properties;
 import java.util.function.BiFunction;
 import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
+import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
 public class Configuration
@@ -156,6 +157,16 @@ public class Configuration
         return Integer.decode(value);
     }
 
+    protected final long getLong(String key, long defaultValue)
+    {
+        String value = getProperty(key, (String) null);
+        if (value == null)
+        {
+            return defaultValue;
+        }
+        return Long.decode(value);
+    }
+
     protected final boolean getBoolean(String key, boolean defaultValue)
     {
         String value = getProperty(key, (String) null);
@@ -184,6 +195,16 @@ public class Configuration
             return defaultValue.getAsInt();
         }
         return Integer.decode(value);
+    }
+
+    protected final long getLong(String key, LongSupplier defaultValue)
+    {
+        String value = getProperty(key, (String) null);
+        if (value == null)
+        {
+            return defaultValue.getAsLong();
+        }
+        return Long.decode(value);
     }
 
     protected final boolean getBoolean(String key, BooleanSupplier defaultValue)
