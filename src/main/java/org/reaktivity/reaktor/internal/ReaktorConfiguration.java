@@ -97,6 +97,7 @@ public class ReaktorConfiguration extends Configuration
         super(config, defaultOverrides);
     }
 
+    @Override
     public final Path directory()
     {
         return Paths.get(getProperty(DIRECTORY_PROPERTY_NAME, "."));
@@ -112,26 +113,31 @@ public class ReaktorConfiguration extends Configuration
         return getInteger(BUFFER_SLOT_CAPACITY_PROPERTY, BUFFER_SLOT_CAPACITY_DEFAULT);
     }
 
+    @Override
     public int maximumStreamsCount()
     {
         return bufferPoolCapacity() / bufferSlotCapacity();
     }
 
+    @Override
     public int streamsBufferCapacity()
     {
         return getInteger(STREAMS_BUFFER_CAPACITY_PROPERTY_NAME, STREAMS_BUFFER_CAPACITY_DEFAULT);
     }
 
+    @Override
     public int throttleBufferCapacity()
     {
         return getInteger(THROTTLE_BUFFER_CAPACITY_PROPERTY_NAME, THROTTLE_BUFFER_CAPACITY_DEFAULT);
     }
 
+    @Override
     public int commandBufferCapacity()
     {
         return getInteger(COMMAND_BUFFER_CAPACITY_PROPERTY_NAME, COMMAND_BUFFER_CAPACITY_DEFAULT);
     }
 
+    @Override
     public int responseBufferCapacity()
     {
         return getInteger(RESPONSE_BUFFER_CAPACITY_PROPERTY_NAME, RESPONSE_BUFFER_CAPACITY_DEFAULT);
@@ -142,11 +148,13 @@ public class ReaktorConfiguration extends Configuration
         return getInteger(ROUTES_BUFFER_CAPACITY_PROPERTY_NAME, ROUTES_BUFFER_CAPACITY_DEFAULT);
     }
 
+    @Override
     public int counterValuesBufferCapacity()
     {
         return getInteger(COUNTERS_BUFFER_CAPACITY_PROPERTY_NAME, COUNTERS_BUFFER_CAPACITY_DEFAULT);
     }
 
+    @Override
     public int counterLabelsBufferCapacity()
     {
         return getInteger(COUNTERS_BUFFER_CAPACITY_PROPERTY_NAME, COUNTERS_BUFFER_CAPACITY_DEFAULT) * 2;
@@ -180,15 +188,5 @@ public class ReaktorConfiguration extends Configuration
     public long maxParkPeriodNanos()
     {
         return getLong(BACKOFF_IDLE_STRATEGY_MAX_PARK_PERIOD_NANOS, BACKOFF_IDLE_STRATEGY_MAX_PARK_PERIOD_NANOS_DEFAULT);
-    }
-
-    protected final long getLong(String key, long defaultValue)
-    {
-        String value = getProperty(key, (String) null);
-        if (value == null)
-        {
-            return defaultValue;
-        }
-        return Long.decode(value);
     }
 }
