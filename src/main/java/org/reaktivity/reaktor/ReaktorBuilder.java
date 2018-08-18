@@ -186,7 +186,7 @@ public class ReaktorBuilder
 
         if (bitCount(mask) != 1)
         {
-            throw new IllegalStateException(String.format("affinity mask for must specify exactly one core: %s %d",
+            throw new IllegalStateException(String.format("affinity mask must specify exactly one bit: %s %d",
                                                           name, mask));
         }
 
