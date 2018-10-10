@@ -107,7 +107,8 @@ final class Source implements Nukleus
 
         this.layout = layout;
         this.streamsDescriptor = layout::toString;
-        this.streamsBuffer = layout.streamsBuffer()::read;
+        final int messageCountLimit = context.maximumMessagesPerRead();
+        this.streamsBuffer = m -> layout.streamsBuffer().read(m, messageCountLimit);
         this.throttleBuffer = layout.throttleBuffer()::write;
 
         final Map<RouteKind, StreamFactory> streamFactories = new EnumMap<>(RouteKind.class);
