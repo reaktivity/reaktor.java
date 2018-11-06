@@ -57,6 +57,7 @@ public final class Context implements Closeable
     private RingBuffer toConductorCommands;
     private AtomicBuffer fromConductorResponseBuffer;
     private BroadcastTransmitter fromConductorResponses;
+    private int maximumMessagesPerRead;
 
     private Path streamsPath;
 
@@ -80,6 +81,12 @@ public final class Context implements Closeable
     {
         return maximumStreamsCount;
     }
+
+    public int maximumMessagesPerRead()
+    {
+        return maximumMessagesPerRead;
+    }
+
 
     public int streamsBufferCapacity()
     {
@@ -262,6 +269,8 @@ public final class Context implements Closeable
             this.streamsBufferCapacity = config.streamsBufferCapacity();
 
             this.throttleBufferCapacity = config.throttleBufferCapacity();
+
+            this.maximumMessagesPerRead = config.maximumMessagesPerRead();
 
             this.maximumControlCommandLength = config.commandBufferCapacity() / 8;
 

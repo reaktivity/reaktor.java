@@ -46,6 +46,8 @@ public class ReaktorConfiguration extends Configuration
 
     public static final String TIMESTAMPS_PROPERTY_NAME = "reaktor.timestamps";
 
+    public static final String MAXIMUM_MESSAGES_PER_READ_PROPERTY_NAME = "reaktor.maximum.messages.per.read";
+
     public static final String BACKOFF_IDLE_STRATEGY_MAX_SPINS = "reaktor.backoff.idle.strategy.max.spins";
 
     public static final String BACKOFF_IDLE_STRATEGY_MAX_YIELDS = "reaktor.backoff.idle.strategy.max.yields";
@@ -77,6 +79,8 @@ public class ReaktorConfiguration extends Configuration
     private static final long BACKOFF_IDLE_STRATEGY_MAX_PARK_PERIOD_NANOS_DEFAULT = MILLISECONDS.toNanos(1L);
 
     private static final boolean TIMESTAMPS_DEFAULT = true;
+
+    private static final int MAXIMUM_MESSAGES_PER_READ_DEFAULT = Integer.MAX_VALUE;
 
     public ReaktorConfiguration(
         Configuration config)
@@ -117,6 +121,11 @@ public class ReaktorConfiguration extends Configuration
     public int maximumStreamsCount()
     {
         return bufferPoolCapacity() / bufferSlotCapacity();
+    }
+
+    public int maximumMessagesPerRead()
+    {
+        return getInteger(MAXIMUM_MESSAGES_PER_READ_PROPERTY_NAME, MAXIMUM_MESSAGES_PER_READ_DEFAULT);
     }
 
     @Override

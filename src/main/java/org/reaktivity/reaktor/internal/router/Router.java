@@ -399,7 +399,7 @@ public final class Router extends Nukleus.Composite implements RouteManager
                 .readonly(true)
                 .build();
 
-        return include(new Target(context.name(), targetName, layout, writeBuffer, timestamps));
+        return include(new Target(context.name(), targetName, layout, writeBuffer, timestamps, context.maximumMessagesPerRead()));
     }
 
     private Source supplySource(

@@ -59,7 +59,8 @@ final class Target implements Nukleus
         String targetName,
         StreamsLayout layout,
         MutableDirectBuffer writeBuffer,
-        boolean timestamps)
+        boolean timestamps,
+        int maximumMessagesPerRead)
     {
         this.nukleusName = nukleusName;
         this.targetName = targetName;
@@ -67,7 +68,7 @@ final class Target implements Nukleus
         this.writeBuffer = writeBuffer;
         this.timestamps = timestamps;
         this.streamsBuffer = layout.streamsBuffer()::write;
-        this.throttleBuffer = layout.throttleBuffer()::read;
+        this.throttleBuffer = m -> layout.throttleBuffer().read(m, maximumMessagesPerRead);
         this.throttles = new Long2ObjectHashMap<>();
         this.readHandler = this::handleRead;
         this.writeHandler = this::handleWrite;
