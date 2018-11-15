@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.reaktivity</groupId>
   <artifactId>k3po-nukleus-ext</artifactId>
-  <version>0.29</version>
+  <version>0.30</version>
   <name>K3PO Nukleus Extension</name>
   <description>K3PO Nukleus Extension</description>
   <url>https://github.com/reaktivity/k3po-nukleus-ext.java</url>
@@ -46,7 +46,7 @@
     <junit.version>4.12</junit.version>
     <k3po.version>3.0.0-alpha-96</k3po.version>
     <nukleus.version>0.22</nukleus.version>
-    <nukleus.spec.version>0.24</nukleus.spec.version>
+    <nukleus.spec.version>0.25</nukleus.spec.version>
     <nukleus.plugin.version>0.30</nukleus.plugin.version>
 
     <jacoco.coverage.ratio>0.02</jacoco.coverage.ratio>
@@ -130,7 +130,7 @@
         <configuration>
           <header>COPYRIGHT</header>
           <properties>
-            <copyrightYears>2016-2017</copyrightYears>
+            <copyrightYears>2016-2018</copyrightYears>
           </properties>
           <includes>
             <include>src/**</include>
@@ -154,7 +154,7 @@
       </plugin>
       <plugin>
         <artifactId>maven-checkstyle-plugin</artifactId>
-        <version>2.17</version>
+        <version>3.0.0</version>
         <configuration>
           <includeTestSourceDirectory>true</includeTestSourceDirectory>
         </configuration>
@@ -166,6 +166,13 @@
             </goals>
           </execution>
         </executions>
+        <dependencies>
+          <dependency>
+            <groupId>com.puppycrawl.tools</groupId>
+            <artifactId>checkstyle</artifactId>
+            <version>8.3</version>
+          </dependency>
+        </dependencies>
       </plugin>
       <plugin>
         <groupId>org.kaazing</groupId>

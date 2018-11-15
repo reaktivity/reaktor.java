@@ -1,5 +1,5 @@
 /**
- * Copyright 2016-2017 The Reaktivity Project
+ * Copyright 2016-2018 The Reaktivity Project
  *
  * The Reaktivity Project licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -15,15 +15,19 @@
  */
 package org.reaktivity.k3po.nukleus.ext.internal.behavior.layout;
 
+import static java.nio.file.StandardOpenOption.READ;
 import static org.agrona.IoUtil.createEmptyFile;
 import static org.agrona.IoUtil.mapExistingFile;
 import static org.agrona.IoUtil.unmap;
+import static org.agrona.LangUtil.rethrowUnchecked;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 
-import org.agrona.CloseHelper;
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.agrona.concurrent.ringbuffer.OneToOneRingBuffer;
@@ -98,17 +102,50 @@ public final class StreamsLayout extends Layout
         @Override
         public StreamsLayout build()
         {
-            final File streams = path.toFile();
-            final long streamsSize = streamsCapacity + RingBufferDescriptor.TRAILER_LENGTH;
-            final long throttleSize = throttleCapacity + RingBufferDescriptor.TRAILER_LENGTH;
+            final File layoutFile = path.toFile();
+            final int metaSize = Long.BYTES * 2;
 
             if (!readonly)
             {
-                CloseHelper.close(createEmptyFile(streams, streamsSize + throttleSize));
+                final long totalSize = metaSize +
+                                       streamsCapacity + RingBufferDescriptor.TRAILER_LENGTH +
+                                       throttleCapacity + RingBufferDescriptor.TRAILER_LENGTH;
+
+                try (FileChannel layout = createEmptyFile(layoutFile, totalSize))
+                {
+                    final ByteBuffer metaBuf = ByteBuffer.allocate(metaSize);
+                    metaBuf.putLong(streamsCapacity).putLong(throttleCapacity);
+                    metaBuf.flip();
+                    layout.position(0L);
+                    layout.write(metaBuf);
+                }
+                catch (IOException ex)
+                {
+                    rethrowUnchecked(ex);
+                }
+            }
+            else
+            {
+                try (FileChannel layout = FileChannel.open(layoutFile.toPath(), READ))
+                {
+                    final ByteBuffer metaBuf = ByteBuffer.allocate(metaSize);
+                    layout.read(metaBuf);
+                    metaBuf.flip();
+
+                    streamsCapacity = metaBuf.getLong();
+                    throttleCapacity = metaBuf.getLong();
+                }
+                catch (IOException ex)
+                {
+                    rethrowUnchecked(ex);
+                }
             }
 
-            final MappedByteBuffer mappedStreams = mapExistingFile(streams, "streams", 0, streamsSize);
-            final MappedByteBuffer mappedThrottle = mapExistingFile(streams, "throttle", streamsSize, throttleSize);
+            final long streamsSize = streamsCapacity + RingBufferDescriptor.TRAILER_LENGTH;
+            final long throttleSize = throttleCapacity + RingBufferDescriptor.TRAILER_LENGTH;
+
+            final MappedByteBuffer mappedStreams = mapExistingFile(layoutFile, "streams", metaSize, streamsSize);
+            final MappedByteBuffer mappedThrottle = mapExistingFile(layoutFile, "throttle", metaSize + streamsSize, throttleSize);
 
             final AtomicBuffer atomicStreams = new UnsafeBuffer(mappedStreams);
             final AtomicBuffer atomicThrottle = new UnsafeBuffer(mappedThrottle);

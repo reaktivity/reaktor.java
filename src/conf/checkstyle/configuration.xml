@@ -135,4 +135,8 @@
             <property name="message" value="Trailing whitespace"/>
         </module>
     </module>
+
+    <module name="BeforeExecutionExclusionFileFilter">
+        <property name="fileNamePattern" value="module\-info\.java$"/>
+    </module>
 </module>
