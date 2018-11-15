@@ -1,5 +1,5 @@
 /**
- * Copyright 2016-2017 The Reaktivity Project
+ * Copyright 2016-2018 The Reaktivity Project
  *
  * The Reaktivity Project licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -59,7 +59,8 @@ final class Target implements Nukleus
         String targetName,
         StreamsLayout layout,
         MutableDirectBuffer writeBuffer,
-        boolean timestamps)
+        boolean timestamps,
+        int maximumMessagesPerRead)
     {
         this.nukleusName = nukleusName;
         this.targetName = targetName;
@@ -67,7 +68,7 @@ final class Target implements Nukleus
         this.writeBuffer = writeBuffer;
         this.timestamps = timestamps;
         this.streamsBuffer = layout.streamsBuffer()::write;
-        this.throttleBuffer = layout.throttleBuffer()::read;
+        this.throttleBuffer = m -> layout.throttleBuffer().read(m, maximumMessagesPerRead);
         this.throttles = new Long2ObjectHashMap<>();
         this.readHandler = this::handleRead;
         this.writeHandler = this::handleWrite;

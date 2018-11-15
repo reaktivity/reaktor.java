@@ -1,5 +1,5 @@
 /**
- * Copyright 2016-2017 The Reaktivity Project
+ * Copyright 2016-2018 The Reaktivity Project
  *
  * The Reaktivity Project licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -399,7 +399,7 @@ public final class Router extends Nukleus.Composite implements RouteManager
                 .readonly(true)
                 .build();
 
-        return include(new Target(context.name(), targetName, layout, writeBuffer, timestamps));
+        return include(new Target(context.name(), targetName, layout, writeBuffer, timestamps, context.maximumMessagesPerRead()));
     }
 
     private Source supplySource(

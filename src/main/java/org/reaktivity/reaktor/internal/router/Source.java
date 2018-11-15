@@ -1,5 +1,5 @@
 /**
- * Copyright 2016-2017 The Reaktivity Project
+ * Copyright 2016-2018 The Reaktivity Project
  *
  * The Reaktivity Project licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -107,7 +107,8 @@ final class Source implements Nukleus
 
         this.layout = layout;
         this.streamsDescriptor = layout::toString;
-        this.streamsBuffer = layout.streamsBuffer()::read;
+        final int messageCountLimit = context.maximumMessagesPerRead();
+        this.streamsBuffer = m -> layout.streamsBuffer().read(m, messageCountLimit);
         this.throttleBuffer = layout.throttleBuffer()::write;
 
         final Map<RouteKind, StreamFactory> streamFactories = new EnumMap<>(RouteKind.class);

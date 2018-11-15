@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.reaktivity</groupId>
   <artifactId>reaktor</artifactId>
-  <version>0.60</version>
+  <version>0.61</version>
   <name>Reaktor for Java Nuklei</name>
   <description>Reaktor for Java Nuklei</description>
   <url>https://github.com/reaktivity/reaktor.java</url>
@@ -46,12 +46,12 @@
     <jacoco.missed.count>65</jacoco.missed.count>
 
     <nukleus.plugin.version>0.29</nukleus.plugin.version>
-    <nukleus.spec.version>0.24</nukleus.spec.version>
+    <nukleus.spec.version>0.26</nukleus.spec.version>
     <nukleus.version>0.23</nukleus.version>
     <jmock.version>2.6.0</jmock.version>
     <mockito.version>2.7.13</mockito.version>
     <k3po.version>3.0.0-alpha-96</k3po.version>
-    <k3po.nukleus.ext.version>0.29</k3po.nukleus.ext.version>
+    <k3po.nukleus.ext.version>0.30</k3po.nukleus.ext.version>
   </properties>
 
   <dependencies>
@@ -87,11 +87,13 @@
       <groupId>org.kaazing</groupId>
       <artifactId>k3po.junit</artifactId>
       <version>${k3po.version}</version>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.kaazing</groupId>
       <artifactId>k3po.lang</artifactId>
       <version>${k3po.version}</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 
@@ -120,7 +122,7 @@
         <configuration>
           <header>COPYRIGHT</header>
           <properties>
-            <copyrightYears>2016-2017</copyrightYears>
+            <copyrightYears>2016-2018</copyrightYears>
           </properties>
           <includes>
             <include>src/**</include>
@@ -141,7 +143,7 @@
       </plugin>
       <plugin>
         <artifactId>maven-checkstyle-plugin</artifactId>
-        <version>2.17</version>
+        <version>3.0.0</version>
         <configuration>
           <includeTestSourceDirectory>true</includeTestSourceDirectory>
         </configuration>
@@ -153,6 +155,13 @@
             </goals>
           </execution>
         </executions>
+        <dependencies>
+          <dependency>
+            <groupId>com.puppycrawl.tools</groupId>
+            <artifactId>checkstyle</artifactId>
+            <version>8.3</version>
+          </dependency>
+        </dependencies>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
