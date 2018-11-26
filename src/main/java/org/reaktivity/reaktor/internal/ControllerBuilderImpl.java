@@ -19,13 +19,14 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.ToIntFunction;
 
 import org.agrona.CloseHelper;
 import org.agrona.DirectBuffer;
-import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.concurrent.MessageHandler;
 import org.agrona.concurrent.broadcast.BroadcastReceiver;
 import org.agrona.concurrent.broadcast.CopyBroadcastReceiver;
@@ -114,7 +115,7 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
         private final Context context;
         private final RingBuffer conductorCommands;
         private final CopyBroadcastReceiver conductorResponses;
-        private final Long2ObjectHashMap<CompletableFuture<?>> promisesByCorrelationId;
+        private final ConcurrentMap<Long, CompletableFuture<?>> promisesByCorrelationId;
         private final MessageHandler readHandler;
         private final Map<String, StreamsLayout> sourcesByName;
         private final Map<String, StreamsLayout> targetsByName;
@@ -125,7 +126,7 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
             this.context = context;
             this.conductorCommands = context.conductorCommands();
             this.conductorResponses = new CopyBroadcastReceiver(new BroadcastReceiver(context.conductorResponseBuffer()));
-            this.promisesByCorrelationId = new Long2ObjectHashMap<>();
+            this.promisesByCorrelationId = new ConcurrentHashMap<>();
             this.sourcesByName = new HashMap<>();
             this.targetsByName = new HashMap<>();
             this.readHandler = this::handleResponse;
