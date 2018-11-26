@@ -19,13 +19,14 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.ToIntFunction;
 
 import org.agrona.CloseHelper;
 import org.agrona.DirectBuffer;
-import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.concurrent.MessageHandler;
 import org.agrona.concurrent.broadcast.BroadcastReceiver;
 import org.agrona.concurrent.broadcast.CopyBroadcastReceiver;
@@ -114,7 +115,7 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
         private final Context context;
         private final RingBuffer conductorCommands;
         private final CopyBroadcastReceiver conductorResponses;
-        private final Long2ObjectHashMap<CompletableFuture<?>> promisesByCorrelationId;
+        private final ConcurrentMap<Long, CompletableFuture<?>> promisesByCorrelationId;
         private final MessageHandler readHandler;
         private final Map<String, StreamsLayout> sourcesByName;
         private final Map<String, StreamsLayout> targetsByName;
@@ -125,7 +126,7 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
             this.context = context;
             this.conductorCommands = context.conductorCommands();
             this.conductorResponses = new CopyBroadcastReceiver(new BroadcastReceiver(context.conductorResponseBuffer()));
-            this.promisesByCorrelationId = new Long2ObjectHashMap<>();
+            this.promisesByCorrelationId = new ConcurrentHashMap<>();
             this.sourcesByName = new HashMap<>();
             this.targetsByName = new HashMap<>();
             this.readHandler = this::handleResponse;
@@ -164,7 +165,7 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
         {
             assert msgTypeId == ResolveFW.TYPE_ID;
 
-            return handleCommand(msgTypeId, buffer, index, length);
+            return doCommand(msgTypeId, buffer, index, length);
         }
 
         @Override
@@ -176,7 +177,7 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
         {
             assert msgTypeId == RouteFW.TYPE_ID;
 
-            return handleCommand(msgTypeId, buffer, index, length);
+            return doCommand(msgTypeId, buffer, index, length);
         }
 
         @Override
@@ -188,7 +189,7 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
         {
             assert msgTypeId == UnresolveFW.TYPE_ID;
 
-            return handleCommand(msgTypeId, buffer, index, length);
+            return doCommand(msgTypeId, buffer, index, length);
         }
 
         @Override
@@ -200,7 +201,7 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
         {
             assert msgTypeId == UnrouteFW.TYPE_ID;
 
-            return handleCommand(msgTypeId, buffer, index, length);
+            return doCommand(msgTypeId, buffer, index, length);
         }
 
         @Override
@@ -212,7 +213,7 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
         {
             assert msgTypeId == FreezeFW.TYPE_ID;
 
-            return handleCommand(msgTypeId, buffer, index, length);
+            return doCommand(msgTypeId, buffer, index, length);
         }
 
         @Override
@@ -269,7 +270,7 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
                     .build();
         }
 
-        private <R> CompletableFuture<R> handleCommand(
+        private <R> CompletableFuture<R> doCommand(
             int msgTypeId,
             DirectBuffer buffer,
             int index,
@@ -278,14 +279,13 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
             final CompletableFuture<R> promise = new CompletableFuture<>();
 
             final FrameFW frame = frameRO.wrap(buffer, index, index + length);
+            final long correlationId = frame.correlationId();
+
+            commandSent(correlationId, promise);
 
             if (!conductorCommands.write(msgTypeId, buffer, index, length))
             {
-                commandSendFailed(promise);
-            }
-            else
-            {
-                commandSent(frame.correlationId(), promise);
+                commandSendFailed(correlationId);
             }
 
             return promise;
@@ -333,10 +333,7 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
             long correlationId = errorRO.correlationId();
 
             CompletableFuture<?> promise = promisesByCorrelationId.remove(correlationId);
-            if (promise != null)
-            {
-                commandFailed(promise, "command failed");
-            }
+            commandFailed(promise, "command failed");
         }
 
         @SuppressWarnings("unchecked")
@@ -350,10 +347,7 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
             long authorization = response.authorization();
 
             CompletableFuture<Long> promise = (CompletableFuture<Long>) promisesByCorrelationId.remove(correlationId);
-            if (promise != null)
-            {
-                commandSucceeded(promise, authorization);
-            }
+            commandSucceeded(promise, authorization);
         }
 
         @SuppressWarnings("unchecked")
@@ -367,10 +361,7 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
             long sourceRef = routed.sourceRef();
 
             CompletableFuture<Long> promise = (CompletableFuture<Long>) promisesByCorrelationId.remove(correlationId);
-            if (promise != null)
-            {
-                commandSucceeded(promise, sourceRef);
-            }
+            commandSucceeded(promise, sourceRef);
         }
 
         private void handleUnresolvedResponse(
@@ -382,10 +373,7 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
             final long correlationId = unrouted.correlationId();
 
             CompletableFuture<?> promise = promisesByCorrelationId.remove(correlationId);
-            if (promise != null)
-            {
-                commandSucceeded(promise);
-            }
+            commandSucceeded(promise);
         }
 
         private void handleUnroutedResponse(
@@ -397,10 +385,7 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
             final long correlationId = unrouted.correlationId();
 
             CompletableFuture<?> promise = promisesByCorrelationId.remove(correlationId);
-            if (promise != null)
-            {
-                commandSucceeded(promise);
-            }
+            commandSucceeded(promise);
         }
 
         private void handleFrozenResponse(
@@ -412,10 +397,7 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
             final long correlationId = frozen.correlationId();
 
             CompletableFuture<?> promise = promisesByCorrelationId.remove(correlationId);
-            if (promise != null)
-            {
-                commandSucceeded(promise);
-            }
+            commandSucceeded(promise);
         }
 
         private void commandSent(
@@ -435,12 +417,13 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
             final CompletableFuture<R> promise,
             final R value)
         {
-            return promise.complete(value);
+            return promise != null && promise.complete(value);
         }
 
         private boolean commandSendFailed(
-            final CompletableFuture<?> promise)
+            final long correlationId)
         {
+            CompletableFuture<?> promise = promisesByCorrelationId.remove(correlationId);
             return commandFailed(promise, "unable to offer command");
         }
 
@@ -448,7 +431,7 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
             final CompletableFuture<?> promise,
             final String message)
         {
-            return promise.completeExceptionally(new IllegalStateException(message));
+            return promise != null && promise.completeExceptionally(new IllegalStateException(message));
         }
     }
 }
