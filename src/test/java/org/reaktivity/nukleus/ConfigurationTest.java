@@ -1,5 +1,5 @@
 /**
- * Copyright 2016-2017 The Reaktivity Project
+ * Copyright 2016-2018 The Reaktivity Project
  *
  * The Reaktivity Project licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -16,123 +16,360 @@
 package org.reaktivity.nukleus;
 
 import static org.junit.Assert.assertEquals;
-import static org.reaktivity.nukleus.Configuration.COMMAND_BUFFER_CAPACITY_PROPERTY_NAME;
-import static org.reaktivity.nukleus.Configuration.DIRECTORY_PROPERTY_NAME;
+import static org.junit.Assert.assertTrue;
 
-import java.nio.file.Paths;
 import java.util.Properties;
+import java.util.function.Predicate;
+import java.util.function.ToDoubleFunction;
+import java.util.function.ToIntFunction;
+import java.util.function.ToLongFunction;
 
 import org.junit.Test;
+import org.reaktivity.nukleus.Configuration.BooleanPropertyDef;
+import org.reaktivity.nukleus.Configuration.BytePropertyDef;
+import org.reaktivity.nukleus.Configuration.CharPropertyDef;
+import org.reaktivity.nukleus.Configuration.ConfigurationDef;
+import org.reaktivity.nukleus.Configuration.DoublePropertyDef;
+import org.reaktivity.nukleus.Configuration.FloatPropertyDef;
+import org.reaktivity.nukleus.Configuration.IntPropertyDef;
+import org.reaktivity.nukleus.Configuration.LongPropertyDef;
+import org.reaktivity.nukleus.Configuration.ShortPropertyDef;
+import org.reaktivity.nukleus.Configuration.ToByteFunction;
+import org.reaktivity.nukleus.Configuration.ToCharFunction;
+import org.reaktivity.nukleus.Configuration.ToFloatFunction;
+import org.reaktivity.nukleus.Configuration.ToShortFunction;
 
 public final class ConfigurationTest
 {
     @Test
     public void shouldUseSystemProperties()
     {
-        System.setProperty(DIRECTORY_PROPERTY_NAME, "/path/to/reaktivity");
+        System.setProperty("reaktivity.test", "/path/to/reaktivity");
 
         Configuration config = new Configuration();
 
-        assertEquals(Paths.get("/path/to/reaktivity"), config.directory());
+        assertEquals("/path/to/reaktivity", config.getProperty("reaktivity.test", "default"));
     }
 
     @Test
     public void shouldUseProperties()
     {
         Properties properties = new Properties();
-        properties.setProperty(DIRECTORY_PROPERTY_NAME, "/path/to/reaktivity");
+        properties.setProperty("reaktivity.test", "/path/to/reaktivity");
 
         Configuration config = new Configuration(properties);
 
-        assertEquals(Paths.get("/path/to/reaktivity"), config.directory());
+        assertEquals("/path/to/reaktivity", config.getProperty("reaktivity.test", "default"));
     }
 
     @Test
     public void shouldUseDefaultOverridesProperties()
     {
         Properties defaultOverrides = new Properties();
-        defaultOverrides.setProperty(DIRECTORY_PROPERTY_NAME, "/path/to/reaktivity");
+        defaultOverrides.setProperty("reaktivity.test", "/path/to/reaktivity");
 
         Configuration system = new Configuration();
         Configuration config = new Configuration(system, defaultOverrides);
 
-        assertEquals(Paths.get("/path/to/reaktivity"), config.directory());
+        assertEquals("/path/to/reaktivity", config.getProperty("reaktivity.test", "default"));
     }
 
     @Test
     public void shouldUseSystemPropertiesBeforeDefaultProperties()
     {
-        System.setProperty(DIRECTORY_PROPERTY_NAME, "/system/path/to/reaktivity");
+        System.setProperty("reaktivity.test", "/system/path/to/reaktivity");
 
         Properties defaults = new Properties();
-        defaults.setProperty(DIRECTORY_PROPERTY_NAME, "/path/to/reaktivity");
+        defaults.setProperty("reaktivity.test", "/path/to/reaktivity");
 
         Configuration system = new Configuration();
         Configuration config = new Configuration(system, defaults);
 
-        assertEquals(Paths.get("/system/path/to/reaktivity"), config.directory());
+        assertEquals("/system/path/to/reaktivity", config.getProperty("reaktivity.test", "default"));
     }
 
     @Test
     public void shouldUseDefaultProperties()
     {
-        System.setProperty(COMMAND_BUFFER_CAPACITY_PROPERTY_NAME, Integer.toString(1048576));
+        System.setProperty("reaktivity.test.default", Integer.toString(1048576));
 
         Properties defaults = new Properties();
-        defaults.setProperty(COMMAND_BUFFER_CAPACITY_PROPERTY_NAME, Integer.toString(65536));
+        defaults.setProperty("reaktivity.test.default", Integer.toString(65536));
 
         Configuration system = new Configuration();
         Configuration config = new Configuration(system, defaults);
 
-        assertEquals(Paths.get("."), config.directory());
+        assertEquals("default", config.getProperty("reaktivity.test", "default"));
     }
 
     @Test
     public void shouldUseDefaultOverridesPropertiesWhenWrapped()
     {
         Properties defaultOverrides = new Properties();
-        defaultOverrides.setProperty(DIRECTORY_PROPERTY_NAME, "/path/to/reaktivity");
+        defaultOverrides.setProperty("reaktivity.test", "/path/to/reaktivity");
 
         Configuration system = new Configuration();
         Configuration config = new Configuration(system, defaultOverrides);
         Configuration wrapped = new Configuration(config);
 
-        assertEquals(Paths.get("/path/to/reaktivity"), wrapped.directory());
-    }
-
-    @Test
-    public void shouldGetIntegerProperty()
-    {
-        System.setProperty("integer.property.name", Integer.toString(1234));
-
-        Configuration config = new Configuration();
-
-        assertEquals(1234, config.getInteger("integer.property.name", 5678));
-    }
-
-    @Test
-    public void shouldDefaultIntegerProperty()
-    {
-        Configuration config = new Configuration();
-
-        assertEquals(1234, config.getInteger("integer.property.name", 1234));
+        assertEquals("/path/to/reaktivity", wrapped.getProperty("reaktivity.test", "default"));
     }
 
     @Test
     public void shouldGetBooleanProperty()
     {
-        System.setProperty("boolean.property.name", Boolean.TRUE.toString());
+        System.setProperty("scope.boolean.property.name", Boolean.TRUE.toString());
 
+        ConfigurationDef configDef = new ConfigurationDef("scope");
+        BooleanPropertyDef propertyDef = configDef.property("boolean.property.name", false);
         Configuration config = new Configuration();
 
-        assertEquals(Boolean.TRUE, config.getBoolean("boolean.property.name", Boolean.FALSE));
+        assertTrue(propertyDef.getAsBoolean(config));
     }
 
     @Test
     public void shouldDefaultBooleanProperty()
     {
+        ConfigurationDef configDef = new ConfigurationDef("scope");
+        BooleanPropertyDef propertyDef = configDef.property("boolean.property.name", true);
         Configuration config = new Configuration();
 
-        assertEquals(Boolean.TRUE, config.getBoolean("boolean.property.name", Boolean.TRUE));
+        assertTrue(propertyDef.getAsBoolean(config));
+    }
+
+    @Test
+    public void shouldSupplyDefaultBooleanProperty()
+    {
+        ConfigurationDef configDef = new ConfigurationDef("scope");
+        BooleanPropertyDef propertyDef = configDef.property("boolean.property.name", (Predicate<Configuration>) c -> true);
+        Configuration config = new Configuration();
+
+        assertTrue(propertyDef.getAsBoolean(config));
+    }
+
+    @Test
+    public void shouldGetByteProperty()
+    {
+        System.setProperty("scope.byte.property.name", "0x7f");
+
+        ConfigurationDef configDef = new ConfigurationDef("scope");
+        BytePropertyDef propertyDef = configDef.property("byte.property.name", Byte.decode("0x00"));
+        Configuration config = new Configuration();
+
+        assertEquals(Byte.MAX_VALUE, propertyDef.getAsByte(config));
+    }
+
+    @Test
+    public void shouldDefaultByteProperty()
+    {
+        ConfigurationDef configDef = new ConfigurationDef("scope");
+        BytePropertyDef propertyDef = configDef.property("byte.property.name", Byte.decode("0x7f"));
+        Configuration config = new Configuration();
+
+        assertEquals(Byte.MAX_VALUE, propertyDef.getAsByte(config));
+    }
+
+    @Test
+    public void shouldSupplyDefaultByteProperty()
+    {
+        ConfigurationDef configDef = new ConfigurationDef("scope");
+        BytePropertyDef propertyDef = configDef.property("byte.property.name",
+                (ToByteFunction<Configuration>) c -> Byte.decode("0x7f"));
+        Configuration config = new Configuration();
+
+        assertEquals(Byte.MAX_VALUE, propertyDef.getAsByte(config));
+    }
+
+    @Test
+    public void shouldGetShortProperty()
+    {
+        System.setProperty("scope.short.property.name", "0x7fff");
+
+        ConfigurationDef configDef = new ConfigurationDef("scope");
+        ShortPropertyDef propertyDef = configDef.property("short.property.name", Short.decode("0x00"));
+        Configuration config = new Configuration();
+
+        assertEquals(Short.MAX_VALUE, propertyDef.getAsShort(config));
+    }
+
+    @Test
+    public void shouldDefaultShortProperty()
+    {
+        ConfigurationDef configDef = new ConfigurationDef("scope");
+        ShortPropertyDef propertyDef = configDef.property("short.property.name", Short.decode("0x7fff"));
+        Configuration config = new Configuration();
+
+        assertEquals(Short.MAX_VALUE, propertyDef.getAsShort(config));
+    }
+
+    @Test
+    public void shouldSupplyDefaultShortProperty()
+    {
+        ConfigurationDef configDef = new ConfigurationDef("scope");
+        ShortPropertyDef propertyDef = configDef.property("short.property.name",
+                (ToShortFunction<Configuration>) c -> Short.decode("0x7fff"));
+        Configuration config = new Configuration();
+
+        assertEquals(Short.MAX_VALUE, propertyDef.getAsShort(config));
+    }
+
+    @Test
+    public void shouldGetIntegerProperty()
+    {
+        System.setProperty("scope.integer.property.name", Integer.toString(1234));
+
+        ConfigurationDef configDef = new ConfigurationDef("scope");
+        IntPropertyDef propertyDef = configDef.property("integer.property.name", 5678);
+        Configuration config = new Configuration();
+
+        assertEquals(1234, propertyDef.getAsInt(config));
+    }
+
+    @Test
+    public void shouldDefaultIntegerProperty()
+    {
+        ConfigurationDef configDef = new ConfigurationDef("scope");
+        IntPropertyDef propertyDef = configDef.property("integer.property.name", 1234);
+        Configuration config = new Configuration();
+
+        assertEquals(1234, propertyDef.getAsInt(config));
+    }
+
+    @Test
+    public void shouldSupplyDefaultIntegerProperty()
+    {
+        ConfigurationDef configDef = new ConfigurationDef("scope");
+        IntPropertyDef propertyDef = configDef.property("integer.property.name", (ToIntFunction<Configuration>) c -> 1234);
+        Configuration config = new Configuration();
+
+        assertEquals(1234, propertyDef.getAsInt(config));
+    }
+
+    @Test
+    public void shouldGetLongProperty()
+    {
+        System.setProperty("scope.long.property.name", Long.toString(1234L));
+
+        ConfigurationDef configDef = new ConfigurationDef("scope");
+        LongPropertyDef propertyDef = configDef.property("long.property.name", 5678L);
+        Configuration config = new Configuration();
+
+        assertEquals(1234L, propertyDef.getAsLong(config));
+    }
+
+    @Test
+    public void shouldDefaultLongProperty()
+    {
+        ConfigurationDef configDef = new ConfigurationDef("scope");
+        LongPropertyDef propertyDef = configDef.property("long.property.name", 1234L);
+        Configuration config = new Configuration();
+
+        assertEquals(1234L, propertyDef.getAsLong(config));
+    }
+
+    @Test
+    public void shouldSupplyDefaultLongProperty()
+    {
+        ConfigurationDef configDef = new ConfigurationDef("scope");
+        LongPropertyDef propertyDef = configDef.property("long.property.name", (ToLongFunction<Configuration>) c -> 1234L);
+        Configuration config = new Configuration();
+
+        assertEquals(1234L, propertyDef.getAsLong(config));
+    }
+
+    @Test
+    public void shouldGetCharProperty()
+    {
+        System.setProperty("scope.char.property.name", "a");
+
+        ConfigurationDef configDef = new ConfigurationDef("scope");
+        CharPropertyDef propertyDef = configDef.property("char.property.name", 'z');
+        Configuration config = new Configuration();
+
+        assertEquals('a', propertyDef.getAsChar(config));
+    }
+
+    @Test
+    public void shouldDefaultCharProperty()
+    {
+        ConfigurationDef configDef = new ConfigurationDef("scope");
+        CharPropertyDef propertyDef = configDef.property("char.property.name", 'a');
+        Configuration config = new Configuration();
+
+        assertEquals('a', propertyDef.getAsChar(config));
+    }
+
+    @Test
+    public void shouldSupplyDefaultCharProperty()
+    {
+        ConfigurationDef configDef = new ConfigurationDef("scope");
+        CharPropertyDef propertyDef = configDef.property("char.property.name", (ToCharFunction<Configuration>) c -> 'a');
+        Configuration config = new Configuration();
+
+        assertEquals('a', propertyDef.getAsChar(config));
+    }
+
+    @Test
+    public void shouldGetFloatProperty()
+    {
+        System.setProperty("scope.float.property.name", Float.toString(0.1234f));
+
+        ConfigurationDef configDef = new ConfigurationDef("scope");
+        FloatPropertyDef propertyDef = configDef.property("float.property.name", 0.5678f);
+        Configuration config = new Configuration();
+
+        assertEquals(0.1234f, propertyDef.getAsFloat(config), 0.0f);
+    }
+
+    @Test
+    public void shouldDefaultFloatProperty()
+    {
+        ConfigurationDef configDef = new ConfigurationDef("scope");
+        FloatPropertyDef propertyDef = configDef.property("float.property.name", 0.1234f);
+        Configuration config = new Configuration();
+
+        assertEquals(0.1234f, propertyDef.getAsFloat(config), 0.0f);
+    }
+
+    @Test
+    public void shouldSupplyDefaultFloatProperty()
+    {
+        ConfigurationDef configDef = new ConfigurationDef("scope");
+        FloatPropertyDef propertyDef = configDef.property("float.property.name", (ToFloatFunction<Configuration>) c -> 0.1234f);
+        Configuration config = new Configuration();
+
+        assertEquals(0.1234f, propertyDef.getAsFloat(config), 0.0f);
+    }
+
+    @Test
+    public void shouldGetDoubleProperty()
+    {
+        System.setProperty("scope.double.property.name", Double.toString(0.1234));
+
+        ConfigurationDef configDef = new ConfigurationDef("scope");
+        DoublePropertyDef propertyDef = configDef.property("double.property.name", 0.5678);
+        Configuration config = new Configuration();
+
+        assertEquals(0.1234, propertyDef.getAsDouble(config), 0.0);
+    }
+
+    @Test
+    public void shouldDefaultDoubleProperty()
+    {
+        ConfigurationDef configDef = new ConfigurationDef("scope");
+        DoublePropertyDef propertyDef = configDef.property("double.property.name", 0.1234);
+        Configuration config = new Configuration();
+
+        assertEquals(0.1234, propertyDef.getAsDouble(config), 0.0);
+    }
+
+    @Test
+    public void shouldSupplyDefaultDoubleProperty()
+    {
+        ConfigurationDef configDef = new ConfigurationDef("scope");
+        DoublePropertyDef propertyDef = configDef.property("double.property.name", (ToDoubleFunction<Configuration>) c -> 0.1234);
+        Configuration config = new Configuration();
+
+        assertEquals(0.1234, propertyDef.getAsDouble(config), 0.0);
     }
 }
