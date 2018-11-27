@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiConsumer;
 import java.util.function.IntFunction;
 
 import org.agrona.CloseHelper;
@@ -31,6 +32,7 @@ import org.agrona.LangUtil;
 import org.agrona.concurrent.Agent;
 import org.agrona.concurrent.AgentRunner;
 import org.agrona.concurrent.IdleStrategy;
+import org.reaktivity.nukleus.Configuration;
 import org.reaktivity.nukleus.Controller;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.buffer.BufferPool;
@@ -40,6 +42,7 @@ public final class Reaktor implements AutoCloseable
 {
     private final IdleStrategy idleStrategy;
     private final ErrorHandler errorHandler;
+    private final Set<Configuration> configs;
     private final Map<String, Nukleus> nukleiByName;
     private final Map<Class<? extends Controller>, Controller> controllersByKind;
 
@@ -48,11 +51,13 @@ public final class Reaktor implements AutoCloseable
     Reaktor(
         IdleStrategy idleStrategy,
         ErrorHandler errorHandler,
+        Set<Configuration> configs,
         State[] states,
         IntFunction<String> roleName)
     {
         this.idleStrategy = idleStrategy;
         this.errorHandler = errorHandler;
+        this.configs = configs;
         this.nukleiByName = new ConcurrentHashMap<>();
         this.controllersByKind = new ConcurrentHashMap<>();
 
@@ -72,6 +77,13 @@ public final class Reaktor implements AutoCloseable
             }
         }
         this.cores = cores;
+    }
+
+    public void properties(
+        BiConsumer<String, Object> valueAction,
+        BiConsumer<String, Object> defaultAction)
+    {
+        configs.forEach(c -> c.properties(valueAction, defaultAction));
     }
 
     public <T extends Controller> T controller(

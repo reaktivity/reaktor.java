@@ -15,16 +15,15 @@
  */
 package org.reaktivity.reaktor.test;
 
-import static java.lang.String.valueOf;
 import static java.nio.file.FileVisitOption.FOLLOW_LINKS;
 import static java.nio.file.Files.exists;
 import static org.junit.runners.model.MultipleFailureException.assertEmpty;
-import static org.reaktivity.reaktor.internal.ReaktorConfiguration.COMMAND_BUFFER_CAPACITY_PROPERTY_NAME;
-import static org.reaktivity.reaktor.internal.ReaktorConfiguration.COUNTERS_BUFFER_CAPACITY_PROPERTY_NAME;
-import static org.reaktivity.reaktor.internal.ReaktorConfiguration.DIRECTORY_PROPERTY_NAME;
-import static org.reaktivity.reaktor.internal.ReaktorConfiguration.RESPONSE_BUFFER_CAPACITY_PROPERTY_NAME;
-import static org.reaktivity.reaktor.internal.ReaktorConfiguration.STREAMS_BUFFER_CAPACITY_PROPERTY_NAME;
-import static org.reaktivity.reaktor.internal.ReaktorConfiguration.THROTTLE_BUFFER_CAPACITY_PROPERTY_NAME;
+import static org.reaktivity.reaktor.internal.ReaktorConfiguration.REAKTOR_COMMAND_BUFFER_CAPACITY;
+import static org.reaktivity.reaktor.internal.ReaktorConfiguration.REAKTOR_COUNTERS_BUFFER_CAPACITY;
+import static org.reaktivity.reaktor.internal.ReaktorConfiguration.REAKTOR_DIRECTORY;
+import static org.reaktivity.reaktor.internal.ReaktorConfiguration.REAKTOR_RESPONSE_BUFFER_CAPACITY;
+import static org.reaktivity.reaktor.internal.ReaktorConfiguration.REAKTOR_STREAMS_BUFFER_CAPACITY;
+import static org.reaktivity.reaktor.internal.ReaktorConfiguration.REAKTOR_THROTTLE_BUFFER_CAPACITY;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -39,6 +38,7 @@ import org.agrona.LangUtil;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
+import org.reaktivity.nukleus.Configuration.PropertyDef;
 import org.reaktivity.nukleus.Controller;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.NukleusFactorySpi;
@@ -49,6 +49,10 @@ import org.reaktivity.reaktor.test.annotation.Configure;
 
 public final class ReaktorRule implements TestRule
 {
+    // needed by test annotations
+    public static final String REAKTOR_BUFFER_POOL_CAPACITY_NAME = "reaktor.buffer.pool.capacity";
+    public static final String REAKTOR_BUFFER_SLOT_CAPACITY_NAME = "reaktor.buffer.slot.capacity";
+
     private final Properties properties;
     private final ReaktorBuilder builder;
 
@@ -65,41 +69,45 @@ public final class ReaktorRule implements TestRule
 
     public ReaktorRule directory(String directory)
     {
-        return configure(DIRECTORY_PROPERTY_NAME, directory);
+        return configure(REAKTOR_DIRECTORY, directory);
     }
 
     public ReaktorRule commandBufferCapacity(int commandBufferCapacity)
     {
-        return configure(COMMAND_BUFFER_CAPACITY_PROPERTY_NAME, commandBufferCapacity);
+        return configure(REAKTOR_COMMAND_BUFFER_CAPACITY, commandBufferCapacity);
     }
 
     public ReaktorRule responseBufferCapacity(int responseBufferCapacity)
     {
-        return configure(RESPONSE_BUFFER_CAPACITY_PROPERTY_NAME, responseBufferCapacity);
+        return configure(REAKTOR_RESPONSE_BUFFER_CAPACITY, responseBufferCapacity);
     }
 
     public ReaktorRule counterValuesBufferCapacity(int counterValuesBufferCapacity)
     {
-        return configure(COUNTERS_BUFFER_CAPACITY_PROPERTY_NAME, counterValuesBufferCapacity);
+        return configure(REAKTOR_COUNTERS_BUFFER_CAPACITY, counterValuesBufferCapacity);
     }
 
     public ReaktorRule streamsBufferCapacity(int streamsBufferCapacity)
     {
-        return configure(STREAMS_BUFFER_CAPACITY_PROPERTY_NAME, streamsBufferCapacity);
+        return configure(REAKTOR_STREAMS_BUFFER_CAPACITY, streamsBufferCapacity);
     }
 
     public ReaktorRule throttleBufferCapacity(int throttleBufferCapacity)
     {
-        return configure(THROTTLE_BUFFER_CAPACITY_PROPERTY_NAME, throttleBufferCapacity);
+        return configure(REAKTOR_THROTTLE_BUFFER_CAPACITY, throttleBufferCapacity);
     }
 
-    public ReaktorRule configure(String name, int value)
+    public <T> ReaktorRule configure(
+        PropertyDef<T> property,
+        T value)
     {
-        properties.setProperty(name, valueOf(value));
+        properties.setProperty(property.name(), value.toString());
         return this;
     }
 
-    public ReaktorRule configure(String name, String value)
+    public ReaktorRule configure(
+        String name,
+        String value)
     {
         properties.setProperty(name, value);
         return this;
