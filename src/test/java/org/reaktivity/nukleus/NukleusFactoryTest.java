@@ -38,6 +38,13 @@ public final class NukleusFactoryTest
         NukleusBuilder builder = new NukleusBuilder()
         {
             @Override
+            public NukleusBuilder configure(
+                Configuration config)
+            {
+                return this;
+            }
+
+            @Override
             public NukleusBuilder streamFactory(
                 RouteKind kind,
                 StreamFactoryBuilder supplier)

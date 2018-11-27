@@ -24,6 +24,9 @@ import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 
 public interface NukleusBuilder
 {
+    NukleusBuilder configure(
+        Configuration config);
+
     NukleusBuilder routeHandler(
         RouteKind kind,
         MessagePredicate handler);

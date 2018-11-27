@@ -32,6 +32,11 @@ public interface Nukleus extends AutoCloseable
         return null;
     }
 
+    default Configuration config()
+    {
+        return null;
+    }
+
     class Composite implements Nukleus
     {
         private Nukleus[] nuklei;
