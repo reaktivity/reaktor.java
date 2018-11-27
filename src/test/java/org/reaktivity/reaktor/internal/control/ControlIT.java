@@ -213,7 +213,7 @@ public class ControlIT
         @Override
         public Nukleus create(Configuration config, NukleusBuilder builder)
         {
-            return builder.build();
+            return builder.configure(config).build();
         }
 
     }

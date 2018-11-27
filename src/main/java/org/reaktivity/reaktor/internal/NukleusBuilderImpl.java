@@ -27,6 +27,7 @@ import java.util.Objects;
 import java.util.function.Predicate;
 
 import org.agrona.collections.Int2ObjectHashMap;
+import org.reaktivity.nukleus.Configuration;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.NukleusBuilder;
 import org.reaktivity.nukleus.function.CommandHandler;
@@ -41,7 +42,6 @@ import org.reaktivity.reaktor.internal.types.control.auth.UnresolveFW;
 
 public class NukleusBuilderImpl implements NukleusBuilder
 {
-    private final ReaktorConfiguration config;
     private final String name;
     private final State state;
     private final Int2ObjectHashMap<CommandHandler> commandHandlersByTypeId;
@@ -49,23 +49,30 @@ public class NukleusBuilderImpl implements NukleusBuilder
     private final Map<RouteKind, StreamFactoryBuilder> streamFactoryBuilders;
     private final List<Nukleus> components;
 
+    private Configuration config;
     private Predicate<RouteKind> allowZeroSourceRef = r -> false;
     private Predicate<RouteKind> allowZeroTargetRef = r -> true;
     private Predicate<RouteKind> layoutSource = r -> true;
     private Predicate<RouteKind> layoutTarget = r -> true;
 
     public NukleusBuilderImpl(
-        ReaktorConfiguration config,
         String name,
         State state)
     {
-        this.config = config;
         this.name = name;
         this.state = state;
         this.commandHandlersByTypeId = new Int2ObjectHashMap<>();
         this.routeHandlers = new EnumMap<>(Role.class);
         this.streamFactoryBuilders = new EnumMap<>(RouteKind.class);
         this.components = new LinkedList<>();
+    }
+
+    @Override
+    public NukleusBuilder configure(
+        Configuration config)
+    {
+        this.config = config;
+        return this;
     }
 
     @Override
@@ -167,10 +174,11 @@ public class NukleusBuilderImpl implements NukleusBuilder
     @Override
     public Nukleus build()
     {
+        ReaktorConfiguration reaktorConfig = new ReaktorConfiguration(config);
         Context context = new Context();
-        context.name(name).conclude(config);
+        context.name(name).conclude(reaktorConfig);
 
-        final boolean timestamps = config.timestamps();
+        final boolean timestamps = reaktorConfig.timestamps();
 
         Conductor conductor = new Conductor(context);
         Router router = new Router(context);
@@ -187,7 +195,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
         router.setAllowZeroSourceRef(allowZeroSourceRef);
         router.setAllowZeroTargetRef(allowZeroTargetRef);
 
-        NukleusImpl nukleus = new NukleusImpl(name, conductor, router, context, components);
+        NukleusImpl nukleus = new NukleusImpl(name, config, conductor, router, context, components);
 
         conductor.freezeHandler(nukleus::freeze);
 
@@ -197,11 +205,13 @@ public class NukleusBuilderImpl implements NukleusBuilder
     private static final class NukleusImpl extends Nukleus.Composite
     {
         private final String name;
+        private final Configuration config;
         private final Closeable cleanup;
         private final Runnable handleFreeze;
 
         NukleusImpl(
             String name,
+            Configuration config,
             Conductor conductor,
             Router router,
             Context cleanup,
@@ -209,6 +219,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
         {
             super(conductor, router);
             this.name = name;
+            this.config = config;
             this.cleanup = cleanup;
             this.handleFreeze = () -> exclude(conductor);
 
@@ -219,6 +230,12 @@ public class NukleusBuilderImpl implements NukleusBuilder
         public String name()
         {
             return name;
+        }
+
+        @Override
+        public Configuration config()
+        {
+            return config;
         }
 
         @Override

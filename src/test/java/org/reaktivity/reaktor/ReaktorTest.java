@@ -16,6 +16,7 @@
 package org.reaktivity.reaktor;
 
 import static java.util.Collections.emptyList;
+import static java.util.Collections.emptySet;
 import static java.util.Collections.singletonList;
 import static org.junit.Assert.assertNotSame;
 
@@ -68,6 +69,7 @@ public class ReaktorTest
         Reaktor reaktor = new Reaktor(
             idleStrategy,
             errorHandler,
+            emptySet(),
             new State[] {state},
             t -> "reaktor");
         reaktor.start();
@@ -100,6 +102,7 @@ public class ReaktorTest
         Reaktor reaktor = new Reaktor(
             idleStrategy,
             errorHandler,
+            emptySet(),
             new State[] {state},
             t -> "reaktor");
         reaktor.start();
@@ -132,6 +135,7 @@ public class ReaktorTest
         Reaktor reaktor = new Reaktor(
                 idleStrategy,
                 errorHandler,
+                emptySet(),
                 new State[] {state},
                 t -> "reaktor");
         reaktor.start();
@@ -172,6 +176,7 @@ public class ReaktorTest
         Reaktor reaktor = new Reaktor(
                 idleStrategy,
                 errorHandler,
+                emptySet(),
                 new State[] {state},
                 t -> "reaktor");
         reaktor.start();
@@ -216,6 +221,7 @@ public class ReaktorTest
         Reaktor reaktor = new Reaktor(
                 idleStrategy,
                 errorHandler,
+                emptySet(),
                 new State[] {state},
                 t -> "reaktor");
         reaktor.start();

@@ -165,7 +165,8 @@ public class ControlResolveIT
         @Override
         public Nukleus create(Configuration config, NukleusBuilder builder)
         {
-            return builder.commandHandler(ResolveFW.TYPE_ID, resolver)
+            return builder.configure(config)
+                          .commandHandler(ResolveFW.TYPE_ID, resolver)
                           .commandHandler(UnresolveFW.TYPE_ID, unresolver)
                           .build();
         }

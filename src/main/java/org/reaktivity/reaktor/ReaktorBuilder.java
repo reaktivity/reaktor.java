@@ -19,6 +19,8 @@ import static java.lang.Integer.bitCount;
 import static java.lang.Integer.numberOfTrailingZeros;
 import static java.util.Objects.requireNonNull;
 
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.function.ToIntFunction;
@@ -126,7 +128,10 @@ public class ReaktorBuilder
 
     public Reaktor build()
     {
+        final Set<Configuration> configs = new LinkedHashSet<>();
+
         final ReaktorConfiguration config = new ReaktorConfiguration(this.config != null ? this.config : new Configuration());
+        configs.add(config);
 
         final StateImpl[] states = new StateImpl[threads];
         for (int thread=0; thread < threads; thread++)
@@ -142,8 +147,10 @@ public class ReaktorBuilder
                 int affinity = supplyAffinity(name);
                 StateImpl state = states[affinity];
 
-                NukleusBuilder builder = new NukleusBuilderImpl(config, name, state);
+                NukleusBuilder builder = new NukleusBuilderImpl(name, state);
                 Nukleus nukleus = nukleusFactory.create(name, config, builder);
+
+                configs.add(nukleus.config());
 
                 state.assign(nukleus);
             }
@@ -171,12 +178,12 @@ public class ReaktorBuilder
             idleStrategy = new BackoffIdleStrategy(
                 config.maxSpins(),
                 config.maxYields(),
-                config.minParkPeriodNanos(),
-                config.maxParkPeriodNanos());
+                config.minParkNanos(),
+                config.maxParkNanos());
         }
         ErrorHandler errorHandler = requireNonNull(this.errorHandler, "errorHandler");
 
-        return new Reaktor(idleStrategy, errorHandler, states, t -> String.format("%s%d", roleName, t));
+        return new Reaktor(idleStrategy, errorHandler, configs, states, t -> String.format("%s%d", roleName, t));
     }
 
     private int supplyAffinity(

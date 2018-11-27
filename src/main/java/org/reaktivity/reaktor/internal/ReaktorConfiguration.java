@@ -26,98 +26,81 @@ import org.reaktivity.nukleus.Configuration;
 
 public class ReaktorConfiguration extends Configuration
 {
-    public static final String DIRECTORY_PROPERTY_NAME = "reaktor.directory";
+    public static final PropertyDef<String> REAKTOR_DIRECTORY;
+    public static final IntPropertyDef REAKTOR_STREAMS_BUFFER_CAPACITY;
+    public static final IntPropertyDef REAKTOR_THROTTLE_BUFFER_CAPACITY;
+    public static final IntPropertyDef REAKTOR_COMMAND_BUFFER_CAPACITY;
+    public static final IntPropertyDef REAKTOR_RESPONSE_BUFFER_CAPACITY;
+    public static final IntPropertyDef REAKTOR_COUNTERS_BUFFER_CAPACITY;
+    public static final IntPropertyDef REAKTOR_BUFFER_POOL_CAPACITY;
+    public static final IntPropertyDef REAKTOR_BUFFER_SLOT_CAPACITY;
+    public static final IntPropertyDef REAKTOR_ROUTES_BUFFER_CAPACITY;
+    public static final BooleanPropertyDef REAKTOR_TIMESTAMPS;
+    public static final IntPropertyDef REAKTOR_MAXIMUM_MESSAGES_PER_READ;
+    public static final LongPropertyDef REAKTOR_BACKOFF_MAX_SPINS;
+    public static final LongPropertyDef REAKTOR_BACKOFF_MAX_YIELDS;
+    public static final LongPropertyDef REAKTOR_BACKOFF_MIN_PARK_NANOS;
+    public static final LongPropertyDef REAKTOR_BACKOFF_MAX_PARK_NANOS;
 
-    public static final String STREAMS_BUFFER_CAPACITY_PROPERTY_NAME = "reaktor.streams.buffer.capacity";
+    private static final ConfigurationDef REAKTOR_CONFIG;
 
-    public static final String THROTTLE_BUFFER_CAPACITY_PROPERTY_NAME = "reaktor.throttle.buffer.capacity";
-
-    public static final String COMMAND_BUFFER_CAPACITY_PROPERTY_NAME = "reaktor.command.buffer.capacity";
-
-    public static final String RESPONSE_BUFFER_CAPACITY_PROPERTY_NAME = "reaktor.response.buffer.capacity";
-
-    public static final String COUNTERS_BUFFER_CAPACITY_PROPERTY_NAME = "reaktor.counters.buffer.capacity";
-
-    public static final String BUFFER_POOL_CAPACITY_PROPERTY = "reaktor.buffer.pool.capacity";
-
-    public static final String BUFFER_SLOT_CAPACITY_PROPERTY = "reaktor.buffer.slot.capacity";
-
-    public static final String ROUTES_BUFFER_CAPACITY_PROPERTY_NAME = "reaktor.routes.buffer.capacity";
-
-    public static final String TIMESTAMPS_PROPERTY_NAME = "reaktor.timestamps";
-
-    public static final String MAXIMUM_MESSAGES_PER_READ_PROPERTY_NAME = "reaktor.maximum.messages.per.read";
-
-    public static final String BACKOFF_IDLE_STRATEGY_MAX_SPINS = "reaktor.backoff.idle.strategy.max.spins";
-
-    public static final String BACKOFF_IDLE_STRATEGY_MAX_YIELDS = "reaktor.backoff.idle.strategy.max.yields";
-
-    public static final String BACKOFF_IDLE_STRATEGY_MIN_PARK_PERIOD_NANOS = "reaktor.backoff.idle.strategy.min.park.period";
-
-    public static final String BACKOFF_IDLE_STRATEGY_MAX_PARK_PERIOD_NANOS = "reaktor.backoff.idle.strategy.max.park.period";
-
-    public static final int BUFFER_SLOT_CAPACITY_DEFAULT = 65536;
-
-    public static final int STREAMS_BUFFER_CAPACITY_DEFAULT = 1024 * 1024;
-
-    public static final int THROTTLE_BUFFER_CAPACITY_DEFAULT = 64 * 1024;
-
-    public static final int COMMAND_BUFFER_CAPACITY_DEFAULT = 1024 * 1024;
-
-    public static final int RESPONSE_BUFFER_CAPACITY_DEFAULT = 1024 * 1024;
-
-    public static final int COUNTERS_BUFFER_CAPACITY_DEFAULT = 1024 * 1024;
-
-    public static final int ROUTES_BUFFER_CAPACITY_DEFAULT = 1024 * 1024;
-
-    private static final long BACKOFF_IDLE_STRATEGY_MAX_SPINS_DEFAULT = 64L;
-
-    private static final long BACKOFF_IDLE_STRATEGY_MAX_YIELDS_DEFAULT = 64L;
-
-    private static final long BACKOFF_IDLE_STRATEGY_MIN_PARK_PERIOD_NANOS_DEFAULT = NANOSECONDS.toNanos(64L);
-
-    private static final long BACKOFF_IDLE_STRATEGY_MAX_PARK_PERIOD_NANOS_DEFAULT = MILLISECONDS.toNanos(1L);
-
-    private static final boolean TIMESTAMPS_DEFAULT = true;
-
-    private static final int MAXIMUM_MESSAGES_PER_READ_DEFAULT = Integer.MAX_VALUE;
+    static
+    {
+        final ConfigurationDef config = new ConfigurationDef("reaktor");
+        REAKTOR_DIRECTORY = config.property("directory", ".");
+        REAKTOR_STREAMS_BUFFER_CAPACITY = config.property("streams.buffer.capacity", 1024 * 1024);
+        REAKTOR_THROTTLE_BUFFER_CAPACITY = config.property("throttle.buffer.capacity", 64 * 1024);
+        REAKTOR_COMMAND_BUFFER_CAPACITY = config.property("command.buffer.capacity", 1024 * 1024);
+        REAKTOR_RESPONSE_BUFFER_CAPACITY = config.property("response.buffer.capacity", 1024 * 1024);
+        REAKTOR_COUNTERS_BUFFER_CAPACITY = config.property("counters.buffer.capacity", 1024 * 1024);
+        REAKTOR_BUFFER_POOL_CAPACITY = config.property("buffer.pool.capacity", ReaktorConfiguration::defaultBufferPoolCapacity);
+        REAKTOR_BUFFER_SLOT_CAPACITY = config.property("buffer.slot.capacity", 64 * 1024);
+        REAKTOR_ROUTES_BUFFER_CAPACITY = config.property("routes.buffer.capacity", 1024 * 1024);
+        REAKTOR_TIMESTAMPS = config.property("timestamps", true);
+        REAKTOR_MAXIMUM_MESSAGES_PER_READ = config.property("maximum.messages.per.read", Integer.MAX_VALUE);
+        REAKTOR_BACKOFF_MAX_SPINS = config.property("backoff.idle.strategy.max.spins", 64L);
+        REAKTOR_BACKOFF_MAX_YIELDS = config.property("backoff.idle.strategy.max.yields", 64L);
+        // TODO: shorten property name string values to match constant naming
+        REAKTOR_BACKOFF_MIN_PARK_NANOS = config.property("backoff.idle.strategy.min.park.period", NANOSECONDS.toNanos(64L));
+        REAKTOR_BACKOFF_MAX_PARK_NANOS = config.property("backoff.idle.strategy.max.park.period", MILLISECONDS.toNanos(1L));
+        REAKTOR_CONFIG = config;
+    }
 
     public ReaktorConfiguration(
         Configuration config)
     {
-        super(config);
+        super(REAKTOR_CONFIG, config);
     }
 
     public ReaktorConfiguration(
         Properties properties)
     {
-        super(properties);
+        super(REAKTOR_CONFIG, properties);
     }
 
     public ReaktorConfiguration(
         Configuration config,
         Properties defaultOverrides)
     {
-        super(config, defaultOverrides);
+        super(REAKTOR_CONFIG, config, defaultOverrides);
     }
 
     @Override
     public final Path directory()
     {
-        return Paths.get(getProperty(DIRECTORY_PROPERTY_NAME, "."));
+        return Paths.get(REAKTOR_DIRECTORY.get(this));
     }
 
     public int bufferPoolCapacity()
     {
-        return getInteger(BUFFER_POOL_CAPACITY_PROPERTY, this::calculateBufferPoolCapacity);
+        return REAKTOR_BUFFER_POOL_CAPACITY.getAsInt(this);
     }
 
     public int bufferSlotCapacity()
     {
-        return getInteger(BUFFER_SLOT_CAPACITY_PROPERTY, BUFFER_SLOT_CAPACITY_DEFAULT);
+        return REAKTOR_BUFFER_SLOT_CAPACITY.getAsInt(this);
     }
 
-    @Override
     public int maximumStreamsCount()
     {
         return bufferPoolCapacity() / bufferSlotCapacity();
@@ -125,77 +108,72 @@ public class ReaktorConfiguration extends Configuration
 
     public int maximumMessagesPerRead()
     {
-        return getInteger(MAXIMUM_MESSAGES_PER_READ_PROPERTY_NAME, MAXIMUM_MESSAGES_PER_READ_DEFAULT);
+        return REAKTOR_MAXIMUM_MESSAGES_PER_READ.getAsInt(this);
     }
 
-    @Override
     public int streamsBufferCapacity()
     {
-        return getInteger(STREAMS_BUFFER_CAPACITY_PROPERTY_NAME, STREAMS_BUFFER_CAPACITY_DEFAULT);
+        return REAKTOR_STREAMS_BUFFER_CAPACITY.getAsInt(this);
     }
 
-    @Override
     public int throttleBufferCapacity()
     {
-        return getInteger(THROTTLE_BUFFER_CAPACITY_PROPERTY_NAME, THROTTLE_BUFFER_CAPACITY_DEFAULT);
+        return REAKTOR_THROTTLE_BUFFER_CAPACITY.getAsInt(this);
     }
 
-    @Override
     public int commandBufferCapacity()
     {
-        return getInteger(COMMAND_BUFFER_CAPACITY_PROPERTY_NAME, COMMAND_BUFFER_CAPACITY_DEFAULT);
+        return REAKTOR_COMMAND_BUFFER_CAPACITY.get(this);
     }
 
-    @Override
     public int responseBufferCapacity()
     {
-        return getInteger(RESPONSE_BUFFER_CAPACITY_PROPERTY_NAME, RESPONSE_BUFFER_CAPACITY_DEFAULT);
+        return REAKTOR_RESPONSE_BUFFER_CAPACITY.getAsInt(this);
     }
 
     public int routesBufferCapacity()
     {
-        return getInteger(ROUTES_BUFFER_CAPACITY_PROPERTY_NAME, ROUTES_BUFFER_CAPACITY_DEFAULT);
+        return REAKTOR_ROUTES_BUFFER_CAPACITY.get(this);
     }
 
-    @Override
     public int counterValuesBufferCapacity()
     {
-        return getInteger(COUNTERS_BUFFER_CAPACITY_PROPERTY_NAME, COUNTERS_BUFFER_CAPACITY_DEFAULT);
+        return REAKTOR_COUNTERS_BUFFER_CAPACITY.getAsInt(this);
     }
 
-    @Override
     public int counterLabelsBufferCapacity()
     {
-        return getInteger(COUNTERS_BUFFER_CAPACITY_PROPERTY_NAME, COUNTERS_BUFFER_CAPACITY_DEFAULT) * 2;
+        return REAKTOR_COUNTERS_BUFFER_CAPACITY.getAsInt(this) * 2;
     }
 
     public boolean timestamps()
     {
-        return getBoolean(TIMESTAMPS_PROPERTY_NAME, TIMESTAMPS_DEFAULT);
-    }
-
-    private int calculateBufferPoolCapacity()
-    {
-        return bufferSlotCapacity() * 64;
+        return REAKTOR_TIMESTAMPS.getAsBoolean(this);
     }
 
     public long maxSpins()
     {
-        return getLong(BACKOFF_IDLE_STRATEGY_MAX_SPINS, BACKOFF_IDLE_STRATEGY_MAX_SPINS_DEFAULT);
+        return REAKTOR_BACKOFF_MAX_SPINS.getAsLong(this);
     }
 
     public long maxYields()
     {
-        return getLong(BACKOFF_IDLE_STRATEGY_MAX_YIELDS, BACKOFF_IDLE_STRATEGY_MAX_YIELDS_DEFAULT);
+        return REAKTOR_BACKOFF_MAX_YIELDS.getAsLong(this);
     }
 
-    public long minParkPeriodNanos()
+    public long minParkNanos()
     {
-        return getLong(BACKOFF_IDLE_STRATEGY_MIN_PARK_PERIOD_NANOS, BACKOFF_IDLE_STRATEGY_MIN_PARK_PERIOD_NANOS_DEFAULT);
+        return REAKTOR_BACKOFF_MIN_PARK_NANOS.getAsLong(this);
     }
 
-    public long maxParkPeriodNanos()
+    public long maxParkNanos()
     {
-        return getLong(BACKOFF_IDLE_STRATEGY_MAX_PARK_PERIOD_NANOS, BACKOFF_IDLE_STRATEGY_MAX_PARK_PERIOD_NANOS_DEFAULT);
+        return REAKTOR_BACKOFF_MAX_PARK_NANOS.getAsLong(this);
+    }
+
+    private static int defaultBufferPoolCapacity(
+        Configuration config)
+    {
+        return REAKTOR_BUFFER_SLOT_CAPACITY.get(config) * 64;
     }
 }

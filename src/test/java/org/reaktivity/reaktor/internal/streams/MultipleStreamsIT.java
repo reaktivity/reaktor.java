@@ -299,8 +299,9 @@ public class MultipleStreamsIT
         @Override
         public Nukleus create(Configuration config, NukleusBuilder builder)
         {
-            return builder.streamFactory(SERVER, serverStreamFactory)
-                   .build();
+            return builder.configure(config)
+                          .streamFactory(SERVER, serverStreamFactory)
+                          .build();
         }
     }
 

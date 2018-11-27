@@ -32,6 +32,7 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.reaktivity.nukleus.Configuration;
+import org.reaktivity.reaktor.internal.ReaktorConfiguration;
 
 public final class ReaktorMain
 {
@@ -57,7 +58,7 @@ public final class ReaktorMain
             String[] nuklei = cmdline.getOptionValues("nukleus");
 
             Properties properties = new Properties();
-            properties.setProperty(Configuration.DIRECTORY_PROPERTY_NAME, directory);
+            properties.setProperty(ReaktorConfiguration.REAKTOR_DIRECTORY.name(), directory);
 
             Configuration config = new Configuration(properties);
 
