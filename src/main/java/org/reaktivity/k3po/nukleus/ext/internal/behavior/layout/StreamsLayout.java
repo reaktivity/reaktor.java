@@ -23,6 +23,7 @@ import static org.agrona.LangUtil.rethrowUnchecked;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
@@ -115,7 +116,7 @@ public final class StreamsLayout extends Layout
                 {
                     final ByteBuffer metaBuf = ByteBuffer.allocate(metaSize);
                     metaBuf.putLong(streamsCapacity).putLong(throttleCapacity);
-                    metaBuf.flip();
+                    ((Buffer) metaBuf).flip();
                     layout.position(0L);
                     layout.write(metaBuf);
                 }
@@ -130,7 +131,7 @@ public final class StreamsLayout extends Layout
                 {
                     final ByteBuffer metaBuf = ByteBuffer.allocate(metaSize);
                     layout.read(metaBuf);
-                    metaBuf.flip();
+                    ((Buffer) metaBuf).flip();
 
                     streamsCapacity = metaBuf.getLong();
                     throttleCapacity = metaBuf.getLong();
