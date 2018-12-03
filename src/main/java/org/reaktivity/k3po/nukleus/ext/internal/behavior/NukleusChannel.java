@@ -69,13 +69,14 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
         ChannelFactory factory,
         ChannelPipeline pipeline,
         ChannelSink sink,
-        NukleusReaktor reaktor)
+        NukleusReaktor reaktor,
+        long targetId)
     {
         super(parent, factory, pipeline, sink, new DefaultNukleusChannelConfig());
 
         this.reaktor = reaktor;
         this.writeRequests = new LinkedList<>();
-        this.targetId = getId() | Long.MIN_VALUE;
+        this.targetId = targetId;
     }
 
     @Override

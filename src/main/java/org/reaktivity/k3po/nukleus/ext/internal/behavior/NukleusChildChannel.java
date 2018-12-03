@@ -28,9 +28,10 @@ public final class NukleusChildChannel extends NukleusChannel
         ChannelFactory factory,
         ChannelPipeline pipeline,
         ChannelSink sink,
-        NukleusReaktor reaktor)
+        NukleusReaktor reaktor,
+        long targetId)
     {
-        super(parent, factory, pipeline, sink, reaktor);
+        super(parent, factory, pipeline, sink, reaktor, targetId);
         this.getConfig().setUpdate(parent.getConfig().getUpdate());
 
         setConnected();

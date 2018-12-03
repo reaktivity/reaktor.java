@@ -185,7 +185,8 @@ final class NukleusPartition implements AutoCloseable
     {
         final long sourceId = begin.streamId();
         final long correlationId = begin.correlationId();
-        NukleusChildChannel childChannel = doAccept(serverChannel, correlationId);
+        final long replyId = sourceId | 0x8000_0000_0000_0000L;
+        NukleusChildChannel childChannel = doAccept(serverChannel, replyId, correlationId);
 
         final ChannelFuture handshakeFuture = future(childChannel);
         final MessageHandler newStream = streamFactory.newStream(childChannel, this, handshakeFuture);
@@ -267,6 +268,7 @@ final class NukleusPartition implements AutoCloseable
 
     private NukleusChildChannel doAccept(
         NukleusServerChannel serverChannel,
+        long targetId,
         long correlationId)
     {
         try
@@ -282,7 +284,7 @@ final class NukleusPartition implements AutoCloseable
             ChannelFactory channelFactory = serverChannel.getFactory();
             NukleusChildChannelSink childSink = new NukleusChildChannelSink();
             NukleusChildChannel childChannel =
-                  new NukleusChildChannel(serverChannel, channelFactory, pipeline, childSink, serverChannel.reaktor);
+                  new NukleusChildChannel(serverChannel, channelFactory, pipeline, childSink, serverChannel.reaktor, targetId);
 
             NukleusChannelConfig childConfig = childChannel.getConfig();
             childConfig.setBufferFactory(serverConfig.getBufferFactory());
