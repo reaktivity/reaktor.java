@@ -20,6 +20,7 @@ import java.util.function.IntUnaryOperator;
 import java.util.function.LongConsumer;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
+import java.util.function.LongUnaryOperator;
 import java.util.function.Supplier;
 
 import org.agrona.MutableDirectBuffer;
@@ -31,8 +32,11 @@ public interface StreamFactoryBuilder
     StreamFactoryBuilder setRouteManager(
         RouteManager router);
 
-    StreamFactoryBuilder setStreamIdSupplier(
-        LongSupplier supplyStreamId);
+    StreamFactoryBuilder setInitialIdSupplier(
+        LongSupplier supplyInitialId);
+
+    StreamFactoryBuilder setReplyIdSupplier(
+        LongUnaryOperator supplyReplyId);
 
     default StreamFactoryBuilder setGroupIdSupplier(
         LongSupplier supplyGroupId)
