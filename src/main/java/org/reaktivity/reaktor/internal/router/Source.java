@@ -130,7 +130,8 @@ final class Source implements Nukleus
                 StreamFactory streamFactory = streamFactoryBuilder
                         .setRouteManager(router)
                         .setWriteBuffer(writeBuffer)
-                        .setStreamIdSupplier(state::supplyStreamId)
+                        .setInitialIdSupplier(state::supplyInitialId)
+                        .setReplyIdSupplier(state::supplyReplyId)
                         .setTraceSupplier(state::supplyTrace)
                         .setGroupIdSupplier(state::supplyGroupId)
                         .setGroupBudgetClaimer(groupBudgetClaimer)

@@ -25,7 +25,9 @@ public interface State
 {
     BufferPool bufferPool();
 
-    long supplyStreamId();
+    long supplyInitialId();
+
+    long supplyReplyId(long initialId);
 
     long supplyTrace();
 
