@@ -52,6 +52,8 @@ public final class StateImpl implements State, Comparable<StateImpl>
         final long initial = ((long) index) << bits;
         final long mask = initial | (-1L >>> reserved);
 
+        assert index >= 0; // negative would collide with replyId
+
         this.index = index;
         this.mask = mask;
         this.bufferPool = bufferPool;
@@ -69,11 +71,19 @@ public final class StateImpl implements State, Comparable<StateImpl>
     }
 
     @Override
-    public long supplyStreamId()
+    public long supplyInitialId()
     {
         streamId++;
         streamId &= mask;
         return streamId;
+    }
+
+    @Override
+    public long supplyReplyId(
+        long initialId)
+    {
+        assert (initialId & 0x8000_0000_0000_0000L) == 0L;
+        return initialId | 0x8000_0000_0000_0000L;
     }
 
     @Override

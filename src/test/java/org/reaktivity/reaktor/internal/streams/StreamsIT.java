@@ -30,6 +30,7 @@ import java.util.function.Function;
 import java.util.function.IntUnaryOperator;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
+import java.util.function.LongUnaryOperator;
 import java.util.function.Supplier;
 
 import org.agrona.DirectBuffer;
@@ -143,7 +144,8 @@ public class StreamsIT
         private ArgumentCaptor<LongSupplier> supplySourceCorrelationId = forClass(LongSupplier.class);
         private ArgumentCaptor<LongSupplier> supplyTargetCorrelationId = forClass(LongSupplier.class);
         private ArgumentCaptor<RouteManager> router = forClass(RouteManager.class);
-        private ArgumentCaptor<LongSupplier> supplyStreamId = forClass(LongSupplier.class);
+        private ArgumentCaptor<LongSupplier> supplyInitialId = forClass(LongSupplier.class);
+        private ArgumentCaptor<LongUnaryOperator> supplyReplyId = forClass(LongUnaryOperator.class);
         private ArgumentCaptor<LongSupplier> supplyGroupId = forClass(LongSupplier.class);
         @SuppressWarnings("unchecked")
         private ArgumentCaptor<LongFunction<IntUnaryOperator>> groupBudgetClaimer = forClass(LongFunction.class);
@@ -165,6 +167,7 @@ public class StreamsIT
         private long newCorrelationId;
         private long correlationId;
         private String source;
+        private long initialId;
 
         @SuppressWarnings("unchecked")
         public TestNukleusFactorySpi()
@@ -173,7 +176,8 @@ public class StreamsIT
                 .thenReturn(serverStreamFactory);
             when(serverStreamFactory.setTargetCorrelationIdSupplier(supplyTargetCorrelationId.capture()))
                 .thenReturn(serverStreamFactory);
-            when(serverStreamFactory.setStreamIdSupplier(supplyStreamId.capture())).thenReturn(serverStreamFactory);
+            when(serverStreamFactory.setInitialIdSupplier(supplyInitialId.capture())).thenReturn(serverStreamFactory);
+            when(serverStreamFactory.setReplyIdSupplier(supplyReplyId.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setTraceSupplier(any(LongSupplier.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setGroupIdSupplier(supplyGroupId.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setGroupBudgetClaimer(groupBudgetClaimer.capture())).thenReturn(serverStreamFactory);
@@ -218,10 +222,11 @@ public class StreamsIT
                             if (route != null)
                             {
                                 MessageConsumer target = router.getValue().supplyTarget(route.target().asString());
-                                long newConnectId = supplyStreamId.getValue().getAsLong();
+                                long newConnectId = supplyInitialId.getValue().getAsLong();
                                 newCorrelationId = supplyTargetCorrelationId.getValue().getAsLong();
                                 correlationId = begin.correlationId();
                                 source = begin.source().asString();
+                                initialId = begin.streamId();
                                 final BeginFW newBegin = beginRW.wrap(buffer,  0, buffer.capacity())
                                         .streamId(newConnectId)
                                         .authorization(begin.authorization())
@@ -251,7 +256,7 @@ public class StreamsIT
                             InvocationOnMock invocation) throws Throwable
                         {
                             MessageConsumer acceptReply = router.getValue().supplyTarget(source);
-                            long newReplyId = supplyStreamId.getValue().getAsLong();
+                            long newReplyId = supplyReplyId.getValue().applyAsLong(initialId);
                             MutableDirectBuffer buffer = writeBuffer.getValue();
                             final BeginFW beginOut = beginRW.wrap(buffer,  0, buffer.capacity())
                                     .streamId(newReplyId)
