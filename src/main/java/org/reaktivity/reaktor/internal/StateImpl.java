@@ -47,12 +47,12 @@ public final class StateImpl implements State, Comparable<StateImpl>
         final int bufferSlotCapacity = config.bufferSlotCapacity();
         final BufferPool bufferPool = new DefaultBufferPool(bufferPoolCapacity, bufferSlotCapacity);
 
-        final int reserved = numberOfTrailingZeros(findNextPositivePowerOfTwo(count));
+        final int reserved = numberOfTrailingZeros(findNextPositivePowerOfTwo(count)) + 1; // reply bit
         final int bits = Long.SIZE - reserved;
         final long initial = ((long) index) << bits;
         final long mask = initial | (-1L >>> reserved);
 
-        assert index >= 0; // negative would collide with replyId
+        assert mask >= 0; // high bit used by reply id
 
         this.index = index;
         this.mask = mask;
