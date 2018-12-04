@@ -265,7 +265,7 @@ public final class Router extends Nukleus.Composite implements RouteManager
             final int offset = candidate.offset();
             final int length = candidate.sizeof();
             final long routeAuthorization = candidate.authorization();
-            return filter.test(typeId, buffer, offset, offset + length) &&
+            return filter.test(typeId, buffer, offset, length) &&
             (authorization & routeAuthorization) == routeAuthorization;
         });
 
@@ -496,7 +496,7 @@ public final class Router extends Nukleus.Composite implements RouteManager
         unroute.targetRef() == route.targetRef() &&
         unroute.authorization() == route.authorization() &&
         unroute.extension().equals(route. extension()) &&
-        routeHandler.test(UnrouteFW.TYPE_ID, route.buffer(), route.offset(), route.limit());
+        routeHandler.test(UnrouteFW.TYPE_ID, route.buffer(), route.offset(), route.sizeof());
     }
 
     private static RouteFW wrapRoute(
