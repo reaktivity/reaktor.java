@@ -224,7 +224,7 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
             StreamsLayout source = sourcesByName.computeIfAbsent(sourceName, this::newSource);
 
             MessagePredicate streams = source.streamsBuffer()::write;
-            ToIntFunction<MessageConsumer> throttle = source.throttleBuffer()::read;
+            ToIntFunction<MessageConsumer> throttle = source.streamsBuffer()::read;
 
             return factory.apply(streams, throttle);
         }
@@ -237,7 +237,7 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
             StreamsLayout target = targetsByName.computeIfAbsent(targetName, this::newTarget);
 
             ToIntFunction<MessageConsumer> streams = target.streamsBuffer()::read;
-            MessagePredicate throttle = target.throttleBuffer()::write;
+            MessagePredicate throttle = target.streamsBuffer()::write;
 
             return factory.apply(streams, throttle);
         }
@@ -254,7 +254,6 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
             return new StreamsLayout.Builder()
                     .path(context.sourceStreamsPath().apply(sourceName))
                     .streamsCapacity(context.streamsBufferCapacity())
-                    .throttleCapacity(context.throttleBufferCapacity())
                     .readonly(true)
                     .build();
         }
@@ -265,7 +264,6 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
             return new StreamsLayout.Builder()
                     .path(context.targetStreamsPath().apply(targetName))
                     .streamsCapacity(context.streamsBufferCapacity())
-                    .throttleCapacity(context.throttleBufferCapacity())
                     .readonly(false)
                     .build();
         }

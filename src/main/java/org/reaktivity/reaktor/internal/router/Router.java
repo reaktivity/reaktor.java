@@ -15,6 +15,8 @@
  */
 package org.reaktivity.reaktor.internal.router;
 
+import static org.agrona.CloseHelper.quietClose;
+
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
@@ -25,6 +27,7 @@ import java.util.function.Predicate;
 import org.agrona.DirectBuffer;
 import org.agrona.LangUtil;
 import org.agrona.MutableDirectBuffer;
+import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.agrona.concurrent.status.AtomicCounter;
 import org.reaktivity.nukleus.Nukleus;
@@ -69,6 +72,9 @@ public final class Router extends Nukleus.Composite implements RouteManager
     private final MutableDirectBuffer routesBuffer;
     private final int routesBufferCapacity;
 
+    private final Long2ObjectHashMap<MessageConsumer> streams;
+    private final Long2ObjectHashMap<MessageConsumer> throttles;
+
     private Conductor conductor;
     private State state;
     private Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder;
@@ -93,6 +99,9 @@ public final class Router extends Nukleus.Composite implements RouteManager
         this.routesLayout = context.routesLayout();
         this.routesBuffer = routesLayout.routesBuffer();
         this.routesBufferCapacity = routesLayout.capacity();
+        this.streams = new Long2ObjectHashMap<>();
+        this.throttles = new Long2ObjectHashMap<>();
+
     }
 
     public void setConductor(
@@ -380,6 +389,7 @@ public final class Router extends Nukleus.Composite implements RouteManager
         sourcesByName.forEach((k, v) -> v.detach());
         targetsByName.forEach((k, v) -> v.detach());
 
+        targetsByName.forEach((k, v) -> quietClose(v));
         super.close();
     }
 
@@ -395,11 +405,11 @@ public final class Router extends Nukleus.Composite implements RouteManager
         StreamsLayout layout = new StreamsLayout.Builder()
                 .path(context.targetStreamsPath().apply(targetName))
                 .streamsCapacity(context.streamsBufferCapacity())
-                .throttleCapacity(context.throttleBufferCapacity())
                 .readonly(true)
                 .build();
 
-        return include(new Target(context.name(), targetName, layout, writeBuffer, timestamps, context.maximumMessagesPerRead()));
+        return new Target(targetName, layout, writeBuffer, timestamps,
+                          context.maximumMessagesPerRead(), streams, throttles);
     }
 
     private Source supplySource(
@@ -420,8 +430,10 @@ public final class Router extends Nukleus.Composite implements RouteManager
                 groupBudgetManager::claim,
                 groupBudgetManager::release,
                 supplyStreamFactoryBuilder,
-                timestamps,
-                correlations));
+                correlations,
+                this::supplyTarget,
+                streams,
+                throttles));
     }
 
     private RouteFW generateSourceRefIfNecessary(
