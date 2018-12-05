@@ -15,18 +15,12 @@
  */
 package org.reaktivity.k3po.nukleus.ext.internal.behavior.layout;
 
-import static java.nio.file.StandardOpenOption.READ;
 import static org.agrona.IoUtil.createEmptyFile;
 import static org.agrona.IoUtil.mapExistingFile;
 import static org.agrona.IoUtil.unmap;
-import static org.agrona.LangUtil.rethrowUnchecked;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.Buffer;
-import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
-import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 
 import org.agrona.concurrent.AtomicBuffer;
@@ -38,14 +32,11 @@ import org.agrona.concurrent.ringbuffer.RingBufferDescriptor;
 public final class StreamsLayout extends Layout
 {
     private final RingBuffer streamsBuffer;
-    private final RingBuffer throttleBuffer;
 
     private StreamsLayout(
-        RingBuffer streamsBuffer,
-        RingBuffer throttleBuffer)
+        RingBuffer streamsBuffer)
     {
         this.streamsBuffer = streamsBuffer;
-        this.throttleBuffer = throttleBuffer;
     }
 
     public RingBuffer streamsBuffer()
@@ -53,22 +44,15 @@ public final class StreamsLayout extends Layout
         return streamsBuffer;
     }
 
-    public RingBuffer throttleBuffer()
-    {
-        return throttleBuffer;
-    }
-
     @Override
     public void close()
     {
         unmap(streamsBuffer.buffer().byteBuffer());
-        unmap(throttleBuffer.buffer().byteBuffer());
     }
 
     public static final class Builder extends Layout.Builder<StreamsLayout>
     {
         private long streamsCapacity;
-        private long throttleCapacity;
         private Path path;
         private boolean readonly;
 
@@ -76,13 +60,6 @@ public final class StreamsLayout extends Layout
             long streamsCapacity)
         {
             this.streamsCapacity = streamsCapacity;
-            return this;
-        }
-
-        public Builder throttleCapacity(
-            long throttleCapacity)
-        {
-            this.throttleCapacity = throttleCapacity;
             return this;
         }
 
@@ -104,55 +81,17 @@ public final class StreamsLayout extends Layout
         public StreamsLayout build()
         {
             final File layoutFile = path.toFile();
-            final int metaSize = Long.BYTES * 2;
 
             if (!readonly)
             {
-                final long totalSize = metaSize +
-                                       streamsCapacity + RingBufferDescriptor.TRAILER_LENGTH +
-                                       throttleCapacity + RingBufferDescriptor.TRAILER_LENGTH;
-
-                try (FileChannel layout = createEmptyFile(layoutFile, totalSize))
-                {
-                    final ByteBuffer metaBuf = ByteBuffer.allocate(metaSize);
-                    metaBuf.putLong(streamsCapacity).putLong(throttleCapacity);
-                    ((Buffer) metaBuf).flip();
-                    layout.position(0L);
-                    layout.write(metaBuf);
-                }
-                catch (IOException ex)
-                {
-                    rethrowUnchecked(ex);
-                }
-            }
-            else
-            {
-                try (FileChannel layout = FileChannel.open(layoutFile.toPath(), READ))
-                {
-                    final ByteBuffer metaBuf = ByteBuffer.allocate(metaSize);
-                    layout.read(metaBuf);
-                    ((Buffer) metaBuf).flip();
-
-                    streamsCapacity = metaBuf.getLong();
-                    throttleCapacity = metaBuf.getLong();
-                }
-                catch (IOException ex)
-                {
-                    rethrowUnchecked(ex);
-                }
+                createEmptyFile(layoutFile, streamsCapacity + RingBufferDescriptor.TRAILER_LENGTH);
             }
 
-            final long streamsSize = streamsCapacity + RingBufferDescriptor.TRAILER_LENGTH;
-            final long throttleSize = throttleCapacity + RingBufferDescriptor.TRAILER_LENGTH;
-
-            final MappedByteBuffer mappedStreams = mapExistingFile(layoutFile, "streams", metaSize, streamsSize);
-            final MappedByteBuffer mappedThrottle = mapExistingFile(layoutFile, "throttle", metaSize + streamsSize, throttleSize);
+            final MappedByteBuffer mappedStreams = mapExistingFile(layoutFile, "streams");
 
             final AtomicBuffer atomicStreams = new UnsafeBuffer(mappedStreams);
-            final AtomicBuffer atomicThrottle = new UnsafeBuffer(mappedThrottle);
 
-            return new StreamsLayout(new OneToOneRingBuffer(atomicStreams),
-                                     new OneToOneRingBuffer(atomicThrottle));
+            return new StreamsLayout(new OneToOneRingBuffer(atomicStreams));
         }
     }
 }

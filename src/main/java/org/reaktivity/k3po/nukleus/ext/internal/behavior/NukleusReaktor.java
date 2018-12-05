@@ -215,7 +215,8 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
     private NukleusScope newScope(
         Path scopePath)
     {
-        NukleusScope scope = new NukleusScope(config, scopePath, System::nanoTime, traceIds::incrementAndGet);
+        String scopeName = scopePath.getName(scopePath.getNameCount() - 1).toString();
+        NukleusScope scope = new NukleusScope(config, scopeName, scopePath, System::nanoTime, traceIds::incrementAndGet);
         this.scopes = ArrayUtil.add(this.scopes, scope);
         return scope;
     }
@@ -417,13 +418,16 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
         {
             try
             {
-                NukleusReaktor reaktor = channel.reaktor;
-                NukleusChannelAddress localAddress = channel.getLocalAddress();
-                String receiverName = localAddress.getReceiverName();
-                Path scopePath = scopePath(receiverName);
+                if (!channel.isWriteClosed())
+                {
+                    NukleusReaktor reaktor = channel.reaktor;
+                    NukleusChannelAddress localAddress = channel.getLocalAddress();
+                    String receiverName = localAddress.getReceiverName();
+                    Path scopePath = scopePath(receiverName);
 
-                NukleusScope scope = reaktor.scopesByPath.computeIfAbsent(scopePath, reaktor::newScope);
-                scope.doAbortOutput(channel, handlerFuture);
+                    NukleusScope scope = reaktor.scopesByPath.computeIfAbsent(scopePath, reaktor::newScope);
+                    scope.doAbortOutput(channel, handlerFuture);
+                }
             }
             catch (Exception ex)
             {
@@ -483,13 +487,16 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
             try
             {
                 NukleusChannel channel = (NukleusChannel) writeRequest.getChannel();
-                NukleusReaktor reaktor = channel.reaktor;
-                NukleusChannelAddress remoteAddress = channel.getRemoteAddress();
-                String senderName = remoteAddress.getSenderName();
-                Path scopePath = scopePath(senderName);
+                if (!channel.isWriteClosed())
+                {
+                    NukleusReaktor reaktor = channel.reaktor;
+                    NukleusChannelAddress remoteAddress = channel.getRemoteAddress();
+                    String senderName = remoteAddress.getSenderName();
+                    Path scopePath = scopePath(senderName);
 
-                NukleusScope scope = reaktor.scopesByPath.computeIfAbsent(scopePath, reaktor::newScope);
-                scope.doWrite(channel, writeRequest);
+                    NukleusScope scope = reaktor.scopesByPath.computeIfAbsent(scopePath, reaktor::newScope);
+                    scope.doWrite(channel, writeRequest);
+                }
             }
             catch (Exception ex)
             {
@@ -517,13 +524,16 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
         {
             try
             {
-                NukleusReaktor reaktor = channel.reaktor;
-                NukleusChannelAddress remoteAddress = channel.getRemoteAddress();
-                String senderName = remoteAddress.getSenderName();
-                Path scopePath = scopePath(senderName);
+                if (!channel.isWriteClosed())
+                {
+                    NukleusReaktor reaktor = channel.reaktor;
+                    NukleusChannelAddress remoteAddress = channel.getRemoteAddress();
+                    String senderName = remoteAddress.getSenderName();
+                    Path scopePath = scopePath(senderName);
 
-                NukleusScope scope = reaktor.scopesByPath.computeIfAbsent(scopePath, reaktor::newScope);
-                scope.doFlush(channel, flushFuture);
+                    NukleusScope scope = reaktor.scopesByPath.computeIfAbsent(scopePath, reaktor::newScope);
+                    scope.doFlush(channel, flushFuture);
+                }
             }
             catch (Exception ex)
             {
@@ -550,13 +560,16 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
         {
             try
             {
-                NukleusReaktor reaktor = channel.reaktor;
-                NukleusChannelAddress remoteAddress = channel.getRemoteAddress();
-                String senderName = remoteAddress.getSenderName();
-                Path scopePath = scopePath(senderName);
+                if (!channel.isWriteClosed())
+                {
+                    NukleusReaktor reaktor = channel.reaktor;
+                    NukleusChannelAddress remoteAddress = channel.getRemoteAddress();
+                    String senderName = remoteAddress.getSenderName();
+                    Path scopePath = scopePath(senderName);
 
-                NukleusScope scope = reaktor.scopesByPath.computeIfAbsent(scopePath, reaktor::newScope);
-                scope.doShutdownOutput(channel, handlerFuture);
+                    NukleusScope scope = reaktor.scopesByPath.computeIfAbsent(scopePath, reaktor::newScope);
+                    scope.doShutdownOutput(channel, handlerFuture);
+                }
             }
             catch (Exception ex)
             {

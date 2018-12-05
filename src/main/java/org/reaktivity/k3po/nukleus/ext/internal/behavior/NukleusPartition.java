@@ -41,6 +41,7 @@ import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.ResetFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.WindowFW;
 import org.reaktivity.k3po.nukleus.ext.internal.util.function.LongLongFunction;
 import org.reaktivity.k3po.nukleus.ext.internal.util.function.LongObjectBiConsumer;
+import org.reaktivity.nukleus.function.MessagePredicate;
 
 final class NukleusPartition implements AutoCloseable
 {
@@ -50,12 +51,14 @@ final class NukleusPartition implements AutoCloseable
     private final WindowFW.Builder windowRW = new WindowFW.Builder();
     private final ResetFW.Builder resetRW = new ResetFW.Builder();
 
+    private final String scopeName;
+    private final String sourceName;
     private final Path partitionPath;
     private final StreamsLayout layout;
     private final RingBuffer streamsBuffer;
-    private final RingBuffer throttleBuffer;
     private final LongLongFunction<NukleusServerChannel> lookupRoute;
     private final LongFunction<MessageHandler> lookupStream;
+    private final LongFunction<MessageHandler> lookupThrottle;
     private final MessageHandler streamHandler;
     private final LongObjectBiConsumer<MessageHandler> registerStream;
     private final MutableDirectBuffer writeBuffer;
@@ -65,12 +68,17 @@ final class NukleusPartition implements AutoCloseable
     private final LongSupplier supplyTimestamp;
     private final LongSupplier supplyTrace;
 
+    private MessagePredicate throttleBuffer;
+
     NukleusPartition(
+        String scopeName,
+        String sourceName,
         Path partitionPath,
         StreamsLayout layout,
         LongLongFunction<NukleusServerChannel> lookupRoute,
         LongFunction<MessageHandler> lookupStream,
         LongObjectBiConsumer<MessageHandler> registerStream,
+        LongFunction<MessageHandler> lookupThrottle,
         MutableDirectBuffer writeBuffer,
         NukleusStreamFactory streamFactory,
         LongFunction<NukleusCorrelation> correlateEstablished,
@@ -78,14 +86,16 @@ final class NukleusPartition implements AutoCloseable
         LongSupplier supplyTimestamp,
         LongSupplier supplyTrace)
     {
+        this.scopeName = scopeName;
+        this.sourceName = sourceName;
         this.partitionPath = partitionPath;
         this.layout = layout;
         this.streamsBuffer = layout.streamsBuffer();
-        this.throttleBuffer = layout.throttleBuffer();
         this.writeBuffer = writeBuffer;
 
         this.lookupRoute = lookupRoute;
         this.lookupStream = lookupStream;
+        this.lookupThrottle = lookupThrottle;
         this.registerStream = registerStream;
         this.streamHandler = this::handleStream;
         this.streamFactory = streamFactory;
@@ -118,19 +128,30 @@ final class NukleusPartition implements AutoCloseable
         int index,
         int length)
     {
-        frameRO.wrap(buffer, index, index + length);
+        final FrameFW frame = frameRO.wrap(buffer, index, index + length);
+        final long streamId = frame.streamId();
 
-        final long streamId = frameRO.streamId();
-
-        final MessageHandler handler = lookupStream.apply(streamId);
-
-        if (handler != null)
+        if ((msgTypeId & 0x4000_0000) != 0)
         {
-            handler.onMessage(msgTypeId, buffer, index, length);
+            final MessageHandler handler = lookupThrottle.apply(streamId);
+
+            if (handler != null)
+            {
+                handler.onMessage(msgTypeId, buffer, index, length);
+            }
         }
         else
         {
-            handleUnrecognized(msgTypeId, buffer, index, length);
+            final MessageHandler handler = lookupStream.apply(streamId);
+
+            if (handler != null)
+            {
+                handler.onMessage(msgTypeId, buffer, index, length);
+            }
+            else
+            {
+                handleUnrecognized(msgTypeId, buffer, index, length);
+            }
         }
     }
 
@@ -251,7 +272,7 @@ final class NukleusPartition implements AutoCloseable
                 .groupId(groupId)
                 .build();
 
-        throttleBuffer.write(window.typeId(), window.buffer(), window.offset(), window.sizeof());
+        throttleBuffer().test(window.typeId(), window.buffer(), window.offset(), window.sizeof());
     }
 
     void doReset(
@@ -263,7 +284,7 @@ final class NukleusPartition implements AutoCloseable
                 .trace(supplyTrace.getAsLong())
                 .build();
 
-        throttleBuffer.write(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
+        throttleBuffer().test(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
     }
 
     private NukleusChildChannel doAccept(
@@ -314,5 +335,18 @@ final class NukleusPartition implements AutoCloseable
 
         // unreachable
         return null;
+    }
+
+    private MessagePredicate throttleBuffer()
+    {
+        if (throttleBuffer == null)
+        {
+            // defer to let owner scope create buffer
+            NukleusTarget replyTarget = supplyTarget.apply(sourceName, scopeName);
+            throttleBuffer = (t, b, o, l) -> replyTarget.streamsBuffer().write(t, b, o, l);
+            assert throttleBuffer != null;
+        }
+
+        return throttleBuffer;
     }
 }

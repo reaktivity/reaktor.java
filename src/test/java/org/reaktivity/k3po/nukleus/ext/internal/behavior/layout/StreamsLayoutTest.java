@@ -25,7 +25,6 @@ import org.junit.Test;
 
 public final class StreamsLayoutTest
 {
-
     @Test
     public void shouldUnlockStreamsFile() throws Exception
     {
@@ -34,12 +33,10 @@ public final class StreamsLayoutTest
         StreamsLayout streamsLayout = new StreamsLayout.Builder()
                 .path(streams)
                 .streamsCapacity(8192)
-                .throttleCapacity(8192)
                 .readonly(false)
                 .build();
         streamsLayout.close();
         assertTrue(Files.exists(streams));
         Files.delete(streams);
     }
-
 }

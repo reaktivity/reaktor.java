@@ -15,7 +15,6 @@
  */
 package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 
-import static java.lang.Math.min;
 import static org.agrona.BitUtil.SIZE_OF_LONG;
 import static org.jboss.netty.channel.Channels.fireChannelBound;
 import static org.jboss.netty.channel.Channels.fireChannelClosed;
@@ -38,7 +37,6 @@ import java.util.Deque;
 import java.util.Random;
 import java.util.function.Consumer;
 import java.util.function.LongConsumer;
-import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 
 import org.agrona.DirectBuffer;
@@ -61,15 +59,12 @@ import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.AbortFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.BeginFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.DataFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.EndFW;
-import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.FrameFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.ResetFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.WindowFW;
 import org.reaktivity.k3po.nukleus.ext.internal.util.function.LongObjectBiConsumer;
 
 final class NukleusTarget implements AutoCloseable
 {
-    private final FrameFW frameRO = new FrameFW();
-
     private final BeginFW.Builder beginRW = new BeginFW.Builder();
     private final DataFW.Builder dataRW = new DataFW.Builder();
     private final EndFW.Builder endRW = new EndFW.Builder();
@@ -82,9 +77,6 @@ final class NukleusTarget implements AutoCloseable
     private final Path partitionPath;
     private final Layout layout;
     private final RingBuffer streamsBuffer;
-    private final RingBuffer throttleBuffer;
-    private final LongFunction<MessageHandler> lookupThrottle;
-    private final MessageHandler throttleHandler;
     private final LongObjectBiConsumer<MessageHandler> registerThrottle;
     private final LongConsumer unregisterThrottle;
     private final MutableDirectBuffer writeBuffer;
@@ -96,7 +88,6 @@ final class NukleusTarget implements AutoCloseable
         Path partitionPath,
         StreamsLayout layout,
         MutableDirectBuffer writeBuffer,
-        LongFunction<MessageHandler> lookupThrottle,
         LongObjectBiConsumer<MessageHandler> registerThrottle,
         LongConsumer unregisterThrottle,
         LongObjectBiConsumer<NukleusCorrelation> correlateNew,
@@ -106,21 +97,13 @@ final class NukleusTarget implements AutoCloseable
         this.partitionPath = partitionPath;
         this.layout = layout;
         this.streamsBuffer = layout.streamsBuffer();
-        this.throttleBuffer = layout.throttleBuffer();
         this.writeBuffer = writeBuffer;
 
-        this.lookupThrottle = lookupThrottle;
         this.registerThrottle = registerThrottle;
         this.unregisterThrottle = unregisterThrottle;
         this.correlateNew = correlateNew;
-        this.throttleHandler = this::handleThrottle;
         this.supplyTimestamp = supplyTimestamp;
         this.supplyTrace = supplyTrace;
-    }
-
-    public int process()
-    {
-        return throttleBuffer.read(throttleHandler);
     }
 
     @Override
@@ -133,6 +116,11 @@ final class NukleusTarget implements AutoCloseable
     public String toString()
     {
         return String.format("%s [%s]", getClass().getSimpleName(), partitionPath);
+    }
+
+    public RingBuffer streamsBuffer()
+    {
+        return streamsBuffer;
     }
 
     public void doConnect(
@@ -427,7 +415,7 @@ final class NukleusTarget implements AutoCloseable
             if (writeBuf.readable() || writeExt.readable())
             {
                 final boolean flushing = writeBuf == NULL_BUFFER;
-                final int writableBytes = min(channel.writableBytes(writeBuf.readableBytes()), (1 << Short.SIZE) - 1);
+                final int writableBytes = channel.writableBytes(writeBuf.readableBytes());
 
                 // allow extension-only DATA frames to be flushed immediately
                 if (writableBytes > 0 || !writeBuf.readable())
@@ -517,24 +505,6 @@ final class NukleusTarget implements AutoCloseable
         final byte[] writeExtCopy = new byte[writableExtBytes];
         System.arraycopy(writeExtArray, writeExtArrayOffset + writeExtReaderIndex, writeExtCopy, 0, writeExtCopy.length);
         return writeExtCopy;
-    }
-
-    private void handleThrottle(
-        int msgTypeId,
-        MutableDirectBuffer buffer,
-        int index,
-        int length)
-    {
-        frameRO.wrap(buffer, index, index + length);
-
-        final long streamId = frameRO.streamId();
-
-        final MessageHandler handler = lookupThrottle.apply(streamId);
-
-        if (handler != null)
-        {
-            handler.onMessage(msgTypeId, buffer, index, length);
-        }
     }
 
     private final MutableDirectBuffer resetBuffer = new UnsafeBuffer(new byte[3 * SIZE_OF_LONG]);

@@ -40,6 +40,7 @@ import org.reaktivity.nukleus.Configuration;
 public final class NukleusSource implements AutoCloseable
 {
     private final Configuration config;
+    private final String scopeName;
     private final Path streamsDirectory;
     private final String sourceName;
     private final MutableDirectBuffer writeBuffer;
@@ -47,6 +48,7 @@ public final class NukleusSource implements AutoCloseable
     private final Long2ObjectHashMap<Long2ObjectHashMap<NukleusServerChannel>> routesByRefAndAuth =
             new Long2ObjectHashMap<>();
     private final Long2ObjectHashMap<MessageHandler> streamsById;
+    private final Long2ObjectHashMap<MessageHandler> throttlesById;
     private final Map<String, NukleusPartition> partitionsByName;
 
     private final NukleusStreamFactory streamFactory;
@@ -59,19 +61,24 @@ public final class NukleusSource implements AutoCloseable
 
     public NukleusSource(
         Configuration config,
+        String scopeName,
         Path streamsDirectory,
         String sourceName,
         MutableDirectBuffer writeBuffer,
         LongFunction<NukleusCorrelation> correlateEstablished,
         BiFunction<String, String, NukleusTarget> supplyTarget,
         LongSupplier supplyTimestamp,
-        LongSupplier supplyTrace)
+        LongSupplier supplyTrace,
+        Long2ObjectHashMap<MessageHandler> streamsById,
+        Long2ObjectHashMap<MessageHandler> throttlesById)
     {
         this.config = config;
+        this.scopeName = scopeName;
         this.streamsDirectory = streamsDirectory;
         this.sourceName = sourceName;
         this.writeBuffer = writeBuffer;
-        this.streamsById = new Long2ObjectHashMap<>();
+        this.streamsById = streamsById;
+        this.throttlesById = throttlesById;
         this.partitionsByName = new LinkedHashMap<>();
         this.partitions = new NukleusPartition[0];
         this.streamFactory = new NukleusStreamFactory(streamsById::remove);
@@ -84,7 +91,7 @@ public final class NukleusSource implements AutoCloseable
     @Override
     public String toString()
     {
-        return String.format("%s [%s/%s[#...]]", getClass().getSimpleName(), streamsDirectory, sourceName);
+        return String.format("%s [%s/%s]", getClass().getSimpleName(), streamsDirectory, sourceName);
     }
 
     public void doRoute(
@@ -202,20 +209,19 @@ public final class NukleusSource implements AutoCloseable
     }
 
     private NukleusPartition newPartition(
-        String partitionName)
+        String sourceName)
     {
-        Path partitionPath = streamsDirectory.resolve(partitionName);
+        Path partitionPath = streamsDirectory.resolve(sourceName);
 
         StreamsLayout layout = new StreamsLayout.Builder()
                 .path(partitionPath)
                 .streamsCapacity(config.streamsBufferCapacity())
-                .throttleCapacity(config.throttleBufferCapacity())
                 .readonly(false)
                 .build();
 
-        NukleusPartition partition = new NukleusPartition(partitionPath, layout,
+        NukleusPartition partition = new NukleusPartition(scopeName, sourceName, partitionPath, layout,
                 (r, a) -> routesByRefAndAuth.computeIfAbsent(r, key -> new Long2ObjectHashMap<NukleusServerChannel>()).get(a),
-                streamsById::get, streamsById::put,
+                streamsById::get, streamsById::put, throttlesById::get,
                 writeBuffer, streamFactory, correlateEstablished, supplyTarget, supplyTimestamp, supplyTrace);
 
         this.partitions = ArrayUtil.add(this.partitions, partition);
