@@ -73,6 +73,7 @@ public final class NukleusExtensionDecoder implements ConfigDecoder
         final ChannelBuffer readExtBuffer = channel.readExtBuffer(readExtKind);
 
         Iterator<MessageDecoder> iterator = remainingDecoders.iterator();
+
         while (iterator.hasNext())
         {
             MessageDecoder decoder = iterator.next();

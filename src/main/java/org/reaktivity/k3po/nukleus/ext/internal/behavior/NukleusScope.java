@@ -37,8 +37,10 @@ public final class NukleusScope implements AutoCloseable
     private final Map<Path, NukleusTarget> targetsByPath;
 
     private final Configuration config;
+    private final String name;
     private final Path streamsDirectory;
     private final MutableDirectBuffer writeBuffer;
+    private final Long2ObjectHashMap<MessageHandler> streamsById;
     private final Long2ObjectHashMap<MessageHandler> throttlesById;
     private final Long2ObjectHashMap<NukleusCorrelation> correlations;
     private final LongSupplier supplyTimestamp;
@@ -49,14 +51,17 @@ public final class NukleusScope implements AutoCloseable
 
     public NukleusScope(
         Configuration config,
+        String name,
         Path directory,
         LongSupplier supplyTimestamp,
         LongSupplier supplyTrace)
     {
         this.config = config;
+        this.name = name;
         this.streamsDirectory = directory.resolve("streams");
 
         this.writeBuffer = new UnsafeBuffer(new byte[config.streamsBufferCapacity() / 8]);
+        this.streamsById = new Long2ObjectHashMap<>();
         this.throttlesById = new Long2ObjectHashMap<>();
         this.correlations = new Long2ObjectHashMap<>();
         this.sourcesByName = new LinkedHashMap<>();
@@ -162,11 +167,6 @@ public final class NukleusScope implements AutoCloseable
             workCount += sources[i].process();
         }
 
-        for (int i=0; i < targets.length; i++)
-        {
-            workCount += targets[i].process();
-        }
-
         return workCount;
     }
 
@@ -193,8 +193,9 @@ public final class NukleusScope implements AutoCloseable
     private NukleusSource newSource(
         String sourceName)
     {
-        NukleusSource source = new NukleusSource(config, streamsDirectory, sourceName, writeBuffer,
-                correlations::remove, this::supplyTarget, supplyTimestamp, supplyTrace);
+        NukleusSource source = new NukleusSource(config, name, streamsDirectory, sourceName, writeBuffer,
+                correlations::remove, this::supplyTarget, supplyTimestamp, supplyTrace,
+                streamsById, throttlesById);
 
         source.supplyPartition(sourceName);
 
@@ -236,12 +237,11 @@ public final class NukleusScope implements AutoCloseable
         StreamsLayout layout = new StreamsLayout.Builder()
                 .path(targetPath)
                 .streamsCapacity(config.streamsBufferCapacity())
-                .throttleCapacity(config.throttleBufferCapacity())
                 .readonly(true)
                 .build();
 
         NukleusTarget target = new NukleusTarget(targetPath, layout, writeBuffer,
-                throttlesById::get, throttlesById::put, throttlesById::remove,
+                throttlesById::put, throttlesById::remove,
                 correlations::put, supplyTimestamp, supplyTrace);
 
         this.targets = ArrayUtil.add(this.targets, target);

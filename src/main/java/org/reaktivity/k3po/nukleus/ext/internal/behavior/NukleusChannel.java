@@ -104,6 +104,18 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
     }
 
     @Override
+    protected boolean isReadAborted()
+    {
+        return super.isReadAborted();
+    }
+
+    @Override
+    protected boolean isWriteAborted()
+    {
+        return super.isWriteAborted();
+    }
+
+    @Override
     protected boolean isReadClosed()
     {
         return super.isReadClosed();

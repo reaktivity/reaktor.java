@@ -200,6 +200,21 @@ public final class NukleusStreamFactory
             else
             {
                 partition.doReset(streamId);
+
+                if (channel.setReadAborted())
+                {
+                    if (channel.setReadClosed())
+                    {
+                        fireInputAborted(channel);
+                        fireChannelDisconnected(channel);
+                        fireChannelUnbound(channel);
+                        fireChannelClosed(channel);
+                    }
+                    else
+                    {
+                        fireInputAborted(channel);
+                    }
+                }
             }
         }
 
