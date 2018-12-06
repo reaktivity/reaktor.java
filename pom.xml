@@ -50,8 +50,8 @@
     <nukleus.version>0.25</nukleus.version>
     <jmock.version>2.6.0</jmock.version>
     <mockito.version>2.7.13</mockito.version>
-    <k3po.version>3.0.0-alpha-96</k3po.version>
-    <k3po.nukleus.ext.version>0.32</k3po.nukleus.ext.version>
+    <k3po.version>3.0.0-alpha-97</k3po.version>
+    <k3po.nukleus.ext.version>0.33</k3po.nukleus.ext.version>
   </properties>
 
   <dependencies>

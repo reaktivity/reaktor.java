@@ -23,7 +23,6 @@ import static org.reaktivity.reaktor.internal.ReaktorConfiguration.REAKTOR_COUNT
 import static org.reaktivity.reaktor.internal.ReaktorConfiguration.REAKTOR_DIRECTORY;
 import static org.reaktivity.reaktor.internal.ReaktorConfiguration.REAKTOR_RESPONSE_BUFFER_CAPACITY;
 import static org.reaktivity.reaktor.internal.ReaktorConfiguration.REAKTOR_STREAMS_BUFFER_CAPACITY;
-import static org.reaktivity.reaktor.internal.ReaktorConfiguration.REAKTOR_THROTTLE_BUFFER_CAPACITY;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -90,11 +89,6 @@ public final class ReaktorRule implements TestRule
     public ReaktorRule streamsBufferCapacity(int streamsBufferCapacity)
     {
         return configure(REAKTOR_STREAMS_BUFFER_CAPACITY, streamsBufferCapacity);
-    }
-
-    public ReaktorRule throttleBufferCapacity(int throttleBufferCapacity)
-    {
-        return configure(REAKTOR_THROTTLE_BUFFER_CAPACITY, throttleBufferCapacity);
     }
 
     public <T> ReaktorRule configure(

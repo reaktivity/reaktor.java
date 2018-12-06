@@ -47,7 +47,6 @@ public final class Context implements Closeable
     private RoutesLayout routesRO;
     private int maximumStreamsCount;
     private int streamsBufferCapacity;
-    private int throttleBufferCapacity;
     private Function<String, Path> sourceStreamsPath;
     private Function<String, Path> targetStreamsPath;
     private IdleStrategy idleStrategy;
@@ -87,15 +86,9 @@ public final class Context implements Closeable
         return maximumMessagesPerRead;
     }
 
-
     public int streamsBufferCapacity()
     {
         return streamsBufferCapacity;
-    }
-
-    public int throttleBufferCapacity()
-    {
-        return throttleBufferCapacity;
     }
 
     public int maxMessageLength()
@@ -267,8 +260,6 @@ public final class Context implements Closeable
             this.maximumStreamsCount = config.maximumStreamsCount();
 
             this.streamsBufferCapacity = config.streamsBufferCapacity();
-
-            this.throttleBufferCapacity = config.throttleBufferCapacity();
 
             this.maximumMessagesPerRead = config.maximumMessagesPerRead();
 

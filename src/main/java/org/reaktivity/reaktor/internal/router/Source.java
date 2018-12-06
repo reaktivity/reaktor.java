@@ -16,7 +16,6 @@
 package org.reaktivity.reaktor.internal.router;
 
 import static org.agrona.LangUtil.rethrowUnchecked;
-import static org.reaktivity.reaktor.internal.types.stream.FrameFW.FIELD_OFFSET_TIMESTAMP;
 
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -34,11 +33,11 @@ import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.concurrent.MessageHandler;
+import org.agrona.concurrent.ringbuffer.RingBuffer;
 import org.agrona.concurrent.status.AtomicCounter;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.function.MessageConsumer;
-import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteKind;
 import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
@@ -68,15 +67,14 @@ final class Source implements Nukleus
     private final StreamsLayout layout;
     private final MutableDirectBuffer writeBuffer;
     private final ToIntFunction<MessageHandler> streamsBuffer;
-    private final Supplier<String> streamsDescriptor;
     private final MessageHandler readHandler;
-    private final MessageConsumer writeHandler;
-    private final boolean timestamps;
 
     private final Long2ObjectHashMap<MessageConsumer> streams;
+    private final Long2ObjectHashMap<MessageConsumer> throttles;
     private final Function<RouteKind, StreamFactory> supplyStreamFactory;
+    private final Function<String, MessageConsumer> supplyThrottle;
 
-    private MessagePredicate throttleBuffer;
+    private MessageConsumer writeHandler;
 
     Source(
         Context context,
@@ -87,29 +85,29 @@ final class Source implements Nukleus
         LongFunction<IntUnaryOperator> groupBudgetClaimer,
         LongFunction<IntUnaryOperator> groupBudgetReleaser,
         Function<RouteKind, StreamFactoryBuilder> supplyStreamFactoryBuilder,
-        boolean timestamps,
-        AtomicLong correlations)
+        AtomicLong correlations,
+        Function<String, MessageConsumer> supplyThrottle,
+        Long2ObjectHashMap<MessageConsumer> streams,
+        Long2ObjectHashMap<MessageConsumer> throttles)
     {
         this.nukleusName = context.name();
         this.name = sourceName;
         this.writeBuffer = writeBuffer;
-        this.streams = new Long2ObjectHashMap<>();
-        this.timestamps = timestamps;
+        this.streams = streams;
+        this.throttles = throttles;
         this.readHandler = this::handleRead;
-        this.writeHandler = this::handleWrite;
 
         final StreamsLayout layout = new StreamsLayout.Builder()
                 .path(context.sourceStreamsPath().apply(sourceName))
                 .streamsCapacity(context.streamsBufferCapacity())
-                .throttleCapacity(context.throttleBufferCapacity())
                 .readonly(false)
                 .build();
 
         this.layout = layout;
-        this.streamsDescriptor = layout::toString;
         final int messageCountLimit = context.maximumMessagesPerRead();
-        this.streamsBuffer = m -> layout.streamsBuffer().read(m, messageCountLimit);
-        this.throttleBuffer = layout.throttleBuffer()::write;
+        final RingBuffer streamsBuffer = layout.streamsBuffer();
+        this.streamsBuffer = handler -> streamsBuffer.read(handler, messageCountLimit);
+        this.supplyThrottle = supplyThrottle;
 
         final Map<RouteKind, StreamFactory> streamFactories = new EnumMap<>(RouteKind.class);
         final Function<String, LongSupplier> supplyCounter = name -> () -> context.counters().counter(name).increment() + 1;
@@ -162,7 +160,7 @@ final class Source implements Nukleus
 
     public void detach()
     {
-        throttleBuffer = (t, b, i, l) -> true;
+        writeHandler = (t, b, i, l) -> {};
     }
 
     @Override
@@ -179,85 +177,70 @@ final class Source implements Nukleus
         return String.format("%s (read)", name);
     }
 
-    private void handleWrite(
-        int msgTypeId,
-        DirectBuffer buffer,
-        int index,
-        int length)
-    {
-        boolean handled;
-
-        if (timestamps)
-        {
-            ((MutableDirectBuffer) buffer).putLong(index + FIELD_OFFSET_TIMESTAMP, System.nanoTime());
-        }
-
-        switch (msgTypeId)
-        {
-        case WindowFW.TYPE_ID:
-            handled = throttleBuffer.test(msgTypeId, buffer, index, length);
-            break;
-        case ResetFW.TYPE_ID:
-            handled = throttleBuffer.test(msgTypeId, buffer, index, length);
-
-            final FrameFW reset = frameRO.wrap(buffer, index, index + length);
-            streams.remove(reset.streamId());
-            break;
-        default:
-            handled = true;
-            break;
-        }
-
-        if (!handled)
-        {
-            throw new IllegalStateException("Unable to write to throttle buffer");
-        }
-    }
-
     private void handleRead(
         int msgTypeId,
         MutableDirectBuffer buffer,
         int index,
         int length)
     {
-        frameRO.wrap(buffer, index, index + length);
-
-        final long streamId = frameRO.streamId();
-
-        final MessageConsumer handler = streams.get(streamId);
+        final FrameFW frame = frameRO.wrap(buffer, index, index + length);
+        final long streamId = frame.streamId();
 
         try
         {
-            if (handler != null)
+            if ((msgTypeId & 0x4000_0000) != 0)
             {
-                switch (msgTypeId)
+                final MessageConsumer throttle = throttles.get(streamId);
+                if (throttle != null)
                 {
-                case BeginFW.TYPE_ID:
-                case DataFW.TYPE_ID:
-                    handler.accept(msgTypeId, buffer, index, length);
-                    break;
-                case EndFW.TYPE_ID:
-                    handler.accept(msgTypeId, buffer, index, length);
-                    streams.remove(streamId);
-                    break;
-                case AbortFW.TYPE_ID:
-                    handler.accept(msgTypeId, buffer, index, length);
-                    streams.remove(streamId);
-                    break;
-                default:
-                    handleUnrecognized(msgTypeId, buffer, index, length);
-                    break;
+                    switch (msgTypeId)
+                    {
+                    case WindowFW.TYPE_ID:
+                        throttle.accept(msgTypeId, buffer, index, length);
+                        break;
+                    case ResetFW.TYPE_ID:
+                        throttle.accept(msgTypeId, buffer, index, length);
+                        throttles.remove(streamId);
+                        break;
+                    default:
+                        break;
+                    }
                 }
             }
             else
             {
-                handleUnrecognized(msgTypeId, buffer, index, length);
+                final MessageConsumer handler = streams.get(streamId);
+                if (handler != null)
+                {
+                    switch (msgTypeId)
+                    {
+                    case BeginFW.TYPE_ID:
+                    case DataFW.TYPE_ID:
+                        handler.accept(msgTypeId, buffer, index, length);
+                        break;
+                    case EndFW.TYPE_ID:
+                        handler.accept(msgTypeId, buffer, index, length);
+                        streams.remove(streamId);
+                        break;
+                    case AbortFW.TYPE_ID:
+                        handler.accept(msgTypeId, buffer, index, length);
+                        streams.remove(streamId);
+                        break;
+                    default:
+                        handleUnrecognized(msgTypeId, buffer, index, length);
+                        break;
+                    }
+                }
+                else
+                {
+                    handleUnrecognized(msgTypeId, buffer, index, length);
+                }
             }
         }
         catch (Throwable ex)
         {
             ex.addSuppressed(new Exception(String.format("[%s/%s]\t[0x%016x] %s",
-                                                         nukleusName, name, streamId, streamsDescriptor.get())));
+                                                         nukleusName, name, streamId, layout)));
             rethrowUnchecked(ex);
         }
     }
@@ -299,6 +282,7 @@ final class Source implements Nukleus
         StreamFactory streamFactory = supplyStreamFactory.apply(routeKind);
         if (streamFactory != null)
         {
+            final MessageConsumer writeHandler = writeHandler();
             final MessageConsumer newStream = streamFactory.newStream(msgTypeId, buffer, index, length, writeHandler);
             if (newStream != null)
             {
@@ -316,6 +300,18 @@ final class Source implements Nukleus
         }
     }
 
+    private MessageConsumer writeHandler()
+    {
+        // defer to let owner nukleus create first
+        if (writeHandler == null)
+        {
+            writeHandler = supplyThrottle.apply(name);
+            assert writeHandler != null;
+        }
+
+        return writeHandler;
+    }
+
     private void doReset(
         final long streamId)
     {
@@ -323,7 +319,8 @@ final class Source implements Nukleus
                 .streamId(streamId)
                 .build();
 
-        handleWrite(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
+        final MessageConsumer writeHandler = writeHandler();
+        writeHandler.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
     }
 
     private void doAbort(
