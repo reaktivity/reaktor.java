@@ -516,9 +516,6 @@ public final class Router extends Nukleus.Composite implements RouteManager
         RouteFW routeRO)
     {
         final OctetsFW route = r.route();
-        final DirectBuffer buffer = route.buffer();
-        final int offset = route.offset();
-        final int routeSize = (int) r.routeSize();
-        return routeRO.wrap(buffer, offset, offset + routeSize);
+        return routeRO.wrap(route.buffer(), route.offset(), route.limit());
     }
 }
