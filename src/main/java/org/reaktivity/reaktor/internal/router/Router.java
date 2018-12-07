@@ -24,7 +24,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-import org.agrona.DirectBuffer;
 import org.agrona.LangUtil;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Long2ObjectHashMap;
@@ -42,7 +41,6 @@ import org.reaktivity.reaktor.internal.State;
 import org.reaktivity.reaktor.internal.conductor.Conductor;
 import org.reaktivity.reaktor.internal.layouts.RoutesLayout;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
-import org.reaktivity.reaktor.internal.types.ListFW;
 import org.reaktivity.reaktor.internal.types.OctetsFW;
 import org.reaktivity.reaktor.internal.types.StringFW;
 import org.reaktivity.reaktor.internal.types.control.Role;
@@ -266,22 +264,22 @@ public final class Router extends Nukleus.Composite implements RouteManager
         MessageFunction<R> mapper)
     {
         RouteTableFW routeTable = routeTableRO.wrap(routesBuffer, 0, routesBufferCapacity);
+
+        assert routeTable.writeLockReleases() == routeTable.writeLockAcquires();
+
         RouteEntryFW routeEntry = routeTable.routeEntries().matchFirst(re ->
         {
-            final RouteFW candidate = wrapRoute(re, routeRO);
-            final int typeId = candidate.typeId();
-            final DirectBuffer buffer = candidate.buffer();
-            final int offset = candidate.offset();
-            final int length = candidate.sizeof();
-            final long routeAuthorization = candidate.authorization();
-            return filter.test(typeId, buffer, offset, offset + length) &&
-            (authorization & routeAuthorization) == routeAuthorization;
+            final OctetsFW entry = re.route();
+            final RouteFW candidate = routeRO.wrap(entry.buffer(), entry.offset(), entry.limit());
+            return (authorization & candidate.authorization()) == candidate.authorization() &&
+                    filter.test(candidate.typeId(), candidate.buffer(), candidate.offset(), candidate.sizeof());
         });
 
         R result = null;
         if (routeEntry != null)
         {
-            final RouteFW route = wrapRoute(routeEntry, routeRO);
+            final OctetsFW entry = routeEntry.route();
+            final RouteFW route = routeRO.wrap(entry.buffer(), entry.offset(), entry.limit());
             result = mapper.apply(route.typeId(), route.buffer(), route.offset(), route.sizeof());
         }
         return result;
@@ -292,9 +290,13 @@ public final class Router extends Nukleus.Composite implements RouteManager
         MessageConsumer consumer)
     {
         RouteTableFW routeTable = routeTableRO.wrap(routesBuffer, 0, routesBufferCapacity);
+
+        assert routeTable.writeLockReleases() == routeTable.writeLockAcquires();
+
         routeTable.routeEntries().forEach(re ->
         {
-            final RouteFW route = wrapRoute(re, routeRO);
+            final OctetsFW entry = re.route();
+            final RouteFW route = routeRO.wrap(entry.buffer(), entry.offset(), entry.limit());
             consumer.accept(route.typeId(), route.buffer(), route.offset(), route.sizeof());
         });
     }
@@ -304,6 +306,8 @@ public final class Router extends Nukleus.Composite implements RouteManager
         MessagePredicate routeHandler)
     {
         final RouteTableFW routeTable = routeTableRO.wrap(routesBuffer, 0, routesBufferCapacity);
+
+        assert routeTable.writeLockReleases() == routeTable.writeLockAcquires();
 
         final boolean routed = routeHandler.test(route.typeId(), route.buffer(), route.offset(), route.sizeof());
 
@@ -315,20 +319,12 @@ public final class Router extends Nukleus.Composite implements RouteManager
                 .wrap(routesBuffer, 0, routesBufferCapacity)
                 .writeLockAcquires(readLock)
                 .writeLockReleases(readLock - 1)
-                .routeEntries(b ->
+                .routeEntries(res ->
                 {
-                    final ListFW<RouteEntryFW> existingEntries = routeTable.routeEntries();
-
-                    existingEntries.forEach(
-                        e ->
-                        {
-                            final OctetsFW er = e.route();
-                            b.item(b2 -> b2.route(er.buffer(), er.offset(), er.sizeof()));
-                        }
-                    );
-                    b.item(b2 -> b2.route(route.buffer(), route.offset(), route.sizeof()));
-                });
-            routeTableRW.build();
+                    routeTable.routeEntries().forEach(old -> res.item(e -> e.route(old.route())));
+                    res.item(re -> re.route(route.buffer(), route.offset(), route.sizeof()));
+                })
+                .build();
 
             final Role role = route.role().get();
             final RouteKind kind = ReferenceKind.sourceKind(role).toRouteKind();
@@ -358,28 +354,33 @@ public final class Router extends Nukleus.Composite implements RouteManager
     {
         RouteTableFW routeTable = routeTableRO.wrap(routesBuffer, 0, routesBufferCapacity);
 
+        assert routeTable.writeLockReleases() == routeTable.writeLockAcquires();
+
         int readLock = routesLayout.lock();
 
-        routeTable.wrap(routesBuffer, 0, routesBufferCapacity);
-        int beforeSize = routeTableRO.routeEntries().sizeof();
-        routeTableRW.wrap(routesBuffer, 0, routesBufferCapacity);
+        int beforeSize = routeTable.sizeof();
 
-        routeTableRW.writeLockAcquires(readLock)
+        RouteTableFW newRouteTable = routeTableRW.wrap(routesBuffer, 0, routesBufferCapacity)
+            .writeLockAcquires(readLock)
             .writeLockReleases(readLock - 1)
-            .routeEntries(b ->
+            .routeEntries(res ->
             {
-                routeTableRO.routeEntries().forEach(e ->
+                routeTable.routeEntries().forEach(old ->
                 {
-                    RouteFW route = wrapRoute(e, routeRO);
+                    final OctetsFW entry = old.route();
+                    final RouteFW route = routeRO.wrap(entry.buffer(), entry.offset(), entry.limit());
                     if (!routeMatchesUnroute(routeHandler, route, unroute))
                     {
-                        b.item(ob ->  ob.route(route.buffer(), route.offset(), route.sizeof()));
+                        res.item(re -> re.route(route.buffer(), route.offset(), route.sizeof()));
                     }
                 });
-            });
+            })
+            .build();
 
-        int afterSize = routeTableRW.build().sizeof();
+        int afterSize = newRouteTable.sizeof();
+
         routesLayout.unlock();
+
         return beforeSize > afterSize;
     }
 
@@ -508,17 +509,6 @@ public final class Router extends Nukleus.Composite implements RouteManager
         unroute.targetRef() == route.targetRef() &&
         unroute.authorization() == route.authorization() &&
         unroute.extension().equals(route. extension()) &&
-        routeHandler.test(UnrouteFW.TYPE_ID, route.buffer(), route.offset(), route.limit());
-    }
-
-    private static RouteFW wrapRoute(
-        RouteEntryFW r,
-        RouteFW routeRO)
-    {
-        final OctetsFW route = r.route();
-        final DirectBuffer buffer = route.buffer();
-        final int offset = route.offset();
-        final int routeSize = (int) r.routeSize();
-        return routeRO.wrap(buffer, offset, offset + routeSize);
+        routeHandler.test(UnrouteFW.TYPE_ID, route.buffer(), route.offset(), route.sizeof());
     }
 }
