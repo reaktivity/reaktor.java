@@ -24,7 +24,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-import org.agrona.DirectBuffer;
 import org.agrona.LangUtil;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Long2ObjectHashMap;
@@ -270,20 +269,17 @@ public final class Router extends Nukleus.Composite implements RouteManager
 
         RouteEntryFW routeEntry = routeTable.routeEntries().matchFirst(re ->
         {
-            final RouteFW candidate = wrapRoute(re, routeRO);
-            final int typeId = candidate.typeId();
-            final DirectBuffer buffer = candidate.buffer();
-            final int offset = candidate.offset();
-            final int length = candidate.sizeof();
-            final long routeAuthorization = candidate.authorization();
-            return filter.test(typeId, buffer, offset, length) &&
-            (authorization & routeAuthorization) == routeAuthorization;
+            final OctetsFW entry = re.route();
+            final RouteFW candidate = routeRO.wrap(entry.buffer(), entry.offset(), entry.limit());
+            return (authorization & candidate.authorization()) == candidate.authorization() &&
+                    filter.test(candidate.typeId(), candidate.buffer(), candidate.offset(), candidate.sizeof());
         });
 
         R result = null;
         if (routeEntry != null)
         {
-            final RouteFW route = wrapRoute(routeEntry, routeRO);
+            final OctetsFW entry = routeEntry.route();
+            final RouteFW route = routeRO.wrap(entry.buffer(), entry.offset(), entry.limit());
             result = mapper.apply(route.typeId(), route.buffer(), route.offset(), route.sizeof());
         }
         return result;
@@ -299,7 +295,8 @@ public final class Router extends Nukleus.Composite implements RouteManager
 
         routeTable.routeEntries().forEach(re ->
         {
-            final RouteFW route = wrapRoute(re, routeRO);
+            final OctetsFW entry = re.route();
+            final RouteFW route = routeRO.wrap(entry.buffer(), entry.offset(), entry.limit());
             consumer.accept(route.typeId(), route.buffer(), route.offset(), route.sizeof());
         });
     }
@@ -370,10 +367,11 @@ public final class Router extends Nukleus.Composite implements RouteManager
             {
                 routeTable.routeEntries().forEach(old ->
                 {
-                    RouteFW route = wrapRoute(old, routeRO);
+                    final OctetsFW entry = old.route();
+                    final RouteFW route = routeRO.wrap(entry.buffer(), entry.offset(), entry.limit());
                     if (!routeMatchesUnroute(routeHandler, route, unroute))
                     {
-                        res.item(ob ->  ob.route(route.buffer(), route.offset(), route.sizeof()));
+                        res.item(re -> re.route(route.buffer(), route.offset(), route.sizeof()));
                     }
                 });
             })
@@ -512,13 +510,5 @@ public final class Router extends Nukleus.Composite implements RouteManager
         unroute.authorization() == route.authorization() &&
         unroute.extension().equals(route. extension()) &&
         routeHandler.test(UnrouteFW.TYPE_ID, route.buffer(), route.offset(), route.sizeof());
-    }
-
-    private static RouteFW wrapRoute(
-        RouteEntryFW r,
-        RouteFW routeRO)
-    {
-        final OctetsFW route = r.route();
-        return routeRO.wrap(route.buffer(), route.offset(), route.limit());
     }
 }
