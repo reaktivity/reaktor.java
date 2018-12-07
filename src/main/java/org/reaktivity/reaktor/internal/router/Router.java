@@ -42,7 +42,6 @@ import org.reaktivity.reaktor.internal.State;
 import org.reaktivity.reaktor.internal.conductor.Conductor;
 import org.reaktivity.reaktor.internal.layouts.RoutesLayout;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
-import org.reaktivity.reaktor.internal.types.ListFW;
 import org.reaktivity.reaktor.internal.types.OctetsFW;
 import org.reaktivity.reaktor.internal.types.StringFW;
 import org.reaktivity.reaktor.internal.types.control.Role;
@@ -266,6 +265,9 @@ public final class Router extends Nukleus.Composite implements RouteManager
         MessageFunction<R> mapper)
     {
         RouteTableFW routeTable = routeTableRO.wrap(routesBuffer, 0, routesBufferCapacity);
+
+        assert routeTable.writeLockReleases() == routeTable.writeLockAcquires();
+
         RouteEntryFW routeEntry = routeTable.routeEntries().matchFirst(re ->
         {
             final RouteFW candidate = wrapRoute(re, routeRO);
@@ -292,6 +294,9 @@ public final class Router extends Nukleus.Composite implements RouteManager
         MessageConsumer consumer)
     {
         RouteTableFW routeTable = routeTableRO.wrap(routesBuffer, 0, routesBufferCapacity);
+
+        assert routeTable.writeLockReleases() == routeTable.writeLockAcquires();
+
         routeTable.routeEntries().forEach(re ->
         {
             final RouteFW route = wrapRoute(re, routeRO);
@@ -305,6 +310,8 @@ public final class Router extends Nukleus.Composite implements RouteManager
     {
         final RouteTableFW routeTable = routeTableRO.wrap(routesBuffer, 0, routesBufferCapacity);
 
+        assert routeTable.writeLockReleases() == routeTable.writeLockAcquires();
+
         final boolean routed = routeHandler.test(route.typeId(), route.buffer(), route.offset(), route.sizeof());
 
         if (routed)
@@ -315,20 +322,12 @@ public final class Router extends Nukleus.Composite implements RouteManager
                 .wrap(routesBuffer, 0, routesBufferCapacity)
                 .writeLockAcquires(readLock)
                 .writeLockReleases(readLock - 1)
-                .routeEntries(b ->
+                .routeEntries(res ->
                 {
-                    final ListFW<RouteEntryFW> existingEntries = routeTable.routeEntries();
-
-                    existingEntries.forEach(
-                        e ->
-                        {
-                            final OctetsFW er = e.route();
-                            b.item(b2 -> b2.route(er.buffer(), er.offset(), er.sizeof()));
-                        }
-                    );
-                    b.item(b2 -> b2.route(route.buffer(), route.offset(), route.sizeof()));
-                });
-            routeTableRW.build();
+                    routeTable.routeEntries().forEach(old -> res.item(e -> e.route(old.route())));
+                    res.item(re -> re.route(route.buffer(), route.offset(), route.sizeof()));
+                })
+                .build();
 
             final Role role = route.role().get();
             final RouteKind kind = ReferenceKind.sourceKind(role).toRouteKind();
@@ -358,28 +357,32 @@ public final class Router extends Nukleus.Composite implements RouteManager
     {
         RouteTableFW routeTable = routeTableRO.wrap(routesBuffer, 0, routesBufferCapacity);
 
+        assert routeTable.writeLockReleases() == routeTable.writeLockAcquires();
+
         int readLock = routesLayout.lock();
 
-        routeTable.wrap(routesBuffer, 0, routesBufferCapacity);
-        int beforeSize = routeTableRO.routeEntries().sizeof();
-        routeTableRW.wrap(routesBuffer, 0, routesBufferCapacity);
+        int beforeSize = routeTable.sizeof();
 
-        routeTableRW.writeLockAcquires(readLock)
+        RouteTableFW newRouteTable = routeTableRW.wrap(routesBuffer, 0, routesBufferCapacity)
+            .writeLockAcquires(readLock)
             .writeLockReleases(readLock - 1)
-            .routeEntries(b ->
+            .routeEntries(res ->
             {
-                routeTableRO.routeEntries().forEach(e ->
+                routeTable.routeEntries().forEach(old ->
                 {
-                    RouteFW route = wrapRoute(e, routeRO);
+                    RouteFW route = wrapRoute(old, routeRO);
                     if (!routeMatchesUnroute(routeHandler, route, unroute))
                     {
-                        b.item(ob ->  ob.route(route.buffer(), route.offset(), route.sizeof()));
+                        res.item(ob ->  ob.route(route.buffer(), route.offset(), route.sizeof()));
                     }
                 });
-            });
+            })
+            .build();
 
-        int afterSize = routeTableRW.build().sizeof();
+        int afterSize = newRouteTable.sizeof();
+
         routesLayout.unlock();
+
         return beforeSize > afterSize;
     }
 
