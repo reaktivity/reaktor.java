@@ -29,9 +29,10 @@ public final class NukleusClientChannel extends NukleusChannel
         ChannelPipeline pipeline,
         ChannelSink sink,
         NukleusReaktor reaktor,
-        long initialId)
+        long routeId,
+        long targetId)
     {
-        super(null, factory, pipeline, sink, reaktor, initialId);
+        super(null, factory, pipeline, sink, reaktor, routeId, targetId);
 
         fireChannelOpen(this);
     }

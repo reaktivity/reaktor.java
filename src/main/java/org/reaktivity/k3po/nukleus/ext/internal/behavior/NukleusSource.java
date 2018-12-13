@@ -154,7 +154,7 @@ public final class NukleusSource implements AutoCloseable
 
         if (partition != null)
         {
-            partition.doReset(channel.sourceId());
+            partition.doReset(channel);
             abortFuture.setSuccess();
             if (channel.setReadAborted())
             {

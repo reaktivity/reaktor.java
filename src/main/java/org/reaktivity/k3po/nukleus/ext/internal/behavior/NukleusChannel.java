@@ -36,6 +36,8 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
 {
     static final ChannelBufferFactory NATIVE_BUFFER_FACTORY = NukleusByteOrder.NATIVE.toBufferFactory();
 
+    private final long routeId;
+
     private int readableBudget;
     private int writableBudget;
     int writablePadding;
@@ -70,12 +72,14 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
         ChannelPipeline pipeline,
         ChannelSink sink,
         NukleusReaktor reaktor,
+        long routeId,
         long targetId)
     {
         super(parent, factory, pipeline, sink, new DefaultNukleusChannelConfig());
 
         this.reaktor = reaktor;
         this.writeRequests = new LinkedList<>();
+        this.routeId = routeId;
         this.targetId = targetId;
     }
 
@@ -187,6 +191,11 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
     public int readableBytes()
     {
         return Math.max(readableBudget - getConfig().getPadding(), 0);
+    }
+
+    public long routeId()
+    {
+        return routeId;
     }
 
     public void sourceId(
