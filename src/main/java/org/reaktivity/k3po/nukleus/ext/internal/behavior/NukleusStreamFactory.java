@@ -39,9 +39,11 @@ import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.AbortFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.BeginFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.DataFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.EndFW;
+import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.FrameFW;
 
 public final class NukleusStreamFactory
 {
+    private final FrameFW frameRO = new FrameFW();
     private final BeginFW beginRO = new BeginFW();
     private final DataFW dataRO = new DataFW();
     private final EndFW endRO = new EndFW();
@@ -86,6 +88,10 @@ public final class NukleusStreamFactory
             int index,
             int length)
         {
+            final FrameFW frame = frameRO.wrap(buffer, index, index + length);
+            final long routeId = frame.routeId();
+            verifyRouteId(routeId);
+
             switch (msgTypeId)
             {
             case BeginFW.TYPE_ID:
@@ -144,7 +150,6 @@ public final class NukleusStreamFactory
         private void onData(
             DataFW data)
         {
-            final long streamId = data.streamId();
             final int flags = data.flags();
             final OctetsFW payload = data.payload();
             final ChannelBuffer message = payload == null ? NULL_BUFFER : payload.get(this::readBuffer);
@@ -172,7 +177,7 @@ public final class NukleusStreamFactory
                 {
                     // INIT flag set on non-initial message fragment
                     fireExceptionCaught(channel, new IllegalStateException("invalid message boundary"));
-                    partition.doReset(streamId);
+                    partition.doReset(channel);
                 }
                 else
                 {
@@ -199,7 +204,7 @@ public final class NukleusStreamFactory
             }
             else
             {
-                partition.doReset(streamId);
+                partition.doReset(channel);
 
                 if (channel.setReadAborted())
                 {
@@ -225,7 +230,7 @@ public final class NukleusStreamFactory
 
             if (end.authorization() != channel.sourceAuth())
             {
-                partition.doReset(streamId);
+                partition.doReset(channel);
             }
             unregisterStream.accept(streamId);
 
@@ -264,7 +269,7 @@ public final class NukleusStreamFactory
 
             if (abort.authorization() != channel.sourceAuth())
             {
-                partition.doReset(streamId);
+                partition.doReset(channel);
             }
             unregisterStream.accept(streamId);
 
@@ -281,6 +286,15 @@ public final class NukleusStreamFactory
                 {
                     fireInputAborted(channel);
                 }
+            }
+        }
+
+        private void verifyRouteId(
+            final long routeId)
+        {
+            if (routeId != channel.routeId())
+            {
+                throw new IllegalStateException(String.format("routeId: expected %x actual %x", channel.routeId(), routeId));
             }
         }
 

@@ -170,18 +170,22 @@ final class NukleusPartition implements AutoCloseable
         {
             final FrameFW frame = frameRO.wrap(buffer, index, index + length);
 
+            final long routeId = frame.routeId();
             final long streamId = frame.streamId();
 
-            doReset(streamId);
+            doReset(routeId, streamId);
         }
     }
 
     private void handleBegin(
         BeginFW begin)
     {
-        final long sourceRef = begin.sourceRef();
+        final long routeId = begin.routeId();
         final long sourceId = begin.streamId();
-        final NukleusServerChannel serverChannel = lookupRoute.apply(sourceRef, begin.authorization());
+        final long sourceRef = begin.sourceRef();
+        final long authorization = begin.authorization();
+
+        final NukleusServerChannel serverChannel = lookupRoute.apply(sourceRef, authorization);
 
         if (serverChannel != null)
         {
@@ -195,7 +199,7 @@ final class NukleusPartition implements AutoCloseable
             }
             else
             {
-                doReset(sourceId);
+                doReset(routeId, sourceId);
             }
         }
     }
@@ -204,10 +208,11 @@ final class NukleusPartition implements AutoCloseable
         final BeginFW begin,
         final NukleusServerChannel serverChannel)
     {
+        final long routeId = begin.routeId();
         final long sourceId = begin.streamId();
         final long correlationId = begin.correlationId();
         final long replyId = sourceId | 0x8000_0000_0000_0000L;
-        NukleusChildChannel childChannel = doAccept(serverChannel, replyId, correlationId);
+        NukleusChildChannel childChannel = doAccept(serverChannel, routeId, replyId, correlationId);
 
         final ChannelFuture handshakeFuture = future(childChannel);
         final MessageHandler newStream = streamFactory.newStream(childChannel, this, handshakeFuture);
@@ -233,8 +238,9 @@ final class NukleusPartition implements AutoCloseable
     private void handleBeginReply(
         final BeginFW begin)
     {
-        final long correlationId = begin.correlationId();
+        final long routeId = begin.routeId();
         final long sourceId = begin.streamId();
+        final long correlationId = begin.correlationId();
         final NukleusCorrelation correlation = correlateEstablished.apply(correlationId);
 
         if (correlation != null)
@@ -249,7 +255,7 @@ final class NukleusPartition implements AutoCloseable
         }
         else
         {
-            doReset(sourceId);
+            doReset(routeId, sourceId);
         }
     }
 
@@ -259,11 +265,13 @@ final class NukleusPartition implements AutoCloseable
         final int padding,
         final long groupId)
     {
+        final long routeId = channel.routeId();
         final long streamId = channel.sourceId();
 
         channel.readableBytes(credit);
 
         final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                .routeId(routeId)
                 .streamId(streamId)
                 .timestamp(supplyTimestamp.getAsLong())
                 .trace(supplyTrace.getAsLong())
@@ -276,9 +284,20 @@ final class NukleusPartition implements AutoCloseable
     }
 
     void doReset(
+        final NukleusChannel channel)
+    {
+        final long routeId = channel.routeId();
+        final long streamId = channel.sourceId();
+
+        doReset(routeId, streamId);
+    }
+
+    private void doReset(
+        final long routeId,
         final long streamId)
     {
         final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                .routeId(routeId)
                 .streamId(streamId)
                 .timestamp(supplyTimestamp.getAsLong())
                 .trace(supplyTrace.getAsLong())
@@ -289,6 +308,7 @@ final class NukleusPartition implements AutoCloseable
 
     private NukleusChildChannel doAccept(
         NukleusServerChannel serverChannel,
+        long routeId,
         long targetId,
         long correlationId)
     {
@@ -305,7 +325,7 @@ final class NukleusPartition implements AutoCloseable
             ChannelFactory channelFactory = serverChannel.getFactory();
             NukleusChildChannelSink childSink = new NukleusChildChannelSink();
             NukleusChildChannel childChannel =
-                  new NukleusChildChannel(serverChannel, channelFactory, pipeline, childSink, serverChannel.reaktor, targetId);
+                  new NukleusChildChannel(serverChannel, channelFactory, pipeline, childSink, routeId, targetId);
 
             NukleusChannelConfig childConfig = childChannel.getConfig();
             childConfig.setBufferFactory(serverConfig.getBufferFactory());
