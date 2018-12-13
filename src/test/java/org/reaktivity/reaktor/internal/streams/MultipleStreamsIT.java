@@ -72,7 +72,7 @@ public class MultipleStreamsIT
         .directory("target/nukleus-itests")
         .commandBufferCapacity(1024)
         .responseBufferCapacity(1024)
-        .counterValuesBufferCapacity(1024)
+        .counterValuesBufferCapacity(4096)
         .nukleusFactory(TestNukleusFactorySpi.class)
         .clean();
 
@@ -111,10 +111,10 @@ public class MultipleStreamsIT
         private ArgumentCaptor<LongFunction<IntUnaryOperator>> groupBudgetReleaser = forClass(LongFunction.class);
         private ArgumentCaptor<MutableDirectBuffer> writeBuffer = forClass(MutableDirectBuffer.class);
 
-        private MessageConsumer newStream1 = mock(MessageConsumer.class);
-        private MessageConsumer replyStream1 = mock(MessageConsumer.class);
-        private MessageConsumer newStream2 = mock(MessageConsumer.class);
-        private MessageConsumer replyStream2 = mock(MessageConsumer.class);
+        private MessageConsumer acceptInitial1 = mock(MessageConsumer.class);
+        private MessageConsumer connectReply1 = mock(MessageConsumer.class);
+        private MessageConsumer acceptInitial2 = mock(MessageConsumer.class);
+        private MessageConsumer connectReply2 = mock(MessageConsumer.class);
         private boolean newStream1Started;
 
         private final BeginFW beginRO = new BeginFW();
@@ -122,14 +122,19 @@ public class MultipleStreamsIT
 
         private final BeginFW.Builder beginRW = new BeginFW.Builder();
 
-        private long newCorrelationId1;
-        private long correlationId1;
-        private String source1;
-        private long initialId1;
-        private long newCorrelationId2;
-        private long correlationId2;
-        private String source2;
-        private long initialId2;
+        private String acceptName1;
+        private long acceptRouteId1;
+        private long acceptReplyId1;
+        private long acceptCorrelationId1;
+        private long connectRouteId1;
+        private long connectCorrelationId1;
+
+        private String acceptName2;
+        private long acceptRouteId2;
+        private long acceptReplyId2;
+        private long acceptCorrelationId2;
+        private long connectRouteId2;
+        private long connectCorrelationId2;
 
         @SuppressWarnings("unchecked")
         public TestNukleusFactorySpi()
@@ -160,11 +165,11 @@ public class MultipleStreamsIT
                              invocation.getArgument(2), maxLength);
                      if (begin.sourceRef() == 0)
                      {
-                         result = begin.correlationId() == newCorrelationId1 ? replyStream1 : replyStream2;
+                         result = begin.correlationId() == connectCorrelationId1 ? connectReply1 : connectReply2;
                      }
                      else
                      {
-                         result = newStream1Started ? newStream1 : newStream2;
+                         result = newStream1Started ? acceptInitial1 : acceptInitial2;
                          newStream1Started = true;
                      }
                      return result;
@@ -194,23 +199,26 @@ public class MultipleStreamsIT
                             {
                                 MessageConsumer target = router.getValue().supplyTarget(route.target().asString());
                                 long newConnectId = supplyInitialId.getValue().getAsLong();
-                                newCorrelationId1 = supplyTargetCorrelationId.getValue().getAsLong();
-                                correlationId1 = begin.correlationId();
-                                source1 = begin.source().asString();
-                                initialId1 = begin.streamId();
+                                acceptRouteId1 = begin.routeId();
+                                acceptCorrelationId1 = begin.correlationId();
+                                acceptName1 = begin.source().asString();
+                                acceptReplyId1 = supplyReplyId.getValue().applyAsLong(begin.streamId());
+                                connectRouteId1 = route.correlationId();
+                                connectCorrelationId1 = supplyTargetCorrelationId.getValue().getAsLong();
                                 final BeginFW newBegin = beginRW.wrap(buffer,  0, buffer.capacity())
+                                        .routeId(connectRouteId1)
                                         .streamId(newConnectId)
                                         .authorization(begin.authorization())
                                         .source("example")
                                         .sourceRef(route.targetRef())
-                                        .correlationId(newCorrelationId1)
+                                        .correlationId(connectCorrelationId1)
                                         .build();
                                 target.accept(BeginFW.TYPE_ID, buffer, newBegin.offset(), newBegin.sizeof());
                             }
                             return null;
                         }
                     }
-            ).when(newStream1).accept(eq(BeginFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
+            ).when(acceptInitial1).accept(eq(BeginFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
 
             doAnswer(new Answer<Object>()
                     {
@@ -218,20 +226,20 @@ public class MultipleStreamsIT
                         public Object answer(
                             InvocationOnMock invocation) throws Throwable
                         {
-                            MessageConsumer acceptReply = router.getValue().supplyTarget(source1);
-                            long newReplyId = supplyReplyId.getValue().applyAsLong(initialId1);
+                            MessageConsumer acceptReply = router.getValue().supplyTarget(acceptName1);
                             MutableDirectBuffer buffer = writeBuffer.getValue();
                             final BeginFW beginOut = beginRW.wrap(buffer,  0, buffer.capacity())
-                                    .streamId(newReplyId)
+                                    .routeId(acceptRouteId1)
+                                    .streamId(acceptReplyId1)
                                     .source("example")
                                     .sourceRef(0L)
-                                    .correlationId(correlationId1)
+                                    .correlationId(acceptCorrelationId1)
                                     .build();
                             acceptReply.accept(BeginFW.TYPE_ID, buffer, beginOut.offset(), beginOut.sizeof());
                             return null;
                         }
                     }
-            ).when(replyStream1).accept(eq(BeginFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
+            ).when(connectReply1).accept(eq(BeginFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
 
             doAnswer(new Answer<Object>()
                     {
@@ -257,23 +265,26 @@ public class MultipleStreamsIT
                             {
                                 MessageConsumer target = router.getValue().supplyTarget(route.target().asString());
                                 long newConnectId = supplyInitialId.getValue().getAsLong();
-                                newCorrelationId2 = supplyTargetCorrelationId.getValue().getAsLong();
-                                correlationId2 = begin.correlationId();
-                                source2 = begin.source().asString();
-                                initialId2 = begin.streamId();
+                                acceptRouteId2 = begin.routeId();
+                                acceptCorrelationId2 = begin.correlationId();
+                                acceptName2 = begin.source().asString();
+                                acceptReplyId2 = supplyReplyId.getValue().applyAsLong(begin.streamId());
+                                connectRouteId2 = route.correlationId();
+                                connectCorrelationId2 = supplyTargetCorrelationId.getValue().getAsLong();
                                 final BeginFW newBegin = beginRW.wrap(buffer,  0, buffer.capacity())
+                                        .routeId(connectRouteId2)
                                         .streamId(newConnectId)
                                         .authorization(begin.authorization())
                                         .source("example")
                                         .sourceRef(route.targetRef())
-                                        .correlationId(newCorrelationId2)
+                                        .correlationId(connectCorrelationId2)
                                         .build();
                                 target.accept(BeginFW.TYPE_ID, buffer, newBegin.offset(), newBegin.sizeof());
                             }
                             return null;
                         }
                     }
-            ).when(newStream2).accept(eq(BeginFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
+            ).when(acceptInitial2).accept(eq(BeginFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
 
             doAnswer(new Answer<Object>()
                     {
@@ -281,20 +292,20 @@ public class MultipleStreamsIT
                         public Object answer(
                             InvocationOnMock invocation) throws Throwable
                         {
-                            MessageConsumer acceptReply = router.getValue().supplyTarget(source2);
-                            long newReplyId = supplyReplyId.getValue().applyAsLong(initialId2);
+                            MessageConsumer acceptReply = router.getValue().supplyTarget(acceptName2);
                             MutableDirectBuffer buffer = writeBuffer.getValue();
                             final BeginFW beginOut = beginRW.wrap(buffer,  0, buffer.capacity())
-                                    .streamId(newReplyId)
+                                    .routeId(acceptRouteId2)
+                                    .streamId(acceptReplyId2)
                                     .source("example")
                                     .sourceRef(0L)
-                                    .correlationId(correlationId2)
+                                    .correlationId(acceptCorrelationId2)
                                     .build();
                             acceptReply.accept(BeginFW.TYPE_ID, buffer, beginOut.offset(), beginOut.sizeof());
                             return null;
                         }
                     }
-            ).when(replyStream2).accept(eq(BeginFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
+            ).when(connectReply2).accept(eq(BeginFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
         }
 
         @Override

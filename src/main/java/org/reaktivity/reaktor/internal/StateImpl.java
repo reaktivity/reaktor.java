@@ -20,6 +20,7 @@ import static org.agrona.BitUtil.findNextPositivePowerOfTwo;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.reaktivity.nukleus.Controller;
 import org.reaktivity.nukleus.Nukleus;
@@ -31,16 +32,19 @@ public final class StateImpl implements State, Comparable<StateImpl>
     private final int index;
     private final BufferPool bufferPool;
     private final long mask;
+    private final AtomicInteger routeId;
     private final List<Nukleus> nuklei;
     private final List<Controller> controllers;
 
     private long streamId;
+    private long correlationId;
     private long traceId;
     private long groupId;
 
     public StateImpl(
         int index,
         int count,
+        AtomicInteger routeId,
         ReaktorConfiguration config)
     {
         final int bufferPoolCapacity = config.bufferPoolCapacity();
@@ -58,8 +62,10 @@ public final class StateImpl implements State, Comparable<StateImpl>
         this.mask = mask;
         this.bufferPool = bufferPool;
         this.streamId = initial;
+        this.correlationId = initial;
         this.traceId = initial;
         this.groupId = initial;
+        this.routeId = routeId;
         this.nuklei = new ArrayList<>();
         this.controllers = new ArrayList<>();
     }
@@ -71,11 +77,25 @@ public final class StateImpl implements State, Comparable<StateImpl>
     }
 
     @Override
+    public int supplyRouteId()
+    {
+        return routeId.incrementAndGet();
+    }
+
+    @Override
     public long supplyInitialId()
     {
         streamId++;
         streamId &= mask;
         return streamId;
+    }
+
+    @Override
+    public long supplyCorrelationId()
+    {
+        correlationId++;
+        correlationId &= mask;
+        return correlationId;
     }
 
     @Override

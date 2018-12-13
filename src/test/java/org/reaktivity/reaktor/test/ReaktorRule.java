@@ -15,6 +15,7 @@
  */
 package org.reaktivity.reaktor.test;
 
+import static java.lang.String.format;
 import static java.nio.file.FileVisitOption.FOLLOW_LINKS;
 import static java.nio.file.Files.exists;
 import static org.junit.runners.model.MultipleFailureException.assertEmpty;
@@ -43,6 +44,7 @@ import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.NukleusFactorySpi;
 import org.reaktivity.reaktor.Reaktor;
 import org.reaktivity.reaktor.ReaktorBuilder;
+import org.reaktivity.reaktor.internal.NukleusBuilderImpl;
 import org.reaktivity.reaktor.internal.ReaktorConfiguration;
 import org.reaktivity.reaktor.test.annotation.Configure;
 
@@ -173,6 +175,97 @@ public final class ReaktorRule implements TestRule
         }
 
         return controller;
+    }
+
+    public long opensRead(
+        String nukleus,
+        long routeId)
+    {
+        return counter(nukleus, format("%d.opens.read", routeId));
+    }
+
+    public long opensWritten(
+        String nukleus,
+        long routeId)
+    {
+        return counter(nukleus, format("%d.opens.written", routeId));
+    }
+
+    public long closesRead(
+        String nukleus,
+        long routeId)
+    {
+        return counter(nukleus, format("%d.closes.read", routeId));
+    }
+
+    public long closesWritten(
+        String nukleus,
+        long routeId)
+    {
+        return counter(nukleus, format("%d.closes.written", routeId));
+    }
+
+    public long abortsRead(
+        String nukleus,
+        long routeId)
+    {
+        return counter(nukleus, format("%d.aborts.read", routeId));
+    }
+
+    public long abortsWritten(
+        String nukleus,
+        long routeId)
+    {
+        return counter(nukleus, format("%d.aborts.written", routeId));
+    }
+
+    public long resetsRead(
+        String nukleus,
+        long routeId)
+    {
+        return counter(nukleus, format("%d.resets.read", routeId));
+    }
+
+    public long resetsWritten(
+        String nukleus,
+        long routeId)
+    {
+        return counter(nukleus, format("%d.resets.written", routeId));
+    }
+
+    public long bytesRead(
+        String nukleus,
+        long routeId)
+    {
+        return counter(nukleus, format("%d.bytes.read", routeId));
+    }
+
+    public long bytesWritten(
+        String nukleus,
+        long routeId)
+    {
+        return counter(nukleus, format("%d.bytes.written", routeId));
+    }
+
+    public long framesRead(
+        String nukleus,
+        long routeId)
+    {
+        return counter(nukleus, format("%d.frames.read", routeId));
+    }
+
+    public long framesWritten(
+        String nukleus,
+        long routeId)
+    {
+        return counter(nukleus, format("%d.frames.written", routeId));
+    }
+
+    private long counter(
+        String nukleus,
+        String name)
+    {
+        return nukleus(nukleus, NukleusBuilderImpl.NukleusImpl.class).counter(name);
     }
 
     private ReaktorConfiguration configuration()

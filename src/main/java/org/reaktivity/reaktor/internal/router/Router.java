@@ -181,9 +181,11 @@ public final class Router extends Nukleus.Composite implements RouteManager
     public void doRoute(
         RouteFW route)
     {
+        final long correlationId = route.correlationId();
+
         try
         {
-            Role role = route.role().get();
+            final Role role = route.role().get();
             MessagePredicate routeHandler = supplyRouteHandler.apply(role);
 
             final boolean requireNonZeroSourceRef = !allowZeroSourceRef.test(RouteKind.valueOf(role.ordinal()));
@@ -194,7 +196,8 @@ public final class Router extends Nukleus.Composite implements RouteManager
                 route = generateSourceRefIfNecessary(route, requireNonZeroSourceRef);
                 route = generateTargetRefIfNecessary(route, requireNonZeroTargetRef);
 
-                final long sourceRef = route.sourceRef();
+                long sourceRef = route.sourceRef();
+
                 MessagePredicate defaultHandler = (t, b, i, l) -> ReferenceKind.resolve(sourceRef).ordinal() == role.ordinal();
                 if (routeHandler == null)
                 {
@@ -211,18 +214,20 @@ public final class Router extends Nukleus.Composite implements RouteManager
                 routeHandler = (t, b, i, l) -> true;
             }
 
+            route = generateRouteId(route);
+
             if (doRouteInternal(route, routeHandler))
             {
-                conductor.onRouted(route.correlationId(), route.sourceRef(), route.targetRef());
+                conductor.onRouted(correlationId, route.sourceRef(), route.targetRef());
             }
             else
             {
-                conductor.onError(route.correlationId());
+                conductor.onError(correlationId);
             }
         }
         catch (Exception ex)
         {
-            conductor.onError(route.correlationId());
+            conductor.onError(correlationId);
             LangUtil.rethrowUnchecked(ex);
         }
     }
@@ -409,7 +414,7 @@ public final class Router extends Nukleus.Composite implements RouteManager
                 .readonly(true)
                 .build();
 
-        return new Target(targetName, layout, writeBuffer, timestamps,
+        return new Target(targetName, layout, writeBuffer, context.counters(), timestamps,
                           context.maximumMessagesPerRead(), streams, throttles);
     }
 
@@ -495,6 +500,31 @@ public final class Router extends Nukleus.Composite implements RouteManager
         }
 
         return route;
+    }
+
+    private RouteFW generateRouteId(
+        RouteFW route)
+    {
+        final Role role = route.role().get();
+        final StringFW source = route.source();
+        final long sourceRef = route.sourceRef();
+        final StringFW target = route.target();
+        final long targetRef = route.targetRef();
+        final long authorization = route.authorization();
+        final OctetsFW extension = route.extension();
+
+        final long newRouteId = 0L << 32 | (long) role.ordinal() << 28 | (state.supplyRouteId() & 0x0fff_ffffL);
+
+        return routeRW.wrap(routeBuf, 0, routeBuf.capacity())
+                      .correlationId(newRouteId)
+                      .role(b -> b.set(role))
+                      .source(source)
+                      .sourceRef(sourceRef)
+                      .target(target)
+                      .targetRef(targetRef)
+                      .authorization(authorization)
+                      .extension(b -> b.set(extension))
+                      .build();
     }
 
     private static boolean routeMatchesUnroute(
