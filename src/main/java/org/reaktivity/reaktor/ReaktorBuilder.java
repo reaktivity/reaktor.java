@@ -21,6 +21,7 @@ import static java.util.Objects.requireNonNull;
 
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.function.ToIntFunction;
@@ -133,10 +134,12 @@ public class ReaktorBuilder
         final ReaktorConfiguration config = new ReaktorConfiguration(this.config != null ? this.config : new Configuration());
         configs.add(config);
 
+        final AtomicInteger routeId = new AtomicInteger();
+
         final StateImpl[] states = new StateImpl[threads];
         for (int thread=0; thread < threads; thread++)
         {
-            states[thread] = new StateImpl(thread, threads, config);
+            states[thread] = new StateImpl(thread, threads, routeId, config);
         }
 
         final NukleusFactory nukleusFactory = supplyNukleusFactory.get();

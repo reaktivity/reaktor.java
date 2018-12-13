@@ -29,9 +29,13 @@ public interface State
 
     long supplyReplyId(long initialId);
 
+    long supplyCorrelationId();
+
     long supplyTrace();
 
     long supplyGroupId();
+
+    int supplyRouteId();
 
     List<? extends Nukleus> nuklei();
 

@@ -15,6 +15,7 @@
  */
 package org.reaktivity.reaktor.internal.router;
 
+import static java.lang.String.format;
 import static org.agrona.LangUtil.rethrowUnchecked;
 
 import java.util.EnumMap;
@@ -43,6 +44,7 @@ import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 import org.reaktivity.reaktor.internal.Context;
+import org.reaktivity.reaktor.internal.Counters;
 import org.reaktivity.reaktor.internal.State;
 import org.reaktivity.reaktor.internal.buffer.CountingBufferPool;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
@@ -63,6 +65,7 @@ final class Source implements Nukleus
     private final ResetFW.Builder resetRW = new ResetFW.Builder();
 
     private final String nukleusName;
+    private final Counters counters;
     private final String name;
     private final StreamsLayout layout;
     private final MutableDirectBuffer writeBuffer;
@@ -71,6 +74,7 @@ final class Source implements Nukleus
 
     private final Long2ObjectHashMap<MessageConsumer> streams;
     private final Long2ObjectHashMap<MessageConsumer> throttles;
+    private final Long2ObjectHashMap<ReadCounters> countersByRouteId;
     private final Function<RouteKind, StreamFactory> supplyStreamFactory;
     private final Function<String, MessageConsumer> supplyThrottle;
 
@@ -91,11 +95,14 @@ final class Source implements Nukleus
         Long2ObjectHashMap<MessageConsumer> throttles)
     {
         this.nukleusName = context.name();
+        this.counters = context.counters();
         this.name = sourceName;
         this.writeBuffer = writeBuffer;
         this.streams = streams;
         this.throttles = throttles;
         this.readHandler = this::handleRead;
+
+        this.countersByRouteId = new Long2ObjectHashMap<>();
 
         final StreamsLayout layout = new StreamsLayout.Builder()
                 .path(context.sourceStreamsPath().apply(sourceName))
@@ -118,10 +125,6 @@ final class Source implements Nukleus
         final Supplier<BufferPool> supplyCountingBufferPool = () -> bufferPool;
         for (RouteKind kind : EnumSet.allOf(RouteKind.class))
         {
-            final ReferenceKind sourceRefKind = ReferenceKind.sourceKind(kind);
-            final LongSupplier supplySourceCorrelationId = () -> sourceRefKind.nextRef(correlations);
-            final ReferenceKind targetRefKind = ReferenceKind.targetKind(kind);
-            final LongSupplier supplyTargetCorrelationId = () -> targetRefKind.nextRef(correlations);
             final StreamFactoryBuilder streamFactoryBuilder = supplyStreamFactoryBuilder.apply(kind);
             if (streamFactoryBuilder != null)
             {
@@ -130,12 +133,12 @@ final class Source implements Nukleus
                         .setWriteBuffer(writeBuffer)
                         .setInitialIdSupplier(state::supplyInitialId)
                         .setReplyIdSupplier(state::supplyReplyId)
+                        .setSourceCorrelationIdSupplier(state::supplyCorrelationId)
+                        .setTargetCorrelationIdSupplier(state::supplyCorrelationId)
                         .setTraceSupplier(state::supplyTrace)
                         .setGroupIdSupplier(state::supplyGroupId)
                         .setGroupBudgetClaimer(groupBudgetClaimer)
                         .setGroupBudgetReleaser(groupBudgetReleaser)
-                        .setSourceCorrelationIdSupplier(supplySourceCorrelationId)
-                        .setTargetCorrelationIdSupplier(supplyTargetCorrelationId)
                         .setCounterSupplier(supplyCounter)
                         .setAccumulatorSupplier(supplyAccumulator)
                         .setBufferPoolSupplier(supplyCountingBufferPool)
@@ -166,7 +169,7 @@ final class Source implements Nukleus
     @Override
     public void close() throws Exception
     {
-        streams.forEach(this::doAbort);
+        streams.forEach(this::doSyntheticAbort);
 
         layout.close();
     }
@@ -185,56 +188,17 @@ final class Source implements Nukleus
     {
         final FrameFW frame = frameRO.wrap(buffer, index, index + length);
         final long streamId = frame.streamId();
+        final long routeId = frame.routeId();
 
         try
         {
-            if ((msgTypeId & 0x4000_0000) != 0)
+            if ((streamId & 0x8000_0000_0000_0000L) == 0L)
             {
-                final MessageConsumer throttle = throttles.get(streamId);
-                if (throttle != null)
-                {
-                    switch (msgTypeId)
-                    {
-                    case WindowFW.TYPE_ID:
-                        throttle.accept(msgTypeId, buffer, index, length);
-                        break;
-                    case ResetFW.TYPE_ID:
-                        throttle.accept(msgTypeId, buffer, index, length);
-                        throttles.remove(streamId);
-                        break;
-                    default:
-                        break;
-                    }
-                }
+                handleReadInitial(routeId, streamId, msgTypeId, buffer, index, length);
             }
             else
             {
-                final MessageConsumer handler = streams.get(streamId);
-                if (handler != null)
-                {
-                    switch (msgTypeId)
-                    {
-                    case BeginFW.TYPE_ID:
-                    case DataFW.TYPE_ID:
-                        handler.accept(msgTypeId, buffer, index, length);
-                        break;
-                    case EndFW.TYPE_ID:
-                        handler.accept(msgTypeId, buffer, index, length);
-                        streams.remove(streamId);
-                        break;
-                    case AbortFW.TYPE_ID:
-                        handler.accept(msgTypeId, buffer, index, length);
-                        streams.remove(streamId);
-                        break;
-                    default:
-                        handleUnrecognized(msgTypeId, buffer, index, length);
-                        break;
-                    }
-                }
-                else
-                {
-                    handleUnrecognized(msgTypeId, buffer, index, length);
-                }
+                handleReadReply(routeId, streamId, msgTypeId, buffer, index, length);
             }
         }
         catch (Throwable ex)
@@ -245,59 +209,180 @@ final class Source implements Nukleus
         }
     }
 
-    private void handleUnrecognized(
+    private void handleReadInitial(
+        long routeId,
+        long streamId,
         int msgTypeId,
         MutableDirectBuffer buffer,
         int index,
         int length)
     {
-        if (msgTypeId == BeginFW.TYPE_ID)
+        if ((msgTypeId & 0x4000_0000) == 0)
         {
-            handleBegin(msgTypeId, buffer, index, length);
+            final MessageConsumer handler = streams.get(streamId);
+            if (handler != null)
+            {
+                switch (msgTypeId)
+                {
+                case BeginFW.TYPE_ID:
+                    handler.accept(msgTypeId, buffer, index, length);
+                    break;
+                case DataFW.TYPE_ID:
+                    handler.accept(msgTypeId, buffer, index, length);
+                    break;
+                case EndFW.TYPE_ID:
+                    handler.accept(msgTypeId, buffer, index, length);
+                    streams.remove(streamId);
+                    break;
+                case AbortFW.TYPE_ID:
+                    handler.accept(msgTypeId, buffer, index, length);
+                    streams.remove(streamId);
+                    break;
+                default:
+                    doReset(routeId, streamId);
+                    break;
+                }
+            }
+            else if (msgTypeId == BeginFW.TYPE_ID)
+            {
+                final MessageConsumer newHandler = handleBegin(msgTypeId, buffer, index, length);
+                if (newHandler != null)
+                {
+                    newHandler.accept(msgTypeId, buffer, index, length);
+                }
+                else
+                {
+                    doReset(routeId, streamId);
+                }
+            }
         }
         else
         {
-            frameRO.wrap(buffer, index, index + length);
-
-            final long streamId = frameRO.streamId();
-
-            doReset(streamId);
+            final MessageConsumer throttle = throttles.get(streamId);
+            if (throttle != null)
+            {
+                final ReadCounters counters = countersByRouteId.computeIfAbsent(routeId, ReadCounters::new);
+                switch (msgTypeId)
+                {
+                case WindowFW.TYPE_ID:
+                    counters.windows.increment();
+                    throttle.accept(msgTypeId, buffer, index, length);
+                    break;
+                case ResetFW.TYPE_ID:
+                    counters.resets.increment();
+                    throttle.accept(msgTypeId, buffer, index, length);
+                    throttles.remove(streamId);
+                    break;
+                default:
+                    break;
+                }
+            }
         }
     }
 
-    private void handleBegin(
+    private void handleReadReply(
+        long routeId,
+        long streamId,
+        int msgTypeId,
+        MutableDirectBuffer buffer,
+        int index,
+        int length)
+    {
+        if ((msgTypeId & 0x4000_0000) == 0)
+        {
+            final MessageConsumer handler = streams.get(streamId);
+            if (handler != null)
+            {
+                final ReadCounters counters = countersByRouteId.computeIfAbsent(routeId, ReadCounters::new);
+                switch (msgTypeId)
+                {
+                case BeginFW.TYPE_ID:
+                    counters.opens.increment();
+                    handler.accept(msgTypeId, buffer, index, length);
+                    break;
+                case DataFW.TYPE_ID:
+                    counters.frames.increment();
+                    counters.bytes.add(buffer.getInt(index + DataFW.FIELD_OFFSET_LENGTH));
+                    handler.accept(msgTypeId, buffer, index, length);
+                    break;
+                case EndFW.TYPE_ID:
+                    counters.closes.increment();
+                    handler.accept(msgTypeId, buffer, index, length);
+                    streams.remove(streamId);
+                    break;
+                case AbortFW.TYPE_ID:
+                    counters.aborts.increment();
+                    handler.accept(msgTypeId, buffer, index, length);
+                    streams.remove(streamId);
+                    break;
+                default:
+                    doReset(routeId, streamId);
+                    break;
+                }
+            }
+            else if (msgTypeId == BeginFW.TYPE_ID)
+            {
+                final MessageConsumer newHandler = handleBegin(msgTypeId, buffer, index, length);
+                if (newHandler != null)
+                {
+                    final ReadCounters counters = countersByRouteId.computeIfAbsent(routeId, ReadCounters::new);
+                    counters.opens.increment();
+                    newHandler.accept(msgTypeId, buffer, index, length);
+                }
+                else
+                {
+                    doReset(routeId, streamId);
+                }
+            }
+        }
+        else
+        {
+            final MessageConsumer throttle = throttles.get(streamId);
+            if (throttle != null)
+            {
+                switch (msgTypeId)
+                {
+                case WindowFW.TYPE_ID:
+                    throttle.accept(msgTypeId, buffer, index, length);
+                    break;
+                case ResetFW.TYPE_ID:
+                    throttle.accept(msgTypeId, buffer, index, length);
+                    throttles.remove(streamId);
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
+    }
+
+    private MessageConsumer handleBegin(
         int msgTypeId,
         DirectBuffer buffer,
         int index,
         int length)
     {
         final BeginFW begin = beginRO.wrap(buffer, index, index + length);
+        final long routeId = begin.routeId();
         final long sourceId = begin.streamId();
         final long sourceRef = begin.sourceRef();
-        final long correlationId = begin.correlationId();
 
-        final long resolveId = (sourceRef == 0L) ? correlationId : sourceRef;
-        RouteKind routeKind = ReferenceKind.resolve(resolveId);
+        final RouteKind routeKind =
+                (sourceRef != 0L) ? ReferenceKind.resolve(sourceRef) : RouteKind.valueOf((int)((routeId >> 28) & 0xff));
 
         StreamFactory streamFactory = supplyStreamFactory.apply(routeKind);
+        MessageConsumer newStream = null;
         if (streamFactory != null)
         {
             final MessageConsumer writeHandler = writeHandler();
-            final MessageConsumer newStream = streamFactory.newStream(msgTypeId, buffer, index, length, writeHandler);
+            newStream = streamFactory.newStream(msgTypeId, buffer, index, length, writeHandler);
             if (newStream != null)
             {
                 streams.put(sourceId, newStream);
-                newStream.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
-            }
-            else
-            {
-                doReset(sourceId);
             }
         }
-        else
-        {
-            doReset(sourceId);
-        }
+
+        return newStream;
     }
 
     private MessageConsumer writeHandler()
@@ -313,9 +398,11 @@ final class Source implements Nukleus
     }
 
     private void doReset(
+        final long routeId,
         final long streamId)
     {
         final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                .routeId(routeId)
                 .streamId(streamId)
                 .build();
 
@@ -323,14 +410,40 @@ final class Source implements Nukleus
         writeHandler.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
     }
 
-    private void doAbort(
+    private void doSyntheticAbort(
         long streamId,
         MessageConsumer stream)
     {
+        final long syntheticAbortRouteId = 0L;
+
         final AbortFW abort = abortRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                                     .routeId(syntheticAbortRouteId)
                                      .streamId(streamId)
                                      .build();
 
         stream.accept(abort.typeId(), abort.buffer(), abort.offset(), abort.sizeof());
+    }
+
+    final class ReadCounters
+    {
+        private final AtomicCounter opens;
+        private final AtomicCounter closes;
+        private final AtomicCounter aborts;
+        private final AtomicCounter windows;
+        private final AtomicCounter resets;
+        private final AtomicCounter bytes;
+        private final AtomicCounter frames;
+
+        ReadCounters(
+            long routeId)
+        {
+            this.opens = counters.counter(format("%d.opens.read", routeId));
+            this.closes = counters.counter(format("%d.closes.read", routeId));
+            this.aborts = counters.counter(format("%d.aborts.read", routeId));
+            this.windows = counters.counter(format("%d.windows.read", routeId));
+            this.resets = counters.counter(format("%d.resets.read", routeId));
+            this.bytes = counters.counter(format("%d.bytes.read", routeId));
+            this.frames = counters.counter(format("%d.frames.read", routeId));
+        }
     }
 }
