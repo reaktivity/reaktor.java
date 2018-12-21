@@ -21,7 +21,13 @@ import org.reaktivity.nukleus.function.MessagePredicate;
 
 public interface RouteManager
 {
+    <R> R resolveExternal(
+        long authorization,
+        MessagePredicate filter,
+        MessageFunction<R> mapper);
+
     <R> R resolve(
+        long routeId,
         long authorization,
         MessagePredicate filter,
         MessageFunction<R> mapper);
@@ -29,11 +35,14 @@ public interface RouteManager
     void forEach(
         MessageConsumer consumer);
 
-    MessageConsumer supplyTarget(
-        String targetName);
+    MessageConsumer supplyReceiver(
+        long routeId);
+
+    MessageConsumer supplySender(
+        long routeId);
 
     void setThrottle(
-        String targetName,
         long streamId,
         MessageConsumer throttle);
+
 }
