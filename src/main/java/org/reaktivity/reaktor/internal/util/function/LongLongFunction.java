@@ -13,35 +13,18 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.reaktor.internal;
+package org.reaktivity.reaktor.internal.util.function;
 
-import java.util.List;
+import java.util.function.BiFunction;
 
-import org.reaktivity.nukleus.Controller;
-import org.reaktivity.nukleus.Nukleus;
-import org.reaktivity.nukleus.buffer.BufferPool;
-
-public interface State
+@FunctionalInterface
+public interface LongLongFunction<R> extends BiFunction<Long, Long, R>
 {
-    BufferPool bufferPool();
+    R apply(long t, long u);
 
-    long supplyInitialId();
-
-    long supplyReplyId(long initialId);
-
-    long supplyCorrelationId();
-
-    long supplyTrace();
-
-    long supplyGroupId();
-
-    int supplyRouteId();
-
-    int supplyLabelId(String label);
-
-    String lookupLabel(int labelId);
-
-    List<? extends Nukleus> nuklei();
-
-    List<? extends Controller> controllers();
+    @Override
+    default R apply(Long t, Long u)
+    {
+        return this.apply(t.longValue(), u.longValue());
+    }
 }

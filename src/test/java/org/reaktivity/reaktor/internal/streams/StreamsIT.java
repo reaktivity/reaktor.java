@@ -45,8 +45,6 @@ import org.kaazing.k3po.junit.annotation.ScriptProperty;
 import org.kaazing.k3po.junit.annotation.Specification;
 import org.kaazing.k3po.junit.rules.K3poRule;
 import org.mockito.ArgumentCaptor;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
 import org.reaktivity.nukleus.Configuration;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.NukleusBuilder;
@@ -63,7 +61,7 @@ import org.reaktivity.reaktor.test.ReaktorRule;
 
 public class StreamsIT
 {
-    private static final long SERVER_ROUTE_ID = 0x00000001;
+    private static final long SERVER_ROUTE_ID = 0x0002000100000001L;
 
     private final K3poRule k3po = new K3poRule()
             .addScriptRoot("route", "org/reaktivity/specification/nukleus/control/route")
@@ -89,6 +87,7 @@ public class StreamsIT
         "${streams}/connection.established/client",
         "${streams}/connection.established/server"
     })
+    @ScriptProperty("serverAddress \"nukleus://streams/target#0\"")
     public void shouldEstablishConnection() throws Exception
     {
         k3po.finish();
@@ -109,7 +108,8 @@ public class StreamsIT
         "${streams}/connection.established/client",
         "${streams}/connection.established/server"
     })
-    @ScriptProperty({"routeAuthorization  0x0001_000000000080L",
+    @ScriptProperty({"serverAddress \"nukleus://streams/target#0\"",
+                     "routeAuthorization  0x0001_000000000080L",
                      "streamAuthorization 0x0001_000000000081L"})
     public void shouldEstablishAuthorizedConnection() throws Exception
     {
@@ -119,9 +119,11 @@ public class StreamsIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${streams}/connection.refused.not.authorized/client"
+        "${streams}/connection.refused.not.authorized/client",
+        "${streams}/connection.refused.not.authorized/server"
     })
-    @ScriptProperty("routeAuthorization [0x01 0x00 0x81 0x00 0x00 0x00 0x00 0x00]")
+    @ScriptProperty({"serverAddress \"nukleus://streams/target#0\"",
+                     "routeAuthorization [0x01 0x00 0x81 0x00 0x00 0x00 0x00 0x00]"})
     public void shoulResetConnectionWhenNotAuthorizedMissingARequiredRole() throws Exception
     {
         k3po.finish();
@@ -130,9 +132,11 @@ public class StreamsIT
     @Test
     @Specification({
         "${route}/server/controller",
-        "${streams}/connection.refused.not.authorized/client"
+        "${streams}/connection.refused.not.authorized/client",
+        "${streams}/connection.refused.not.authorized/server"
     })
-    @ScriptProperty("routeAuthorization [0x02 0x00 0x80 0x00 0x00 0x00 0x00 0x00]")
+    @ScriptProperty({"serverAddress \"nukleus://streams/target#0\"",
+                     "routeAuthorization [0x02 0x00 0x80 0x00 0x00 0x00 0x00 0x00]"})
     public void shoulResetConnectionWhenNotAuthorizedWrongSecurityScope() throws Exception
     {
         k3po.finish();
@@ -154,21 +158,21 @@ public class StreamsIT
         private StreamFactory streamFactory = mock(StreamFactory.class);
 
         private ArgumentCaptor<LongSupplier> supplySourceCorrelationId = forClass(LongSupplier.class);
-        private ArgumentCaptor<LongSupplier> supplyTargetCorrelationId = forClass(LongSupplier.class);
-        private ArgumentCaptor<RouteManager> router = forClass(RouteManager.class);
-        private ArgumentCaptor<LongSupplier> supplyInitialId = forClass(LongSupplier.class);
-        private ArgumentCaptor<LongUnaryOperator> supplyReplyId = forClass(LongUnaryOperator.class);
+        private ArgumentCaptor<LongSupplier> supplyTargetCorrelationIdRef = forClass(LongSupplier.class);
+        private ArgumentCaptor<RouteManager> routerRef = forClass(RouteManager.class);
+        private ArgumentCaptor<LongSupplier> supplyInitialIdRef = forClass(LongSupplier.class);
+        private ArgumentCaptor<LongUnaryOperator> supplyReplyIdRef = forClass(LongUnaryOperator.class);
         private ArgumentCaptor<LongSupplier> supplyGroupId = forClass(LongSupplier.class);
         @SuppressWarnings("unchecked")
         private ArgumentCaptor<LongFunction<IntUnaryOperator>> groupBudgetClaimer = forClass(LongFunction.class);
         @SuppressWarnings("unchecked")
         private ArgumentCaptor<LongFunction<IntUnaryOperator>> groupBudgetReleaser = forClass(LongFunction.class);
-        private ArgumentCaptor<MutableDirectBuffer> writeBuffer = forClass(MutableDirectBuffer.class);
+        private ArgumentCaptor<MutableDirectBuffer> writeBufferRef = forClass(MutableDirectBuffer.class);
 
         private MessageConsumer acceptInitial = mock(MessageConsumer.class);
         private MessageConsumer connectReply = mock(MessageConsumer.class);
-        private ArgumentCaptor<MessageConsumer> initialThrottle = forClass(MessageConsumer.class);
-        private ArgumentCaptor<MessageConsumer> replyStreamThrottle = forClass(MessageConsumer.class);
+        private ArgumentCaptor<MessageConsumer> acceptReplyRef = forClass(MessageConsumer.class);
+        private ArgumentCaptor<MessageConsumer> connectInitialRef = forClass(MessageConsumer.class);
 
         private final RouteFW routeRO = new RouteFW();
         private final BeginFW beginRO = new BeginFW();
@@ -176,13 +180,11 @@ public class StreamsIT
         private final BeginFW.Builder beginRW = new BeginFW.Builder();
         private final ResetFW.Builder resetRW = new ResetFW.Builder();
 
-        private String acceptName;
         private long acceptRouteId;
+        private long acceptInitialId;
         private long acceptCorrelationId;
         private long acceptReplyId;
-        private String connectName;
         private long connectRouteId;
-        private long connectInitialId;
         private long connectCorrelationId;
 
         @SuppressWarnings("unchecked")
@@ -190,106 +192,97 @@ public class StreamsIT
         {
             when(serverStreamFactory.setSourceCorrelationIdSupplier(supplySourceCorrelationId.capture()))
                 .thenReturn(serverStreamFactory);
-            when(serverStreamFactory.setTargetCorrelationIdSupplier(supplyTargetCorrelationId.capture()))
+            when(serverStreamFactory.setTargetCorrelationIdSupplier(supplyTargetCorrelationIdRef.capture()))
                 .thenReturn(serverStreamFactory);
-            when(serverStreamFactory.setInitialIdSupplier(supplyInitialId.capture())).thenReturn(serverStreamFactory);
-            when(serverStreamFactory.setReplyIdSupplier(supplyReplyId.capture())).thenReturn(serverStreamFactory);
+            when(serverStreamFactory.setInitialIdSupplier(supplyInitialIdRef.capture())).thenReturn(serverStreamFactory);
+            when(serverStreamFactory.setReplyIdSupplier(supplyReplyIdRef.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setTraceSupplier(any(LongSupplier.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setGroupIdSupplier(supplyGroupId.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setGroupBudgetClaimer(groupBudgetClaimer.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setGroupBudgetReleaser(groupBudgetReleaser.capture())).thenReturn(serverStreamFactory);
-            when(serverStreamFactory.setRouteManager(router.capture())).thenReturn(serverStreamFactory);
-            when(serverStreamFactory.setWriteBuffer(writeBuffer.capture())).thenReturn(serverStreamFactory);
+            when(serverStreamFactory.setRouteManager(routerRef.capture())).thenReturn(serverStreamFactory);
+            when(serverStreamFactory.setWriteBuffer(writeBufferRef.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setCounterSupplier(any(Function.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setAccumulatorSupplier(any(Function.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setBufferPoolSupplier(any(Supplier.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.build()).thenReturn(streamFactory);
 
-            when(streamFactory.newStream(anyInt(), any(DirectBuffer.class), anyInt(), anyInt(), initialThrottle.capture()))
-                 .thenAnswer((invocation) ->
+            when(streamFactory.newStream(
+                    eq(BeginFW.TYPE_ID),
+                    any(DirectBuffer.class),
+                    anyInt(),
+                    anyInt(),
+                    acceptReplyRef.capture()))
+                 .thenAnswer(invocation ->
                  {
                      when(streamFactory.newStream(anyInt(), any(DirectBuffer.class), anyInt(), anyInt(),
-                             replyStreamThrottle.capture()))
+                             connectInitialRef.capture()))
                          .thenReturn(connectReply);
                      return acceptInitial;
                  });
 
-            doAnswer(new Answer<Object>()
-                    {
-                        @Override
-                        public Object answer(
-                            InvocationOnMock invocation) throws Throwable
-                        {
-                            int offset = invocation.getArgument(2);
-                            int maxLimit = offset + (Integer) invocation.getArgument(3);
-                            BeginFW begin = beginRO.wrap((DirectBuffer)invocation.getArgument(1),
-                                    offset, maxLimit);
-                            long sourceRef = begin.sourceRef();
-                            long authorization = begin.authorization();
-                            MessagePredicate filter = (m, b, i, l) ->
-                            {
-                                RouteFW route = routeRO.wrap(b, i, i + l);
-                                final long routeSourceRef = route.sourceRef();
-                                return sourceRef == routeSourceRef;
-                            };
-                            RouteFW route = router.getValue().resolve(authorization, filter,
-                                    (m, b, i, l) -> routeRO.wrap(b, i, i + l));
-                            MutableDirectBuffer buffer = writeBuffer.getValue();
-                            if (route != null)
-                            {
-                                acceptRouteId = begin.routeId();
-                                acceptCorrelationId = begin.correlationId();
-                                acceptName = begin.source().asString();
-                                acceptReplyId = supplyReplyId.getValue().applyAsLong(begin.streamId());
-                                connectName = route.target().asString();
-                                connectRouteId = route.correlationId();
-                                connectInitialId = supplyInitialId.getValue().getAsLong();
-                                connectCorrelationId = supplyTargetCorrelationId.getValue().getAsLong();
-                                MessageConsumer connectInitial = router.getValue().supplyTarget(connectName);
-                                final BeginFW newBegin = beginRW.wrap(buffer,  0, buffer.capacity())
-                                        .routeId(connectRouteId)
-                                        .streamId(connectInitialId)
-                                        .authorization(begin.authorization())
-                                        .source("example")
-                                        .sourceRef(route.targetRef())
-                                        .correlationId(connectCorrelationId)
-                                        .build();
-                                connectInitial.accept(BeginFW.TYPE_ID, buffer, newBegin.offset(), newBegin.sizeof());
-                            }
-                            else
-                            {
-                                final ResetFW reset = resetRW.wrap(buffer, 0, buffer.capacity())
-                                        .routeId(begin.routeId())
-                                        .streamId(begin.streamId())
-                                        .build();
-                                initialThrottle.getValue().accept(
-                                        reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
-                            }
-                            return null;
-                        }
-                    }
+            doAnswer(invocation ->
+            {
+                final DirectBuffer buffer = invocation.getArgument(1);
+                final int index = invocation.getArgument(2);
+                final int length = invocation.getArgument(3);
+
+                final BeginFW begin = beginRO.wrap(buffer, index, index + length);
+                final long routeId = begin.routeId();
+                final long authorization = begin.authorization();
+
+                final RouteManager router = routerRef.getValue();
+                MessagePredicate filter = (m, b, i, l) -> true;
+                RouteFW route = router.resolve(routeId, authorization, filter,
+                        (m, b, i, l) -> routeRO.wrap(b, i, i + l));
+
+                if (route != null)
+                {
+                    final LongSupplier supplyInitialId = supplyInitialIdRef.getValue();
+                    final LongUnaryOperator supplyReplyId = supplyReplyIdRef.getValue();
+                    final LongSupplier supplyTargetCorrelationId = supplyTargetCorrelationIdRef.getValue();
+
+                    acceptRouteId = routeId;
+                    acceptInitialId = begin.streamId();
+                    acceptCorrelationId = begin.correlationId();
+                    acceptReplyId = supplyReplyId.applyAsLong(begin.streamId());
+
+                    long newConnectId = supplyInitialId.getAsLong();
+                    connectRouteId = route.correlationId();
+                    connectCorrelationId = supplyTargetCorrelationId.getAsLong();
+
+                    MessageConsumer connectInitial = router.supplyReceiver(connectRouteId);
+
+                    doBegin(connectInitial, connectRouteId, newConnectId,
+                            begin.authorization(), connectCorrelationId);
+                    router.setThrottle(newConnectId, connectReply);
+                }
+                else
+                {
+                    final long streamId = begin.streamId();
+                    final MessageConsumer acceptReply = acceptReplyRef.getValue();
+
+                    doReset(acceptReply, routeId, streamId);
+                }
+                return null;
+            }
             ).when(acceptInitial).accept(eq(BeginFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
 
-            doAnswer(new Answer<Object>()
-                    {
-                        @Override
-                        public Object answer(
-                            InvocationOnMock invocation) throws Throwable
-                        {
-                            MessageConsumer acceptReply = router.getValue().supplyTarget(acceptName);
-                            MutableDirectBuffer buffer = writeBuffer.getValue();
-                            final BeginFW beginOut = beginRW.wrap(buffer,  0, buffer.capacity())
-                                    .routeId(acceptRouteId)
-                                    .streamId(acceptReplyId)
-                                    .source("example")
-                                    .sourceRef(0L)
-                                    .correlationId(acceptCorrelationId)
-                                    .build();
-                            acceptReply.accept(BeginFW.TYPE_ID, buffer, beginOut.offset(), beginOut.sizeof());
-                            return null;
-                        }
-                    }
+            doAnswer(invocation ->
+            {
+                final MessageConsumer acceptReply = acceptReplyRef.getValue();
+                doBegin(acceptReply, acceptRouteId, acceptReplyId, 0L, acceptCorrelationId);
+                return null;
+            }
             ).when(connectReply).accept(eq(BeginFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
+
+            doAnswer(invocation ->
+            {
+                final MessageConsumer acceptReply = acceptReplyRef.getValue();
+                doReset(acceptReply, acceptRouteId, acceptInitialId);
+                return null;
+            }
+            ).when(connectReply).accept(eq(ResetFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
         }
 
         @Override
@@ -305,6 +298,35 @@ public class StreamsIT
                           .streamFactory(SERVER, serverStreamFactory)
                           .build();
         }
-    }
 
+        private void doBegin(
+            MessageConsumer receiver,
+            long routeId,
+            long streamId,
+            long authorization,
+            long correlationId)
+        {
+            final MutableDirectBuffer writeBuffer = writeBufferRef.getValue();
+            final BeginFW begin = beginRW.wrap(writeBuffer,  0, writeBuffer.capacity())
+                    .routeId(routeId)
+                    .streamId(streamId)
+                    .authorization(authorization)
+                    .correlationId(correlationId)
+                    .build();
+            receiver.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
+        }
+
+        private void doReset(
+            MessageConsumer receiver,
+            long routeId,
+            long streamId)
+        {
+            final MutableDirectBuffer writeBuffer = writeBufferRef.getValue();
+            final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                    .routeId(routeId)
+                    .streamId(streamId)
+                    .build();
+            receiver.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
+        }
+    }
 }

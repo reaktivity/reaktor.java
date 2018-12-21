@@ -37,8 +37,8 @@ import org.reaktivity.nukleus.ControllerSpi;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
+import org.reaktivity.reaktor.internal.types.control.CommandFW;
 import org.reaktivity.reaktor.internal.types.control.ErrorFW;
-import org.reaktivity.reaktor.internal.types.control.FrameFW;
 import org.reaktivity.reaktor.internal.types.control.FreezeFW;
 import org.reaktivity.reaktor.internal.types.control.FrozenFW;
 import org.reaktivity.reaktor.internal.types.control.RouteFW;
@@ -104,7 +104,7 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
 
     private final class ControllerSpiImpl implements ControllerSpi
     {
-        private final FrameFW frameRO = new FrameFW();
+        private final CommandFW commandRO = new CommandFW();
         private final RoutedFW routedRO = new RoutedFW();
         private final ResolvedFW resolvedRO = new ResolvedFW();
         private final UnresolvedFW unresolvedRO = new UnresolvedFW();
@@ -217,19 +217,6 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
         }
 
         @Override
-        public <R> R doSupplySource(
-            String sourceName,
-            BiFunction<MessagePredicate, ToIntFunction<MessageConsumer>, R> factory)
-        {
-            StreamsLayout source = sourcesByName.computeIfAbsent(sourceName, this::newSource);
-
-            MessagePredicate streams = source.streamsBuffer()::write;
-            ToIntFunction<MessageConsumer> throttle = source.streamsBuffer()::read;
-
-            return factory.apply(streams, throttle);
-        }
-
-        @Override
         public <R> R doSupplyTarget(
             String targetName,
             BiFunction<ToIntFunction<MessageConsumer>, MessagePredicate, R> factory)
@@ -246,16 +233,6 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
         public long doCount(String name)
         {
             return context.counters().readonlyCounter(name).getAsLong();
-        }
-
-        private StreamsLayout newSource(
-            String sourceName)
-        {
-            return new StreamsLayout.Builder()
-                    .path(context.sourceStreamsPath().apply(sourceName))
-                    .streamsCapacity(context.streamsBufferCapacity())
-                    .readonly(true)
-                    .build();
         }
 
         private StreamsLayout newTarget(
@@ -276,8 +253,8 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
         {
             final CompletableFuture<R> promise = new CompletableFuture<>();
 
-            final FrameFW frame = frameRO.wrap(buffer, index, index + length);
-            final long correlationId = frame.correlationId();
+            final CommandFW command = commandRO.wrap(buffer, index, index + length);
+            final long correlationId = command.correlationId();
 
             commandSent(correlationId, promise);
 
@@ -355,11 +332,11 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
             int length)
         {
             final RoutedFW routed = routedRO.wrap(buffer, index, length);
-            long correlationId = routed.correlationId();
-            long sourceRef = routed.sourceRef();
+            final long correlationId = routed.correlationId();
+            final long routeId = routed.routeId();
 
             CompletableFuture<Long> promise = (CompletableFuture<Long>) promisesByCorrelationId.remove(correlationId);
-            commandSucceeded(promise, sourceRef);
+            commandSucceeded(promise, routeId);
         }
 
         private void handleUnresolvedResponse(
