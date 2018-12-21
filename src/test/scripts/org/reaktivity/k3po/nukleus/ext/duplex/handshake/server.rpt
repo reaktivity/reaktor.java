@@ -14,10 +14,7 @@
 # under the License.
 #
 
-property newRouteRef 1234L # external
-
-accept "nukleus://server/streams/client"
-       option nukleus:route ${newRouteRef}
+accept "nukleus://streams/server#0"
        option nukleus:transmission "duplex"
        option nukleus:window 8192
 

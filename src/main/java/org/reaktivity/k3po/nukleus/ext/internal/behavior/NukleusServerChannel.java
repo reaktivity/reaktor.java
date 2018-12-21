@@ -26,19 +26,16 @@ import org.kaazing.k3po.driver.internal.netty.bootstrap.channel.AbstractServerCh
 public final class NukleusServerChannel extends AbstractServerChannel<NukleusServerChannelConfig>
 {
     final NukleusReaktor reaktor;
-    final long routeId;
 
     NukleusServerChannel(
         ChannelFactory factory,
         ChannelPipeline pipeline,
         ChannelSink sink,
-        NukleusReaktor reaktor,
-        long routeId)
+        NukleusReaktor reaktor)
     {
         super(factory, pipeline, sink, new DefaultNukleusServerChannelConfig(), false);
 
         this.reaktor = reaktor;
-        this.routeId = routeId;
 
         fireChannelOpen(this);
     }

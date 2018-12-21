@@ -28,13 +28,11 @@ import org.kaazing.k3po.lang.types.TypeSystemSpi;
 
 public final class NukleusTypeSystem implements TypeSystemSpi
 {
-    public static final TypeInfo<Long> OPTION_ROUTE = new TypeInfo<>("route", Long.class);
     public static final TypeInfo<String> OPTION_REPLY_TO = new TypeInfo<>("replyTo", String.class);
     public static final TypeInfo<Integer> OPTION_WINDOW = new TypeInfo<>("window", Integer.class);
     public static final TypeInfo<Long> OPTION_GROUP = new TypeInfo<>("group", Long.class);
     public static final TypeInfo<Integer> OPTION_PADDING = new TypeInfo<>("padding", Integer.class);
     public static final TypeInfo<String> OPTION_UPDATE = new TypeInfo<>("update", String.class);
-    public static final TypeInfo<String> OPTION_PARTITION = new TypeInfo<>("partition", String.class);
     public static final TypeInfo<Long> OPTION_CORRELATION = new TypeInfo<>("correlation", Long.class);
     public static final TypeInfo<String> OPTION_TRANSMISSION = new TypeInfo<>("transmission", String.class);
     public static final TypeInfo<String> OPTION_THROTTLE = new TypeInfo<>("throttle", String.class);
@@ -63,13 +61,11 @@ public final class NukleusTypeSystem implements TypeSystemSpi
     public NukleusTypeSystem()
     {
         Set<TypeInfo<?>> acceptOptions = new LinkedHashSet<>();
-        acceptOptions.add(OPTION_ROUTE);
         acceptOptions.add(OPTION_REPLY_TO);
         acceptOptions.add(OPTION_WINDOW);
         acceptOptions.add(OPTION_GROUP);
         acceptOptions.add(OPTION_PADDING);
         acceptOptions.add(OPTION_UPDATE);
-        acceptOptions.add(OPTION_PARTITION);
         acceptOptions.add(OPTION_AUTHORIZATION);
         acceptOptions.add(OPTION_CORRELATION);
         acceptOptions.add(OPTION_THROTTLE);
@@ -79,13 +75,11 @@ public final class NukleusTypeSystem implements TypeSystemSpi
         this.acceptOptions = unmodifiableSet(acceptOptions);
 
         Set<TypeInfo<?>> connectOptions = new LinkedHashSet<>();
-        connectOptions.add(OPTION_ROUTE);
         connectOptions.add(OPTION_REPLY_TO);
         connectOptions.add(OPTION_WINDOW);
         connectOptions.add(OPTION_GROUP);
         connectOptions.add(OPTION_PADDING);
         connectOptions.add(OPTION_UPDATE);
-        connectOptions.add(OPTION_PARTITION);
         connectOptions.add(OPTION_AUTHORIZATION);
         connectOptions.add(OPTION_CORRELATION);
         connectOptions.add(OPTION_THROTTLE);
@@ -95,11 +89,9 @@ public final class NukleusTypeSystem implements TypeSystemSpi
         this.connectOptions = unmodifiableSet(connectOptions);
 
         Set<TypeInfo<?>> readOptions = new LinkedHashSet<>();
-        readOptions.add(OPTION_PARTITION);
         this.readOptions = unmodifiableSet(readOptions);
 
         Set<TypeInfo<?>> writeOptions = new LinkedHashSet<>();
-        writeOptions.add(OPTION_PARTITION);
         this.writeOptions = unmodifiableSet(writeOptions);
 
         Set<StructuredTypeInfo> readConfigs = new LinkedHashSet<>();

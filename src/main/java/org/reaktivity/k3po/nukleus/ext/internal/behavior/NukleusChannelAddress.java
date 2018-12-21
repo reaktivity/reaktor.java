@@ -15,7 +15,11 @@
  */
 package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 
+import static java.util.Objects.requireNonNull;
+
 import java.net.URI;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.kaazing.k3po.driver.internal.netty.channel.ChannelAddress;
 
@@ -23,41 +27,44 @@ public final class NukleusChannelAddress extends ChannelAddress
 {
     private static final long serialVersionUID = 1L;
 
-    private final long route;
     private final long authorization;
-    private final String replyTo;
+    private final String senderAddress;
+    private final String receiverAddress;
 
     public NukleusChannelAddress(
         URI location,
-        long route,
         long authorization,
-        String replyTo)
+        String senderAddress)
+    {
+        this(location, authorization, senderAddress, receiverAddress(location));
+    }
+
+    private NukleusChannelAddress(
+        URI location,
+        long authorization,
+        String senderAddress,
+        String receiverAddress)
     {
         super(location);
 
-        this.route = route;
         this.authorization = authorization;
-        this.replyTo = replyTo;
+        this.senderAddress = requireNonNull(senderAddress);
+        this.receiverAddress = requireNonNull(receiverAddress);
     }
 
     private NukleusChannelAddress(
         URI location,
         ChannelAddress transport,
         boolean ephemeral,
-        long route,
         long authorization,
-        String replyTo)
+        String senderAddress,
+        String receiverAddress)
     {
         super(location, transport, ephemeral);
 
-        this.route = route;
         this.authorization = authorization;
-        this.replyTo = replyTo;
-    }
-
-    public long getRoute()
-    {
-        return route;
+        this.senderAddress = requireNonNull(senderAddress);
+        this.receiverAddress = requireNonNull(receiverAddress);
     }
 
     public long getAuthorization()
@@ -65,19 +72,24 @@ public final class NukleusChannelAddress extends ChannelAddress
         return authorization;
     }
 
-    public String getReplyTo()
+    public String getSenderAddress()
     {
-        return replyTo;
+        return senderAddress;
     }
 
-    public String getSenderName()
+    public String getReceiverAddress()
     {
-        return senderName(this.getLocation());
+        return receiverAddress;
     }
 
     public String getReceiverName()
     {
-        return receiverName(getLocation());
+        return addressName(receiverAddress);
+    }
+
+    public String getSenderName()
+    {
+        return addressName(senderAddress);
     }
 
     @Override
@@ -86,36 +98,35 @@ public final class NukleusChannelAddress extends ChannelAddress
         return super.createEphemeralAddress(this::newEphemeralAddress);
     }
 
-    public NukleusChannelAddress newReplyToAddress()
+    public NukleusChannelAddress newReplyToAddress(
+        String replyAddress)
     {
         URI location = getLocation();
-        String oldReceiver = receiverName(location);
-        String oldSender = senderName(location);
-        String newSender = oldReceiver;
-        String newReceiver = oldSender;
-        String newReplyTo = oldReceiver;
-        URI newLocation = URI.create(String.format("nukleus://%s/streams/%s", newReceiver, newSender));
-        return new NukleusChannelAddress(newLocation, 0L, authorization, newReplyTo);
+        return new NukleusChannelAddress(location, authorization, receiverAddress, replyAddress);
     }
 
     private NukleusChannelAddress newEphemeralAddress(
         URI location,
         ChannelAddress transport)
     {
-        return new NukleusChannelAddress(location, transport, true, route, authorization, replyTo);
+        return new NukleusChannelAddress(location, transport, true, authorization, senderAddress, receiverAddress);
     }
 
-    private static String senderName(
+    private static String receiverAddress(
         URI location)
     {
-        String path = location.getPath();
-        assert path.startsWith("/streams/");
-        return path.substring("/streams/".length());
+        final String fragment = location.getFragment();
+        final String path = location.getPath().substring(1);
+        return fragment != null ? String.format("%s#%s", path, fragment) : path;
     }
 
-    private String receiverName(
-        URI location)
+    private static final Pattern ADDRESS_PATTERN = Pattern.compile("^([^#]+)(:?#.*)?$");
+
+    private static String addressName(
+        String address)
     {
-        return location.getHost();
+        Matcher matcher = ADDRESS_PATTERN.matcher(address);
+        matcher.matches();
+        return matcher.group(1);
     }
 }

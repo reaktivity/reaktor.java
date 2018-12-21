@@ -20,7 +20,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFactory;
 import org.jboss.netty.channel.ChannelPipeline;
-import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.control.Role;
 
 public class NukleusClientChannelFactory implements ChannelFactory
 {
@@ -41,9 +40,7 @@ public class NukleusClientChannelFactory implements ChannelFactory
         ChannelPipeline pipeline)
     {
         final long targetId = initialId.incrementAndGet();
-        final long routeId = 0x7fff_ffffL << 32 | (long) Role.CLIENT.ordinal() << 28 | (targetId & 0x0fff_ffffL);
-
-        return new NukleusClientChannel(this, pipeline, channelSink, reaktorPool.nextReaktor(), routeId, targetId);
+        return new NukleusClientChannel(this, pipeline, channelSink, reaktorPool.nextReaktor(), targetId);
     }
 
     @Override

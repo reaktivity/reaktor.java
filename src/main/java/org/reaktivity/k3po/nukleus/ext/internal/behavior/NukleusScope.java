@@ -15,87 +15,91 @@
  */
 package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 
+import static java.lang.System.identityHashCode;
+
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.LongSupplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.agrona.CloseHelper;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.ArrayUtil;
+import org.agrona.collections.Int2ObjectHashMap;
 import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.concurrent.MessageHandler;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.MessageEvent;
+import org.reaktivity.k3po.nukleus.ext.internal.NukleusExtConfiguration;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.layout.StreamsLayout;
-import org.reaktivity.nukleus.Configuration;
 
 public final class NukleusScope implements AutoCloseable
 {
-    private final Map<String, NukleusSource> sourcesByName;
-    private final Map<Path, NukleusTarget> targetsByPath;
+    private static final Pattern ADDRESS_PATTERN = Pattern.compile("^([^#]+)(:?#.*)?$");
 
-    private final Configuration config;
-    private final String name;
-    private final Path streamsDirectory;
+    private final Map<String, NukleusTarget> targetsByName;
+    private final Int2ObjectHashMap<NukleusTarget> targetsByLabelId;
+
+    private final NukleusExtConfiguration config;
+    private final LabelManager labels;
+    private final Path streamsPath;
     private final MutableDirectBuffer writeBuffer;
     private final Long2ObjectHashMap<MessageHandler> streamsById;
     private final Long2ObjectHashMap<MessageHandler> throttlesById;
     private final Long2ObjectHashMap<NukleusCorrelation> correlations;
     private final LongSupplier supplyTimestamp;
     private final LongSupplier supplyTrace;
+    private final NukleusSource source;
 
-    private NukleusSource[] sources = new NukleusSource[0];
     private NukleusTarget[] targets = new NukleusTarget[0];
 
     public NukleusScope(
-        Configuration config,
-        String name,
-        Path directory,
+        NukleusExtConfiguration config,
+        LabelManager labels,
+        String scopeName,
         LongSupplier supplyTimestamp,
         LongSupplier supplyTrace)
     {
         this.config = config;
-        this.name = name;
-        this.streamsDirectory = directory.resolve("streams");
+        this.labels = labels;
+        this.streamsPath = config.directory().resolve(scopeName).resolve("streams");
 
         this.writeBuffer = new UnsafeBuffer(new byte[config.streamsBufferCapacity() / 8]);
         this.streamsById = new Long2ObjectHashMap<>();
         this.throttlesById = new Long2ObjectHashMap<>();
         this.correlations = new Long2ObjectHashMap<>();
-        this.sourcesByName = new LinkedHashMap<>();
-        this.targetsByPath = new LinkedHashMap<>();
+        this.targetsByName = new LinkedHashMap<>();
+        this.targetsByLabelId = new Int2ObjectHashMap<>();
         this.supplyTimestamp = supplyTimestamp;
         this.supplyTrace = supplyTrace;
+        this.source = new NukleusSource(config, labels, streamsPath,
+                correlations::remove, this::supplySender,
+                streamsById, throttlesById);
     }
 
     @Override
     public String toString()
     {
-        return String.format("%s [%s]", getClass().getSimpleName(), streamsDirectory);
+        return String.format("%s [%s]", getClass().getSimpleName(), streamsPath);
     }
 
     public void doRoute(
-        String senderName,
-        String receiverName,
-        long routeRef,
+        String receiverAddress,
         long authorization,
         NukleusServerChannel serverChannel)
     {
-        NukleusSource source = supplySource(senderName);
-        source.doRoute(routeRef, authorization, serverChannel);
-        supplySource(receiverName);
+        source.doRoute(receiverAddress, authorization, serverChannel);
     }
 
     public void doUnroute(
-        String senderName,
-        long routeRef,
+        String receiverAddress,
         long authorization,
         NukleusServerChannel serverChannel)
     {
-        NukleusSource source = supplySource(senderName);
-        source.doUnroute(routeRef, authorization, serverChannel);
+        source.doUnroute(receiverAddress, authorization, serverChannel);
     }
 
     public void doConnect(
@@ -103,10 +107,19 @@ public final class NukleusScope implements AutoCloseable
         NukleusChannelAddress remoteAddress,
         ChannelFuture connectFuture)
     {
-        supplySource(remoteAddress.getReceiverName());
+        final String receiverName = remoteAddress.getReceiverName();
+        NukleusTarget target = supplyTarget(receiverName);
+        final String replyAddress = remoteAddress.getSenderAddress();
+        final NukleusChannelAddress localAddress = remoteAddress.newReplyToAddress(replyAddress);
+        clientChannel.routeId(routeId(remoteAddress));
+        target.doConnect(clientChannel, localAddress, remoteAddress, connectFuture);
+    }
 
-        NukleusTarget target = supplyTarget(clientChannel, remoteAddress);
-        target.doConnect(clientChannel, remoteAddress, connectFuture);
+    private long routeId(NukleusChannelAddress remoteAddress)
+    {
+        final long localId = labels.supplyLabelId(remoteAddress.getSenderAddress());
+        final long remoteId = labels.supplyLabelId(remoteAddress.getReceiverAddress());
+        return localId << 48 | remoteId << 32 | identityHashCode(remoteAddress);
     }
 
     public void doAbortOutput(
@@ -121,8 +134,6 @@ public final class NukleusScope implements AutoCloseable
         NukleusChannel channel,
         ChannelFuture abortFuture)
     {
-        String senderName = channel.getLocalAddress().getSenderName();
-        NukleusSource source = supplySource(senderName);
         source.doAbortInput(channel, abortFuture);
     }
 
@@ -160,92 +171,82 @@ public final class NukleusScope implements AutoCloseable
 
     public int process()
     {
-        int workCount = 0;
-
-        for (int i=0; i < sources.length; i++)
-        {
-            workCount += sources[i].process();
-        }
-
-        return workCount;
+        return source.process();
     }
 
     @Override
     public void close()
     {
-        for(NukleusSource source : sourcesByName.values())
-        {
-            CloseHelper.quietClose(source);
-        }
+        CloseHelper.quietClose(source);
 
-        for(NukleusTarget target : targetsByPath.values())
+        for(NukleusTarget target : targetsByName.values())
         {
             CloseHelper.quietClose(target);
         }
     }
 
-    public NukleusSource supplySource(
-        String source)
+    public NukleusTarget supplySender(
+        long routeId,
+        long streamId)
     {
-        return sourcesByName.computeIfAbsent(source, this::newSource);
+        final boolean initial = (streamId & 0x8000_0000_0000_0000L) == 0L;
+        final int labelId = initial ? localId(routeId) : remoteId(routeId);
+        return targetsByLabelId.computeIfAbsent(labelId, this::newTarget);
     }
 
-    private NukleusSource newSource(
-        String sourceName)
+    private NukleusTarget newTarget(
+        int labelId)
     {
-        NukleusSource source = new NukleusSource(config, name, streamsDirectory, sourceName, writeBuffer,
-                correlations::remove, this::supplyTarget, supplyTimestamp, supplyTrace,
-                streamsById, throttlesById);
-
-        source.supplyPartition(sourceName);
-
-        this.sources = ArrayUtil.add(this.sources, source);
-
-        return source;
+        final String addressName = labels.lookupLabel(labelId);
+        final Matcher matcher = ADDRESS_PATTERN.matcher(addressName);
+        matcher.matches();
+        final String targetName = matcher.group(1);
+        return supplyTarget(targetName);
     }
 
     private NukleusTarget supplyTarget(
         NukleusChannel channel)
     {
-        return supplyTarget(channel, channel.getRemoteAddress());
+        return supplyTarget(channel.getRemoteAddress().getReceiverName());
     }
 
     private NukleusTarget supplyTarget(
-        NukleusChannel channel,
-        NukleusChannelAddress remoteAddress)
+        String targetName)
     {
-        String receiverName = remoteAddress.getReceiverName();
-        final String senderName = remoteAddress.getSenderName();
-        return supplyTarget(receiverName, senderName);
-    }
-
-    private NukleusTarget supplyTarget(
-        String receiverName,
-        String senderName)
-    {
-        final Path targetPath = config.directory()
-                .resolve(receiverName)
-                .resolve("streams")
-                .resolve(senderName);
-
-        return targetsByPath.computeIfAbsent(targetPath, this::newTarget);
+        return targetsByName.computeIfAbsent(targetName, this::newTarget);
     }
 
     private NukleusTarget newTarget(
-        Path targetPath)
+        String targetName)
     {
-        StreamsLayout layout = new StreamsLayout.Builder()
+        final Path targetPath = config.directory()
+                .resolve(targetName)
+                .resolve("streams");
+
+        final StreamsLayout layout = new StreamsLayout.Builder()
                 .path(targetPath)
                 .streamsCapacity(config.streamsBufferCapacity())
                 .readonly(true)
                 .build();
 
-        NukleusTarget target = new NukleusTarget(targetPath, layout, writeBuffer,
+        final NukleusTarget target = new NukleusTarget(labels, targetPath, layout, writeBuffer,
                 throttlesById::put, throttlesById::remove,
                 correlations::put, supplyTimestamp, supplyTrace);
 
         this.targets = ArrayUtil.add(this.targets, target);
 
         return target;
+    }
+
+    private int localId(
+        long routeId)
+    {
+        return (int)(routeId >> 48) & 0xffff;
+    }
+
+    private int remoteId(
+        long routeId)
+    {
+        return (int)(routeId >> 32) & 0xffff;
     }
 }

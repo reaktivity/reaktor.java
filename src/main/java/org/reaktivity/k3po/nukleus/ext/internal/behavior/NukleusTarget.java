@@ -33,7 +33,7 @@ import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NullChannelBuffe
 
 import java.nio.file.Path;
 import java.util.Deque;
-import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 import java.util.function.LongConsumer;
 import java.util.function.LongSupplier;
@@ -50,7 +50,6 @@ import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.Channels;
 import org.jboss.netty.channel.DownstreamMessageEvent;
 import org.jboss.netty.channel.MessageEvent;
-import org.kaazing.k3po.driver.internal.netty.channel.ChannelAddress;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.layout.Layout;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.layout.StreamsLayout;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.OctetsFW;
@@ -73,7 +72,12 @@ final class NukleusTarget implements AutoCloseable
     private final ResetFW resetRO = new ResetFW();
     private final OctetsFW octetsRO = new OctetsFW();
 
-    private final Path partitionPath;
+    private final MutableDirectBuffer resetBuffer = new UnsafeBuffer(new byte[ResetFW.FIELD_OFFSET_EXTENSION]);
+    private final ResetFW.Builder resetRW = new ResetFW.Builder();
+    private final WindowFW.Builder windowRW = new WindowFW.Builder();
+
+    private final LabelManager labels;
+    private final Path streamsPath;
     private final Layout layout;
     private final RingBuffer streamsBuffer;
     private final LongObjectBiConsumer<MessageHandler> registerThrottle;
@@ -84,7 +88,8 @@ final class NukleusTarget implements AutoCloseable
     private final LongSupplier supplyTrace;
 
     NukleusTarget(
-        Path partitionPath,
+        LabelManager labels,
+        Path streamsPath,
         StreamsLayout layout,
         MutableDirectBuffer writeBuffer,
         LongObjectBiConsumer<MessageHandler> registerThrottle,
@@ -93,7 +98,8 @@ final class NukleusTarget implements AutoCloseable
         LongSupplier supplyTimestamp,
         LongSupplier supplyTrace)
     {
-        this.partitionPath = partitionPath;
+        this.labels = labels;
+        this.streamsPath = streamsPath;
         this.layout = layout;
         this.streamsBuffer = layout.streamsBuffer();
         this.writeBuffer = writeBuffer;
@@ -114,7 +120,7 @@ final class NukleusTarget implements AutoCloseable
     @Override
     public String toString()
     {
-        return String.format("%s [%s]", getClass().getSimpleName(), partitionPath);
+        return String.format("%s [%s]", getClass().getSimpleName(), streamsPath);
     }
 
     public RingBuffer streamsBuffer()
@@ -124,16 +130,15 @@ final class NukleusTarget implements AutoCloseable
 
     public void doConnect(
         NukleusClientChannel clientChannel,
+        NukleusChannelAddress localAddress,
         NukleusChannelAddress remoteAddress,
         ChannelFuture connectFuture)
     {
         try
         {
-            final String senderName = remoteAddress.getSenderName();
-            final long routeRef = remoteAddress.getRoute();
             final long streamId = clientChannel.targetId();
             final long routeId = clientChannel.routeId();
-            final long correlationId = new Random().nextLong();
+            final long correlationId = ThreadLocalRandom.current().nextLong();
             ChannelFuture handshakeFuture = succeededFuture(clientChannel);
 
             NukleusChannelConfig clientConfig = clientChannel.getConfig();
@@ -165,15 +170,12 @@ final class NukleusTarget implements AutoCloseable
                    .timestamp(supplyTimestamp.getAsLong())
                    .trace(supplyTrace.getAsLong())
                    .authorization(authorization)
-                   .source(senderName)
-                   .sourceRef(routeRef)
                    .correlationId(correlationId)
                    .extension(p -> p.set(beginExtCopy))
                    .build();
 
             if (!clientChannel.isBound())
             {
-                ChannelAddress localAddress = remoteAddress.newReplyToAddress();
                 clientChannel.setLocalAddress(localAddress);
                 clientChannel.setBound();
                 fireChannelBound(clientChannel, localAddress);
@@ -222,8 +224,6 @@ final class NukleusTarget implements AutoCloseable
         ChannelFuture handshakeFuture)
     {
         final long correlationId = channel.getConfig().getCorrelation();
-        final NukleusChannelAddress remoteAddress = channel.getRemoteAddress();
-        final String senderName = remoteAddress.getSenderName();
         final ChannelBuffer beginExt = channel.writeExtBuffer(BEGIN, true);
         final int writableExtBytes = beginExt.readableBytes();
         final byte[] beginExtCopy = writeExtCopy(beginExt);
@@ -236,8 +236,6 @@ final class NukleusTarget implements AutoCloseable
                 .streamId(streamId)
                 .timestamp(supplyTimestamp.getAsLong())
                 .trace(supplyTrace.getAsLong())
-                .source(senderName)
-                .sourceRef(0L)
                 .correlationId(correlationId)
                 .extension(p -> p.set(beginExtCopy))
                 .build();
@@ -519,8 +517,52 @@ final class NukleusTarget implements AutoCloseable
         return writeExtCopy;
     }
 
-    private final MutableDirectBuffer resetBuffer = new UnsafeBuffer(new byte[ResetFW.FIELD_OFFSET_EXTENSION]);
-    private final ResetFW.Builder resetRW = new ResetFW.Builder();
+    void doWindow(
+        final NukleusChannel channel,
+        final int credit,
+        final int padding,
+        final long groupId)
+    {
+        final long routeId = channel.routeId();
+        final long streamId = channel.sourceId();
+
+        channel.readableBytes(credit);
+
+        final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                .routeId(routeId)
+                .streamId(streamId)
+                .timestamp(supplyTimestamp.getAsLong())
+                .trace(supplyTrace.getAsLong())
+                .credit(credit)
+                .padding(padding)
+                .groupId(groupId)
+                .build();
+
+        streamsBuffer.write(window.typeId(), window.buffer(), window.offset(), window.sizeof());
+    }
+
+    void doReset(
+        final NukleusChannel channel)
+    {
+        final long routeId = channel.routeId();
+        final long streamId = channel.sourceId();
+
+        doReset(routeId, streamId);
+    }
+
+    void doReset(
+        final long routeId,
+        final long streamId)
+    {
+        final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                .routeId(routeId)
+                .streamId(streamId)
+                .timestamp(supplyTimestamp.getAsLong())
+                .trace(supplyTrace.getAsLong())
+                .build();
+
+        streamsBuffer.write(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
+    }
 
     private final class Throttle
     {
