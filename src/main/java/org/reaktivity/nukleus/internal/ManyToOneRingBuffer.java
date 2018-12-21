@@ -377,12 +377,6 @@ public class ManyToOneRingBuffer implements RingBuffer
 
                 if (requiredCapacity > (capacity - (int)(tail - head)))
                 {
-                    if (INSUFFICIENT_CAPACITY < 0)
-                    {
-                        Thread.dumpStack();
-                        System.err.format("%d > (%d - (int)(%d - %d))\n", requiredCapacity, capacity, tail, head);
-                        System.exit(1);
-                    }
                     return INSUFFICIENT_CAPACITY;
                 }
 
