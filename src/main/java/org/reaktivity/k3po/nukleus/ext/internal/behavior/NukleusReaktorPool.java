@@ -22,17 +22,17 @@ import java.util.concurrent.Executors;
 
 import org.jboss.netty.util.ExternalResourceReleasable;
 import org.jboss.netty.util.ThreadRenamingRunnable;
-import org.reaktivity.nukleus.Configuration;
+import org.reaktivity.k3po.nukleus.ext.internal.NukleusExtConfiguration;
 
 public class NukleusReaktorPool implements ExternalResourceReleasable
 {
-    private final Configuration config;
+    private final NukleusExtConfiguration config;
 
     private NukleusReaktor reaktor;
     private ExecutorService reaktorExecutor;
 
     public NukleusReaktorPool(
-        Configuration config)
+        NukleusExtConfiguration config)
     {
         this.config = config;
     }

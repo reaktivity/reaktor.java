@@ -15,13 +15,15 @@
  */
 package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 
+import static org.reaktivity.k3po.nukleus.ext.internal.NukleusExtConfiguration.NUKLEUS_EXT_DIRECTORY;
+
 import java.util.Properties;
 
 import org.jboss.netty.channel.ChannelFactory;
 import org.kaazing.k3po.driver.internal.netty.bootstrap.BootstrapFactorySpi;
 import org.kaazing.k3po.driver.internal.netty.bootstrap.ClientBootstrap;
 import org.kaazing.k3po.driver.internal.netty.bootstrap.ServerBootstrap;
-import org.reaktivity.nukleus.Configuration;
+import org.reaktivity.k3po.nukleus.ext.internal.NukleusExtConfiguration;
 
 public class NukleusBootstrapFactory extends BootstrapFactorySpi
 {
@@ -33,8 +35,8 @@ public class NukleusBootstrapFactory extends BootstrapFactorySpi
     {
         // TODO: parameterize
         Properties properties = new Properties();
-        properties.setProperty(Configuration.DIRECTORY_PROPERTY_NAME, "target/nukleus-itests");
-        Configuration config = new Configuration(properties);
+        properties.setProperty(NUKLEUS_EXT_DIRECTORY.name(), "target/nukleus-itests");
+        NukleusExtConfiguration config = new NukleusExtConfiguration(properties);
 
         this.reaktorPool = new NukleusReaktorPool(config);
 

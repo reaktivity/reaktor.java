@@ -20,99 +20,77 @@ import static org.jboss.netty.channel.Channels.fireChannelDisconnected;
 import static org.jboss.netty.channel.Channels.fireChannelUnbound;
 
 import java.nio.file.Path;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.function.BiFunction;
 import java.util.function.LongFunction;
-import java.util.function.LongSupplier;
 
-import org.agrona.CloseHelper;
-import org.agrona.MutableDirectBuffer;
-import org.agrona.collections.ArrayUtil;
 import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.concurrent.MessageHandler;
-import org.jboss.netty.channel.ChannelException;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
+import org.reaktivity.k3po.nukleus.ext.internal.NukleusExtConfiguration;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.layout.StreamsLayout;
-import org.reaktivity.nukleus.Configuration;
+import org.reaktivity.k3po.nukleus.ext.internal.util.function.LongLongFunction;
 
 public final class NukleusSource implements AutoCloseable
 {
-    private final Configuration config;
-    private final String scopeName;
-    private final Path streamsDirectory;
-    private final String sourceName;
-    private final MutableDirectBuffer writeBuffer;
-
-    private final Long2ObjectHashMap<Long2ObjectHashMap<NukleusServerChannel>> routesByRefAndAuth =
-            new Long2ObjectHashMap<>();
-    private final Long2ObjectHashMap<MessageHandler> streamsById;
-    private final Long2ObjectHashMap<MessageHandler> throttlesById;
-    private final Map<String, NukleusPartition> partitionsByName;
-
+    private final LabelManager labels;
+    private final Path streamsPath;
     private final NukleusStreamFactory streamFactory;
-    private final LongFunction<NukleusCorrelation> correlateEstablished;
-    private final BiFunction<String, String, NukleusTarget> supplyTarget;
-    private final LongSupplier supplyTimestamp;
-    private final LongSupplier supplyTrace;
-
-    private NukleusPartition[] partitions;
+    private final LongLongFunction<NukleusTarget> supplySender;
+    private final NukleusPartition partition;
+    private final Long2ObjectHashMap<Long2ObjectHashMap<NukleusServerChannel>> routesByIdAndAuth;
 
     public NukleusSource(
-        Configuration config,
-        String scopeName,
-        Path streamsDirectory,
-        String sourceName,
-        MutableDirectBuffer writeBuffer,
+        NukleusExtConfiguration config,
+        LabelManager labels,
+        Path streamsPath,
         LongFunction<NukleusCorrelation> correlateEstablished,
-        BiFunction<String, String, NukleusTarget> supplyTarget,
-        LongSupplier supplyTimestamp,
-        LongSupplier supplyTrace,
+        LongLongFunction<NukleusTarget> supplySender,
         Long2ObjectHashMap<MessageHandler> streamsById,
         Long2ObjectHashMap<MessageHandler> throttlesById)
     {
-        this.config = config;
-        this.scopeName = scopeName;
-        this.streamsDirectory = streamsDirectory;
-        this.sourceName = sourceName;
-        this.writeBuffer = writeBuffer;
-        this.streamsById = streamsById;
-        this.throttlesById = throttlesById;
-        this.partitionsByName = new LinkedHashMap<>();
-        this.partitions = new NukleusPartition[0];
+        this.labels = labels;
+        this.streamsPath = streamsPath;
         this.streamFactory = new NukleusStreamFactory(streamsById::remove);
-        this.correlateEstablished = correlateEstablished;
-        this.supplyTarget = supplyTarget;
-        this.supplyTimestamp = supplyTimestamp;
-        this.supplyTrace = supplyTrace;
+        this.supplySender = supplySender;
+        this.routesByIdAndAuth = new Long2ObjectHashMap<>();
+
+        StreamsLayout layout = new StreamsLayout.Builder()
+                .path(streamsPath)
+                .streamsCapacity(config.streamsBufferCapacity())
+                .readonly(false)
+                .build();
+
+        this.partition = new NukleusPartition(labels, streamsPath, layout,
+                this::lookupRoute,
+                streamsById::get, streamsById::put, throttlesById::get,
+                streamFactory, correlateEstablished, supplySender);
     }
 
     @Override
     public String toString()
     {
-        return String.format("%s [%s/%s]", getClass().getSimpleName(), streamsDirectory, sourceName);
+        return String.format("%s [%s]", getClass().getSimpleName(), streamsPath);
     }
 
     public void doRoute(
-        long sourceRef,
+        String receiverAddress,
         long authorization,
         NukleusServerChannel serverChannel)
     {
-        // TODO: detect bind collision
-        routesByRefAndAuth.computeIfAbsent(sourceRef, key -> new Long2ObjectHashMap<NukleusServerChannel>())
-            .put(authorization, serverChannel);
+        long receiverId = labels.supplyLabelId(receiverAddress);
+        routesByAuth(receiverId).put(authorization, serverChannel);
     }
 
     public void doUnroute(
-        long sourceRef,
+        String receiverAddress,
         long authorization,
         NukleusServerChannel serverChannel)
     {
-        Long2ObjectHashMap<NukleusServerChannel> channels = routesByRefAndAuth.get(sourceRef);
+        long receiverId = labels.supplyLabelId(receiverAddress);
+        Long2ObjectHashMap<NukleusServerChannel> channels = routesByIdAndAuth.get(receiverId);
         if (channels != null && channels.remove(authorization) != null && channels.isEmpty())
         {
-            routesByRefAndAuth.remove(sourceRef);
+            routesByIdAndAuth.remove(receiverId);
         }
     }
 
@@ -150,82 +128,52 @@ public final class NukleusSource implements AutoCloseable
         NukleusChannel channel,
         ChannelFuture abortFuture)
     {
-        NukleusPartition partition = findPartition(channel);
+        final long routeId = channel.routeId();
+        final long streamId = channel.sourceId();
+        final NukleusTarget sender = supplySender.apply(routeId, streamId);
 
-        if (partition != null)
+        sender.doReset(channel);
+        abortFuture.setSuccess();
+        if (channel.setReadAborted())
         {
-            partition.doReset(channel);
-            abortFuture.setSuccess();
-            if (channel.setReadAborted())
+            if (channel.setReadClosed())
             {
-                if (channel.setReadClosed())
-                {
-                    fireChannelDisconnected(channel);
-                    fireChannelUnbound(channel);
-                    fireChannelClosed(channel);
-                }
+                fireChannelDisconnected(channel);
+                fireChannelUnbound(channel);
+                fireChannelClosed(channel);
             }
         }
-        else
-        {
-            abortFuture.setFailure(new ChannelException("Partition not found for " + channel));
-        }
-    }
-
-    public NukleusPartition supplyPartition(
-        String sourceName)
-    {
-        return partitionsByName.computeIfAbsent(sourceName, this::newPartition);
     }
 
     public int process()
     {
-        int workCount = 0;
-
-        for (int i=0; i < partitions.length; i++)
-        {
-            workCount += partitions[i].process();
-        }
-
-        return workCount;
+        return partition.process();
     }
 
     @Override
     public void close()
     {
-        for(NukleusPartition partition : partitionsByName.values())
-        {
-            CloseHelper.quietClose(partition);
-        }
+        partition.close();
     }
 
-    private NukleusPartition findPartition(
-        NukleusChannel channel)
+    private NukleusServerChannel lookupRoute(
+        long routeId,
+        long authorization)
     {
-        NukleusChannelAddress localAddress = channel.getLocalAddress();
-        String senderName = localAddress.getSenderName();
-
-        return partitionsByName.get(senderName);
+        long remoteId = (routeId >> 32) & 0xffff;
+        Long2ObjectHashMap<NukleusServerChannel> routesByAuth = routesByAuth(remoteId);
+        return routesByAuth.get(authorization);
     }
 
-    private NukleusPartition newPartition(
-        String sourceName)
+    private Long2ObjectHashMap<NukleusServerChannel> routesByAuth(
+        long routeId)
     {
-        Path partitionPath = streamsDirectory.resolve(sourceName);
+        return routesByIdAndAuth.computeIfAbsent(routeId, this::newRoutesByAuth);
+    }
 
-        StreamsLayout layout = new StreamsLayout.Builder()
-                .path(partitionPath)
-                .streamsCapacity(config.streamsBufferCapacity())
-                .readonly(false)
-                .build();
-
-        NukleusPartition partition = new NukleusPartition(scopeName, sourceName, partitionPath, layout,
-                (r, a) -> routesByRefAndAuth.computeIfAbsent(r, key -> new Long2ObjectHashMap<NukleusServerChannel>()).get(a),
-                streamsById::get, streamsById::put, throttlesById::get,
-                writeBuffer, streamFactory, correlateEstablished, supplyTarget, supplyTimestamp, supplyTrace);
-
-        this.partitions = ArrayUtil.add(this.partitions, partition);
-
-        return partition;
+    private Long2ObjectHashMap<NukleusServerChannel> newRoutesByAuth(
+        long routeId)
+    {
+        return new Long2ObjectHashMap<NukleusServerChannel>();
     }
 }

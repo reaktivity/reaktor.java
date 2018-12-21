@@ -32,12 +32,11 @@ public class NukleusChannelAddressFactoryTest
     public void shouldCreateChannelAddress() throws Exception
     {
         Map<String, Object> options = new LinkedHashMap<>();
-        options.put("source", "source");
         options.put("route", 1234L);
         options.put("window", 8192);
 
         ChannelAddressFactory factory = newChannelAddressFactory();
-        ChannelAddress address = factory.newChannelAddress(URI.create("nukleus://server/streams/client"), options);
+        ChannelAddress address = factory.newChannelAddress(URI.create("nukleus://streams/server#0"), options);
 
         assertNotNull(address);
     }

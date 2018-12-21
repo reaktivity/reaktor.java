@@ -14,8 +14,7 @@
 # under the License.
 #
 
-connect "nukleus://server/streams/client"
-        option nukleus:route 1234L
+connect "nukleus://streams/server#0"
         option nukleus:transmission "duplex"
         option nukleus:window 8192
         option nukleus:throttle "off"

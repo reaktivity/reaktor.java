@@ -15,34 +15,27 @@
  */
 package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 
-import java.util.concurrent.atomic.AtomicInteger;
-
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ServerChannel;
 import org.jboss.netty.channel.ServerChannelFactory;
-import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.control.Role;
 
 public class NukleusServerChannelFactory implements ServerChannelFactory
 {
     private final NukleusServerChannelSink channelSink;
     private final NukleusReaktorPool reaktorPool;
-    private final AtomicInteger initialId;
 
     public NukleusServerChannelFactory(
         NukleusReaktorPool reaktorPool)
     {
         this.channelSink = new NukleusServerChannelSink();
         this.reaktorPool = reaktorPool;
-        this.initialId = new AtomicInteger();
     }
 
     @Override
     public ServerChannel newChannel(
         ChannelPipeline pipeline)
     {
-        final long routeId = 0xffff_ffffL << 8 | Role.SERVER.ordinal() << 7 | (initialId.incrementAndGet() & 0x00ff_ffffL);
-
-        return new NukleusServerChannel(this, pipeline, channelSink, reaktorPool.nextReaktor(), routeId);
+        return new NukleusServerChannel(this, pipeline, channelSink, reaktorPool.nextReaktor());
     }
 
     @Override

@@ -22,7 +22,6 @@ import static org.jboss.netty.channel.Channels.fireChannelUnbound;
 import static org.jboss.netty.channel.Channels.fireExceptionCaught;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusTransmission.SIMPLEX;
 
-import java.nio.file.Path;
 import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -39,7 +38,7 @@ import org.jboss.netty.channel.ChannelException;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.util.ExternalResourceReleasable;
-import org.reaktivity.nukleus.Configuration;
+import org.reaktivity.k3po.nukleus.ext.internal.NukleusExtConfiguration;
 
 public final class NukleusReaktor implements Runnable, ExternalResourceReleasable
 {
@@ -48,10 +47,11 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
     private static final int MAX_YIELDS = 30;
     private static final int MAX_SPINS = 20;
 
-    private final Configuration config;
+    private final NukleusExtConfiguration config;
     private final Deque<Runnable> taskQueue;
     private final AtomicLong traceIds;
-    private final Map<Path, NukleusScope> scopesByPath;
+    private final Map<String, NukleusScope> scopesByName;
+    private final LabelManager labels;
 
     private final CountDownLatch shutdownLatch = new CountDownLatch(1);
     private final AtomicBoolean shutdown = new AtomicBoolean();
@@ -59,13 +59,14 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
     private NukleusScope[] scopes;
 
     NukleusReaktor(
-        Configuration config)
+        NukleusExtConfiguration config)
     {
         this.config = config;
-        this.scopesByPath = new LinkedHashMap<>();
+        this.scopesByName = new LinkedHashMap<>();
         this.taskQueue = new ConcurrentLinkedDeque<>();
         this.traceIds = new AtomicLong(Long.MIN_VALUE); // negative
         this.scopes = new NukleusScope[0];
+        this.labels = new LabelManager(config.directory());
     }
 
     public void bind(
@@ -213,10 +214,9 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
     }
 
     private NukleusScope newScope(
-        Path scopePath)
+        String scopeName)
     {
-        String scopeName = scopePath.getName(scopePath.getNameCount() - 1).toString();
-        NukleusScope scope = new NukleusScope(config, scopeName, scopePath, System::nanoTime, traceIds::incrementAndGet);
+        NukleusScope scope = new NukleusScope(config, labels, scopeName, System::nanoTime, traceIds::incrementAndGet);
         this.scopes = ArrayUtil.add(this.scopes, scope);
         return scope;
     }
@@ -225,11 +225,6 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
         Runnable task)
     {
         taskQueue.offer(task);
-    }
-
-    private Path scopePath(String scope)
-    {
-        return config.directory().resolve(scope);
     }
 
     private final class BindServerTask implements Runnable
@@ -255,14 +250,12 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
             {
                 NukleusReaktor reaktor = serverChannel.reaktor;
 
-                String receiverName = localAddress.getReceiverName();
-                Path scopePath = scopePath(receiverName);
-                String senderName = localAddress.getSenderName();
-                long routeRef = localAddress.getRoute();
-                long authorization = localAddress.getAuthorization();
+                String scopeName = localAddress.getReceiverName();
+                NukleusScope scope = reaktor.scopesByName.computeIfAbsent(scopeName, reaktor::newScope);
 
-                NukleusScope scope = reaktor.scopesByPath.computeIfAbsent(scopePath, reaktor::newScope);
-                scope.doRoute(senderName, receiverName, routeRef, authorization, serverChannel);
+                String receiverAddress = localAddress.getReceiverAddress();
+                long authorization = localAddress.getAuthorization();
+                scope.doRoute(receiverAddress, authorization, serverChannel);
 
                 serverChannel.setLocalAddress(localAddress);
                 serverChannel.setBound();
@@ -298,13 +291,12 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
                 NukleusReaktor reaktor = serverChannel.reaktor;
                 NukleusChannelAddress localAddress = serverChannel.getLocalAddress();
 
-                String receiverName = localAddress.getReceiverName();
-                Path scopePath = scopePath(receiverName);
-                String senderName = localAddress.getSenderName();
-                long routeRef = localAddress.getRoute();
+                String scopeName = localAddress.getReceiverName();
+                NukleusScope scope = reaktor.scopesByName.computeIfAbsent(scopeName, reaktor::newScope);
 
-                NukleusScope scope = reaktor.scopesByPath.computeIfAbsent(scopePath, reaktor::newScope);
-                scope.doUnroute(senderName, routeRef, localAddress.getAuthorization(), serverChannel);
+                String receiverAddress = localAddress.getReceiverAddress();
+                long authorization = localAddress.getAuthorization();
+                scope.doUnroute(receiverAddress, authorization, serverChannel);
 
                 serverChannel.setLocalAddress(null);
                 fireChannelUnbound(serverChannel);
@@ -337,14 +329,12 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
 
                 if (localAddress != null)
                 {
-                    String receiverName = localAddress.getReceiverName();
-                    Path scopePath = scopePath(receiverName);
-                    String senderName = localAddress.getSenderName();
-                    long sourceRef = localAddress.getRoute();
-                    long authorization = localAddress.getAuthorization();
+                    String scopeName = localAddress.getReceiverName();
+                    NukleusScope scope = reaktor.scopesByName.computeIfAbsent(scopeName, reaktor::newScope);
 
-                    NukleusScope scope = reaktor.scopesByPath.computeIfAbsent(scopePath, reaktor::newScope);
-                    scope.doUnroute(senderName, sourceRef, authorization, serverChannel);
+                    String receiverAddress = localAddress.getReceiverAddress();
+                    long authorization = localAddress.getAuthorization();
+                    scope.doUnroute(receiverAddress, authorization, serverChannel);
 
                     serverChannel.setLocalAddress(null);
                     fireChannelUnbound(serverChannel);
@@ -381,8 +371,7 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
             try
             {
                 NukleusReaktor reaktor = clientChannel.reaktor;
-                String senderName = remoteAddress.getSenderName();
-                Path scopePath = scopePath(senderName);
+                String scopeName = remoteAddress.getSenderName();
 
                 final NukleusChannelConfig clientConfig = clientChannel.getConfig();
                 if (clientConfig.getTransmission() == SIMPLEX)
@@ -390,7 +379,7 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
                     clientChannel.setReadClosed();
                 }
 
-                NukleusScope scope = reaktor.scopesByPath.computeIfAbsent(scopePath, reaktor::newScope);
+                NukleusScope scope = reaktor.scopesByName.computeIfAbsent(scopeName, reaktor::newScope);
                 scope.doConnect(clientChannel, remoteAddress, connectFuture);
             }
             catch (Exception ex)
@@ -422,10 +411,9 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
                 {
                     NukleusReaktor reaktor = channel.reaktor;
                     NukleusChannelAddress localAddress = channel.getLocalAddress();
-                    String receiverName = localAddress.getReceiverName();
-                    Path scopePath = scopePath(receiverName);
+                    String scopeName = localAddress.getReceiverName();
 
-                    NukleusScope scope = reaktor.scopesByPath.computeIfAbsent(scopePath, reaktor::newScope);
+                    NukleusScope scope = reaktor.scopesByName.computeIfAbsent(scopeName, reaktor::newScope);
                     scope.doAbortOutput(channel, handlerFuture);
                 }
             }
@@ -458,9 +446,8 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
                 {
                     NukleusReaktor reaktor = channel.reaktor;
                     NukleusChannelAddress localAddress = channel.getLocalAddress();
-                    String receiverName = localAddress.getReceiverName();
-                    Path scopePath = scopePath(receiverName);
-                    NukleusScope scope = reaktor.scopesByPath.computeIfAbsent(scopePath, reaktor::newScope);
+                    String scopeName = localAddress.getReceiverName();
+                    NukleusScope scope = reaktor.scopesByName.computeIfAbsent(scopeName, reaktor::newScope);
                     scope.doAbortInput(channel, handlerFuture);
                 }
             }
@@ -491,10 +478,9 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
                 {
                     NukleusReaktor reaktor = channel.reaktor;
                     NukleusChannelAddress remoteAddress = channel.getRemoteAddress();
-                    String senderName = remoteAddress.getSenderName();
-                    Path scopePath = scopePath(senderName);
+                    String scopeName = remoteAddress.getSenderName();
 
-                    NukleusScope scope = reaktor.scopesByPath.computeIfAbsent(scopePath, reaktor::newScope);
+                    NukleusScope scope = reaktor.scopesByName.computeIfAbsent(scopeName, reaktor::newScope);
                     scope.doWrite(channel, writeRequest);
                 }
             }
@@ -528,10 +514,9 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
                 {
                     NukleusReaktor reaktor = channel.reaktor;
                     NukleusChannelAddress remoteAddress = channel.getRemoteAddress();
-                    String senderName = remoteAddress.getSenderName();
-                    Path scopePath = scopePath(senderName);
+                    String scopeName = remoteAddress.getSenderName();
 
-                    NukleusScope scope = reaktor.scopesByPath.computeIfAbsent(scopePath, reaktor::newScope);
+                    NukleusScope scope = reaktor.scopesByName.computeIfAbsent(scopeName, reaktor::newScope);
                     scope.doFlush(channel, flushFuture);
                 }
             }
@@ -564,10 +549,9 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
                 {
                     NukleusReaktor reaktor = channel.reaktor;
                     NukleusChannelAddress remoteAddress = channel.getRemoteAddress();
-                    String senderName = remoteAddress.getSenderName();
-                    Path scopePath = scopePath(senderName);
+                    String scopeName = remoteAddress.getSenderName();
 
-                    NukleusScope scope = reaktor.scopesByPath.computeIfAbsent(scopePath, reaktor::newScope);
+                    NukleusScope scope = reaktor.scopesByName.computeIfAbsent(scopeName, reaktor::newScope);
                     scope.doShutdownOutput(channel, handlerFuture);
                 }
             }
@@ -601,10 +585,9 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
 
                 if (remoteAddress != null)
                 {
-                    String senderName = remoteAddress.getSenderName();
-                    Path scopePath = scopePath(senderName);
+                    String scopeName = remoteAddress.getSenderName();
 
-                    NukleusScope scope = reaktor.scopesByPath.computeIfAbsent(scopePath, reaktor::newScope);
+                    NukleusScope scope = reaktor.scopesByName.computeIfAbsent(scopeName, reaktor::newScope);
                     scope.doClose(channel, handlerFuture);
                 }
             }

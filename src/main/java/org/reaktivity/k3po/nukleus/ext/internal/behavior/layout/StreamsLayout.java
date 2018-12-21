@@ -25,9 +25,9 @@ import java.nio.file.Path;
 
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
-import org.agrona.concurrent.ringbuffer.OneToOneRingBuffer;
 import org.agrona.concurrent.ringbuffer.RingBuffer;
 import org.agrona.concurrent.ringbuffer.RingBufferDescriptor;
+import org.reaktivity.nukleus.internal.ManyToOneRingBuffer;
 
 public final class StreamsLayout extends Layout
 {
@@ -91,7 +91,7 @@ public final class StreamsLayout extends Layout
 
             final AtomicBuffer atomicStreams = new UnsafeBuffer(mappedStreams);
 
-            return new StreamsLayout(new OneToOneRingBuffer(atomicStreams));
+            return new StreamsLayout(new ManyToOneRingBuffer(atomicStreams));
         }
     }
 }

@@ -21,9 +21,7 @@ import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.O
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_CORRELATION;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_GROUP;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_PADDING;
-import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_PARTITION;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_REPLY_TO;
-import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_ROUTE;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_THROTTLE;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_TRANSMISSION;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_UPDATE;
@@ -52,18 +50,12 @@ public class NukleusChannelAddressFactory extends ChannelAddressFactorySpi
         ChannelAddress transport,
         Map<String, Object> options)
     {
-        String host = location.getHost();
-        int port = location.getPort();
+        String authority = location.getAuthority();
         String path = location.getPath();
 
-        if (host == null)
+        if (!"streams".equals(authority))
         {
-            throw new ChannelException(String.format("%s host missing", getSchemeName()));
-        }
-
-        if (port != -1)
-        {
-            throw new ChannelException(String.format("%s port unexpected", getSchemeName()));
+            throw new ChannelException(String.format("%s host is not \"streams\"", getSchemeName()));
         }
 
         if (path == null || path.isEmpty())
@@ -71,12 +63,7 @@ public class NukleusChannelAddressFactory extends ChannelAddressFactorySpi
             throw new ChannelException(String.format("%s path missing", getSchemeName()));
         }
 
-        if (!path.startsWith("/streams/"))
-        {
-            throw new ChannelException(String.format("%s path does not match '/streams/*'", getSchemeName()));
-        }
-
-        Collection<TypeInfo<?>> requiredTypes = asList(OPTION_ROUTE, OPTION_WINDOW);
+        Collection<TypeInfo<?>> requiredTypes = asList(OPTION_WINDOW);
         for (TypeInfo<?> requiredType : requiredTypes)
         {
             if (options == null || !options.containsKey(requiredType.getName()))
@@ -85,8 +72,8 @@ public class NukleusChannelAddressFactory extends ChannelAddressFactorySpi
             }
         }
 
-        Collection<TypeInfo<?>> allOptionTypes = asList(OPTION_ROUTE, OPTION_REPLY_TO, OPTION_WINDOW, OPTION_GROUP,
-                OPTION_PADDING, OPTION_UPDATE, OPTION_PARTITION, OPTION_AUTHORIZATION, OPTION_CORRELATION, OPTION_THROTTLE,
+        Collection<TypeInfo<?>> allOptionTypes = asList(OPTION_REPLY_TO, OPTION_WINDOW, OPTION_GROUP,
+                OPTION_PADDING, OPTION_UPDATE, OPTION_AUTHORIZATION, OPTION_CORRELATION, OPTION_THROTTLE,
                 OPTION_TRANSMISSION, OPTION_BYTE_ORDER);
         for (TypeInfo<?> optionType : allOptionTypes)
         {
@@ -101,10 +88,9 @@ public class NukleusChannelAddressFactory extends ChannelAddressFactorySpi
             }
         }
 
-        final long route = (Long) options.get(OPTION_ROUTE.getName());
         final long authorization = (Long) options.getOrDefault(OPTION_AUTHORIZATION.getName(), 0L);
-        final String replyTo = (String) options.get(OPTION_REPLY_TO.getName());
+        final String replyTo = (String) options.getOrDefault(OPTION_REPLY_TO.getName(), "k3po#0");
 
-        return new NukleusChannelAddress(location, route, authorization, replyTo);
+        return new NukleusChannelAddress(location, authorization, replyTo);
     }
 }

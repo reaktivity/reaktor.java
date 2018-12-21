@@ -59,26 +59,26 @@ public final class NukleusStreamFactory
 
     public MessageHandler newStream(
         NukleusChannel channel,
-        NukleusPartition partition,
+        NukleusTarget sender,
         ChannelFuture handshakeFuture)
     {
-        return new Stream(channel, partition, handshakeFuture)::handleStream;
+        return new Stream(channel, sender, handshakeFuture)::handleStream;
     }
 
     private final class Stream
     {
         private final NukleusChannel channel;
-        private final NukleusPartition partition;
+        private final NukleusTarget sender;
         private final ChannelFuture handshakeFuture;
         private int fragments;
 
         private Stream(
             NukleusChannel channel,
-            NukleusPartition partition,
+            NukleusTarget sender,
             ChannelFuture handshakeFuture)
         {
             this.channel = channel;
-            this.partition = partition;
+            this.sender = sender;
             this.handshakeFuture = handshakeFuture;
         }
 
@@ -140,7 +140,7 @@ public final class NukleusStreamFactory
             channel.sourceId(streamId);
             channel.sourceAuth(begin.authorization());
 
-            partition.doWindow(channel, initialWindow, padding, group);
+            sender.doWindow(channel, initialWindow, padding, group);
 
             channel.beginInputFuture().setSuccess();
 
@@ -177,7 +177,7 @@ public final class NukleusStreamFactory
                 {
                     // INIT flag set on non-initial message fragment
                     fireExceptionCaught(channel, new IllegalStateException("invalid message boundary"));
-                    partition.doReset(channel);
+                    sender.doReset(channel);
                 }
                 else
                 {
@@ -186,7 +186,7 @@ public final class NukleusStreamFactory
                     {
                         int padding = config.getPadding();
                         long group = config.getGroup();
-                        partition.doWindow(channel, readableBytes + data.padding(), padding, group);
+                        sender.doWindow(channel, readableBytes + data.padding(), padding, group);
                     }
 
                     if ((flags & 0x01) != 0x00)
@@ -204,7 +204,7 @@ public final class NukleusStreamFactory
             }
             else
             {
-                partition.doReset(channel);
+                sender.doReset(channel);
 
                 if (channel.setReadAborted())
                 {
@@ -230,7 +230,7 @@ public final class NukleusStreamFactory
 
             if (end.authorization() != channel.sourceAuth())
             {
-                partition.doReset(channel);
+                sender.doReset(channel);
             }
             unregisterStream.accept(streamId);
 
@@ -269,7 +269,7 @@ public final class NukleusStreamFactory
 
             if (abort.authorization() != channel.sourceAuth())
             {
-                partition.doReset(channel);
+                sender.doReset(channel);
             }
             unregisterStream.accept(streamId);
 

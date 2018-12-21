@@ -22,9 +22,7 @@ import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusTransmiss
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusTransmission.SIMPLEX;
 
 import java.nio.file.Path;
-import java.util.function.BiFunction;
 import java.util.function.LongFunction;
-import java.util.function.LongSupplier;
 
 import org.agrona.LangUtil;
 import org.agrona.MutableDirectBuffer;
@@ -37,23 +35,16 @@ import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.layout.StreamsLayout;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.BeginFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.FrameFW;
-import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.ResetFW;
-import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.WindowFW;
 import org.reaktivity.k3po.nukleus.ext.internal.util.function.LongLongFunction;
 import org.reaktivity.k3po.nukleus.ext.internal.util.function.LongObjectBiConsumer;
-import org.reaktivity.nukleus.function.MessagePredicate;
 
 final class NukleusPartition implements AutoCloseable
 {
     private final FrameFW frameRO = new FrameFW();
     private final BeginFW beginRO = new BeginFW();
 
-    private final WindowFW.Builder windowRW = new WindowFW.Builder();
-    private final ResetFW.Builder resetRW = new ResetFW.Builder();
-
-    private final String scopeName;
-    private final String sourceName;
-    private final Path partitionPath;
+    private final LabelManager labels;
+    private final Path streamsPath;
     private final StreamsLayout layout;
     private final RingBuffer streamsBuffer;
     private final LongLongFunction<NukleusServerChannel> lookupRoute;
@@ -61,37 +52,26 @@ final class NukleusPartition implements AutoCloseable
     private final LongFunction<MessageHandler> lookupThrottle;
     private final MessageHandler streamHandler;
     private final LongObjectBiConsumer<MessageHandler> registerStream;
-    private final MutableDirectBuffer writeBuffer;
     private final NukleusStreamFactory streamFactory;
     private final LongFunction<NukleusCorrelation> correlateEstablished;
-    private final BiFunction<String, String, NukleusTarget> supplyTarget;
-    private final LongSupplier supplyTimestamp;
-    private final LongSupplier supplyTrace;
-
-    private MessagePredicate throttleBuffer;
+    private final LongLongFunction<NukleusTarget> supplySender;
 
     NukleusPartition(
-        String scopeName,
-        String sourceName,
-        Path partitionPath,
+        LabelManager labels,
+        Path streamsPath,
         StreamsLayout layout,
         LongLongFunction<NukleusServerChannel> lookupRoute,
         LongFunction<MessageHandler> lookupStream,
         LongObjectBiConsumer<MessageHandler> registerStream,
         LongFunction<MessageHandler> lookupThrottle,
-        MutableDirectBuffer writeBuffer,
         NukleusStreamFactory streamFactory,
         LongFunction<NukleusCorrelation> correlateEstablished,
-        BiFunction<String, String, NukleusTarget> supplyTarget,
-        LongSupplier supplyTimestamp,
-        LongSupplier supplyTrace)
+        LongLongFunction<NukleusTarget> supplySender)
     {
-        this.scopeName = scopeName;
-        this.sourceName = sourceName;
-        this.partitionPath = partitionPath;
+        this.labels = labels;
+        this.streamsPath = streamsPath;
         this.layout = layout;
         this.streamsBuffer = layout.streamsBuffer();
-        this.writeBuffer = writeBuffer;
 
         this.lookupRoute = lookupRoute;
         this.lookupStream = lookupStream;
@@ -100,9 +80,7 @@ final class NukleusPartition implements AutoCloseable
         this.streamHandler = this::handleStream;
         this.streamFactory = streamFactory;
         this.correlateEstablished = correlateEstablished;
-        this.supplyTarget = supplyTarget;
-        this.supplyTimestamp = supplyTimestamp;
-        this.supplyTrace = supplyTrace;
+        this.supplySender = supplySender;
     }
 
     public int process()
@@ -119,7 +97,7 @@ final class NukleusPartition implements AutoCloseable
     @Override
     public String toString()
     {
-        return String.format("%s [%s]", getClass().getSimpleName(), partitionPath);
+        return String.format("%s [%s]", getClass().getSimpleName(), streamsPath);
     }
 
     private void handleStream(
@@ -173,7 +151,7 @@ final class NukleusPartition implements AutoCloseable
             final long routeId = frame.routeId();
             final long streamId = frame.streamId();
 
-            doReset(routeId, streamId);
+            supplySender.apply(routeId, streamId).doReset(routeId, streamId);
         }
     }
 
@@ -181,26 +159,24 @@ final class NukleusPartition implements AutoCloseable
         BeginFW begin)
     {
         final long routeId = begin.routeId();
-        final long sourceId = begin.streamId();
-        final long sourceRef = begin.sourceRef();
+        final long streamId = begin.streamId();
         final long authorization = begin.authorization();
 
-        final NukleusServerChannel serverChannel = lookupRoute.apply(sourceRef, authorization);
-
-        if (serverChannel != null)
+        if ((streamId & 0x8000_0000_0000_0000L) == 0L)
         {
-            handleBeginInitial(begin, serverChannel);
-        }
-        else
-        {
-            if (sourceRef == 0L)
+            final NukleusServerChannel serverChannel = lookupRoute.apply(routeId, authorization);
+            if (serverChannel != null)
             {
-                handleBeginReply(begin);
+                handleBeginInitial(begin, serverChannel);
             }
             else
             {
-                doReset(routeId, sourceId);
+                supplySender.apply(routeId, streamId).doReset(routeId, streamId);
             }
+        }
+        else
+        {
+            handleBeginReply(begin);
         }
     }
 
@@ -209,27 +185,24 @@ final class NukleusPartition implements AutoCloseable
         final NukleusServerChannel serverChannel)
     {
         final long routeId = begin.routeId();
-        final long sourceId = begin.streamId();
+        final long initialId = begin.streamId();
         final long correlationId = begin.correlationId();
-        final long replyId = sourceId | 0x8000_0000_0000_0000L;
-        NukleusChildChannel childChannel = doAccept(serverChannel, routeId, replyId, correlationId);
+        final long replyId = initialId | 0x8000_0000_0000_0000L;
 
+        final NukleusChildChannel childChannel = doAccept(serverChannel, routeId, replyId, correlationId);
+        final NukleusTarget sender = supplySender.apply(childChannel.routeId(), initialId);
         final ChannelFuture handshakeFuture = future(childChannel);
-        final MessageHandler newStream = streamFactory.newStream(childChannel, this, handshakeFuture);
-        registerStream.accept(sourceId, newStream);
+
+        final MessageHandler newStream = streamFactory.newStream(childChannel, sender, handshakeFuture);
+        registerStream.accept(initialId, newStream);
         newStream.onMessage(begin.typeId(), (MutableDirectBuffer) begin.buffer(), begin.offset(), begin.sizeof());
 
         fireChannelBound(childChannel, childChannel.getLocalAddress());
 
         NukleusChannelConfig childConfig = childChannel.getConfig();
-        NukleusChannelAddress remoteAddress = childChannel.getRemoteAddress();
-        String receiverName = remoteAddress.getReceiverName();
-        String senderName = remoteAddress.getSenderName();
-        NukleusTarget remoteTarget = supplyTarget.apply(receiverName, senderName);
-
         if (childConfig.getTransmission() == DUPLEX)
         {
-            remoteTarget.doBeginReply(childChannel, handshakeFuture);
+            sender.doBeginReply(childChannel, handshakeFuture);
         }
 
         fireChannelConnected(childChannel, childChannel.getRemoteAddress());
@@ -239,71 +212,25 @@ final class NukleusPartition implements AutoCloseable
         final BeginFW begin)
     {
         final long routeId = begin.routeId();
-        final long sourceId = begin.streamId();
+        final long replyId = begin.streamId();
         final long correlationId = begin.correlationId();
         final NukleusCorrelation correlation = correlateEstablished.apply(correlationId);
+        final NukleusTarget sender = supplySender.apply(routeId, replyId);
 
         if (correlation != null)
         {
             final ChannelFuture handshakeFuture = correlation.correlatedFuture();
             final NukleusClientChannel clientChannel = (NukleusClientChannel) handshakeFuture.getChannel();
 
-            final MessageHandler newStream = streamFactory.newStream(clientChannel, this, handshakeFuture);
-            registerStream.accept(sourceId, newStream);
+            final MessageHandler newStream = streamFactory.newStream(clientChannel, sender, handshakeFuture);
+            registerStream.accept(replyId, newStream);
 
             newStream.onMessage(begin.typeId(), (MutableDirectBuffer) begin.buffer(), begin.offset(), begin.sizeof());
         }
         else
         {
-            doReset(routeId, sourceId);
+            sender.doReset(routeId, replyId);
         }
-    }
-
-    void doWindow(
-        final NukleusChannel channel,
-        final int credit,
-        final int padding,
-        final long groupId)
-    {
-        final long routeId = channel.routeId();
-        final long streamId = channel.sourceId();
-
-        channel.readableBytes(credit);
-
-        final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                .routeId(routeId)
-                .streamId(streamId)
-                .timestamp(supplyTimestamp.getAsLong())
-                .trace(supplyTrace.getAsLong())
-                .credit(credit)
-                .padding(padding)
-                .groupId(groupId)
-                .build();
-
-        throttleBuffer().test(window.typeId(), window.buffer(), window.offset(), window.sizeof());
-    }
-
-    void doReset(
-        final NukleusChannel channel)
-    {
-        final long routeId = channel.routeId();
-        final long streamId = channel.sourceId();
-
-        doReset(routeId, streamId);
-    }
-
-    private void doReset(
-        final long routeId,
-        final long streamId)
-    {
-        final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                .routeId(routeId)
-                .streamId(streamId)
-                .timestamp(supplyTimestamp.getAsLong())
-                .trace(supplyTrace.getAsLong())
-                .build();
-
-        throttleBuffer().test(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
     }
 
     private NukleusChildChannel doAccept(
@@ -319,13 +246,14 @@ final class NukleusPartition implements AutoCloseable
             ChannelPipeline pipeline = pipelineFactory.getPipeline();
 
             final NukleusChannelAddress serverAddress = serverChannel.getLocalAddress();
-            NukleusChannelAddress remoteAddress = serverAddress.newReplyToAddress();
+            final String replyAddress = labels.lookupLabel((int)(routeId >> 48) & 0xffff);
+            NukleusChannelAddress remoteAddress = serverAddress.newReplyToAddress(replyAddress);
 
             // fire child serverChannel opened
             ChannelFactory channelFactory = serverChannel.getFactory();
             NukleusChildChannelSink childSink = new NukleusChildChannelSink();
             NukleusChildChannel childChannel =
-                  new NukleusChildChannel(serverChannel, channelFactory, pipeline, childSink, routeId, targetId);
+                  new NukleusChildChannel(serverChannel, channelFactory, pipeline, childSink, targetId);
 
             NukleusChannelConfig childConfig = childChannel.getConfig();
             childConfig.setBufferFactory(serverConfig.getBufferFactory());
@@ -343,6 +271,7 @@ final class NukleusPartition implements AutoCloseable
                 childChannel.setWriteClosed();
             }
 
+            childChannel.routeId(routeId);
             childChannel.setLocalAddress(serverAddress);
             childChannel.setRemoteAddress(remoteAddress);
 
@@ -355,18 +284,5 @@ final class NukleusPartition implements AutoCloseable
 
         // unreachable
         return null;
-    }
-
-    private MessagePredicate throttleBuffer()
-    {
-        if (throttleBuffer == null)
-        {
-            // defer to let owner scope create buffer
-            NukleusTarget replyTarget = supplyTarget.apply(sourceName, scopeName);
-            throttleBuffer = (t, b, o, l) -> replyTarget.streamsBuffer().write(t, b, o, l);
-            assert throttleBuffer != null;
-        }
-
-        return throttleBuffer;
     }
 }
