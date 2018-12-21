@@ -33,6 +33,7 @@ public final class StateImpl implements State, Comparable<StateImpl>
     private final BufferPool bufferPool;
     private final long mask;
     private final AtomicInteger routeId;
+    private final LabelManager labels;
     private final List<Nukleus> nuklei;
     private final List<Controller> controllers;
 
@@ -45,7 +46,8 @@ public final class StateImpl implements State, Comparable<StateImpl>
         int index,
         int count,
         AtomicInteger routeId,
-        ReaktorConfiguration config)
+        ReaktorConfiguration config,
+        LabelManager labels)
     {
         final int bufferPoolCapacity = config.bufferPoolCapacity();
         final int bufferSlotCapacity = config.bufferSlotCapacity();
@@ -66,6 +68,7 @@ public final class StateImpl implements State, Comparable<StateImpl>
         this.traceId = initial;
         this.groupId = initial;
         this.routeId = routeId;
+        this.labels = labels;
         this.nuklei = new ArrayList<>();
         this.controllers = new ArrayList<>();
     }
@@ -74,6 +77,20 @@ public final class StateImpl implements State, Comparable<StateImpl>
     public BufferPool bufferPool()
     {
         return bufferPool;
+    }
+
+    @Override
+    public int supplyLabelId(
+        String label)
+    {
+        return labels.supplyLabelId(label);
+    }
+
+    @Override
+    public String lookupLabel(
+        int labelId)
+    {
+        return labels.lookupLabel(labelId);
     }
 
     @Override

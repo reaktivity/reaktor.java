@@ -302,7 +302,8 @@ public final class ReaktorRule implements TestRule
                 final int count = path.getNameCount();
                 return "control".equals(path.getName(count - 1).toString()) ||
                        "routes".equals(path.getName(count - 1).toString()) ||
-                        (count >= 2 && "streams".equals(path.getName(count - 2).toString()));
+                       "streams".equals(path.getName(count - 1).toString()) ||
+                       "labels".equals(path.getName(count - 1).toString());
             }
 
             @Override

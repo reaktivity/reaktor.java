@@ -22,6 +22,7 @@ import static java.util.Objects.requireNonNull;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.IntFunction;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.function.ToIntFunction;
@@ -36,6 +37,7 @@ import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.NukleusBuilder;
 import org.reaktivity.nukleus.NukleusFactory;
 import org.reaktivity.reaktor.internal.ControllerBuilderImpl;
+import org.reaktivity.reaktor.internal.LabelManager;
 import org.reaktivity.reaktor.internal.NukleusBuilderImpl;
 import org.reaktivity.reaktor.internal.ReaktorConfiguration;
 import org.reaktivity.reaktor.internal.StateImpl;
@@ -135,11 +137,12 @@ public class ReaktorBuilder
         configs.add(config);
 
         final AtomicInteger routeId = new AtomicInteger();
+        final LabelManager labels = new LabelManager(config.directory());
 
         final StateImpl[] states = new StateImpl[threads];
         for (int thread=0; thread < threads; thread++)
         {
-            states[thread] = new StateImpl(thread, threads, routeId, config);
+            states[thread] = new StateImpl(thread, threads, routeId, config, labels);
         }
 
         final NukleusFactory nukleusFactory = supplyNukleusFactory.get();
@@ -185,8 +188,9 @@ public class ReaktorBuilder
                 config.maxParkNanos());
         }
         ErrorHandler errorHandler = requireNonNull(this.errorHandler, "errorHandler");
+        IntFunction<String> namer = t -> String.format("%s%d", roleName, t);
 
-        return new Reaktor(idleStrategy, errorHandler, configs, states, t -> String.format("%s%d", roleName, t));
+        return new Reaktor(idleStrategy, errorHandler, configs, states, namer);
     }
 
     private int supplyAffinity(

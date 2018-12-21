@@ -47,7 +47,7 @@ public final class Context implements Closeable
     private RoutesLayout routesRO;
     private int maximumStreamsCount;
     private int streamsBufferCapacity;
-    private Function<String, Path> sourceStreamsPath;
+    private Path sourceStreamsPath;
     private Function<String, Path> targetStreamsPath;
     private IdleStrategy idleStrategy;
     private ErrorHandler errorHandler;
@@ -118,13 +118,13 @@ public final class Context implements Closeable
         return streamsPath;
     }
 
-    public Context sourceStreamsPath(Function<String, Path> sourceStreamsFile)
+    public Context sourceStreamsPath(Path sourceStreamsPath)
     {
-        this.sourceStreamsPath = sourceStreamsFile;
+        this.sourceStreamsPath = sourceStreamsPath;
         return this;
     }
 
-    public Function<String, Path> sourceStreamsPath()
+    public Path sourceStreamsPath()
     {
         return sourceStreamsPath;
     }
@@ -269,7 +269,7 @@ public final class Context implements Closeable
 
             streamsPath(configDirectory.resolve(format("%s/streams", name)));
 
-            sourceStreamsPath(source -> configDirectory.resolve(format("%s/streams/%s", name, source)));
+            sourceStreamsPath(configDirectory.resolve(format("%s/streams", name)));
 
             targetStreamsPath(target -> configDirectory.resolve(targetPath(target)));
 
@@ -315,7 +315,7 @@ public final class Context implements Closeable
 
     private String targetPath(String target)
     {
-        return format("%s/streams/%s", target, name);
+        return format("%s/streams", target);
     }
 
     private void concludeCounters()

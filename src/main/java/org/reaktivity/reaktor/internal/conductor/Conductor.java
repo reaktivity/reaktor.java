@@ -29,8 +29,8 @@ import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.function.CommandHandler;
 import org.reaktivity.reaktor.internal.Context;
 import org.reaktivity.reaktor.internal.router.Router;
+import org.reaktivity.reaktor.internal.types.control.CommandFW;
 import org.reaktivity.reaktor.internal.types.control.ErrorFW;
-import org.reaktivity.reaktor.internal.types.control.FrameFW;
 import org.reaktivity.reaktor.internal.types.control.FreezeFW;
 import org.reaktivity.reaktor.internal.types.control.FrozenFW;
 import org.reaktivity.reaktor.internal.types.control.RouteFW;
@@ -40,7 +40,7 @@ import org.reaktivity.reaktor.internal.types.control.UnroutedFW;
 
 public final class Conductor implements Nukleus
 {
-    private final FrameFW frameRO = new FrameFW();
+    private final CommandFW commandRO = new CommandFW();
     private final RouteFW routeRO = new RouteFW();
     private final UnrouteFW unrouteRO = new UnrouteFW();
     private final FreezeFW freezeRO = new FreezeFW();
@@ -88,13 +88,11 @@ public final class Conductor implements Nukleus
 
     public void onRouted(
         long correlationId,
-        long sourceRef,
-        long targetRef)
+        long routeId)
     {
         RoutedFW routed = routedRW.wrap(sendBuffer, 0, sendBuffer.capacity())
                 .correlationId(correlationId)
-                .sourceRef(sourceRef)
-                .targetRef(targetRef)
+                .routeId(routeId)
                 .build();
 
         conductorResponses.transmit(routed.typeId(), routed.buffer(), routed.offset(), routed.sizeof());
@@ -205,8 +203,8 @@ public final class Conductor implements Nukleus
         }
         else
         {
-            final FrameFW frame = frameRO.wrap(buffer, index, index + length);
-            onError(frame.correlationId());
+            final CommandFW command = commandRO.wrap(buffer, index, index + length);
+            onError(command.correlationId());
         }
     }
 

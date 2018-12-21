@@ -93,13 +93,6 @@ final class Target implements AutoCloseable
         return String.format("%s (write)", targetName);
     }
 
-    public void setThrottle(
-        long streamId,
-        MessageConsumer throttle)
-    {
-        throttles.put(streamId, throttle);
-    }
-
     public MessageConsumer writeHandler()
     {
         return writeHandler;
@@ -111,7 +104,7 @@ final class Target implements AutoCloseable
         int index,
         int length)
     {
-        boolean handled;
+        boolean handled = false;
 
         if (timestamps)
         {

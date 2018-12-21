@@ -16,14 +16,12 @@
 package org.reaktivity.reaktor.internal;
 
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 import java.util.EnumMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.Predicate;
 
 import org.agrona.collections.Int2ObjectHashMap;
 import org.reaktivity.nukleus.Configuration;
@@ -45,14 +43,10 @@ public class NukleusBuilderImpl implements NukleusBuilder
     private final State state;
     private final Int2ObjectHashMap<CommandHandler> commandHandlersByTypeId;
     private final Map<Role, MessagePredicate> routeHandlers;
-    private final Map<RouteKind, StreamFactoryBuilder> streamFactoryBuilders;
+    private final Map<Role, StreamFactoryBuilder> streamFactoryBuilders;
     private final List<Nukleus> components;
 
     private Configuration config;
-    private Predicate<RouteKind> allowZeroSourceRef = r -> false;
-    private Predicate<RouteKind> allowZeroTargetRef = r -> true;
-    private Predicate<RouteKind> layoutSource = r -> true;
-    private Predicate<RouteKind> layoutTarget = r -> true;
 
     public NukleusBuilderImpl(
         String name,
@@ -62,7 +56,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
         this.state = state;
         this.commandHandlersByTypeId = new Int2ObjectHashMap<>();
         this.routeHandlers = new EnumMap<>(Role.class);
-        this.streamFactoryBuilders = new EnumMap<>(RouteKind.class);
+        this.streamFactoryBuilders = new EnumMap<>(Role.class);
         this.components = new LinkedList<>();
     }
 
@@ -119,22 +113,6 @@ public class NukleusBuilderImpl implements NukleusBuilder
     }
 
     @Override
-    public NukleusBuilder allowZeroSourceRef(
-        Predicate<RouteKind> allowZeroSourceRef)
-    {
-        this.allowZeroSourceRef = allowZeroSourceRef;
-        return this;
-    }
-
-    @Override
-    public NukleusBuilder allowZeroTargetRef(
-        Predicate<RouteKind> allowZeroTargetRef)
-    {
-        this.allowZeroTargetRef = allowZeroTargetRef;
-        return this;
-    }
-
-    @Override
     public NukleusBuilder streamFactory(
         RouteKind kind,
         StreamFactoryBuilder builder)
@@ -142,7 +120,8 @@ public class NukleusBuilderImpl implements NukleusBuilder
         Objects.requireNonNull(kind, "kind");
         Objects.requireNonNull(builder, "builder");
 
-        this.streamFactoryBuilders.put(kind, builder);
+        final Role role = Role.valueOf(kind.ordinal());
+        this.streamFactoryBuilders.put(role, builder);
         return this;
     }
 
@@ -151,22 +130,6 @@ public class NukleusBuilderImpl implements NukleusBuilder
         Nukleus component)
     {
         components.add(component);
-        return this;
-    }
-
-    @Override
-    public NukleusBuilder layoutSource(
-        Predicate<RouteKind> layoutSource)
-    {
-        this.layoutSource = requireNonNull(layoutSource);
-        return this;
-    }
-
-    @Override
-    public NukleusBuilder layoutTarget(
-        Predicate<RouteKind> layoutTarget)
-    {
-        this.layoutTarget = requireNonNull(layoutTarget);
         return this;
     }
 
@@ -180,19 +143,13 @@ public class NukleusBuilderImpl implements NukleusBuilder
         final boolean timestamps = reaktorConfig.timestamps();
 
         Conductor conductor = new Conductor(context);
-        Router router = new Router(context);
+        Router router = new Router(context, state, streamFactoryBuilders::get);
 
         conductor.setRouter(router);
         conductor.setCommandHandlerSupplier(commandHandlersByTypeId::get);
-        router.setLayoutSource(layoutSource);
-        router.setLayoutTarget(layoutTarget);
         router.setConductor(conductor);
-        router.setState(state);
-        router.setStreamFactoryBuilderSupplier(streamFactoryBuilders::get);
         router.setTimestamps(timestamps);
         router.setRouteHandlerSupplier(routeHandlers::get);
-        router.setAllowZeroSourceRef(allowZeroSourceRef);
-        router.setAllowZeroTargetRef(allowZeroTargetRef);
 
         NukleusImpl nukleus = new NukleusImpl(name, config, conductor, router, context, components);
 

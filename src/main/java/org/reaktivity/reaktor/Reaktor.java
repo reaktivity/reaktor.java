@@ -53,7 +53,7 @@ public final class Reaktor implements AutoCloseable
         ErrorHandler errorHandler,
         Set<Configuration> configs,
         State[] states,
-        IntFunction<String> roleName)
+        IntFunction<String> namer)
     {
         this.idleStrategy = idleStrategy;
         this.errorHandler = errorHandler;
@@ -64,7 +64,7 @@ public final class Reaktor implements AutoCloseable
         Core[] cores = new Core[states.length];
         for (int i=0; i < states.length; i++)
         {
-            cores[i] = new Core(roleName.apply(i), states[i]);
+            cores[i] = new Core(namer.apply(i), states[i]);
 
             for (Nukleus nukleus : states[i].nuklei())
             {

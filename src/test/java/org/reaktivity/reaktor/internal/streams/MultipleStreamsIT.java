@@ -44,8 +44,6 @@ import org.kaazing.k3po.junit.annotation.ScriptProperty;
 import org.kaazing.k3po.junit.annotation.Specification;
 import org.kaazing.k3po.junit.rules.K3poRule;
 import org.mockito.ArgumentCaptor;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
 import org.reaktivity.nukleus.Configuration;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.NukleusBuilder;
@@ -57,6 +55,8 @@ import org.reaktivity.nukleus.stream.StreamFactory;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 import org.reaktivity.reaktor.internal.types.control.RouteFW;
 import org.reaktivity.reaktor.internal.types.stream.BeginFW;
+import org.reaktivity.reaktor.internal.types.stream.EndFW;
+import org.reaktivity.reaktor.internal.types.stream.WindowFW;
 import org.reaktivity.reaktor.test.ReaktorRule;
 
 public class MultipleStreamsIT
@@ -85,7 +85,9 @@ public class MultipleStreamsIT
         "${streams}/multiple.connections.established/client",
         "${streams}/multiple.connections.established/server"
     })
-    @ScriptProperty({"route1Authorization  0x0001_000000000008L",
+    @ScriptProperty({"serverAddress1 \"nukleus://streams/target#0\"",
+                     "serverAddress2 \"nukleus://streams/target#1\"",
+                     "route1Authorization  0x0001_000000000008L",
                      "stream1Authorization 0x0001_000000000008L",
                      "route2Authorization  0x0001_000000000000L",
                      "stream2Authorization 0x0001_000000000000L"})
@@ -100,16 +102,17 @@ public class MultipleStreamsIT
         private StreamFactory streamFactory = mock(StreamFactory.class);
 
         private ArgumentCaptor<LongSupplier> supplySourceCorrelationId = forClass(LongSupplier.class);
-        private ArgumentCaptor<LongSupplier> supplyTargetCorrelationId = forClass(LongSupplier.class);
-        private ArgumentCaptor<RouteManager> router = forClass(RouteManager.class);
-        private ArgumentCaptor<LongSupplier> supplyInitialId = forClass(LongSupplier.class);
-        private ArgumentCaptor<LongUnaryOperator> supplyReplyId = forClass(LongUnaryOperator.class);
+        private ArgumentCaptor<LongSupplier> supplyTargetCorrelationIdRef = forClass(LongSupplier.class);
+        private ArgumentCaptor<RouteManager> routerRef = forClass(RouteManager.class);
+        private ArgumentCaptor<LongSupplier> supplyInitialIdRef = forClass(LongSupplier.class);
+        private ArgumentCaptor<LongUnaryOperator> supplyReplyIdRef = forClass(LongUnaryOperator.class);
         private ArgumentCaptor<LongSupplier> supplyGroupId = forClass(LongSupplier.class);
         @SuppressWarnings("unchecked")
         private ArgumentCaptor<LongFunction<IntUnaryOperator>> groupBudgetClaimer = forClass(LongFunction.class);
         @SuppressWarnings("unchecked")
         private ArgumentCaptor<LongFunction<IntUnaryOperator>> groupBudgetReleaser = forClass(LongFunction.class);
-        private ArgumentCaptor<MutableDirectBuffer> writeBuffer = forClass(MutableDirectBuffer.class);
+        private ArgumentCaptor<MutableDirectBuffer> writeBufferRef = forClass(MutableDirectBuffer.class);
+        private ArgumentCaptor<MessageConsumer> acceptReplyRef = forClass(MessageConsumer.class);
 
         private MessageConsumer acceptInitial1 = mock(MessageConsumer.class);
         private MessageConsumer connectReply1 = mock(MessageConsumer.class);
@@ -117,23 +120,37 @@ public class MultipleStreamsIT
         private MessageConsumer connectReply2 = mock(MessageConsumer.class);
         private boolean newStream1Started;
 
-        private final BeginFW beginRO = new BeginFW();
         private final RouteFW routeRO = new RouteFW();
 
-        private final BeginFW.Builder beginRW = new BeginFW.Builder();
+        private final BeginFW beginRO = new BeginFW();
+        private final WindowFW windowRO = new WindowFW();
 
-        private String acceptName1;
+        private final BeginFW.Builder beginRW = new BeginFW.Builder();
+        private final EndFW.Builder endRW = new EndFW.Builder();
+        private final WindowFW.Builder windowRW = new WindowFW.Builder();
+
+        private MessageConsumer acceptReply1;
         private long acceptRouteId1;
+        private long acceptInitialId1;
         private long acceptReplyId1;
         private long acceptCorrelationId1;
+
+        private MessageConsumer connectInitial1;
         private long connectRouteId1;
+        private long connectInitialId1;
+        private long connectReplyId1;
         private long connectCorrelationId1;
 
-        private String acceptName2;
+        private MessageConsumer acceptReply2;
         private long acceptRouteId2;
+        private long acceptInitialId2;
         private long acceptReplyId2;
         private long acceptCorrelationId2;
+
+        private MessageConsumer connectInitial2;
         private long connectRouteId2;
+        private long connectInitialId2;
+        private long connectReplyId2;
         private long connectCorrelationId2;
 
         @SuppressWarnings("unchecked")
@@ -141,171 +158,256 @@ public class MultipleStreamsIT
         {
             when(serverStreamFactory.setSourceCorrelationIdSupplier(supplySourceCorrelationId.capture()))
                 .thenReturn(serverStreamFactory);
-            when(serverStreamFactory.setTargetCorrelationIdSupplier(supplyTargetCorrelationId.capture()))
+            when(serverStreamFactory.setTargetCorrelationIdSupplier(supplyTargetCorrelationIdRef.capture()))
                 .thenReturn(serverStreamFactory);
-            when(serverStreamFactory.setInitialIdSupplier(supplyInitialId.capture())).thenReturn(serverStreamFactory);
-            when(serverStreamFactory.setReplyIdSupplier(supplyReplyId.capture())).thenReturn(serverStreamFactory);
+            when(serverStreamFactory.setInitialIdSupplier(supplyInitialIdRef.capture())).thenReturn(serverStreamFactory);
+            when(serverStreamFactory.setReplyIdSupplier(supplyReplyIdRef.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setTraceSupplier(any(LongSupplier.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setGroupIdSupplier(supplyGroupId.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setGroupBudgetClaimer(groupBudgetClaimer.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setGroupBudgetReleaser(groupBudgetReleaser.capture())).thenReturn(serverStreamFactory);
-            when(serverStreamFactory.setRouteManager(router.capture())).thenReturn(serverStreamFactory);
-            when(serverStreamFactory.setWriteBuffer(writeBuffer.capture())).thenReturn(serverStreamFactory);
+            when(serverStreamFactory.setRouteManager(routerRef.capture())).thenReturn(serverStreamFactory);
+            when(serverStreamFactory.setWriteBuffer(writeBufferRef.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setCounterSupplier(any(Function.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setAccumulatorSupplier(any(Function.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setBufferPoolSupplier(any(Supplier.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.build()).thenReturn(streamFactory);
 
-            when(streamFactory.newStream(anyInt(), any(DirectBuffer.class), anyInt(), anyInt(), any(MessageConsumer.class)))
-                 .thenAnswer((invocation) ->
+            when(streamFactory.newStream(
+                    eq(BeginFW.TYPE_ID),
+                    any(DirectBuffer.class),
+                    anyInt(),
+                    anyInt(),
+                    acceptReplyRef.capture()))
+                 .thenAnswer(invocation ->
                  {
+                     final DirectBuffer buffer = invocation.getArgument(1);
+                     final int index = invocation.getArgument(2);
+                     final int length = invocation.getArgument(3);
+
+                     final BeginFW begin = beginRO.wrap(buffer, index, index + length);
+
                      MessageConsumer result;
-                     int maxLength = (int) invocation.getArgument(2) + (int) invocation.getArgument(3);
-                     BeginFW begin = beginRO.wrap((DirectBuffer)invocation.getArgument(1),
-                             invocation.getArgument(2), maxLength);
-                     if (begin.sourceRef() == 0)
+                     if ((begin.streamId() & 0x8000_0000_0000_0000L) != 0L)
                      {
-                         result = begin.correlationId() == connectCorrelationId1 ? connectReply1 : connectReply2;
+                         if (begin.correlationId() == connectCorrelationId1)
+                         {
+                             result = connectReply1;
+                         }
+                         else
+                         {
+                             result = connectReply2;
+                         }
                      }
                      else
                      {
-                         result = newStream1Started ? acceptInitial1 : acceptInitial2;
-                         newStream1Started = true;
+                         if (!newStream1Started)
+                         {
+                             acceptReply1 = acceptReplyRef.getValue();
+                             result = acceptInitial1;
+                             newStream1Started = true;
+                         }
+                         else
+                         {
+                             acceptReply2 = acceptReplyRef.getValue();
+                             result = acceptInitial2;
+                         }
                      }
                      return result;
                  });
 
-            doAnswer(new Answer<Object>()
-                    {
-                        @Override
-                        public Object answer(
-                            InvocationOnMock invocation) throws Throwable
-                        {
-                            int maxLength = (int) invocation.getArgument(2) + (int) invocation.getArgument(3);
-                            BeginFW begin = beginRO.wrap((DirectBuffer)invocation.getArgument(1),
-                                    invocation.getArgument(2), maxLength);
-                            long sourceRef = begin.sourceRef();
-                            long authorization = begin.authorization();
-                            MessagePredicate filter = (m, b, i, l) ->
-                            {
-                                RouteFW route = routeRO.wrap(b, i, i + l);
-                                final long routeSourceRef = route.sourceRef();
-                                return sourceRef == routeSourceRef;
-                            };
-                            RouteFW route = router.getValue().resolve(authorization, filter,
-                                    (m, b, i, l) -> routeRO.wrap(b, i, i + l));
-                            MutableDirectBuffer buffer = writeBuffer.getValue();
-                            if (route != null)
-                            {
-                                MessageConsumer target = router.getValue().supplyTarget(route.target().asString());
-                                long newConnectId = supplyInitialId.getValue().getAsLong();
-                                acceptRouteId1 = begin.routeId();
-                                acceptCorrelationId1 = begin.correlationId();
-                                acceptName1 = begin.source().asString();
-                                acceptReplyId1 = supplyReplyId.getValue().applyAsLong(begin.streamId());
-                                connectRouteId1 = route.correlationId();
-                                connectCorrelationId1 = supplyTargetCorrelationId.getValue().getAsLong();
-                                final BeginFW newBegin = beginRW.wrap(buffer,  0, buffer.capacity())
-                                        .routeId(connectRouteId1)
-                                        .streamId(newConnectId)
-                                        .authorization(begin.authorization())
-                                        .source("example")
-                                        .sourceRef(route.targetRef())
-                                        .correlationId(connectCorrelationId1)
-                                        .build();
-                                target.accept(BeginFW.TYPE_ID, buffer, newBegin.offset(), newBegin.sizeof());
-                            }
-                            return null;
-                        }
-                    }
+            doAnswer(invocation ->
+            {
+                final DirectBuffer buffer = invocation.getArgument(1);
+                final int index = invocation.getArgument(2);
+                final int length = invocation.getArgument(3);
+
+                final BeginFW begin = beginRO.wrap(buffer, index, index + length);
+                final long routeId = begin.routeId();
+                final long authorization = begin.authorization();
+
+                final RouteManager router = routerRef.getValue();
+                MessagePredicate filter = (m, b, i, l) -> true;
+                RouteFW route = router.resolve(routeId, authorization, filter,
+                        (m, b, i, l) -> routeRO.wrap(b, i, i + l));
+
+                if (route != null)
+                {
+                    final LongSupplier supplyInitialId = supplyInitialIdRef.getValue();
+                    final LongUnaryOperator supplyReplyId = supplyReplyIdRef.getValue();
+                    final LongSupplier supplyTargetCorrelationId = supplyTargetCorrelationIdRef.getValue();
+
+                    acceptRouteId1 = routeId;
+                    acceptInitialId1 = begin.streamId();
+                    acceptCorrelationId1 = begin.correlationId();
+                    acceptReplyId1 = supplyReplyId.applyAsLong(begin.streamId());
+
+                    connectInitialId1 = supplyInitialId.getAsLong();
+                    connectReplyId1 = supplyReplyId.applyAsLong(connectInitialId1);
+                    connectRouteId1 = route.correlationId();
+                    connectCorrelationId1 = supplyTargetCorrelationId.getAsLong();
+
+                    connectInitial1 = router.supplyReceiver(connectRouteId1);
+
+                    doBegin(connectInitial1, connectRouteId1, connectInitialId1,
+                            begin.authorization(), connectCorrelationId1);
+                    router.setThrottle(connectInitialId1, connectReply1);
+                }
+
+                return null;
+            }
             ).when(acceptInitial1).accept(eq(BeginFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
 
-            doAnswer(new Answer<Object>()
-                    {
-                        @Override
-                        public Object answer(
-                            InvocationOnMock invocation) throws Throwable
-                        {
-                            MessageConsumer acceptReply = router.getValue().supplyTarget(acceptName1);
-                            MutableDirectBuffer buffer = writeBuffer.getValue();
-                            final BeginFW beginOut = beginRW.wrap(buffer,  0, buffer.capacity())
-                                    .routeId(acceptRouteId1)
-                                    .streamId(acceptReplyId1)
-                                    .source("example")
-                                    .sourceRef(0L)
-                                    .correlationId(acceptCorrelationId1)
-                                    .build();
-                            acceptReply.accept(BeginFW.TYPE_ID, buffer, beginOut.offset(), beginOut.sizeof());
-                            return null;
-                        }
-                    }
+            doAnswer(invocation ->
+            {
+                final DirectBuffer buffer = invocation.getArgument(1);
+                final int index = invocation.getArgument(2);
+                final int length = invocation.getArgument(3);
+
+                final WindowFW window = windowRO.wrap(buffer, index, index + length);
+                final int credit = window.credit();
+                final int padding = window.padding();
+                final long groupId = window.groupId();
+
+                doWindow(acceptReply1, acceptRouteId1, acceptInitialId1, credit, padding, groupId);
+                return null;
+            }
+            ).when(connectReply1).accept(eq(WindowFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
+
+            doAnswer(invocation ->
+            {
+                doEnd(connectInitial1, connectRouteId1, connectInitialId1);
+                return null;
+            }
+            ).when(acceptInitial1).accept(eq(EndFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
+
+            doAnswer(invocation ->
+            {
+                doBegin(acceptReply1, acceptRouteId1, acceptReplyId1, 0L, acceptCorrelationId1);
+                final RouteManager router = routerRef.getValue();
+                router.setThrottle(acceptReplyId1, acceptInitial1);
+                return null;
+            }
             ).when(connectReply1).accept(eq(BeginFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
 
-            doAnswer(new Answer<Object>()
-                    {
-                        @Override
-                        public Object answer(
-                            InvocationOnMock invocation) throws Throwable
-                        {
-                            int maxLength = (int) invocation.getArgument(2) + (int) invocation.getArgument(3);
-                            BeginFW begin = beginRO.wrap((DirectBuffer)invocation.getArgument(1),
-                                    invocation.getArgument(2), maxLength);
-                            long sourceRef = begin.sourceRef();
-                            long authorization = begin.authorization();
-                            MessagePredicate filter = (m, b, i, l) ->
-                            {
-                                RouteFW route = routeRO.wrap(b, i, i + l);
-                                final long routeSourceRef = route.sourceRef();
-                                return sourceRef == routeSourceRef;
-                            };
-                            RouteFW route = router.getValue().resolve(authorization, filter,
-                                    (m, b, i, l) -> routeRO.wrap(b, i, i + l));
-                            MutableDirectBuffer buffer = writeBuffer.getValue();
-                            if (route != null)
-                            {
-                                MessageConsumer target = router.getValue().supplyTarget(route.target().asString());
-                                long newConnectId = supplyInitialId.getValue().getAsLong();
-                                acceptRouteId2 = begin.routeId();
-                                acceptCorrelationId2 = begin.correlationId();
-                                acceptName2 = begin.source().asString();
-                                acceptReplyId2 = supplyReplyId.getValue().applyAsLong(begin.streamId());
-                                connectRouteId2 = route.correlationId();
-                                connectCorrelationId2 = supplyTargetCorrelationId.getValue().getAsLong();
-                                final BeginFW newBegin = beginRW.wrap(buffer,  0, buffer.capacity())
-                                        .routeId(connectRouteId2)
-                                        .streamId(newConnectId)
-                                        .authorization(begin.authorization())
-                                        .source("example")
-                                        .sourceRef(route.targetRef())
-                                        .correlationId(connectCorrelationId2)
-                                        .build();
-                                target.accept(BeginFW.TYPE_ID, buffer, newBegin.offset(), newBegin.sizeof());
-                            }
-                            return null;
-                        }
-                    }
+            doAnswer(invocation ->
+            {
+                final DirectBuffer buffer = invocation.getArgument(1);
+                final int index = invocation.getArgument(2);
+                final int length = invocation.getArgument(3);
+
+                final WindowFW window = windowRO.wrap(buffer, index, index + length);
+                final int credit = window.credit();
+                final int padding = window.padding();
+                final long groupId = window.groupId();
+
+                doWindow(connectInitial1, connectRouteId1, connectReplyId1, credit, padding, groupId);
+                return null;
+            }
+            ).when(acceptInitial1).accept(eq(WindowFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
+
+            doAnswer(invocation ->
+            {
+                doEnd(acceptReply1, acceptRouteId1, acceptReplyId1);
+                return null;
+            }
+            ).when(connectReply1).accept(eq(EndFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
+
+            doAnswer(invocation ->
+            {
+                final DirectBuffer buffer = invocation.getArgument(1);
+                final int index = invocation.getArgument(2);
+                final int length = invocation.getArgument(3);
+
+                final BeginFW begin = beginRO.wrap(buffer, index, index + length);
+
+                final long routeId = begin.routeId();
+                final long authorization = begin.authorization();
+
+                final RouteManager router = routerRef.getValue();
+                MessagePredicate filter = (m, b, i, l) -> true;
+                RouteFW route = router.resolve(routeId, authorization, filter,
+                        (m, b, i, l) -> routeRO.wrap(b, i, i + l));
+
+                if (route != null)
+                {
+                    final LongSupplier supplyInitialId = supplyInitialIdRef.getValue();
+                    final LongUnaryOperator supplyReplyId = supplyReplyIdRef.getValue();
+                    final LongSupplier supplyTargetCorrelationId = supplyTargetCorrelationIdRef.getValue();
+
+                    acceptRouteId2 = routeId;
+                    acceptInitialId2 = begin.streamId();
+                    acceptCorrelationId2 = begin.correlationId();
+                    acceptReplyId2 = supplyReplyId.applyAsLong(begin.streamId());
+
+                    connectInitialId2 = supplyInitialId.getAsLong();
+                    connectReplyId2 = supplyReplyId.applyAsLong(connectInitialId2);
+                    connectRouteId2 = route.correlationId();
+                    connectCorrelationId2 = supplyTargetCorrelationId.getAsLong();
+
+                    connectInitial2 = router.supplyReceiver(connectRouteId2);
+
+                    doBegin(connectInitial2, connectRouteId2, connectInitialId2,
+                            begin.authorization(), connectCorrelationId2);
+                    router.setThrottle(connectInitialId2, connectReply2);
+                }
+                return null;
+            }
             ).when(acceptInitial2).accept(eq(BeginFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
 
-            doAnswer(new Answer<Object>()
-                    {
-                        @Override
-                        public Object answer(
-                            InvocationOnMock invocation) throws Throwable
-                        {
-                            MessageConsumer acceptReply = router.getValue().supplyTarget(acceptName2);
-                            MutableDirectBuffer buffer = writeBuffer.getValue();
-                            final BeginFW beginOut = beginRW.wrap(buffer,  0, buffer.capacity())
-                                    .routeId(acceptRouteId2)
-                                    .streamId(acceptReplyId2)
-                                    .source("example")
-                                    .sourceRef(0L)
-                                    .correlationId(acceptCorrelationId2)
-                                    .build();
-                            acceptReply.accept(BeginFW.TYPE_ID, buffer, beginOut.offset(), beginOut.sizeof());
-                            return null;
-                        }
-                    }
-            ).when(connectReply2).accept(eq(BeginFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
+            doAnswer(invocation ->
+            {
+                final DirectBuffer buffer = invocation.getArgument(1);
+                final int index = invocation.getArgument(2);
+                final int length = invocation.getArgument(3);
+
+                final WindowFW window = windowRO.wrap(buffer, index, index + length);
+                final int credit = window.credit();
+                final int padding = window.padding();
+                final long groupId = window.groupId();
+
+                doWindow(acceptReply2, acceptRouteId2, acceptInitialId2, credit, padding, groupId);
+                return null;
+            }
+            ).when(connectReply2).accept(eq(WindowFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
+
+            doAnswer(invocation ->
+            {
+                doEnd(connectInitial2, connectRouteId2, connectInitialId2);
+                return null;
+            }
+            ).when(acceptInitial2).accept(eq(EndFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
+
+            doAnswer(invocation ->
+            {
+                doBegin(acceptReply2, acceptRouteId2, acceptReplyId2, 0L, acceptCorrelationId2);
+                final RouteManager router = routerRef.getValue();
+                router.setThrottle(acceptReplyId2, acceptInitial2);
+                return null;
+            }).when(connectReply2).accept(eq(BeginFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
+
+            doAnswer(invocation ->
+            {
+                final DirectBuffer buffer = invocation.getArgument(1);
+                final int index = invocation.getArgument(2);
+                final int length = invocation.getArgument(3);
+
+                final WindowFW window = windowRO.wrap(buffer, index, index + length);
+                final int credit = window.credit();
+                final int padding = window.padding();
+                final long groupId = window.groupId();
+
+                doWindow(connectInitial2, connectRouteId2, connectReplyId2, credit, padding, groupId);
+                return null;
+            }
+            ).when(acceptInitial2).accept(eq(WindowFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
+
+            doAnswer(invocation ->
+            {
+                doEnd(acceptReply2, acceptRouteId2, acceptReplyId2);
+                return null;
+            }
+            ).when(connectReply2).accept(eq(EndFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
         }
 
         @Override
@@ -321,6 +423,54 @@ public class MultipleStreamsIT
                           .streamFactory(SERVER, serverStreamFactory)
                           .build();
         }
-    }
 
+        private void doBegin(
+            MessageConsumer receiver,
+            long routeId,
+            long streamId,
+            long authorization,
+            long correlationId)
+        {
+            final MutableDirectBuffer writeBuffer = writeBufferRef.getValue();
+            final BeginFW begin = beginRW.wrap(writeBuffer,  0, writeBuffer.capacity())
+                    .routeId(routeId)
+                    .streamId(streamId)
+                    .authorization(authorization)
+                    .correlationId(correlationId)
+                    .build();
+            receiver.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
+        }
+
+        private void doEnd(
+            MessageConsumer receiver,
+            long routeId,
+            long streamId)
+        {
+            final MutableDirectBuffer writeBuffer = writeBufferRef.getValue();
+            final EndFW end = endRW.wrap(writeBuffer,  0, writeBuffer.capacity())
+                    .routeId(routeId)
+                    .streamId(streamId)
+                    .build();
+            receiver.accept(end.typeId(), end.buffer(), end.offset(), end.sizeof());
+        }
+
+        private void doWindow(
+            MessageConsumer receiver,
+            long routeId,
+            long streamId,
+            int credit,
+            int padding,
+            long groupId)
+        {
+            final MutableDirectBuffer writeBuffer = writeBufferRef.getValue();
+            final WindowFW window = windowRW.wrap(writeBuffer,  0, writeBuffer.capacity())
+                    .routeId(routeId)
+                    .streamId(streamId)
+                    .credit(credit)
+                    .padding(padding)
+                    .groupId(groupId)
+                    .build();
+            receiver.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
+        }
+    }
 }
