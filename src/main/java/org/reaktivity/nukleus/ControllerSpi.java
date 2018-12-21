@@ -61,10 +61,6 @@ public interface ControllerSpi
         int index,
         int length);
 
-    <R> R doSupplySource(
-        String source,
-        BiFunction<MessagePredicate, ToIntFunction<MessageConsumer>, R> factory);
-
     <R> R doSupplyTarget(
         String target,
         BiFunction<ToIntFunction<MessageConsumer>, MessagePredicate, R> factory);

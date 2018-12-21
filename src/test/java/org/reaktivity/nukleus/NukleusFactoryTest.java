@@ -15,11 +15,10 @@
  */
 package org.reaktivity.nukleus;
 
-import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.junit.Assert.assertThat;
 
 import java.io.IOException;
-import java.util.function.Predicate;
 
 import org.junit.Test;
 import org.reaktivity.nukleus.function.CommandHandler;
@@ -77,34 +76,6 @@ public final class NukleusFactoryTest
             public NukleusBuilder commandHandler(
                 int msgTypeId,
                 CommandHandler handler)
-            {
-                return this;
-            }
-
-            @Override
-            public NukleusBuilder allowZeroSourceRef(
-                Predicate<RouteKind> predicate)
-            {
-                return this;
-            }
-
-            @Override
-            public NukleusBuilder allowZeroTargetRef(
-                Predicate<RouteKind> predicate)
-            {
-                return this;
-            }
-
-            @Override
-            public NukleusBuilder layoutSource(
-                Predicate<RouteKind> layoutSource)
-            {
-                return this;
-            }
-
-            @Override
-            public NukleusBuilder layoutTarget(
-                Predicate<RouteKind> layoutTarget)
             {
                 return this;
             }
