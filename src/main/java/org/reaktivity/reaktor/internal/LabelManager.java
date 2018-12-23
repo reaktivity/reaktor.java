@@ -64,11 +64,15 @@ public final class LabelManager
     public String lookupLabel(
         int labelId)
     {
-        checkSnapshot();
+        if (labelId < 1 || labelId > labels.size())
+        {
+            checkSnapshot();
+        }
+
         return labels.get(labelId - 1);
     }
 
-    private int nextLabelId(
+    private synchronized int nextLabelId(
         String nextLabel)
     {
         try (FileChannel channel = FileChannel.open(labelsPath, APPEND))
