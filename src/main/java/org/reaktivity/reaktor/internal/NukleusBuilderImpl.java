@@ -22,6 +22,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ExecutorService;
 
 import org.agrona.collections.Int2ObjectHashMap;
 import org.reaktivity.nukleus.Configuration;
@@ -47,6 +48,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
     private final List<Nukleus> components;
 
     private Configuration config;
+    private ExecutorService executor;
 
     public NukleusBuilderImpl(
         String name,
@@ -65,6 +67,14 @@ public class NukleusBuilderImpl implements NukleusBuilder
         Configuration config)
     {
         this.config = config;
+        return this;
+    }
+
+    @Override
+    public NukleusBuilder executor(
+        ExecutorService executor)
+    {
+        this.executor = executor;
         return this;
     }
 
@@ -138,7 +148,7 @@ public class NukleusBuilderImpl implements NukleusBuilder
     {
         ReaktorConfiguration reaktorConfig = new ReaktorConfiguration(config);
         Context context = new Context();
-        context.name(name).conclude(reaktorConfig);
+        context.name(name).executor(executor).conclude(reaktorConfig);
 
         final boolean timestamps = reaktorConfig.timestamps();
 

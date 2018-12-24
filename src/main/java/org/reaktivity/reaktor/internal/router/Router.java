@@ -16,6 +16,7 @@
 package org.reaktivity.reaktor.internal.router;
 
 import static java.lang.String.format;
+import static java.lang.ThreadLocal.withInitial;
 import static org.agrona.CloseHelper.quietClose;
 import static org.agrona.LangUtil.rethrowUnchecked;
 
@@ -25,6 +26,11 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.function.LongConsumer;
 import java.util.function.LongSupplier;
@@ -68,11 +74,14 @@ import org.reaktivity.reaktor.internal.types.stream.DataFW;
 import org.reaktivity.reaktor.internal.types.stream.EndFW;
 import org.reaktivity.reaktor.internal.types.stream.FrameFW;
 import org.reaktivity.reaktor.internal.types.stream.ResetFW;
+import org.reaktivity.reaktor.internal.types.stream.SignalFW;
 import org.reaktivity.reaktor.internal.types.stream.WindowFW;
 
 public final class Router implements RouteManager, Nukleus
 {
     private static final Pattern ADDRESS_PATTERN = Pattern.compile("^([^#]+)(:?#.*)$");
+
+    private final ThreadLocal<SignalFW.Builder> signalRW = withInitial(Router::newSignalRW);
 
     private final RouteFW routeRO = new RouteFW();
     private final RouteTableFW routeTableRO = new RouteTableFW();
@@ -89,6 +98,7 @@ public final class Router implements RouteManager, Nukleus
     private final Context context;
     private final State state;
     private final String nukleusName;
+    private final ExecutorService executor;
     private final Counters counters;
     private final MutableDirectBuffer writeBuffer;
     private final Int2ObjectHashMap<Target> targetsByLabelId;
@@ -124,6 +134,7 @@ public final class Router implements RouteManager, Nukleus
         this.context = context;
         this.state = state;
         this.nukleusName = context.name();
+        this.executor = context.executor();
         this.counters = context.counters();
         this.writeBuffer = new UnsafeBuffer(new byte[context.maxMessageLength()]);
         this.targetsByLabelId = new Int2ObjectHashMap<>();
@@ -152,6 +163,7 @@ public final class Router implements RouteManager, Nukleus
             {
                 StreamFactory streamFactory = streamFactoryBuilder
                         .setRouteManager(this)
+                        .setExecutor(this::executeAndSignal)
                         .setWriteBuffer(writeBuffer)
                         .setInitialIdSupplier(state::supplyInitialId)
                         .setReplyIdSupplier(state::supplyReplyId)
@@ -614,6 +626,9 @@ public final class Router implements RouteManager, Nukleus
                     handler.accept(msgTypeId, buffer, index, length);
                     streams.remove(streamId);
                     break;
+                case SignalFW.TYPE_ID:
+                    handler.accept(msgTypeId, buffer, index, length);
+                    break;
                 default:
                     doReset(routeId, streamId);
                     break;
@@ -690,6 +705,9 @@ public final class Router implements RouteManager, Nukleus
                     counters.aborts.increment();
                     handler.accept(msgTypeId, buffer, index, length);
                     streams.remove(streamId);
+                    break;
+                case SignalFW.TYPE_ID:
+                    handler.accept(msgTypeId, buffer, index, length);
                     break;
                 default:
                     doReset(routeId, streamId);
@@ -783,6 +801,87 @@ public final class Router implements RouteManager, Nukleus
                                      .build();
 
         stream.accept(abort.typeId(), abort.buffer(), abort.offset(), abort.sizeof());
+    }
+
+    private Future<?> executeAndSignal(
+        Runnable task,
+        long routeId,
+        long streamId,
+        long signalId)
+    {
+        if (executor != null)
+        {
+            return executor.submit(() -> invokeAndSignal(task, routeId, streamId, signalId));
+        }
+        else
+        {
+            invokeAndSignal(task, routeId, streamId, signalId);
+            return new Future<Void>()
+            {
+                @Override
+                public boolean cancel(
+                    boolean mayInterruptIfRunning)
+                {
+                    return false;
+                }
+
+                @Override
+                public boolean isCancelled()
+                {
+                    return false;
+                }
+
+                @Override
+                public boolean isDone()
+                {
+                    return true;
+                }
+
+                @Override
+                public Void get() throws InterruptedException, ExecutionException
+                {
+                    return null;
+                }
+
+                @Override
+                public Void get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException
+                {
+                    return null;
+                }
+            };
+        }
+    }
+
+    private void invokeAndSignal(
+        Runnable task,
+        long routeId,
+        long streamId,
+        long signalId)
+    {
+        try
+        {
+            task.run();
+        }
+        finally
+        {
+            final long timestamp = timestamps ? System.nanoTime() : 0L;
+
+            final SignalFW signal = signalRW.get()
+                                            .rewrap()
+                                            .routeId(routeId)
+                                            .streamId(streamId)
+                                            .timestamp(timestamp)
+                                            .signalId(signalId)
+                                            .build();
+
+            streamsBuffer.write(signal.typeId(), signal.buffer(), signal.offset(), signal.sizeof());
+        }
+    }
+
+    private static SignalFW.Builder newSignalRW()
+    {
+        MutableDirectBuffer buffer = new UnsafeBuffer(new byte[512]);
+        return new SignalFW.Builder().wrap(buffer, 0, buffer.capacity());
     }
 
     final class ReadCounters
