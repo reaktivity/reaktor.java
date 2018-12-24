@@ -19,6 +19,7 @@ import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.junit.Assert.assertThat;
 
 import java.io.IOException;
+import java.util.concurrent.ExecutorService;
 
 import org.junit.Test;
 import org.reaktivity.nukleus.function.CommandHandler;
@@ -39,6 +40,13 @@ public final class NukleusFactoryTest
             @Override
             public NukleusBuilder configure(
                 Configuration config)
+            {
+                return this;
+            }
+
+            @Override
+            public NukleusBuilder executor(
+                ExecutorService executor)
             {
                 return this;
             }

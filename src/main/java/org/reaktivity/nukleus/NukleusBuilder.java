@@ -15,6 +15,8 @@
  */
 package org.reaktivity.nukleus;
 
+import java.util.concurrent.ExecutorService;
+
 import org.reaktivity.nukleus.function.CommandHandler;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteKind;
@@ -24,6 +26,9 @@ public interface NukleusBuilder
 {
     NukleusBuilder configure(
         Configuration config);
+
+    NukleusBuilder executor(
+        ExecutorService executor);
 
     NukleusBuilder routeHandler(
         RouteKind kind,
