@@ -25,12 +25,19 @@ import java.util.function.Supplier;
 
 import org.agrona.MutableDirectBuffer;
 import org.reaktivity.nukleus.buffer.BufferPool;
+import org.reaktivity.nukleus.function.SignalingExecutor;
 import org.reaktivity.nukleus.route.RouteManager;
 
 public interface StreamFactoryBuilder
 {
     StreamFactoryBuilder setRouteManager(
         RouteManager router);
+
+    default StreamFactoryBuilder setExecutor(
+        SignalingExecutor executor)
+    {
+        return this;
+    }
 
     StreamFactoryBuilder setInitialIdSupplier(
         LongSupplier supplyInitialId);
