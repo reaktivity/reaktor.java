@@ -51,6 +51,7 @@ import org.reaktivity.nukleus.NukleusBuilder;
 import org.reaktivity.nukleus.NukleusFactorySpi;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessagePredicate;
+import org.reaktivity.nukleus.function.SignalingExecutor;
 import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
@@ -201,6 +202,7 @@ public class StreamsIT
             when(serverStreamFactory.setGroupBudgetClaimer(groupBudgetClaimer.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setGroupBudgetReleaser(groupBudgetReleaser.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setRouteManager(routerRef.capture())).thenReturn(serverStreamFactory);
+            when(serverStreamFactory.setExecutor(any(SignalingExecutor.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setWriteBuffer(writeBufferRef.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setCounterSupplier(any(Function.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setAccumulatorSupplier(any(Function.class))).thenReturn(serverStreamFactory);

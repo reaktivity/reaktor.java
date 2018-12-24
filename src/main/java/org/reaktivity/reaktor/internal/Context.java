@@ -23,6 +23,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Objects;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.logging.Logger;
 
@@ -64,11 +65,32 @@ public final class Context implements Closeable
     private int maximumControlResponseLength;
 
     private String name;
+    private ExecutorService executor;
 
-    public Context readonly(boolean readonly)
+    public Context name(
+        String name)
+    {
+        this.name = name;
+        return this;
+    }
+
+    public Context readonly(
+        boolean readonly)
     {
         this.readonly = readonly;
         return this;
+    }
+
+    public Context executor(
+        ExecutorService executor)
+    {
+        this.executor = executor;
+        return this;
+    }
+
+    public ExecutorService executor()
+    {
+        return executor;
     }
 
     public boolean readonly()
@@ -228,12 +250,6 @@ public final class Context implements Closeable
         return counters;
     }
 
-    public Context name(String name)
-    {
-        this.name = name;
-        return this;
-    }
-
     public String name()
     {
         return name;
@@ -311,6 +327,12 @@ public final class Context implements Closeable
 
         routesRO = null;
         controlRO = null;
+
+        if (executor != null)
+        {
+            quietClose(executor::shutdownNow);
+            executor = null;
+        }
     }
 
     private String targetPath(String target)
@@ -330,5 +352,4 @@ public final class Context implements Closeable
             counters = new Counters(countersManager);
         }
     }
-
 }
