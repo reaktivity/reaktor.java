@@ -34,13 +34,12 @@ import org.reaktivity.nukleus.Configuration;
 import org.reaktivity.nukleus.Controller;
 import org.reaktivity.nukleus.ControllerFactory;
 import org.reaktivity.nukleus.Nukleus;
-import org.reaktivity.nukleus.NukleusBuilder;
 import org.reaktivity.nukleus.NukleusFactory;
 import org.reaktivity.reaktor.internal.ControllerBuilderImpl;
 import org.reaktivity.reaktor.internal.LabelManager;
-import org.reaktivity.reaktor.internal.NukleusBuilderImpl;
 import org.reaktivity.reaktor.internal.ReaktorConfiguration;
 import org.reaktivity.reaktor.internal.StateImpl;
+import org.reaktivity.reaktor.internal.agent.NukleusAgent;
 
 public class ReaktorBuilder
 {
@@ -153,12 +152,11 @@ public class ReaktorBuilder
                 int affinity = supplyAffinity(name);
                 StateImpl state = states[affinity];
 
-                NukleusBuilder builder = new NukleusBuilderImpl(name, state);
-                Nukleus nukleus = nukleusFactory.create(name, config, builder);
+                Nukleus nukleus = nukleusFactory.create(name, config);
 
                 configs.add(nukleus.config());
 
-                state.assign(nukleus);
+                state.assign(new NukleusAgent(nukleus, state));
             }
         }
 

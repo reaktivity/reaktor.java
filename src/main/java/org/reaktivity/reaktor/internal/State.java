@@ -17,8 +17,8 @@ package org.reaktivity.reaktor.internal;
 
 import java.util.List;
 
+import org.agrona.concurrent.Agent;
 import org.reaktivity.nukleus.Controller;
-import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.buffer.BufferPool;
 
 public interface State
@@ -41,7 +41,7 @@ public interface State
 
     String lookupLabel(int labelId);
 
-    List<? extends Nukleus> nuklei();
+    List<? extends Agent> agents();
 
     List<? extends Controller> controllers();
 }

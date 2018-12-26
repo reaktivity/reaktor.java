@@ -27,8 +27,8 @@ import org.kaazing.k3po.junit.annotation.ScriptProperty;
 import org.kaazing.k3po.junit.annotation.Specification;
 import org.kaazing.k3po.junit.rules.K3poRule;
 import org.reaktivity.nukleus.Configuration;
+import org.reaktivity.nukleus.Elektron;
 import org.reaktivity.nukleus.Nukleus;
-import org.reaktivity.nukleus.NukleusBuilder;
 import org.reaktivity.nukleus.NukleusFactorySpi;
 import org.reaktivity.reaktor.test.ReaktorRule;
 
@@ -46,7 +46,7 @@ public class ControlIT
         .commandBufferCapacity(1024)
         .responseBufferCapacity(1024)
         .counterValuesBufferCapacity(1024)
-        .nukleusFactory(TestNukleusFactorySpi.class)
+        .nukleusFactory(ExampleNukleusFactorySpi.class)
         .clean();
 
     @Rule
@@ -201,9 +201,8 @@ public class ControlIT
         k3po.finish();
     }
 
-    public static class TestNukleusFactorySpi implements NukleusFactorySpi
+    public static class ExampleNukleusFactorySpi implements NukleusFactorySpi
     {
-
         @Override
         public String name()
         {
@@ -211,11 +210,40 @@ public class ControlIT
         }
 
         @Override
-        public Nukleus create(Configuration config, NukleusBuilder builder)
+        public ExampleNukleus create(
+            Configuration config)
         {
-            return builder.configure(config).build();
+            return new ExampleNukleus(config);
         }
 
+        private static final class ExampleNukleus implements Nukleus
+        {
+            private final Configuration config;
+
+            private ExampleNukleus(
+                Configuration config)
+            {
+                this.config = config;
+            }
+
+            @Override
+            public String name()
+            {
+                return "example";
+            }
+
+            @Override
+            public Configuration config()
+            {
+                return config;
+            }
+
+            @Override
+            public Elektron supplyElektron()
+            {
+                return null;
+            }
+        }
     }
 
 }

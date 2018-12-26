@@ -21,11 +21,11 @@ import java.util.function.IntFunction;
 
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
+import org.agrona.concurrent.Agent;
 import org.agrona.concurrent.MessageHandler;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.agrona.concurrent.broadcast.BroadcastTransmitter;
 import org.agrona.concurrent.ringbuffer.RingBuffer;
-import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.function.CommandHandler;
 import org.reaktivity.reaktor.internal.Context;
 import org.reaktivity.reaktor.internal.router.Router;
@@ -38,7 +38,7 @@ import org.reaktivity.reaktor.internal.types.control.RoutedFW;
 import org.reaktivity.reaktor.internal.types.control.UnrouteFW;
 import org.reaktivity.reaktor.internal.types.control.UnroutedFW;
 
-public final class Conductor implements Nukleus
+public final class Conductor implements Agent
 {
     private final CommandFW commandRO = new CommandFW();
     private final RouteFW routeRO = new RouteFW();
@@ -119,7 +119,7 @@ public final class Conductor implements Nukleus
     }
 
     @Override
-    public int process()
+    public int doWork()
     {
         final int work = conductorCommands.read(commandHandler);
 
@@ -143,7 +143,7 @@ public final class Conductor implements Nukleus
     @Override
     public String toString()
     {
-        return name();
+        return roleName();
     }
 
     public void setCommandHandlerSupplier(
@@ -153,7 +153,7 @@ public final class Conductor implements Nukleus
     }
 
     @Override
-    public String name()
+    public String roleName()
     {
         return "conductor";
     }

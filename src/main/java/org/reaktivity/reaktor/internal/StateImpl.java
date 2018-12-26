@@ -23,8 +23,8 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.reaktivity.nukleus.Controller;
-import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.buffer.BufferPool;
+import org.reaktivity.reaktor.internal.agent.NukleusAgent;
 import org.reaktivity.reaktor.internal.buffer.DefaultBufferPool;
 
 public final class StateImpl implements State, Comparable<StateImpl>
@@ -34,7 +34,7 @@ public final class StateImpl implements State, Comparable<StateImpl>
     private final long mask;
     private final AtomicInteger routeId;
     private final LabelManager labels;
-    private final List<Nukleus> nuklei;
+    private final List<NukleusAgent> nuklei;
     private final List<Controller> controllers;
 
     private long streamId;
@@ -171,12 +171,12 @@ public final class StateImpl implements State, Comparable<StateImpl>
     }
 
     public void assign(
-        Nukleus nukleus)
+        NukleusAgent agent)
     {
-        nuklei.add(nukleus);
+        nuklei.add(agent);
     }
 
-    public List<? extends Nukleus> nuklei()
+    public List<NukleusAgent> agents()
     {
         return nuklei;
     }
