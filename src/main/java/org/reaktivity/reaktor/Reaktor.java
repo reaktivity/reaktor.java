@@ -34,16 +34,16 @@ import org.agrona.concurrent.AgentRunner;
 import org.agrona.concurrent.IdleStrategy;
 import org.reaktivity.nukleus.Configuration;
 import org.reaktivity.nukleus.Controller;
-import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.reaktor.internal.State;
+import org.reaktivity.reaktor.internal.agent.NukleusAgent;
 
 public final class Reaktor implements AutoCloseable
 {
     private final IdleStrategy idleStrategy;
     private final ErrorHandler errorHandler;
     private final Set<Configuration> configs;
-    private final Map<String, Nukleus> nukleiByName;
+    private final Map<String, NukleusAgent> nukleiByName;
     private final Map<Class<? extends Controller>, Controller> controllersByKind;
 
     private volatile Core[] cores;
@@ -66,9 +66,13 @@ public final class Reaktor implements AutoCloseable
         {
             cores[i] = new Core(namer.apply(i), states[i]);
 
-            for (Nukleus nukleus : states[i].nuklei())
+            for (Agent agent : states[i].agents())
             {
-                nukleiByName.put(nukleus.name(), nukleus);
+                if (agent instanceof NukleusAgent)
+                {
+                    NukleusAgent nukleus = (NukleusAgent) agent;
+                    nukleiByName.put(nukleus.roleName(), nukleus);
+                }
             }
 
             for (Controller controller : states[i].controllers())
@@ -92,14 +96,7 @@ public final class Reaktor implements AutoCloseable
         return kind.cast(controllersByKind.get(kind));
     }
 
-    public <T extends Nukleus> T nukleus(
-        String name,
-        Class<T> kind)
-    {
-        return kind.cast(nukleiByName.get(name));
-    }
-
-    public Nukleus nukleus(
+    public Agent nukleus(
         String name)
     {
         return nukleiByName.get(name);
@@ -108,11 +105,6 @@ public final class Reaktor implements AutoCloseable
     public Set<Class<? extends Controller>> controllerKinds()
     {
         return controllersByKind.keySet();
-    }
-
-    public Set<String> nukleusNames()
-    {
-        return nukleiByName.keySet();
     }
 
     public Reaktor start()
@@ -158,7 +150,7 @@ public final class Reaktor implements AutoCloseable
     {
         private final String roleName;
         private final BufferPool bufferPool;
-        private final Nukleus[] nuklei;
+        private final Agent[] agents;
         private final Controller[] controllers;
 
         private volatile AgentRunner runner;
@@ -167,8 +159,8 @@ public final class Reaktor implements AutoCloseable
             String roleName,
             State state)
         {
+            this.agents = state.agents().toArray(new Agent[0]);
             this.roleName = roleName;
-            this.nuklei = state.nuklei().toArray(new Nukleus[0]);
             this.controllers = state.controllers().toArray(new Controller[0]);
             this.bufferPool = state.bufferPool();
         }
@@ -194,32 +186,31 @@ public final class Reaktor implements AutoCloseable
         @Override
         public int doWork() throws Exception
         {
-            int work = 0;
+            int workDone = 0;
 
-            final Nukleus[] nuklei = this.nuklei;
-            for (int i=0; i < nuklei.length; i++)
+            for (final Agent agent : agents)
             {
-                work += nuklei[i].process();
+                workDone += agent.doWork();
             }
 
             final Controller[] controllers = this.controllers;
             for (int i=0; i < controllers.length; i++)
             {
-                work += controllers[i].process();
+                workDone += controllers[i].process();
             }
 
-            return work;
+            return workDone;
         }
 
         @Override
         public void onClose()
         {
             final List<Throwable> errors = new ArrayList<>();
-            for (int i=0; i < nuklei.length; i++)
+            for (int i=0; i < agents.length; i++)
             {
                 try
                 {
-                    nuklei[i].close();
+                    agents[i].onClose();
                 }
                 catch (Throwable t)
                 {

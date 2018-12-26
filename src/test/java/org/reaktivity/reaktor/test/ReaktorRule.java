@@ -40,12 +40,11 @@ import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
 import org.reaktivity.nukleus.Configuration.PropertyDef;
 import org.reaktivity.nukleus.Controller;
-import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.NukleusFactorySpi;
 import org.reaktivity.reaktor.Reaktor;
 import org.reaktivity.reaktor.ReaktorBuilder;
-import org.reaktivity.reaktor.internal.NukleusBuilderImpl;
 import org.reaktivity.reaktor.internal.ReaktorConfiguration;
+import org.reaktivity.reaktor.internal.agent.NukleusAgent;
 import org.reaktivity.reaktor.test.annotation.Configure;
 
 public final class ReaktorRule implements TestRule
@@ -136,19 +135,18 @@ public final class ReaktorRule implements TestRule
         return this;
     }
 
-    public <T extends Nukleus> T nukleus(
-        String name,
-        Class<T> kind)
+    private NukleusAgent nukleus(
+        String name)
     {
         if (reaktor == null)
         {
             throw new IllegalStateException("Reaktor not started");
         }
 
-        T nukleus = reaktor.nukleus(name, kind);
+        NukleusAgent nukleus = (NukleusAgent) reaktor.nukleus(name);
         if (nukleus == null)
         {
-            throw new IllegalStateException("nukleus not found: " + name + " " + kind.getName());
+            throw new IllegalStateException("nukleus not found: " + name);
         }
 
         return nukleus;
@@ -265,7 +263,7 @@ public final class ReaktorRule implements TestRule
         String nukleus,
         String name)
     {
-        return nukleus(nukleus, NukleusBuilderImpl.NukleusImpl.class).counter(name);
+        return nukleus(nukleus).counter(name);
     }
 
     private ReaktorConfiguration configuration()

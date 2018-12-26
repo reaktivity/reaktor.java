@@ -25,7 +25,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.reaktivity.nukleus.route.RouteKind.SERVER;
 
 import java.util.function.Function;
 import java.util.function.IntUnaryOperator;
@@ -46,12 +45,13 @@ import org.kaazing.k3po.junit.annotation.Specification;
 import org.kaazing.k3po.junit.rules.K3poRule;
 import org.mockito.ArgumentCaptor;
 import org.reaktivity.nukleus.Configuration;
+import org.reaktivity.nukleus.Elektron;
 import org.reaktivity.nukleus.Nukleus;
-import org.reaktivity.nukleus.NukleusBuilder;
 import org.reaktivity.nukleus.NukleusFactorySpi;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.function.SignalingExecutor;
+import org.reaktivity.nukleus.route.RouteKind;
 import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
@@ -294,11 +294,60 @@ public class StreamsIT
         }
 
         @Override
-        public Nukleus create(Configuration config, NukleusBuilder builder)
+        public ExampleNukleus create(Configuration config)
         {
-            return builder.configure(config)
-                          .streamFactory(SERVER, serverStreamFactory)
-                          .build();
+            return new ExampleNukleus(config);
+        }
+
+        private final class ExampleNukleus implements Nukleus
+        {
+            private final Configuration config;
+
+            private ExampleNukleus(
+                Configuration config)
+            {
+                this.config = config;
+            }
+
+            @Override
+            public String name()
+            {
+                return "example";
+            }
+
+            @Override
+            public Configuration config()
+            {
+                return config;
+            }
+
+            @Override
+            public Elektron supplyElektron()
+            {
+                return new ExampleElektron();
+            }
+
+            private final class ExampleElektron implements Elektron
+            {
+
+                @Override
+                public StreamFactoryBuilder streamFactoryBuilder(
+                    RouteKind kind)
+                {
+                    StreamFactoryBuilder builder = null;
+
+                    switch (kind)
+                    {
+                    case SERVER:
+                        builder = serverStreamFactory;
+                        break;
+                    default:
+                        break;
+                    }
+
+                    return builder;
+                }
+            }
         }
 
         private void doBegin(

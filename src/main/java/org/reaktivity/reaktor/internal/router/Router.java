@@ -21,9 +21,11 @@ import static org.agrona.CloseHelper.quietClose;
 import static org.agrona.LangUtil.rethrowUnchecked;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -43,15 +45,17 @@ import org.agrona.LangUtil;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Int2ObjectHashMap;
 import org.agrona.collections.Long2ObjectHashMap;
+import org.agrona.concurrent.Agent;
 import org.agrona.concurrent.MessageHandler;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.agrona.concurrent.ringbuffer.RingBuffer;
 import org.agrona.concurrent.status.AtomicCounter;
-import org.reaktivity.nukleus.Nukleus;
+import org.reaktivity.nukleus.Elektron;
 import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessageFunction;
 import org.reaktivity.nukleus.function.MessagePredicate;
+import org.reaktivity.nukleus.route.RouteKind;
 import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
@@ -77,7 +81,7 @@ import org.reaktivity.reaktor.internal.types.stream.ResetFW;
 import org.reaktivity.reaktor.internal.types.stream.SignalFW;
 import org.reaktivity.reaktor.internal.types.stream.WindowFW;
 
-public final class Router implements RouteManager, Nukleus
+public final class Router implements RouteManager, Agent
 {
     private static final Pattern ADDRESS_PATTERN = Pattern.compile("^([^#]+)(:?#.*)$");
 
@@ -114,9 +118,10 @@ public final class Router implements RouteManager, Nukleus
     private final Long2ObjectHashMap<MessageConsumer> throttles;
     private final Long2ObjectHashMap<ReadCounters> countersByRouteId;
 
-    private final Map<Integer, Role> localRoles;
+    private final Map<Integer, RouteKind> localRouteKinds;
 
-    private final Map<Role, StreamFactory> streamFactories;
+    private final Map<RouteKind, StreamFactory> streamFactories;
+    private final Agent[] agents;
     private final StreamsLayout streamsLayout;
     private final int messageCountLimit;
     private final RingBuffer streamsBuffer;
@@ -124,12 +129,13 @@ public final class Router implements RouteManager, Nukleus
 
     private Conductor conductor;
     private boolean timestamps;
-    private Function<Role, MessagePredicate> supplyRouteHandler;
+    private Function<RouteKind, MessagePredicate> supplyRouteHandler;
+
 
     public Router(
         Context context,
         State state,
-        Function<Role, StreamFactoryBuilder> supplyStreamFactoryBuilder)
+        Supplier<Elektron> supplyElektron)
     {
         this.context = context;
         this.state = state;
@@ -147,40 +153,51 @@ public final class Router implements RouteManager, Nukleus
         this.streams = new Long2ObjectHashMap<>();
         this.throttles = new Long2ObjectHashMap<>();
         this.countersByRouteId = new Long2ObjectHashMap<>();
-        this.localRoles = new ConcurrentHashMap<>();
+        this.localRouteKinds = new ConcurrentHashMap<>();
 
-        final Map<Role, StreamFactory> streamFactories = new EnumMap<>(Role.class);
+        final Map<RouteKind, StreamFactory> streamFactories = new EnumMap<>(RouteKind.class);
         final Function<String, LongSupplier> supplyCounter = name -> () -> context.counters().counter(name).increment() + 1;
         final Function<String, LongConsumer> supplyAccumulator = name -> (i) -> context.counters().counter(name).add(i);
         final AtomicCounter acquires = context.counters().acquires();
         final AtomicCounter releases = context.counters().releases();
         final BufferPool bufferPool = new CountingBufferPool(state.bufferPool(), acquires::increment, releases::increment);
         final Supplier<BufferPool> supplyCountingBufferPool = () -> bufferPool;
-        for (Role role : EnumSet.allOf(Role.class))
+        final Elektron elektron = supplyElektron.get();
+        final List<Agent> agents = new ArrayList<>();
+        if (elektron != null)
         {
-            final StreamFactoryBuilder streamFactoryBuilder = supplyStreamFactoryBuilder.apply(role);
-            if (streamFactoryBuilder != null)
+            for (RouteKind routeKind : EnumSet.allOf(RouteKind.class))
             {
-                StreamFactory streamFactory = streamFactoryBuilder
-                        .setRouteManager(this)
-                        .setExecutor(this::executeAndSignal)
-                        .setWriteBuffer(writeBuffer)
-                        .setInitialIdSupplier(state::supplyInitialId)
-                        .setReplyIdSupplier(state::supplyReplyId)
-                        .setSourceCorrelationIdSupplier(state::supplyCorrelationId)
-                        .setTargetCorrelationIdSupplier(state::supplyCorrelationId)
-                        .setTraceSupplier(state::supplyTrace)
-                        .setGroupIdSupplier(state::supplyGroupId)
-                        .setGroupBudgetClaimer(groupBudgetManager::claim)
-                        .setGroupBudgetReleaser(groupBudgetManager::release)
-                        .setCounterSupplier(supplyCounter)
-                        .setAccumulatorSupplier(supplyAccumulator)
-                        .setBufferPoolSupplier(supplyCountingBufferPool)
-                        .build();
-                streamFactories.put(role, streamFactory);
+                final StreamFactoryBuilder streamFactoryBuilder = elektron.streamFactoryBuilder(routeKind);
+                if (streamFactoryBuilder != null)
+                {
+                    StreamFactory streamFactory = streamFactoryBuilder
+                            .setRouteManager(this)
+                            .setExecutor(this::executeAndSignal)
+                            .setWriteBuffer(writeBuffer)
+                            .setInitialIdSupplier(state::supplyInitialId)
+                            .setReplyIdSupplier(state::supplyReplyId)
+                            .setSourceCorrelationIdSupplier(state::supplyCorrelationId)
+                            .setTargetCorrelationIdSupplier(state::supplyCorrelationId)
+                            .setTraceSupplier(state::supplyTrace)
+                            .setGroupIdSupplier(state::supplyGroupId)
+                            .setGroupBudgetClaimer(groupBudgetManager::claim)
+                            .setGroupBudgetReleaser(groupBudgetManager::release)
+                            .setCounterSupplier(supplyCounter)
+                            .setAccumulatorSupplier(supplyAccumulator)
+                            .setBufferPoolSupplier(supplyCountingBufferPool)
+                            .build();
+                    streamFactories.put(routeKind, streamFactory);
+                }
+            }
+            final Agent agent = elektron.agent();
+            if (agent != null)
+            {
+                agents.add(agent);
             }
         }
         this.streamFactories = streamFactories;
+        this.agents = agents.toArray(new Agent[0]);
 
         final StreamsLayout streamsLayout = new StreamsLayout.Builder()
                 .path(context.sourceStreamsPath())
@@ -207,21 +224,46 @@ public final class Router implements RouteManager, Nukleus
     }
 
     public void setRouteHandlerSupplier(
-        Function<Role, MessagePredicate> supplyRouteHandler)
+        Function<RouteKind, MessagePredicate> supplyRouteHandler)
     {
         this.supplyRouteHandler = supplyRouteHandler;
     }
 
     @Override
-    public String name()
+    public String roleName()
     {
         return "router";
     }
 
     @Override
-    public int process()
+    public int doWork() throws Exception
     {
-        return streamsBuffer.read(readHandler, messageCountLimit);
+        int workDone = 0;
+
+        for (final Agent agent : agents)
+        {
+            workDone += agent.doWork();
+        }
+
+        workDone += streamsBuffer.read(readHandler, messageCountLimit);
+
+        return workDone;
+    }
+
+    @Override
+    public void onClose()
+    {
+        for (final Agent agent : agents)
+        {
+            quietClose(agent::onClose);
+        }
+
+        targetsByName.forEach((k, v) -> v.detach());
+        targetsByName.forEach((k, v) -> quietClose(v));
+
+        streams.forEach(this::doSyntheticAbort);
+
+        streamsLayout.close();
     }
 
     @Override
@@ -322,17 +364,6 @@ public final class Router implements RouteManager, Nukleus
         });
     }
 
-    @Override
-    public void close() throws Exception
-    {
-        targetsByName.forEach((k, v) -> v.detach());
-        targetsByName.forEach((k, v) -> quietClose(v));
-
-        streams.forEach(this::doSyntheticAbort);
-
-        streamsLayout.close();
-    }
-
     public MessageConsumer supplyReplyTo(
         long routeId,
         long streamId)
@@ -355,8 +386,9 @@ public final class Router implements RouteManager, Nukleus
         try
         {
             final Role role = route.role().get();
+            final RouteKind routeKind = RouteKind.valueOf(role.ordinal());
 
-            MessagePredicate routeHandler = supplyRouteHandler.apply(role);
+            MessagePredicate routeHandler = supplyRouteHandler.apply(routeKind);
             if (routeHandler == null)
             {
                 routeHandler = (t, b, i, l) -> true;
@@ -389,8 +421,8 @@ public final class Router implements RouteManager, Nukleus
         try
         {
             final long routeId = unroute.routeId();
-            final Role role = replyRole(routeId);
-            MessagePredicate routeHandler = supplyRouteHandler.apply(role);
+            final RouteKind routeKind = replyRouteKind(routeId);
+            MessagePredicate routeHandler = supplyRouteHandler.apply(routeKind);
             if (routeHandler == null)
             {
                 routeHandler = (t, b, i, l) -> true;
@@ -517,9 +549,9 @@ public final class Router implements RouteManager, Nukleus
 
         final int localId = state.supplyLabelId(localAddress);
         final int remoteId = state.supplyLabelId(remoteAddress);
-
-        final Role existingRole = localRoles.putIfAbsent(localId, role);
-        if (existingRole != null && existingRole != role)
+        final RouteKind routeKind = RouteKind.valueOf(role.ordinal());
+        final RouteKind existingRouteKind = localRouteKinds.putIfAbsent(localId, routeKind);
+        if (existingRouteKind != null && existingRouteKind != routeKind)
         {
             throw new IllegalArgumentException("localAddress " + localAddress + " reused with different Role");
         }
@@ -541,13 +573,13 @@ public final class Router implements RouteManager, Nukleus
                       .build();
     }
 
-    private Role resolveRole(
+    private RouteKind resolveRouteKind(
         long routeId,
         long streamId)
     {
         return (streamId & 0x8000_0000_0000_0000L) == 0L
-                ? localRoles.get(remoteId(routeId))
-                : replyRole(routeId);
+                ? localRouteKinds.get(remoteId(routeId))
+                : replyRouteKind(routeId);
     }
 
     private int localId(
@@ -562,10 +594,10 @@ public final class Router implements RouteManager, Nukleus
         return (int)(routeId >> 32) & 0xffff;
     }
 
-    private Role replyRole(
+    private RouteKind replyRouteKind(
         long routeId)
     {
-        return Role.valueOf((int)(routeId >> 28) & 0x0f);
+        return RouteKind.valueOf((int)(routeId >> 28) & 0x0f);
     }
 
     private void handleRead(
@@ -759,9 +791,9 @@ public final class Router implements RouteManager, Nukleus
         final BeginFW begin = beginRO.wrap(buffer, index, index + length);
         final long routeId = begin.routeId();
         final long streamId = begin.streamId();
-        final Role role = resolveRole(routeId, streamId);
+        final RouteKind routeKind = resolveRouteKind(routeId, streamId);
 
-        StreamFactory streamFactory = streamFactories.get(role);
+        StreamFactory streamFactory = streamFactories.get(routeKind);
         MessageConsumer newStream = null;
         if (streamFactory != null)
         {

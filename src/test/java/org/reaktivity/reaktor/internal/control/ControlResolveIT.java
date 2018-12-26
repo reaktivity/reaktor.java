@@ -42,8 +42,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.reaktivity.nukleus.Configuration;
+import org.reaktivity.nukleus.Elektron;
 import org.reaktivity.nukleus.Nukleus;
-import org.reaktivity.nukleus.NukleusBuilder;
 import org.reaktivity.nukleus.NukleusFactorySpi;
 import org.reaktivity.nukleus.function.CommandHandler;
 import org.reaktivity.nukleus.function.MessageConsumer;
@@ -67,7 +67,7 @@ public class ControlResolveIT
         .commandBufferCapacity(1024)
         .responseBufferCapacity(1024)
         .counterValuesBufferCapacity(1024)
-        .nukleusFactory(TestNukleusFactorySpi.class)
+        .nukleusFactory(SecurityNukleusFactorySpi.class)
         .clean();
 
     @Rule
@@ -92,7 +92,7 @@ public class ControlResolveIT
         k3po.finish();
     }
 
-    public static class TestNukleusFactorySpi implements NukleusFactorySpi
+    public static class SecurityNukleusFactorySpi implements NukleusFactorySpi
     {
         private CommandHandler resolver = mock(CommandHandler.class);
         private CommandHandler unresolver = mock(CommandHandler.class);
@@ -106,7 +106,7 @@ public class ControlResolveIT
         private UnresolvedFW.Builder unresolvedRW = new UnresolvedFW.Builder();
         private MutableDirectBuffer writeBuffer = new UnsafeBuffer(allocateDirect(1024).order(nativeOrder()));
 
-        public TestNukleusFactorySpi()
+        public SecurityNukleusFactorySpi()
         {
             doNothing().when(replyConsumer).accept(reply.capture());
 
@@ -163,14 +163,59 @@ public class ControlResolveIT
         }
 
         @Override
-        public Nukleus create(Configuration config, NukleusBuilder builder)
+        public SecurityNukleus create(
+            Configuration config)
         {
-            return builder.configure(config)
-                          .commandHandler(ResolveFW.TYPE_ID, resolver)
-                          .commandHandler(UnresolveFW.TYPE_ID, unresolver)
-                          .build();
+            return new SecurityNukleus(config);
         }
 
+        private final class SecurityNukleus implements Nukleus
+        {
+            private final Configuration config;
+
+            private SecurityNukleus(
+                Configuration config)
+            {
+                this.config = config;
+            }
+
+            @Override
+            public String name()
+            {
+                return "security";
+            }
+
+            @Override
+            public Configuration config()
+            {
+                return config;
+            }
+
+            @Override
+            public CommandHandler commandHandler(
+                int msgTypeId)
+            {
+                CommandHandler handler = null;
+
+                switch (msgTypeId)
+                {
+                case ResolveFW.TYPE_ID:
+                    handler = resolver;
+                    break;
+                case UnresolveFW.TYPE_ID:
+                    handler = unresolver;
+                    break;
+                }
+
+                return handler;
+            }
+
+            @Override
+            public Elektron supplyElektron()
+            {
+                return null;
+            }
+        }
     }
 
 }

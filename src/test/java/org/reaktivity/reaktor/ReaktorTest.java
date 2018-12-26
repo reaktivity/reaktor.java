@@ -21,6 +21,7 @@ import static java.util.Collections.singletonList;
 import static org.junit.Assert.assertNotSame;
 
 import org.agrona.ErrorHandler;
+import org.agrona.concurrent.Agent;
 import org.agrona.concurrent.IdleStrategy;
 import org.jmock.Expectations;
 import org.jmock.integration.junit4.JUnitRuleMockery;
@@ -28,7 +29,6 @@ import org.jmock.lib.concurrent.Synchroniser;
 import org.junit.Rule;
 import org.junit.Test;
 import org.reaktivity.nukleus.Controller;
-import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.reaktor.internal.State;
 
@@ -58,7 +58,7 @@ public class ReaktorTest
                 allowing(controller).process(); will(returnValue(0));
                 allowing(idleStrategy).idle(with(any(int.class)));
                 allowing(state).bufferPool(); will(returnValue(bufferPool));
-                allowing(state).nuklei(); will(returnValue(emptyList()));
+                allowing(state).agents(); will(returnValue(emptyList()));
                 allowing(state).controllers(); will(returnValue(singletonList(controller)));
 
                 oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
@@ -79,7 +79,7 @@ public class ReaktorTest
     @Test
     public void shouldCloseNuklei() throws Exception
     {
-        final Nukleus nukleus = context.mock(Nukleus.class);
+        final Agent nukleus = context.mock(Agent.class);
         final IdleStrategy idleStrategy = context.mock(IdleStrategy.class);
         final ErrorHandler errorHandler = context.mock(ErrorHandler.class);
         final State state = context.mock(State.class);
@@ -88,15 +88,14 @@ public class ReaktorTest
         context.checking(new Expectations()
         {
             {
-                allowing(nukleus).process(); will(returnValue(0));
+                allowing(nukleus).doWork(); will(returnValue(0));
                 allowing(idleStrategy).idle(with(any(int.class)));
                 allowing(state).bufferPool(); will(returnValue(bufferPool));
-                allowing(state).nuklei(); will(returnValue(singletonList(nukleus)));
+                allowing(state).agents(); will(returnValue(singletonList(nukleus)));
                 allowing(state).controllers(); will(returnValue(emptyList()));
 
                 oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
-                oneOf(nukleus).name(); will(returnValue("nukleus-name"));
-                oneOf(nukleus).close();
+                oneOf(nukleus).onClose();
             }
         });
         Reaktor reaktor = new Reaktor(
@@ -124,7 +123,7 @@ public class ReaktorTest
                 allowing(controller).process(); will(returnValue(0));
                 allowing(idleStrategy).idle(with(any(int.class)));
                 allowing(state).bufferPool(); will(returnValue(bufferPool));
-                allowing(state).nuklei(); will(returnValue(emptyList()));
+                allowing(state).agents(); will(returnValue(emptyList()));
                 allowing(state).controllers(); will(returnValue(singletonList(controller)));
 
                 oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
@@ -153,7 +152,7 @@ public class ReaktorTest
     @Test(expected = Exception.class)
     public void shouldReportNukleusCloseError() throws Exception
     {
-        final Nukleus nukleus = context.mock(Nukleus.class);
+        final Agent nukleus = context.mock(Agent.class);
         final IdleStrategy idleStrategy = context.mock(IdleStrategy.class);
         final ErrorHandler errorHandler = context.mock(ErrorHandler.class);
         final State state = context.mock(State.class);
@@ -162,15 +161,14 @@ public class ReaktorTest
         context.checking(new Expectations()
         {
             {
-                allowing(nukleus).process(); will(returnValue(0));
+                allowing(nukleus).doWork(); will(returnValue(0));
                 allowing(idleStrategy).idle(with(any(int.class)));
                 allowing(state).bufferPool(); will(returnValue(bufferPool));
-                allowing(state).nuklei(); will(returnValue(singletonList(nukleus)));
+                allowing(state).agents(); will(returnValue(singletonList(nukleus)));
                 allowing(state).controllers(); will(returnValue(emptyList()));
 
                 oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
-                oneOf(nukleus).name(); will(returnValue("nukleus-name"));
-                oneOf(nukleus).close(); will(throwException(new Exception("Nukleus close failed")));
+                oneOf(nukleus).onClose(); will(throwException(new Exception("Nukleus close failed")));
             }
         });
         Reaktor reaktor = new Reaktor(
@@ -195,7 +193,7 @@ public class ReaktorTest
     public void shouldReportAllCloseErrors() throws Exception
     {
         final Controller controller = context.mock(Controller.class);
-        final Nukleus nukleus = context.mock(Nukleus.class);
+        final Agent nukleus = context.mock(Agent.class);
         final IdleStrategy idleStrategy = context.mock(IdleStrategy.class);
         final ErrorHandler errorHandler = context.mock(ErrorHandler.class);
         final State state = context.mock(State.class);
@@ -205,17 +203,16 @@ public class ReaktorTest
         {
             {
                 allowing(controller).process(); will(returnValue(0));
-                allowing(nukleus).process(); will(returnValue(0));
+                allowing(nukleus).doWork(); will(returnValue(0));
                 allowing(idleStrategy).idle(with(any(int.class)));
                 allowing(state).bufferPool(); will(returnValue(bufferPool));
-                allowing(state).nuklei(); will(returnValue(singletonList(nukleus)));
+                allowing(state).agents(); will(returnValue(singletonList(nukleus)));
                 allowing(state).controllers(); will(returnValue(singletonList(controller)));
 
                 oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
                 oneOf(controller).kind(); will(returnValue(Controller.class));
-                oneOf(nukleus).name(); will(returnValue("nukleus-name"));
                 oneOf(controller).close(); will(throwException(new Exception("controller close failed")));
-                oneOf(nukleus).close(); will(throwException(new Exception("Nukleus close failed")));
+                oneOf(nukleus).onClose(); will(throwException(new Exception("Nukleus close failed")));
             }
         });
         Reaktor reaktor = new Reaktor(
