@@ -19,77 +19,17 @@ import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.junit.Assert.assertThat;
 
 import java.io.IOException;
-import java.util.concurrent.ExecutorService;
 
 import org.junit.Test;
-import org.reaktivity.nukleus.function.CommandHandler;
-import org.reaktivity.nukleus.function.MessagePredicate;
-import org.reaktivity.nukleus.route.RouteKind;
-import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 
 public final class NukleusFactoryTest
 {
-
     @Test
     public void shouldLoadAndCreate() throws IOException
     {
         Configuration config = new Configuration();
         NukleusFactory factory = NukleusFactory.instantiate();
-        NukleusBuilder builder = new NukleusBuilder()
-        {
-            @Override
-            public NukleusBuilder configure(
-                Configuration config)
-            {
-                return this;
-            }
-
-            @Override
-            public NukleusBuilder executor(
-                ExecutorService executor)
-            {
-                return this;
-            }
-
-            @Override
-            public NukleusBuilder streamFactory(
-                RouteKind kind,
-                StreamFactoryBuilder supplier)
-            {
-                return this;
-            }
-
-            @Override
-            public NukleusBuilder inject(
-                Nukleus component)
-            {
-                return this;
-            }
-
-            @Override
-            public NukleusBuilder routeHandler(
-                RouteKind kind,
-                MessagePredicate handler)
-            {
-                return this;
-            }
-
-            @Override
-            public Nukleus build()
-            {
-                return null;
-            }
-
-            @Override
-            public NukleusBuilder commandHandler(
-                int msgTypeId,
-                CommandHandler handler)
-            {
-                return this;
-            }
-        };
-
-        Nukleus nukleus = factory.create("test", config, builder);
+        Nukleus nukleus = factory.create("test", config);
 
         assertThat(nukleus, instanceOf(TestNukleus.class));
     }
@@ -104,26 +44,42 @@ public final class NukleusFactoryTest
 
         @Override
         public Nukleus create(
-            Configuration config,
-            NukleusBuilder builder)
+            Configuration config)
         {
-            return new TestNukleus();
+            return new TestNukleus(config);
         }
     }
 
     private static final class TestNukleus implements Nukleus
     {
-        @Override
-        public int process()
+        private final Configuration config;
+
+        private TestNukleus(
+            Configuration config)
         {
-            // no-op
-            return 0;
+            this.config = config;
         }
 
         @Override
-        public void close() throws Exception
+        public String name()
         {
-            // no-op
+            return "test";
+        }
+
+        @Override
+        public Configuration config()
+        {
+            return config;
+        }
+
+        @Override
+        public TestElektron supplyElektron()
+        {
+            return new TestElektron();
+        }
+
+        private static final class TestElektron implements Elektron
+        {
         }
     }
 }

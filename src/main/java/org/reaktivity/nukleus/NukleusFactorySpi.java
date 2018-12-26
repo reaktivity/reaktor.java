@@ -20,6 +20,5 @@ public interface NukleusFactorySpi
     String name();
 
     Nukleus create(
-        Configuration config,
-        NukleusBuilder builder);
+        Configuration config);
 }

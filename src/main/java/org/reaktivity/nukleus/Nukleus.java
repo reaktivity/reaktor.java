@@ -15,137 +15,32 @@
  */
 package org.reaktivity.nukleus;
 
-import org.agrona.collections.ArrayUtil;
+import java.util.concurrent.ExecutorService;
 
-@FunctionalInterface
-public interface Nukleus extends AutoCloseable
+import org.reaktivity.nukleus.function.CommandHandler;
+import org.reaktivity.nukleus.function.MessagePredicate;
+import org.reaktivity.nukleus.route.RouteKind;
+
+public interface Nukleus
 {
-    int process();
+    String name();
+    Configuration config();
+    Elektron supplyElektron();
 
-    @Override
-    default void close() throws Exception
-    {
-    }
-
-    default String name()
+    default CommandHandler commandHandler(
+        int msgTypeId)
     {
         return null;
     }
 
-    default Configuration config()
+    default MessagePredicate routeHandler(
+        RouteKind kind)
     {
         return null;
     }
 
-    class Composite implements Nukleus
+    default ExecutorService executor()
     {
-        private Nukleus[] nuklei;
-
-        protected Composite(
-            Nukleus... nuklei)
-        {
-            this.nuklei = nuklei;
-        }
-
-        @Override
-        public int process()
-        {
-            int weight = 0;
-
-            for (int i=0; i < nuklei.length; i++)
-            {
-                weight += nuklei[i].process();
-            }
-
-            return weight;
-        }
-
-        @Override
-        public void close() throws Exception
-        {
-            Exception deferred = null;
-
-            for (int i=0; i < nuklei.length; i++)
-            {
-                try
-                {
-                    nuklei[i].close();
-                }
-                catch (Exception ex)
-                {
-                    if (deferred == null)
-                    {
-                        deferred = ex;
-                    }
-                    else
-                    {
-                        deferred.addSuppressed(ex);
-                    }
-                }
-            }
-
-            if (deferred != null)
-            {
-                throw deferred;
-            }
-        }
-
-        @Override
-        public final String toString()
-        {
-            StringBuilder builder = new StringBuilder();
-            deepToString(0, builder);
-            return builder.toString();
-        }
-
-        protected void toString(
-            StringBuilder builder)
-        {
-            builder.append(name());
-        }
-
-        protected final void deepToString(
-            int level,
-            StringBuilder builder)
-        {
-            toString(builder);
-
-            if (nuklei.length != 0)
-            {
-                final int nextLevel = level + 1;
-                for (int i=0; i < nuklei.length; i++)
-                {
-                    builder.append('\n');
-                    for (int j=0; j < nextLevel; j++)
-                    {
-                        builder.append("  ");
-                    }
-
-                    final Nukleus nukleus = nuklei[i];
-                    if (nukleus instanceof Nukleus.Composite)
-                    {
-                        ((Nukleus.Composite) nukleus).deepToString(nextLevel, builder);
-                    }
-                    else
-                    {
-                        builder.append(nukleus.toString());
-                    }
-                }
-            }
-        }
-
-        protected final <T extends Nukleus> T include(
-            T nukleus)
-        {
-            nuklei = ArrayUtil.add(nuklei, nukleus);
-            return nukleus;
-        }
-
-        protected final <T extends Nukleus> T exclude(
-            T nukleus)
-        {
-            nuklei = ArrayUtil.remove(nuklei, nukleus);
-            return nukleus;
-        }
+        return null;
     }
 }

@@ -42,15 +42,13 @@ public final class NukleusFactory
 
     public Nukleus create(
         String name,
-        Configuration config,
-        NukleusBuilder builder)
+        Configuration config)
     {
         requireNonNull(name, "name");
-        //requireNonNull(builder, "builder");
 
         NukleusFactorySpi factorySpi = resolveFactory(name);
 
-        return factorySpi.create(config, builder);
+        return factorySpi.create(config);
     }
 
     private NukleusFactorySpi resolveFactory(
