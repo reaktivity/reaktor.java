@@ -15,35 +15,20 @@
  */
 package org.reaktivity.nukleus;
 
-import java.util.concurrent.ExecutorService;
-
-import org.reaktivity.nukleus.function.CommandHandler;
-import org.reaktivity.nukleus.function.MessagePredicate;
+import org.agrona.concurrent.Agent;
 import org.reaktivity.nukleus.route.RouteKind;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 
-public interface NukleusBuilder
+public interface Elektron
 {
-    NukleusBuilder configure(
-        Configuration config);
+    default StreamFactoryBuilder streamFactoryBuilder(
+        RouteKind kind)
+    {
+        return null;
+    }
 
-    NukleusBuilder executor(
-        ExecutorService executor);
-
-    NukleusBuilder routeHandler(
-        RouteKind kind,
-        MessagePredicate handler);
-
-    NukleusBuilder streamFactory(
-        RouteKind kind,
-        StreamFactoryBuilder builder);
-
-    NukleusBuilder inject(
-        Nukleus component);
-
-    NukleusBuilder commandHandler(
-        int msgTypeId,
-        CommandHandler handler);
-
-    Nukleus build();
+    default Agent agent()
+    {
+        return null;
+    }
 }
