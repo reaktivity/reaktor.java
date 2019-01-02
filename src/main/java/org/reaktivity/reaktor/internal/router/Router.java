@@ -274,7 +274,6 @@ public final class Router implements RouteManager, Agent
         return targetsByLabelId.computeIfAbsent(labelId, this::newTarget).writeHandler();
     }
 
-    @Override
     public MessageConsumer supplySender(
         long routeId)
     {
