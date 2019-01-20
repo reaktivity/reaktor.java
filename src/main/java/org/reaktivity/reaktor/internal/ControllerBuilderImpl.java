@@ -15,28 +15,23 @@
  */
 package org.reaktivity.reaktor.internal;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.function.ToIntFunction;
 
 import org.agrona.CloseHelper;
 import org.agrona.DirectBuffer;
 import org.agrona.concurrent.MessageHandler;
 import org.agrona.concurrent.broadcast.BroadcastReceiver;
 import org.agrona.concurrent.broadcast.CopyBroadcastReceiver;
+import org.agrona.concurrent.ringbuffer.ManyToOneRingBuffer;
 import org.agrona.concurrent.ringbuffer.RingBuffer;
 import org.reaktivity.nukleus.Controller;
 import org.reaktivity.nukleus.ControllerBuilder;
 import org.reaktivity.nukleus.ControllerSpi;
-import org.reaktivity.nukleus.function.MessageConsumer;
-import org.reaktivity.nukleus.function.MessagePredicate;
-import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
+import org.reaktivity.reaktor.internal.layouts.ControlLayout;
 import org.reaktivity.reaktor.internal.types.control.CommandFW;
 import org.reaktivity.reaktor.internal.types.control.ErrorFW;
 import org.reaktivity.reaktor.internal.types.control.FreezeFW;
@@ -56,7 +51,6 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
     private final Class<T> kind;
 
     private Function<ControllerSpi, T> factory;
-    private String name;
 
     public ControllerBuilderImpl(
         ReaktorConfiguration config,
@@ -73,14 +67,6 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
     }
 
     @Override
-    public ControllerBuilder<T> setName(
-        String name)
-    {
-        this.name = name;
-        return this;
-    }
-
-    @Override
     public ControllerBuilder<T> setFactory(
         Function<ControllerSpi, T> factory)
     {
@@ -92,18 +78,15 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
     public T build()
     {
         Objects.requireNonNull(factory, "factory");
-        Objects.requireNonNull(name, "name");
 
-        Context context = new Context();
-        context.name(name).readonly(true).conclude(config);
-
-        ControllerSpi controllerSpi = new ControllerSpiImpl(context);
+        ControllerSpi controllerSpi = new ControllerSpiImpl(config);
 
         return factory.apply(controllerSpi);
     }
 
     private final class ControllerSpiImpl implements ControllerSpi
     {
+        private final ControlLayout.Builder controlRW = new ControlLayout.Builder();
         private final CommandFW commandRO = new CommandFW();
         private final RoutedFW routedRO = new RoutedFW();
         private final ResolvedFW resolvedRO = new ResolvedFW();
@@ -112,24 +95,28 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
         private final FrozenFW frozenRO = new FrozenFW();
         private final ErrorFW errorRO = new ErrorFW();
 
-        private final Context context;
         private final RingBuffer conductorCommands;
         private final CopyBroadcastReceiver conductorResponses;
         private final ConcurrentMap<Long, CompletableFuture<?>> promisesByCorrelationId;
-        private final MessageHandler readHandler;
-        private final Map<String, StreamsLayout> sourcesByName;
-        private final Map<String, StreamsLayout> targetsByName;
+        private final MessageHandler responseHandler;
+        private final ControlLayout control;
 
         private ControllerSpiImpl(
-            Context context)
+            ReaktorConfiguration config)
         {
-            this.context = context;
-            this.conductorCommands = context.conductorCommands();
-            this.conductorResponses = new CopyBroadcastReceiver(new BroadcastReceiver(context.conductorResponseBuffer()));
+            this.control = controlRW
+                    .controlPath(config.directory().resolve("control"))
+                    .commandBufferCapacity(config.commandBufferCapacity())
+                    .responseBufferCapacity(config.responseBufferCapacity())
+                    .counterLabelsBufferCapacity(config.counterLabelsBufferCapacity())
+                    .counterValuesBufferCapacity(config.counterValuesBufferCapacity())
+                    .readonly(true)
+                    .build();
+
+            this.conductorCommands = new ManyToOneRingBuffer(control.commandBuffer());
+            this.conductorResponses = new CopyBroadcastReceiver(new BroadcastReceiver(control.responseBuffer()));
             this.promisesByCorrelationId = new ConcurrentHashMap<>();
-            this.sourcesByName = new HashMap<>();
-            this.targetsByName = new HashMap<>();
-            this.readHandler = this::handleResponse;
+            this.responseHandler = this::handleResponse;
         }
 
         @Override
@@ -141,19 +128,13 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
         @Override
         public int doProcess()
         {
-            return conductorResponses.receive(readHandler);
+            return conductorResponses.receive(responseHandler);
         }
 
         @Override
         public void doClose()
         {
-            sourcesByName.values().forEach(CloseHelper::close);
-            sourcesByName.clear();
-
-            targetsByName.values().forEach(CloseHelper::close);
-            targetsByName.clear();
-
-            CloseHelper.close(context);
+            CloseHelper.quietClose(control);
         }
 
         @Override
@@ -214,35 +195,6 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
             assert msgTypeId == FreezeFW.TYPE_ID;
 
             return doCommand(msgTypeId, buffer, index, length);
-        }
-
-        @Override
-        public <R> R doSupplyTarget(
-            String targetName,
-            BiFunction<ToIntFunction<MessageConsumer>, MessagePredicate, R> factory)
-        {
-            StreamsLayout target = targetsByName.computeIfAbsent(targetName, this::newTarget);
-
-            ToIntFunction<MessageConsumer> streams = target.streamsBuffer()::read;
-            MessagePredicate throttle = target.streamsBuffer()::write;
-
-            return factory.apply(streams, throttle);
-        }
-
-        @Override
-        public long doCount(String name)
-        {
-            return context.counters().readonlyCounter(name).getAsLong();
-        }
-
-        private StreamsLayout newTarget(
-            String targetName)
-        {
-            return new StreamsLayout.Builder()
-                    .path(context.targetStreamsPath().apply(targetName))
-                    .streamsCapacity(context.streamsBufferCapacity())
-                    .readonly(false)
-                    .build();
         }
 
         private <R> CompletableFuture<R> doCommand(

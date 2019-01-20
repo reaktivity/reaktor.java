@@ -18,29 +18,23 @@ package org.reaktivity.reaktor.internal.layouts;
 import static org.agrona.IoUtil.createEmptyFile;
 import static org.agrona.IoUtil.mapExistingFile;
 import static org.agrona.IoUtil.unmap;
-import static org.reaktivity.reaktor.internal.types.state.RouteTableFW.FIELD_OFFSET_WRITE_LOCK_ACQUIRES;
-import static org.reaktivity.reaktor.internal.types.state.RouteTableFW.FIELD_OFFSET_WRITE_LOCK_RELEASES;
 
 import java.io.File;
 import java.nio.MappedByteBuffer;
 import java.nio.file.Path;
 
 import org.agrona.CloseHelper;
-import org.agrona.MutableDirectBuffer;
+import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 
 public final class RoutesLayout extends Layout
 {
-
-    private final UnsafeBuffer routesBuffer;
-    private final int routesBufferCapacity;
+    private final AtomicBuffer routesBuffer;
 
     private RoutesLayout(
-            UnsafeBuffer routesBuffer,
-        int routesBufferCapacity)
+        AtomicBuffer routesBuffer)
     {
         this.routesBuffer = routesBuffer;
-        this.routesBufferCapacity = routesBufferCapacity;
     }
 
     @Override
@@ -49,44 +43,29 @@ public final class RoutesLayout extends Layout
         unmap(routesBuffer().byteBuffer());
     }
 
-    public MutableDirectBuffer routesBuffer()
+    public AtomicBuffer routesBuffer()
     {
         return routesBuffer;
-    }
-
-    public int capacity()
-    {
-        return routesBufferCapacity;
-    }
-
-    public int lock()
-    {
-        assert routesBuffer.getInt(FIELD_OFFSET_WRITE_LOCK_ACQUIRES) ==  routesBuffer.getInt(FIELD_OFFSET_WRITE_LOCK_RELEASES);
-        return  routesBuffer.addIntOrdered(FIELD_OFFSET_WRITE_LOCK_ACQUIRES, 1) + 1;
-    }
-
-    public int unlock()
-    {
-        return routesBuffer.addIntOrdered(FIELD_OFFSET_WRITE_LOCK_RELEASES, 1) + 1;
     }
 
     public static final class Builder extends Layout.Builder<RoutesLayout>
     {
 
         private Path path;
-        private int routesBufferCapacity;
+        private int capacity;
         private boolean readonly;
 
-        public Builder routesPath(Path path)
+        public Builder routesPath(
+            Path path)
         {
             this.path = path;
             return this;
         }
 
         public Builder routesBufferCapacity(
-            int routesBufferCapacity)
+            int capacity)
         {
-            this.routesBufferCapacity = routesBufferCapacity;
+            this.capacity = capacity;
             return this;
         }
 
@@ -104,15 +83,14 @@ public final class RoutesLayout extends Layout
 
             if (!readonly)
             {
-                CloseHelper.close(createEmptyFile(routes, routesBufferCapacity));
+                CloseHelper.close(createEmptyFile(routes, capacity));
             }
 
-            final MappedByteBuffer mappedRoutes = mapExistingFile(routes, "routes", 0, routesBufferCapacity);
+            final MappedByteBuffer mappedRoutes = mapExistingFile(routes, "routes");
 
-            final UnsafeBuffer mutableRoutesBuffer = new UnsafeBuffer(mappedRoutes);
+            final AtomicBuffer routesBuffer = new UnsafeBuffer(mappedRoutes);
 
-            return new RoutesLayout(mutableRoutesBuffer, routesBufferCapacity);
+            return new RoutesLayout(routesBuffer);
         }
     }
-
 }

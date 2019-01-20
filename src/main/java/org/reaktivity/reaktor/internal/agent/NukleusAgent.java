@@ -15,89 +15,378 @@
  */
 package org.reaktivity.reaktor.internal.agent;
 
+import static java.nio.ByteBuffer.allocateDirect;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.function.LongSupplier;
+import java.util.function.ToLongFunction;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import org.agrona.CloseHelper;
+import org.agrona.DirectBuffer;
+import org.agrona.LangUtil;
+import org.agrona.MutableDirectBuffer;
 import org.agrona.concurrent.Agent;
+import org.agrona.concurrent.MessageHandler;
+import org.agrona.concurrent.UnsafeBuffer;
+import org.agrona.concurrent.broadcast.BroadcastTransmitter;
+import org.agrona.concurrent.ringbuffer.ManyToOneRingBuffer;
+import org.agrona.concurrent.ringbuffer.RingBuffer;
+import org.agrona.concurrent.status.CountersManager;
 import org.reaktivity.nukleus.Nukleus;
-import org.reaktivity.reaktor.internal.Context;
+import org.reaktivity.nukleus.function.CommandHandler;
+import org.reaktivity.nukleus.function.MessagePredicate;
+import org.reaktivity.nukleus.route.RouteKind;
+import org.reaktivity.reaktor.internal.Counters;
+import org.reaktivity.reaktor.internal.LabelManager;
 import org.reaktivity.reaktor.internal.ReaktorConfiguration;
-import org.reaktivity.reaktor.internal.State;
-import org.reaktivity.reaktor.internal.conductor.Conductor;
+import org.reaktivity.reaktor.internal.layouts.ControlLayout;
 import org.reaktivity.reaktor.internal.router.Router;
+import org.reaktivity.reaktor.internal.types.control.CommandFW;
+import org.reaktivity.reaktor.internal.types.control.ErrorFW;
+import org.reaktivity.reaktor.internal.types.control.FreezeFW;
+import org.reaktivity.reaktor.internal.types.control.FrozenFW;
+import org.reaktivity.reaktor.internal.types.control.Role;
+import org.reaktivity.reaktor.internal.types.control.RouteFW;
+import org.reaktivity.reaktor.internal.types.control.RoutedFW;
+import org.reaktivity.reaktor.internal.types.control.UnrouteFW;
+import org.reaktivity.reaktor.internal.types.control.UnroutedFW;
 
 public class NukleusAgent implements Agent
 {
-    private final Nukleus nukleus;
+    private static final Pattern ADDRESS_PATTERN = Pattern.compile("^([^#]+)(:?#.*)$");
+
+    private final ControlLayout.Builder controlRW = new ControlLayout.Builder();
+
+    private final CommandFW commandRO = new CommandFW();
+    private final RouteFW routeRO = new RouteFW();
+    private final UnrouteFW unrouteRO = new UnrouteFW();
+    private final FreezeFW freezeRO = new FreezeFW();
+
+    private final ErrorFW.Builder errorRW = new ErrorFW.Builder();
+    private final RoutedFW.Builder routedRW = new RoutedFW.Builder();
+    private final UnroutedFW.Builder unroutedRW = new UnroutedFW.Builder();
+    private final FrozenFW.Builder frozenRW = new FrozenFW.Builder();
+
+    private final ReaktorConfiguration config;
+    private final LabelManager labels;
+    private final List<ElektronAgent> elektronAgents;
+    private final Map<String, Nukleus> nukleiByName;
     private final Router router;
-    private final Conductor conductor;
-    private final Context context;
-    private Agent[] agents;
+
+    private final ControlLayout control;
+    private final RingBuffer commandBuffer;
+    private final BroadcastTransmitter responseBuffer;
+    private final MutableDirectBuffer sendBuffer;
+    private final CountersManager countersManager;
+    private final Counters counters;
+    private final MessageHandler commandHandler;
 
     public NukleusAgent(
-        Nukleus nukleus,
-        State state)
+        ReaktorConfiguration config)
     {
-        this.nukleus = nukleus;
+        this.config = config;
+        this.labels = new LabelManager(config.directory());
+        this.elektronAgents = new ArrayList<>();
+        this.nukleiByName = new HashMap<>();
 
-        ReaktorConfiguration reaktorConfig = new ReaktorConfiguration(nukleus.config());
-        Context context = new Context();
-        context.name(nukleus.name()).executor(nukleus.executor()).conclude(reaktorConfig);
+        this.control = controlRW
+                .controlPath(config.directory().resolve("control"))
+                .commandBufferCapacity(config.commandBufferCapacity())
+                .responseBufferCapacity(config.responseBufferCapacity())
+                .counterLabelsBufferCapacity(config.counterLabelsBufferCapacity())
+                .counterValuesBufferCapacity(config.counterValuesBufferCapacity())
+                .readonly(false)
+                .build();
 
-        final boolean timestamps = reaktorConfig.timestamps();
+        this.commandBuffer = new ManyToOneRingBuffer(control.commandBuffer());
+        this.responseBuffer = new BroadcastTransmitter(control.responseBuffer());
+        this.sendBuffer =    new UnsafeBuffer(allocateDirect(responseBuffer.maxMsgLength()));
+        this.countersManager = new CountersManager(control.counterLabelsBuffer(), control.counterValuesBuffer());
+        this.counters = new Counters(countersManager);
 
-        Conductor conductor = new Conductor(context);
-        Router router = new Router(context, state, nukleus::supplyElektron);
+        this.router = new Router(config, labels, counters, commandBuffer.maxMsgLength());
 
-        conductor.setRouter(router);
-        conductor.setCommandHandlerSupplier(nukleus::commandHandler);
-        router.setConductor(conductor);
-        router.setTimestamps(timestamps);
-        router.setRouteHandlerSupplier(nukleus::routeHandler);
-
-        conductor.freezeHandler(this::freeze);
-
-        this.agents = new Agent[] { conductor, router };
-        this.conductor = conductor;
-        this.router = router;
-        this.context = context;
+        this.commandHandler = this::handleCommand;
     }
 
     @Override
     public String roleName()
     {
-        return nukleus.name();
+        return "reaktor/control";
     }
 
     public int doWork() throws Exception
     {
-        int workDone = 0;
-
-        for (final Agent agent : agents)
-        {
-            workDone += agent.doWork();
-        }
-
-        return workDone;
+        return commandBuffer.read(commandHandler);
     }
 
     public void onClose()
     {
-        for (final Agent agent : agents)
-        {
-            agent.onClose();
-        }
-
-        CloseHelper.quietClose(context::close);
+        CloseHelper.quietClose(control);
     }
 
-    public void freeze()
+    public Nukleus nukleus(
+        String name)
     {
-        conductor.onClose();
-        this.agents = new Agent[] { router };
+        return nukleiByName.get(name);
+    }
+
+    public ElektronAgent supplyElektronAgent(
+        int index,
+        int count,
+        ExecutorService executor,
+        ToLongFunction<String> affinityMask)
+    {
+        ElektronAgent newElektronAgent = new ElektronAgent(index, count, config, labels, executor, affinityMask, counters, this);
+        elektronAgents.add(newElektronAgent);
+        return newElektronAgent;
+    }
+
+    public void assign(
+        Nukleus nukleus)
+    {
+        nukleiByName.putIfAbsent(nukleus.name(), nukleus);
+    }
+
+    public void unassign(
+        Nukleus nukleus)
+    {
+        nukleiByName.remove(nukleus.name());
     }
 
     public long counter(
         String name)
     {
-        return context.counters().readonlyCounter(name).getAsLong();
+        final LongSupplier counter = counters.readonlyCounter(name);
+        return counter != null ? counter.getAsLong() : 0L;
+    }
+
+    public String nukleus(
+        int localId)
+    {
+        final String localAddress = labels.lookupLabel(localId);
+        final Matcher matcher = ADDRESS_PATTERN.matcher(localAddress);
+        matcher.matches();
+        return matcher.group(1);
+    }
+
+    public boolean isEmpty()
+    {
+        return nukleiByName.isEmpty();
+    }
+
+    Router router()
+    {
+        return router;
+    }
+
+    void onRouteable(
+        long routeId,
+        Nukleus nukleus)
+    {
+        elektronAgents.forEach(a -> a.onRouteable(routeId, nukleus));
+    }
+
+    void onRouted(
+        Nukleus nukleus,
+        RouteKind routeKind,
+        long routeId)
+    {
+        elektronAgents.forEach(a -> a.onRouted(nukleus, routeKind, routeId));
+    }
+
+    void onUnrouted(
+        Nukleus nukleus,
+        RouteKind routeKind,
+        long routeId)
+    {
+        elektronAgents.forEach(a -> a.onUnrouted(nukleus, routeKind, routeId));
+    }
+
+
+    private void doError(
+        long correlationId)
+    {
+        ErrorFW error = errorRW.wrap(sendBuffer, 0, sendBuffer.capacity())
+                .correlationId(correlationId)
+                .build();
+
+        responseBuffer.transmit(error.typeId(), error.buffer(), error.offset(), error.sizeof());
+    }
+
+    private void doRouted(
+        long correlationId,
+        long routeId)
+    {
+        RoutedFW routed = routedRW.wrap(sendBuffer, 0, sendBuffer.capacity())
+                .correlationId(correlationId)
+                .routeId(routeId)
+                .build();
+
+        responseBuffer.transmit(routed.typeId(), routed.buffer(), routed.offset(), routed.sizeof());
+    }
+
+    private void doUnrouted(
+        long correlationId)
+    {
+        UnroutedFW unrouted = unroutedRW.wrap(sendBuffer, 0, sendBuffer.capacity())
+                .correlationId(correlationId)
+                .build();
+
+        responseBuffer.transmit(unrouted.typeId(), unrouted.buffer(), unrouted.offset(), unrouted.sizeof());
+    }
+
+    private void doFrozen(
+        long correlationId)
+    {
+        FrozenFW frozen = frozenRW.wrap(sendBuffer, 0, sendBuffer.capacity())
+                .correlationId(correlationId)
+                .build();
+
+        responseBuffer.transmit(frozen.typeId(), frozen.buffer(), frozen.offset(), frozen.sizeof());
+    }
+
+     private void handleCommand(
+        int msgTypeId,
+        MutableDirectBuffer buffer,
+        int index,
+        int length)
+    {
+        switch (msgTypeId)
+        {
+        case RouteFW.TYPE_ID:
+            final RouteFW route = routeRO.wrap(buffer, index, index + length);
+            onRoute(route);
+            break;
+        case UnrouteFW.TYPE_ID:
+            final UnrouteFW unroute = unrouteRO.wrap(buffer, index, index + length);
+            onUnroute(unroute);
+            break;
+        case FreezeFW.TYPE_ID:
+            final FreezeFW freeze = freezeRO.wrap(buffer, index, index + length);
+            onFreeze(freeze);
+            break;
+        default:
+            onUnrecognized(msgTypeId, buffer, index, length);
+            break;
+        }
+    }
+
+    private void onRoute(
+        RouteFW route)
+    {
+        final long correlationId = route.correlationId();
+        final String nukleusName = route.nukleus().asString();
+        final Nukleus nukleus = nukleus(nukleusName);
+
+        try
+        {
+            final Role role = route.role().get();
+            final RouteKind routeKind = RouteKind.valueOf(role.ordinal());
+
+            MessagePredicate routeHandler = nukleus.routeHandler(routeKind);
+            if (routeHandler == null)
+            {
+                routeHandler = (t, b, i, l) -> true;
+            }
+
+            route = router.generateRouteId(route);
+
+            final long newRouteId = route.correlationId();
+            this.onRouteable(newRouteId, nukleus);
+
+            if (router.doRoute(route, routeHandler))
+            {
+                this.onRouted(nukleus, routeKind, newRouteId);
+                doRouted(correlationId, newRouteId);
+            }
+            else
+            {
+                doError(correlationId);
+            }
+        }
+        catch (Exception ex)
+        {
+            doError(correlationId);
+            LangUtil.rethrowUnchecked(ex);
+        }
+    }
+
+    private void onUnroute(
+        UnrouteFW unroute)
+    {
+        final long correlationId = unroute.correlationId();
+        final String nukleusName = unroute.nukleus().asString();
+        final Nukleus nukleus = nukleus(nukleusName);
+
+        try
+        {
+            final long routeId = unroute.routeId();
+            final RouteKind routeKind = replyRouteKind(routeId);
+            MessagePredicate routeHandler = nukleus.routeHandler(routeKind);
+            if (routeHandler == null)
+            {
+                routeHandler = (t, b, i, l) -> true;
+            }
+
+            if (router.doUnroute(unroute, routeHandler))
+            {
+                this.onUnrouted(nukleus, routeKind, routeId);
+                doUnrouted(correlationId);
+            }
+            else
+            {
+                doError(correlationId);
+            }
+        }
+        catch (Exception ex)
+        {
+            doError(correlationId);
+            LangUtil.rethrowUnchecked(ex);
+        }
+    }
+
+    private void onUnrecognized(
+        int msgTypeId,
+        DirectBuffer buffer,
+        int index,
+        int length)
+    {
+        final CommandFW command = commandRO.wrap(buffer, index, index + length);
+        final String nukleusName = command.nukleus().asString();
+        final Nukleus nukleus = nukleus(nukleusName);
+
+        CommandHandler handler = nukleus.commandHandler(msgTypeId);
+        if (handler != null)
+        {
+            handler.handle(buffer, index, length, responseBuffer::transmit, sendBuffer);
+        }
+        else
+        {
+            doError(command.correlationId());
+        }
+    }
+
+    private void onFreeze(
+        FreezeFW freeze)
+    {
+        final long correlationId = freeze.correlationId();
+        final String nukleusName = freeze.nukleus().asString();
+        final Nukleus nukleus = nukleus(nukleusName);
+
+        unassign(nukleus);
+        doFrozen(correlationId);
+    }
+
+    private RouteKind replyRouteKind(
+        long routeId)
+    {
+        return RouteKind.valueOf((int)(routeId >> 28) & 0x0f);
     }
 }

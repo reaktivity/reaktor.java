@@ -25,6 +25,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.reaktivity.reaktor.test.ReaktorRule.EXTERNAL_AFFINITY_MASK;
 
 import java.util.function.Function;
 import java.util.function.IntUnaryOperator;
@@ -77,6 +78,7 @@ public class StreamsIT
         .responseBufferCapacity(1024)
         .counterValuesBufferCapacity(4096)
         .nukleusFactory(TestNukleusFactorySpi.class)
+        .affinityMask("target#0", EXTERNAL_AFFINITY_MASK)
         .clean();
 
     @Rule
@@ -161,7 +163,7 @@ public class StreamsIT
         private ArgumentCaptor<LongSupplier> supplySourceCorrelationId = forClass(LongSupplier.class);
         private ArgumentCaptor<LongSupplier> supplyTargetCorrelationIdRef = forClass(LongSupplier.class);
         private ArgumentCaptor<RouteManager> routerRef = forClass(RouteManager.class);
-        private ArgumentCaptor<LongSupplier> supplyInitialIdRef = forClass(LongSupplier.class);
+        private ArgumentCaptor<LongUnaryOperator> supplyInitialIdRef = forClass(LongUnaryOperator.class);
         private ArgumentCaptor<LongUnaryOperator> supplyReplyIdRef = forClass(LongUnaryOperator.class);
         private ArgumentCaptor<LongSupplier> supplyGroupId = forClass(LongSupplier.class);
         @SuppressWarnings("unchecked")
@@ -186,6 +188,7 @@ public class StreamsIT
         private long acceptCorrelationId;
         private long acceptReplyId;
         private long connectRouteId;
+        private long connectInitialId;
         private long connectCorrelationId;
 
         @SuppressWarnings("unchecked")
@@ -240,24 +243,24 @@ public class StreamsIT
 
                 if (route != null)
                 {
-                    final LongSupplier supplyInitialId = supplyInitialIdRef.getValue();
+                    final LongUnaryOperator supplyInitialId = supplyInitialIdRef.getValue();
                     final LongUnaryOperator supplyReplyId = supplyReplyIdRef.getValue();
                     final LongSupplier supplyTargetCorrelationId = supplyTargetCorrelationIdRef.getValue();
 
                     acceptRouteId = routeId;
                     acceptInitialId = begin.streamId();
                     acceptCorrelationId = begin.correlationId();
-                    acceptReplyId = supplyReplyId.applyAsLong(begin.streamId());
+                    acceptReplyId = supplyReplyId.applyAsLong(acceptInitialId);
 
-                    long newConnectId = supplyInitialId.getAsLong();
                     connectRouteId = route.correlationId();
+                    connectInitialId = supplyInitialId.applyAsLong(connectRouteId);
                     connectCorrelationId = supplyTargetCorrelationId.getAsLong();
 
-                    MessageConsumer connectInitial = router.supplyReceiver(connectRouteId);
+                    MessageConsumer connectInitial = router.supplyReceiver(connectInitialId);
 
-                    doBegin(connectInitial, connectRouteId, newConnectId,
+                    doBegin(connectInitial, connectRouteId, connectInitialId,
                             begin.authorization(), connectCorrelationId);
-                    router.setThrottle(newConnectId, connectReply);
+                    router.setThrottle(connectInitialId, connectReply);
                 }
                 else
                 {

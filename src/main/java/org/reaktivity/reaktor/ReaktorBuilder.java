@@ -15,19 +15,23 @@
  */
 package org.reaktivity.reaktor;
 
-import static java.lang.Integer.bitCount;
-import static java.lang.Integer.numberOfTrailingZeros;
 import static java.util.Objects.requireNonNull;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.IntFunction;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.function.BiFunction;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import java.util.function.ToIntFunction;
+import java.util.function.ToLongFunction;
 
 import org.agrona.ErrorHandler;
+import org.agrona.concurrent.Agent;
 import org.agrona.concurrent.BackoffIdleStrategy;
 import org.agrona.concurrent.IdleStrategy;
 import org.reaktivity.nukleus.Configuration;
@@ -36,9 +40,9 @@ import org.reaktivity.nukleus.ControllerFactory;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.NukleusFactory;
 import org.reaktivity.reaktor.internal.ControllerBuilderImpl;
-import org.reaktivity.reaktor.internal.LabelManager;
 import org.reaktivity.reaktor.internal.ReaktorConfiguration;
-import org.reaktivity.reaktor.internal.StateImpl;
+import org.reaktivity.reaktor.internal.agent.ControllerAgent;
+import org.reaktivity.reaktor.internal.agent.ElektronAgent;
 import org.reaktivity.reaktor.internal.agent.NukleusAgent;
 
 public class ReaktorBuilder
@@ -46,19 +50,21 @@ public class ReaktorBuilder
     private Configuration config;
     private Predicate<String> nukleusMatcher;
     private Predicate<String> controllerMatcher;
-    private ToIntFunction<String> affinityMask;
+    private Map<String, Long> affinityMasks;
+    private ToLongFunction<String> affinityMaskDefault;
     private IdleStrategy idleStrategy;
     private ErrorHandler errorHandler;
     private Supplier<NukleusFactory> supplyNukleusFactory;
 
-    private String roleName = "reaktor";
     private int threads = 1;
+
 
     ReaktorBuilder()
     {
         this.nukleusMatcher = n -> false;
         this.controllerMatcher = c -> false;
-        this.affinityMask = n -> 1;
+        this.affinityMasks = new HashMap<>();
+        this.affinityMaskDefault = n -> 1L;
         this.supplyNukleusFactory = NukleusFactory::instantiate;
     }
 
@@ -92,10 +98,18 @@ public class ReaktorBuilder
         return this;
     }
 
-    public ReaktorBuilder affinityMask(
-        ToIntFunction<String> affinityMask)
+    public ReaktorBuilder affinityMaskDefault(
+        ToLongFunction<String> affinityMaskDefault)
     {
-        this.affinityMask = affinityMask;
+        this.affinityMaskDefault = affinityMaskDefault;
+        return this;
+    }
+
+    public ReaktorBuilder affinityMask(
+        String address,
+        long affinityMask)
+    {
+        this.affinityMasks.put(address, affinityMask);
         return this;
     }
 
@@ -121,13 +135,6 @@ public class ReaktorBuilder
         return this;
     }
 
-    public ReaktorBuilder roleName(
-        String roleName)
-    {
-        this.roleName = requireNonNull(roleName);
-        return this;
-    }
-
     public Reaktor build()
     {
         final Set<Configuration> configs = new LinkedHashSet<>();
@@ -135,46 +142,57 @@ public class ReaktorBuilder
         final ReaktorConfiguration config = new ReaktorConfiguration(this.config != null ? this.config : new Configuration());
         configs.add(config);
 
-        final AtomicInteger routeId = new AtomicInteger();
-        final LabelManager labels = new LabelManager(config.directory());
-
-        final StateImpl[] states = new StateImpl[threads];
-        for (int thread=0; thread < threads; thread++)
-        {
-            states[thread] = new StateImpl(thread, threads, routeId, config, labels);
-        }
-
+        final List<Nukleus> nuklei = new ArrayList<>();
         final NukleusFactory nukleusFactory = supplyNukleusFactory.get();
         for (String name : nukleusFactory.names())
         {
             if (nukleusMatcher.test(name))
             {
-                int affinity = supplyAffinity(name);
-                StateImpl state = states[affinity];
-
                 Nukleus nukleus = nukleusFactory.create(name, config);
-
                 configs.add(nukleus.config());
-
-                state.assign(new NukleusAgent(nukleus, state));
+                nuklei.add(nukleus);
             }
         }
 
-        ControllerFactory controllerFactory = ControllerFactory.instantiate();
+        // ensure control file is not created for no nuklei
+        NukleusAgent nukleusAgent = null;
+        if (!nuklei.isEmpty())
+        {
+            nukleusAgent = new NukleusAgent(config);
+            nuklei.forEach(nukleusAgent::assign);
+        }
+
+        final List<Controller> controllers = new ArrayList<>();
+        final ControllerFactory controllerFactory = ControllerFactory.instantiate();
         for (Class<? extends Controller> kind : controllerFactory.kinds())
         {
             final String name = controllerFactory.name(kind);
             if (controllerMatcher.test(name))
             {
-                int affinity = supplyAffinity(name);
-                StateImpl state = states[affinity];
-
                 ControllerBuilderImpl<? extends Controller> builder = new ControllerBuilderImpl<>(config, kind);
                 Controller controller = controllerFactory.create(config, builder);
-
-                state.assign(controller);
+                controllers.add(controller);
             }
         }
+
+        // TODO: ReaktorConfiguration for executor pool size
+        final ExecutorService executor = Executors.newFixedThreadPool(1);
+
+        final int count = threads;
+        final ElektronAgent[] elektronAgents = new ElektronAgent[count];
+
+        if (nukleusAgent != null)
+        {
+            final BiFunction<String, Long, Long> remapper = (k, v) -> v != null ? v : affinityMaskDefault.applyAsLong(k);
+            final ToLongFunction<String> affinityMask = n -> affinityMasks.compute(n, remapper);
+            for (int index=0; index < count; index++)
+            {
+                elektronAgents[index] = nukleusAgent.supplyElektronAgent(index, count, executor, affinityMask);
+            }
+        }
+
+        final ControllerAgent controllerAgent = new ControllerAgent();
+        controllers.forEach(controllerAgent::assign);
 
         IdleStrategy idleStrategy = this.idleStrategy;
         if (idleStrategy == null)
@@ -186,22 +204,21 @@ public class ReaktorBuilder
                 config.maxParkNanos());
         }
         ErrorHandler errorHandler = requireNonNull(this.errorHandler, "errorHandler");
-        IntFunction<String> namer = t -> String.format("%s%d", roleName, t);
 
-        return new Reaktor(idleStrategy, errorHandler, configs, states, namer);
-    }
-
-    private int supplyAffinity(
-        String name)
-    {
-        int mask = affinityMask.applyAsInt(name);
-
-        if (bitCount(mask) != 1)
+        List<Agent> agents = new ArrayList<>();
+        if (nukleusAgent != null)
         {
-            throw new IllegalStateException(String.format("affinity mask must specify exactly one bit: %s %d",
-                                                          name, mask));
+            for (Agent elektronAgent : elektronAgents)
+            {
+                agents.add(elektronAgent);
+            }
+            agents.add(nukleusAgent);
+        }
+        if (!controllerAgent.isEmpty())
+        {
+            agents.add(controllerAgent);
         }
 
-        return numberOfTrailingZeros(mask);
+        return new Reaktor(idleStrategy, errorHandler, configs, executor, agents.toArray(new Agent[0]));
     }
 }
