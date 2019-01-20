@@ -17,12 +17,9 @@ package org.reaktivity.nukleus;
 
 import java.util.function.Function;
 
-public interface ControllerBuilder<T>
+public interface ControllerBuilder<T extends Controller>
 {
     Class<T> kind();
-
-    ControllerBuilder<T> setName(
-        String name);
 
     ControllerBuilder<T> setFactory(
         Function<ControllerSpi, T> factory);

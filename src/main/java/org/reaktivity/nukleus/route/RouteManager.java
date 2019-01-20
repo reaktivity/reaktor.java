@@ -36,7 +36,7 @@ public interface RouteManager
         MessageConsumer consumer);
 
     MessageConsumer supplyReceiver(
-        long routeId);
+        long streamId);
 
     void setThrottle(
         long streamId,
