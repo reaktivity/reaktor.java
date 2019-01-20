@@ -18,8 +18,6 @@ package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 import static java.util.Objects.requireNonNull;
 
 import java.net.URI;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.kaazing.k3po.driver.internal.netty.channel.ChannelAddress;
 
@@ -82,16 +80,6 @@ public final class NukleusChannelAddress extends ChannelAddress
         return receiverAddress;
     }
 
-    public String getReceiverName()
-    {
-        return addressName(receiverAddress);
-    }
-
-    public String getSenderName()
-    {
-        return addressName(senderAddress);
-    }
-
     @Override
     public NukleusChannelAddress newEphemeralAddress()
     {
@@ -118,15 +106,5 @@ public final class NukleusChannelAddress extends ChannelAddress
         final String fragment = location.getFragment();
         final String path = location.getPath().substring(1);
         return fragment != null ? String.format("%s#%s", path, fragment) : path;
-    }
-
-    private static final Pattern ADDRESS_PATTERN = Pattern.compile("^([^#]+)(:?#.*)?$");
-
-    private static String addressName(
-        String address)
-    {
-        Matcher matcher = ADDRESS_PATTERN.matcher(address);
-        matcher.matches();
-        return matcher.group(1);
     }
 }

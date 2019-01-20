@@ -43,6 +43,7 @@ public final class NukleusSource implements AutoCloseable
         NukleusExtConfiguration config,
         LabelManager labels,
         Path streamsPath,
+        int scopeIndex,
         LongFunction<NukleusCorrelation> correlateEstablished,
         LongLongFunction<NukleusTarget> supplySender,
         Long2ObjectHashMap<MessageHandler> streamsById,
@@ -60,7 +61,7 @@ public final class NukleusSource implements AutoCloseable
                 .readonly(false)
                 .build();
 
-        this.partition = new NukleusPartition(labels, streamsPath, layout,
+        this.partition = new NukleusPartition(labels, streamsPath, scopeIndex, layout,
                 this::lookupRoute,
                 streamsById::get, streamsById::put, throttlesById::get,
                 streamFactory, correlateEstablished, supplySender);

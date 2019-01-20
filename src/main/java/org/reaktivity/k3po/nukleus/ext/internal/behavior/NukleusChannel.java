@@ -94,6 +94,13 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
         return (NukleusChannelAddress) super.getRemoteAddress();
     }
 
+    public int getLocalScope()
+    {
+        return Long.SIZE - 1;
+    }
+
+    public abstract int getRemoteScope();
+
     @Override
     protected void setBound()
     {

@@ -24,6 +24,8 @@ import org.kaazing.k3po.driver.internal.netty.channel.ChannelAddress;
 
 public final class NukleusClientChannel extends NukleusChannel
 {
+    private int remoteScope;
+
     NukleusClientChannel(
         ChannelFactory factory,
         ChannelPipeline pipeline,
@@ -34,6 +36,24 @@ public final class NukleusClientChannel extends NukleusChannel
         super(null, factory, pipeline, sink, reaktor, targetId);
 
         fireChannelOpen(this);
+    }
+
+    @Override
+    public long targetId()
+    {
+        return super.targetId() | ((long)(remoteScope & 0x7f) << 48);
+    }
+
+    public void setRemoteScope(
+        int remoteScope)
+    {
+        this.remoteScope = remoteScope;
+    }
+
+    @Override
+    public int getRemoteScope()
+    {
+        return remoteScope;
     }
 
     @Override

@@ -18,11 +18,8 @@ package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 import static java.lang.System.identityHashCode;
 
 import java.nio.file.Path;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.function.LongSupplier;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.function.ToIntFunction;
 
 import org.agrona.CloseHelper;
 import org.agrona.MutableDirectBuffer;
@@ -38,10 +35,7 @@ import org.reaktivity.k3po.nukleus.ext.internal.behavior.layout.StreamsLayout;
 
 public final class NukleusScope implements AutoCloseable
 {
-    private static final Pattern ADDRESS_PATTERN = Pattern.compile("^([^#]+)(:?#.*)?$");
-
-    private final Map<String, NukleusTarget> targetsByName;
-    private final Int2ObjectHashMap<NukleusTarget> targetsByLabelId;
+    private final Int2ObjectHashMap<NukleusTarget> targetsByIndex;
 
     private final NukleusExtConfiguration config;
     private final LabelManager labels;
@@ -50,6 +44,7 @@ public final class NukleusScope implements AutoCloseable
     private final Long2ObjectHashMap<MessageHandler> streamsById;
     private final Long2ObjectHashMap<MessageHandler> throttlesById;
     private final Long2ObjectHashMap<NukleusCorrelation> correlations;
+    private final ToIntFunction<String> lookupTargetIndex;
     private final LongSupplier supplyTimestamp;
     private final LongSupplier supplyTrace;
     private final NukleusSource source;
@@ -59,23 +54,24 @@ public final class NukleusScope implements AutoCloseable
     public NukleusScope(
         NukleusExtConfiguration config,
         LabelManager labels,
-        String scopeName,
+        int scopeIndex,
+        ToIntFunction<String> lookupTargetIndex,
         LongSupplier supplyTimestamp,
         LongSupplier supplyTrace)
     {
         this.config = config;
         this.labels = labels;
-        this.streamsPath = config.directory().resolve(scopeName).resolve("streams");
+        this.streamsPath = config.directory().resolve(String.format("data%d", scopeIndex));
 
         this.writeBuffer = new UnsafeBuffer(new byte[config.streamsBufferCapacity() / 8]);
         this.streamsById = new Long2ObjectHashMap<>();
         this.throttlesById = new Long2ObjectHashMap<>();
         this.correlations = new Long2ObjectHashMap<>();
-        this.targetsByName = new LinkedHashMap<>();
-        this.targetsByLabelId = new Int2ObjectHashMap<>();
+        this.targetsByIndex = new Int2ObjectHashMap<>();
+        this.lookupTargetIndex = lookupTargetIndex;
         this.supplyTimestamp = supplyTimestamp;
         this.supplyTrace = supplyTrace;
-        this.source = new NukleusSource(config, labels, streamsPath,
+        this.source = new NukleusSource(config, labels, streamsPath, scopeIndex,
                 correlations::remove, this::supplySender,
                 streamsById, throttlesById);
     }
@@ -107,19 +103,14 @@ public final class NukleusScope implements AutoCloseable
         NukleusChannelAddress remoteAddress,
         ChannelFuture connectFuture)
     {
-        final String receiverName = remoteAddress.getReceiverName();
-        NukleusTarget target = supplyTarget(receiverName);
+        final String receiverAddress = remoteAddress.getReceiverAddress();
+        final int targetIndex = lookupTargetIndex.applyAsInt(receiverAddress);
+        NukleusTarget target = supplyTarget(targetIndex);
         final String replyAddress = remoteAddress.getSenderAddress();
         final NukleusChannelAddress localAddress = remoteAddress.newReplyToAddress(replyAddress);
+        clientChannel.setRemoteScope(targetIndex);
         clientChannel.routeId(routeId(remoteAddress));
         target.doConnect(clientChannel, localAddress, remoteAddress, connectFuture);
-    }
-
-    private long routeId(NukleusChannelAddress remoteAddress)
-    {
-        final long localId = labels.supplyLabelId(remoteAddress.getSenderAddress());
-        final long remoteId = labels.supplyLabelId(remoteAddress.getReceiverAddress());
-        return localId << 48 | remoteId << 32 | identityHashCode(remoteAddress);
     }
 
     public void doAbortOutput(
@@ -179,7 +170,7 @@ public final class NukleusScope implements AutoCloseable
     {
         CloseHelper.quietClose(source);
 
-        for(NukleusTarget target : targetsByName.values())
+        for(NukleusTarget target : targetsByIndex.values())
         {
             CloseHelper.quietClose(target);
         }
@@ -189,64 +180,71 @@ public final class NukleusScope implements AutoCloseable
         long routeId,
         long streamId)
     {
-        final boolean initial = (streamId & 0x8000_0000_0000_0000L) == 0L;
-        final int labelId = initial ? localId(routeId) : remoteId(routeId);
-        return targetsByLabelId.computeIfAbsent(labelId, this::newTarget);
-    }
-
-    private NukleusTarget newTarget(
-        int labelId)
-    {
-        final String addressName = labels.lookupLabel(labelId);
-        final Matcher matcher = ADDRESS_PATTERN.matcher(addressName);
-        matcher.matches();
-        final String targetName = matcher.group(1);
-        return supplyTarget(targetName);
+        final int targetIndex = replyToIndex(streamId);
+        return supplyTarget(targetIndex);
     }
 
     private NukleusTarget supplyTarget(
         NukleusChannel channel)
     {
-        return supplyTarget(channel.getRemoteAddress().getReceiverName());
+        return supplyTarget(channel.getRemoteScope());
     }
 
     private NukleusTarget supplyTarget(
-        String targetName)
+        int targetIndex)
     {
-        return targetsByName.computeIfAbsent(targetName, this::newTarget);
+        return targetsByIndex.computeIfAbsent(targetIndex, this::newTarget);
     }
 
     private NukleusTarget newTarget(
-        String targetName)
+        int targetIndex)
     {
         final Path targetPath = config.directory()
-                .resolve(targetName)
-                .resolve("streams");
+                .resolve(String.format("data%d", targetIndex));
 
         final StreamsLayout layout = new StreamsLayout.Builder()
                 .path(targetPath)
-                .streamsCapacity(config.streamsBufferCapacity())
                 .readonly(true)
                 .build();
 
-        final NukleusTarget target = new NukleusTarget(labels, targetPath, layout, writeBuffer,
-                throttlesById::put, throttlesById::remove,
-                correlations::put, supplyTimestamp, supplyTrace);
+        final NukleusTarget target = new NukleusTarget(targetPath, layout, writeBuffer, throttlesById::put,
+                throttlesById::remove, correlations::put,
+                supplyTimestamp, supplyTrace);
 
         this.targets = ArrayUtil.add(this.targets, target);
 
         return target;
     }
 
-    private int localId(
-        long routeId)
+    private long routeId(
+        NukleusChannelAddress remoteAddress)
     {
-        return (int)(routeId >> 48) & 0xffff;
+        final long localId = labels.supplyLabelId(remoteAddress.getSenderAddress());
+        final long remoteId = labels.supplyLabelId(remoteAddress.getReceiverAddress());
+        return localId << 48 | remoteId << 32 | 0xf000_0000L | (identityHashCode(remoteAddress) & 0x0fff_ffffL);
     }
 
-    private int remoteId(
-        long routeId)
+    private static int replyToIndex(
+        long streamId)
     {
-        return (int)(routeId >> 32) & 0xffff;
+        return isInitial(streamId) ? localIndex(streamId) : remoteIndex(streamId);
+    }
+
+    private static int localIndex(
+        long streamId)
+    {
+        return (int)(streamId >> 56) & 0x7f;
+    }
+
+    private static int remoteIndex(
+        long streamId)
+    {
+        return (int)(streamId >> 48) & 0x7f;
+    }
+
+    private static boolean isInitial(
+        long streamId)
+    {
+        return (streamId & 0x8000_0000_0000_0000L) == 0L;
     }
 }
