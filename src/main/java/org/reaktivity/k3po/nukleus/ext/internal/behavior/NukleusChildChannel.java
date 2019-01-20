@@ -23,11 +23,14 @@ import org.jboss.netty.channel.ChannelSink;
 
 public final class NukleusChildChannel extends NukleusChannel
 {
+    private final int remoteScope;
+
     NukleusChildChannel(
         NukleusServerChannel parent,
         ChannelFactory factory,
         ChannelPipeline pipeline,
         ChannelSink sink,
+        long sourceId,
         long targetId)
     {
         super(parent, factory, pipeline, sink, parent.reaktor, targetId);
@@ -36,11 +39,19 @@ public final class NukleusChildChannel extends NukleusChannel
         setConnected();
 
         fireChannelOpen(this);
+
+        this.remoteScope = (int)(sourceId >> 56) & 0x7f;
     }
 
     @Override
     public NukleusServerChannel getParent()
     {
         return NukleusServerChannel.class.cast(super.getParent());
+    }
+
+    @Override
+    public int getRemoteScope()
+    {
+        return remoteScope;
     }
 }

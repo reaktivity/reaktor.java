@@ -76,7 +76,6 @@ final class NukleusTarget implements AutoCloseable
     private final ResetFW.Builder resetRW = new ResetFW.Builder();
     private final WindowFW.Builder windowRW = new WindowFW.Builder();
 
-    private final LabelManager labels;
     private final Path streamsPath;
     private final Layout layout;
     private final RingBuffer streamsBuffer;
@@ -88,7 +87,6 @@ final class NukleusTarget implements AutoCloseable
     private final LongSupplier supplyTrace;
 
     NukleusTarget(
-        LabelManager labels,
         Path streamsPath,
         StreamsLayout layout,
         MutableDirectBuffer writeBuffer,
@@ -98,7 +96,6 @@ final class NukleusTarget implements AutoCloseable
         LongSupplier supplyTimestamp,
         LongSupplier supplyTrace)
     {
-        this.labels = labels;
         this.streamsPath = streamsPath;
         this.layout = layout;
         this.streamsBuffer = layout.streamsBuffer();
@@ -399,7 +396,7 @@ final class NukleusTarget implements AutoCloseable
         if (doFlush)
         {
             // SERVER, HALF_DUPLEX
-            ChannelFuture handshakeFuture = Channels.future(channel);
+            ChannelFuture handshakeFuture = Channels.succeededFuture(channel);
             doBeginReply(channel, handshakeFuture);
         }
 

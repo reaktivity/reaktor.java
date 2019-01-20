@@ -32,7 +32,7 @@ public class NukleusClientChannelFactory implements ChannelFactory
     {
         this.channelSink = new NukleusClientChannelSink();
         this.reaktorPool = reaktorPool;
-        this.initialId = new AtomicLong(0x100000000L);
+        this.initialId = new AtomicLong((long)(Long.SIZE - 1) << 56);
     }
 
     @Override

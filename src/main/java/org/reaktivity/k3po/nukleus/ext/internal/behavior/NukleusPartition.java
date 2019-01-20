@@ -45,6 +45,7 @@ final class NukleusPartition implements AutoCloseable
 
     private final LabelManager labels;
     private final Path streamsPath;
+    private final int scopeIndex;
     private final StreamsLayout layout;
     private final RingBuffer streamsBuffer;
     private final LongLongFunction<NukleusServerChannel> lookupRoute;
@@ -59,6 +60,7 @@ final class NukleusPartition implements AutoCloseable
     NukleusPartition(
         LabelManager labels,
         Path streamsPath,
+        int scopeIndex,
         StreamsLayout layout,
         LongLongFunction<NukleusServerChannel> lookupRoute,
         LongFunction<MessageHandler> lookupStream,
@@ -70,6 +72,7 @@ final class NukleusPartition implements AutoCloseable
     {
         this.labels = labels;
         this.streamsPath = streamsPath;
+        this.scopeIndex = scopeIndex;
         this.layout = layout;
         this.streamsBuffer = layout.streamsBuffer();
 
@@ -189,7 +192,7 @@ final class NukleusPartition implements AutoCloseable
         final long correlationId = begin.correlationId();
         final long replyId = initialId | 0x8000_0000_0000_0000L;
 
-        final NukleusChildChannel childChannel = doAccept(serverChannel, routeId, replyId, correlationId);
+        final NukleusChildChannel childChannel = doAccept(serverChannel, routeId, initialId, replyId, correlationId);
         final NukleusTarget sender = supplySender.apply(childChannel.routeId(), initialId);
         final ChannelFuture handshakeFuture = future(childChannel);
 
@@ -236,6 +239,7 @@ final class NukleusPartition implements AutoCloseable
     private NukleusChildChannel doAccept(
         NukleusServerChannel serverChannel,
         long routeId,
+        long sourceId,
         long targetId,
         long correlationId)
     {
@@ -253,7 +257,7 @@ final class NukleusPartition implements AutoCloseable
             ChannelFactory channelFactory = serverChannel.getFactory();
             NukleusChildChannelSink childSink = new NukleusChildChannelSink();
             NukleusChildChannel childChannel =
-                  new NukleusChildChannel(serverChannel, channelFactory, pipeline, childSink, targetId);
+                  new NukleusChildChannel(serverChannel, channelFactory, pipeline, childSink, sourceId, targetId);
 
             NukleusChannelConfig childConfig = childChannel.getConfig();
             childConfig.setBufferFactory(serverConfig.getBufferFactory());

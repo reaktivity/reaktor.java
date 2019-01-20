@@ -52,6 +52,11 @@ public final class NukleusServerChannel extends AbstractServerChannel<NukleusSer
         return NukleusChannelAddress.class.cast(super.getRemoteAddress());
     }
 
+    public int getLocalScope()
+    {
+        return Long.SIZE - 1;
+    }
+
     protected void setLocalAddress(
         NukleusChannelAddress localAddress)
     {

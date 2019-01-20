@@ -28,7 +28,7 @@ public final class StreamsLayoutTest
     @Test
     public void shouldUnlockStreamsFile() throws Exception
     {
-        String fileName = "target/nukleus-itests/client/streams";
+        String fileName = "target/nukleus-itests/data127";
         Path streams = Paths.get(fileName);
         StreamsLayout streamsLayout = new StreamsLayout.Builder()
                 .path(streams)
