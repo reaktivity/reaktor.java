@@ -15,77 +15,34 @@
  */
 package org.reaktivity.reaktor.internal.router;
 
-import static java.lang.String.format;
-import static java.lang.ThreadLocal.withInitial;
-import static org.agrona.CloseHelper.quietClose;
-import static org.agrona.LangUtil.rethrowUnchecked;
+import static org.reaktivity.reaktor.internal.router.RouteId.routeId;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.EnumMap;
-import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.function.Function;
-import java.util.function.LongConsumer;
-import java.util.function.LongSupplier;
-import java.util.function.Supplier;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.function.LongFunction;
+import java.util.function.ToIntFunction;
 
 import org.agrona.DirectBuffer;
-import org.agrona.LangUtil;
 import org.agrona.MutableDirectBuffer;
-import org.agrona.collections.Int2ObjectHashMap;
 import org.agrona.collections.Long2ObjectHashMap;
-import org.agrona.concurrent.Agent;
-import org.agrona.concurrent.MessageHandler;
 import org.agrona.concurrent.UnsafeBuffer;
-import org.agrona.concurrent.ringbuffer.RingBuffer;
-import org.agrona.concurrent.status.AtomicCounter;
-import org.reaktivity.nukleus.Elektron;
-import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.function.MessageConsumer;
-import org.reaktivity.nukleus.function.MessageFunction;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteKind;
-import org.reaktivity.nukleus.route.RouteManager;
-import org.reaktivity.nukleus.stream.StreamFactory;
-import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
-import org.reaktivity.reaktor.internal.Context;
 import org.reaktivity.reaktor.internal.Counters;
-import org.reaktivity.reaktor.internal.State;
-import org.reaktivity.reaktor.internal.buffer.CountingBufferPool;
-import org.reaktivity.reaktor.internal.conductor.Conductor;
+import org.reaktivity.reaktor.internal.LabelManager;
+import org.reaktivity.reaktor.internal.ReaktorConfiguration;
 import org.reaktivity.reaktor.internal.layouts.RoutesLayout;
-import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
 import org.reaktivity.reaktor.internal.types.OctetsFW;
 import org.reaktivity.reaktor.internal.types.control.Role;
 import org.reaktivity.reaktor.internal.types.control.RouteFW;
 import org.reaktivity.reaktor.internal.types.control.UnrouteFW;
-import org.reaktivity.reaktor.internal.types.state.RouteEntryFW;
 import org.reaktivity.reaktor.internal.types.state.RouteTableFW;
-import org.reaktivity.reaktor.internal.types.stream.AbortFW;
-import org.reaktivity.reaktor.internal.types.stream.BeginFW;
-import org.reaktivity.reaktor.internal.types.stream.DataFW;
-import org.reaktivity.reaktor.internal.types.stream.EndFW;
-import org.reaktivity.reaktor.internal.types.stream.FrameFW;
-import org.reaktivity.reaktor.internal.types.stream.ResetFW;
-import org.reaktivity.reaktor.internal.types.stream.SignalFW;
-import org.reaktivity.reaktor.internal.types.stream.WindowFW;
 
-public final class Router implements RouteManager, Agent
+public final class Router
 {
-    private static final Pattern ADDRESS_PATTERN = Pattern.compile("^([^#]+)(:?#.*)$");
-
-    private final ThreadLocal<SignalFW.Builder> signalRW = withInitial(Router::newSignalRW);
+    private final RoutesLayout.Builder routesRW = new RoutesLayout.Builder();
 
     private final RouteFW routeRO = new RouteFW();
     private final RouteTableFW routeTableRO = new RouteTableFW();
@@ -93,406 +50,91 @@ public final class Router implements RouteManager, Agent
     private final RouteFW.Builder routeRW = new RouteFW.Builder();
     private final RouteTableFW.Builder routeTableRW = new RouteTableFW.Builder();
 
-    private final FrameFW frameRO = new FrameFW();
-    private final BeginFW beginRO = new BeginFW();
-    private final AbortFW.Builder abortRW = new AbortFW.Builder();
-
-    private final ResetFW.Builder resetRW = new ResetFW.Builder();
-
-    private final Context context;
-    private final State state;
-    private final String nukleusName;
-    private final ExecutorService executor;
     private final Counters counters;
-    private final MutableDirectBuffer writeBuffer;
-    private final Int2ObjectHashMap<Target> targetsByLabelId;
-    private final Map<String, Target> targetsByName;
+    private final ToIntFunction<String> supplyLabelId;
     private final MutableDirectBuffer routeBuf;
-    private final GroupBudgetManager groupBudgetManager;
 
-    private final RoutesLayout routesLayout;
-    private final MutableDirectBuffer routesBuffer;
-    private final int routesBufferCapacity;
+    private final RoutesLayout routes;
 
-    private final Long2ObjectHashMap<MessageConsumer> streams;
-    private final Long2ObjectHashMap<MessageConsumer> throttles;
-    private final Long2ObjectHashMap<ReadCounters> countersByRouteId;
+    private final Map<String, RouteKind> localAddressKinds;
 
-    private final Map<Integer, RouteKind> localRouteKinds;
-
-    private final Map<RouteKind, StreamFactory> streamFactories;
-    private final Agent[] agents;
-    private final StreamsLayout streamsLayout;
-    private final int messageCountLimit;
-    private final RingBuffer streamsBuffer;
-    private final MessageHandler readHandler;
-
-    private Conductor conductor;
-    private boolean timestamps;
-    private Function<RouteKind, MessagePredicate> supplyRouteHandler;
-
+    private volatile DirectBuffer readonlyRoutesBuffer;
+    private int conditionId;
 
     public Router(
-        Context context,
-        State state,
-        Supplier<Elektron> supplyElektron)
+        ReaktorConfiguration config,
+        LabelManager labels,
+        Counters counters,
+        int maxControlCommandLength)
     {
-        this.context = context;
-        this.state = state;
-        this.nukleusName = context.name();
-        this.executor = context.executor();
-        this.counters = context.counters();
-        this.writeBuffer = new UnsafeBuffer(new byte[context.maxMessageLength()]);
-        this.targetsByLabelId = new Int2ObjectHashMap<>();
-        this.targetsByName = new HashMap<>();
-        this.routeBuf = new UnsafeBuffer(ByteBuffer.allocateDirect(context.maxControlCommandLength()));
-        this.groupBudgetManager = new GroupBudgetManager();
-        this.routesLayout = context.routesLayout();
-        this.routesBuffer = routesLayout.routesBuffer();
-        this.routesBufferCapacity = routesLayout.capacity();
-        this.streams = new Long2ObjectHashMap<>();
-        this.throttles = new Long2ObjectHashMap<>();
-        this.countersByRouteId = new Long2ObjectHashMap<>();
-        this.localRouteKinds = new ConcurrentHashMap<>();
+        this.counters = counters;
+        this.supplyLabelId = labels::supplyLabelId;
+        this.localAddressKinds = new HashMap<>();
 
-        final Map<RouteKind, StreamFactory> streamFactories = new EnumMap<>(RouteKind.class);
-        final Function<String, LongSupplier> supplyCounter = name -> () -> context.counters().counter(name).increment() + 1;
-        final Function<String, LongConsumer> supplyAccumulator = name -> (i) -> context.counters().counter(name).add(i);
-        final AtomicCounter acquires = context.counters().acquires();
-        final AtomicCounter releases = context.counters().releases();
-        final BufferPool bufferPool = new CountingBufferPool(state.bufferPool(), acquires::increment, releases::increment);
-        final Supplier<BufferPool> supplyCountingBufferPool = () -> bufferPool;
-        final Elektron elektron = supplyElektron.get();
-        final List<Agent> agents = new ArrayList<>();
-        if (elektron != null)
-        {
-            for (RouteKind routeKind : EnumSet.allOf(RouteKind.class))
-            {
-                final StreamFactoryBuilder streamFactoryBuilder = elektron.streamFactoryBuilder(routeKind);
-                if (streamFactoryBuilder != null)
-                {
-                    StreamFactory streamFactory = streamFactoryBuilder
-                            .setRouteManager(this)
-                            .setExecutor(this::executeAndSignal)
-                            .setWriteBuffer(writeBuffer)
-                            .setInitialIdSupplier(state::supplyInitialId)
-                            .setReplyIdSupplier(state::supplyReplyId)
-                            .setSourceCorrelationIdSupplier(state::supplyCorrelationId)
-                            .setTargetCorrelationIdSupplier(state::supplyCorrelationId)
-                            .setTraceSupplier(state::supplyTrace)
-                            .setGroupIdSupplier(state::supplyGroupId)
-                            .setGroupBudgetClaimer(groupBudgetManager::claim)
-                            .setGroupBudgetReleaser(groupBudgetManager::release)
-                            .setCounterSupplier(supplyCounter)
-                            .setAccumulatorSupplier(supplyAccumulator)
-                            .setBufferPoolSupplier(supplyCountingBufferPool)
-                            .build();
-                    streamFactories.put(routeKind, streamFactory);
-                }
-            }
-            final Agent agent = elektron.agent();
-            if (agent != null)
-            {
-                agents.add(agent);
-            }
-        }
-        this.streamFactories = streamFactories;
-        this.agents = agents.toArray(new Agent[0]);
+        this.routeBuf = new UnsafeBuffer(ByteBuffer.allocateDirect(maxControlCommandLength));
 
-        final StreamsLayout streamsLayout = new StreamsLayout.Builder()
-                .path(context.sourceStreamsPath())
-                .streamsCapacity(context.streamsBufferCapacity())
-                .readonly(false)
-                .build();
+        this.routes = this.routesRW.routesPath(config.directory().resolve("routes"))
+            .routesBufferCapacity(config.routesBufferCapacity())
+            .readonly(false)
+            .build();
 
-        this.streamsLayout = streamsLayout;
-        this.messageCountLimit = context.maximumMessagesPerRead();
-        this.streamsBuffer = streamsLayout.streamsBuffer();
-        this.readHandler = this::handleRead;
+        this.readonlyRoutesBuffer = newCopyOfRoutesBuffer();
     }
 
-    public void setConductor(
-        Conductor conductor)
+    public DirectBuffer readonlyRoutesBuffer()
     {
-        this.conductor = conductor;
+        return readonlyRoutesBuffer;
     }
 
-    public void setTimestamps(
-        boolean timestamps)
-    {
-        this.timestamps = timestamps;
-    }
-
-    public void setRouteHandlerSupplier(
-        Function<RouteKind, MessagePredicate> supplyRouteHandler)
-    {
-        this.supplyRouteHandler = supplyRouteHandler;
-    }
-
-    @Override
-    public String roleName()
-    {
-        return "router";
-    }
-
-    @Override
-    public int doWork() throws Exception
-    {
-        int workDone = 0;
-
-        for (final Agent agent : agents)
-        {
-            workDone += agent.doWork();
-        }
-
-        workDone += streamsBuffer.read(readHandler, messageCountLimit);
-
-        return workDone;
-    }
-
-    @Override
-    public void onClose()
-    {
-        for (final Agent agent : agents)
-        {
-            quietClose(agent::onClose);
-        }
-
-        targetsByName.forEach((k, v) -> v.detach());
-        targetsByName.forEach((k, v) -> quietClose(v));
-
-        streams.forEach(this::doSyntheticAbort);
-
-        streamsLayout.close();
-    }
-
-    @Override
-    public MessageConsumer supplyReceiver(
-        long routeId)
-    {
-        final int labelId = remoteId(routeId);
-        return targetsByLabelId.computeIfAbsent(labelId, this::newTarget).writeHandler();
-    }
-
-    public MessageConsumer supplySender(
-        long routeId)
-    {
-        final int labelId = localId(routeId);
-        return targetsByLabelId.computeIfAbsent(labelId, this::newTarget).writeHandler();
-    }
-
-    @Override
-    public void setThrottle(
-        long streamId,
-        MessageConsumer throttle)
-    {
-        throttles.put(streamId, throttle);
-    }
-
-    @Override
-    public <R> R resolveExternal(
-        long authorization,
-        MessagePredicate filter,
-        MessageFunction<R> mapper)
-    {
-        RouteTableFW routeTable = routeTableRO.wrap(routesBuffer, 0, routesBufferCapacity);
-
-        assert routeTable.writeLockReleases() == routeTable.writeLockAcquires();
-
-        RouteEntryFW routeEntry = routeTable.routeEntries().matchFirst(re ->
-        {
-            final OctetsFW entry = re.route();
-            final RouteFW candidate = routeRO.wrap(entry.buffer(), entry.offset(), entry.limit());
-            return (authorization & candidate.authorization()) == candidate.authorization() &&
-                   filter.test(candidate.typeId(), candidate.buffer(), candidate.offset(), candidate.sizeof());
-        });
-
-        R result = null;
-        if (routeEntry != null)
-        {
-            final OctetsFW entry = routeEntry.route();
-            final RouteFW route = routeRO.wrap(entry.buffer(), entry.offset(), entry.limit());
-            result = mapper.apply(route.typeId(), route.buffer(), route.offset(), route.sizeof());
-        }
-        return result;
-    }
-
-    @Override
-    public <R> R resolve(
-        long routeId,
-        long authorization,
-        MessagePredicate filter,
-        MessageFunction<R> mapper)
-    {
-        RouteTableFW routeTable = routeTableRO.wrap(routesBuffer, 0, routesBufferCapacity);
-
-        assert routeTable.writeLockReleases() == routeTable.writeLockAcquires();
-
-        RouteEntryFW routeEntry = routeTable.routeEntries().matchFirst(re ->
-        {
-            final OctetsFW entry = re.route();
-            final RouteFW candidate = routeRO.wrap(entry.buffer(), entry.offset(), entry.limit());
-            return remoteId(routeId) == localId(candidate.correlationId()) &&
-                   (authorization & candidate.authorization()) == candidate.authorization() &&
-                   filter.test(candidate.typeId(), candidate.buffer(), candidate.offset(), candidate.sizeof());
-        });
-
-        R result = null;
-        if (routeEntry != null)
-        {
-            final OctetsFW entry = routeEntry.route();
-            final RouteFW route = routeRO.wrap(entry.buffer(), entry.offset(), entry.limit());
-            result = mapper.apply(route.typeId(), route.buffer(), route.offset(), route.sizeof());
-        }
-        return result;
-    }
-
-    @Override
-    public void forEach(
-        MessageConsumer consumer)
-    {
-        RouteTableFW routeTable = routeTableRO.wrap(routesBuffer, 0, routesBufferCapacity);
-
-        assert routeTable.writeLockReleases() == routeTable.writeLockAcquires();
-
-        routeTable.routeEntries().forEach(re ->
-        {
-            final OctetsFW entry = re.route();
-            final RouteFW route = routeRO.wrap(entry.buffer(), entry.offset(), entry.limit());
-            consumer.accept(route.typeId(), route.buffer(), route.offset(), route.sizeof());
-        });
-    }
-
-    public MessageConsumer supplyReplyTo(
-        long routeId,
-        long streamId)
-    {
-        if ((streamId & 0x8000_0000_0000_0000L) == 0L)
-        {
-            return supplySender(routeId);
-        }
-        else
-        {
-            return supplyReceiver(routeId);
-        }
-    }
-
-    public void doRoute(
-        RouteFW route)
-    {
-        final long correlationId = route.correlationId();
-
-        try
-        {
-            final Role role = route.role().get();
-            final RouteKind routeKind = RouteKind.valueOf(role.ordinal());
-
-            MessagePredicate routeHandler = supplyRouteHandler.apply(routeKind);
-            if (routeHandler == null)
-            {
-                routeHandler = (t, b, i, l) -> true;
-            }
-
-            route = generateRouteId(route);
-
-            if (doRouteInternal(route, routeHandler))
-            {
-                final long newRouteId = route.correlationId();
-                conductor.onRouted(correlationId, newRouteId);
-            }
-            else
-            {
-                conductor.onError(correlationId);
-            }
-        }
-        catch (Exception ex)
-        {
-            conductor.onError(correlationId);
-            LangUtil.rethrowUnchecked(ex);
-        }
-    }
-
-    public void doUnroute(
-        UnrouteFW unroute)
-    {
-        final long correlationId = unroute.correlationId();
-
-        try
-        {
-            final long routeId = unroute.routeId();
-            final RouteKind routeKind = replyRouteKind(routeId);
-            MessagePredicate routeHandler = supplyRouteHandler.apply(routeKind);
-            if (routeHandler == null)
-            {
-                routeHandler = (t, b, i, l) -> true;
-            }
-
-            if (doUnrouteInternal(unroute, routeHandler))
-            {
-                conductor.onUnrouted(correlationId);
-            }
-            else
-            {
-                conductor.onError(correlationId);
-            }
-        }
-        catch (Exception ex)
-        {
-            conductor.onError(correlationId);
-            LangUtil.rethrowUnchecked(ex);
-        }
-    }
-
-    private boolean doRouteInternal(
+    public boolean doRoute(
         RouteFW route,
         MessagePredicate routeHandler)
     {
-        final RouteTableFW routeTable = routeTableRO.wrap(routesBuffer, 0, routesBufferCapacity);
-
-        assert routeTable.writeLockReleases() == routeTable.writeLockAcquires();
+        final RouteTableFW routeTable = routeTableRO.wrap(readonlyRoutesBuffer, 0, readonlyRoutesBuffer.capacity());
 
         final boolean routed = routeHandler.test(route.typeId(), route.buffer(), route.offset(), route.sizeof());
 
         if (routed)
         {
-            int readLock = routesLayout.lock();
+            final int modCount = routeTable.modificationCount();
 
+            final MutableDirectBuffer writeableRoutesBuffer = newCopyOfRoutesBuffer();
             routeTableRW
-                .wrap(routesBuffer, 0, routesBufferCapacity)
-                .writeLockAcquires(readLock)
-                .writeLockReleases(readLock - 1)
-                .routeEntries(res ->
+                .wrap(writeableRoutesBuffer, 0, writeableRoutesBuffer.capacity())
+                .modificationCount(modCount)
+                .entries(es ->
                 {
-                    routeTable.routeEntries().forEach(old -> res.item(e -> e.route(old.route())));
-                    res.item(re -> re.route(route.buffer(), route.offset(), route.sizeof()));
+                    routeTable.entries().forEach(old -> es.item(e -> e.route(old.route())));
+                    es.item(e -> e.route(route.buffer(), route.offset(), route.sizeof()));
                 })
                 .build();
 
-            routesLayout.unlock();
+            routes.routesBuffer().putBytes(0, writeableRoutesBuffer, 0, writeableRoutesBuffer.capacity());
+            routes.routesBuffer().addIntOrdered(RouteTableFW.FIELD_OFFSET_MODIFICATION_COUNT, 1);
+
+            this.readonlyRoutesBuffer = writeableRoutesBuffer;
         }
 
         return routed;
     }
 
-
-    private boolean doUnrouteInternal(
+    public boolean doUnroute(
         UnrouteFW unroute,
         MessagePredicate routeHandler)
     {
-        RouteTableFW routeTable = routeTableRO.wrap(routesBuffer, 0, routesBufferCapacity);
+        final RouteTableFW routeTable = routeTableRO.wrap(readonlyRoutesBuffer, 0, readonlyRoutesBuffer.capacity());
 
-        assert routeTable.writeLockReleases() == routeTable.writeLockAcquires();
-
-        int readLock = routesLayout.lock();
+        final int modCount = routeTable.modificationCount();
 
         int beforeSize = routeTable.sizeof();
 
-        RouteTableFW newRouteTable = routeTableRW.wrap(routesBuffer, 0, routesBufferCapacity)
-            .writeLockAcquires(readLock)
-            .writeLockReleases(readLock - 1)
-            .routeEntries(res ->
+        final MutableDirectBuffer writeableRoutesBuffer = newCopyOfRoutesBuffer();
+
+        RouteTableFW newRouteTable = routeTableRW.wrap(writeableRoutesBuffer, 0, writeableRoutesBuffer.capacity())
+            .modificationCount(modCount)
+            .entries(res ->
             {
-                routeTable.routeEntries().forEach(old ->
+                routeTable.entries().forEach(old ->
                 {
                     final OctetsFW entry = old.route();
                     final RouteFW route = routeRO.wrap(entry.buffer(), entry.offset(), entry.limit());
@@ -507,36 +149,15 @@ public final class Router implements RouteManager, Agent
 
         int afterSize = newRouteTable.sizeof();
 
-        routesLayout.unlock();
+        this.readonlyRoutesBuffer = writeableRoutesBuffer;
+
+        routes.routesBuffer().putBytes(0, writeableRoutesBuffer, 0, writeableRoutesBuffer.capacity());
+        routes.routesBuffer().addIntOrdered(RouteTableFW.FIELD_OFFSET_MODIFICATION_COUNT, 1);
 
         return beforeSize > afterSize;
     }
 
-    private Target newTarget(
-        int labelId)
-    {
-        final String addressName = state.lookupLabel(labelId);
-        final Matcher matcher = ADDRESS_PATTERN.matcher(addressName);
-        matcher.matches();
-        final String targetName = matcher.group(1);
-
-        return targetsByName.computeIfAbsent(targetName, this::newTarget);
-    }
-
-    private Target newTarget(
-        String targetName)
-    {
-        StreamsLayout layout = new StreamsLayout.Builder()
-                .path(context.targetStreamsPath().apply(targetName))
-                .streamsCapacity(context.streamsBufferCapacity())
-                .readonly(true)
-                .build();
-
-        return new Target(targetName, layout, writeBuffer, counters, timestamps,
-                          context.maximumMessagesPerRead(), streams, throttles);
-    }
-
-    private RouteFW generateRouteId(
+    public RouteFW generateRouteId(
         RouteFW route)
     {
         final Role role = route.role().get();
@@ -546,20 +167,17 @@ public final class Router implements RouteManager, Agent
         final long authorization = route.authorization();
         final OctetsFW extension = route.extension();
 
-        final int localId = state.supplyLabelId(localAddress);
-        final int remoteId = state.supplyLabelId(remoteAddress);
         final RouteKind routeKind = RouteKind.valueOf(role.ordinal());
-        final RouteKind existingRouteKind = localRouteKinds.putIfAbsent(localId, routeKind);
+        final RouteKind existingRouteKind = localAddressKinds.putIfAbsent(localAddress, routeKind);
         if (existingRouteKind != null && existingRouteKind != routeKind)
         {
+            // TODO: pin localAddress to both route kind and nukleus
             throw new IllegalArgumentException("localAddress " + localAddress + " reused with different Role");
         }
 
-        final long newRouteId =
-                (long) localId << 48 |
-                (long) remoteId << 32 |
-                (long) role.ordinal() << 28 |
-                (long) (state.supplyRouteId() & 0x0fff_ffff);
+        final int localId = supplyLabelId.applyAsInt(localAddress);
+        final int remoteId = supplyLabelId.applyAsInt(remoteAddress);
+        final long newRouteId = routeId(localId, remoteId, role, ++conditionId);
 
         return routeRW.wrap(routeBuf, 0, routeBuf.capacity())
                       .correlationId(newRouteId)
@@ -572,369 +190,18 @@ public final class Router implements RouteManager, Agent
                       .build();
     }
 
-    private RouteKind resolveRouteKind(
-        long routeId,
-        long streamId)
+    public Resolver newResolver(
+        Long2ObjectHashMap<MessageConsumer> throttles,
+        LongFunction<MessageConsumer> supplyReceiver)
     {
-        return (streamId & 0x8000_0000_0000_0000L) == 0L
-                ? localRouteKinds.get(remoteId(routeId))
-                : replyRouteKind(routeId);
+        return new Resolver(counters, this::readonlyRoutesBuffer, throttles, supplyReceiver);
     }
 
-    private int localId(
-        long routeId)
+    public MutableDirectBuffer newCopyOfRoutesBuffer()
     {
-        return (int)(routeId >> 48) & 0xffff;
-    }
-
-    private int remoteId(
-        long routeId)
-    {
-        return (int)(routeId >> 32) & 0xffff;
-    }
-
-    private RouteKind replyRouteKind(
-        long routeId)
-    {
-        return RouteKind.valueOf((int)(routeId >> 28) & 0x0f);
-    }
-
-    private void handleRead(
-        int msgTypeId,
-        MutableDirectBuffer buffer,
-        int index,
-        int length)
-    {
-        final FrameFW frame = frameRO.wrap(buffer, index, index + length);
-        final long streamId = frame.streamId();
-        final long routeId = frame.routeId();
-
-        try
-        {
-            if ((streamId & 0x8000_0000_0000_0000L) == 0L)
-            {
-                handleReadInitial(routeId, streamId, msgTypeId, buffer, index, length);
-            }
-            else
-            {
-                handleReadReply(routeId, streamId, msgTypeId, buffer, index, length);
-            }
-        }
-        catch (Throwable ex)
-        {
-            ex.addSuppressed(new Exception(String.format("[%s]\t[0x%016x] %s",
-                                                         nukleusName, streamId, streamsLayout)));
-            rethrowUnchecked(ex);
-        }
-    }
-
-    private void handleReadInitial(
-        long routeId,
-        long streamId,
-        int msgTypeId,
-        MutableDirectBuffer buffer,
-        int index,
-        int length)
-    {
-        if ((msgTypeId & 0x4000_0000) == 0)
-        {
-            final MessageConsumer handler = streams.get(streamId);
-            if (handler != null)
-            {
-                switch (msgTypeId)
-                {
-                case BeginFW.TYPE_ID:
-                    handler.accept(msgTypeId, buffer, index, length);
-                    break;
-                case DataFW.TYPE_ID:
-                    handler.accept(msgTypeId, buffer, index, length);
-                    break;
-                case EndFW.TYPE_ID:
-                    handler.accept(msgTypeId, buffer, index, length);
-                    streams.remove(streamId);
-                    break;
-                case AbortFW.TYPE_ID:
-                    handler.accept(msgTypeId, buffer, index, length);
-                    streams.remove(streamId);
-                    break;
-                case SignalFW.TYPE_ID:
-                    handler.accept(msgTypeId, buffer, index, length);
-                    break;
-                default:
-                    doReset(routeId, streamId);
-                    break;
-                }
-            }
-            else if (msgTypeId == BeginFW.TYPE_ID)
-            {
-                final MessageConsumer newHandler = handleBegin(msgTypeId, buffer, index, length);
-                if (newHandler != null)
-                {
-                    newHandler.accept(msgTypeId, buffer, index, length);
-                }
-                else
-                {
-                    doReset(routeId, streamId);
-                }
-            }
-        }
-        else
-        {
-            final MessageConsumer throttle = throttles.get(streamId);
-            if (throttle != null)
-            {
-                final ReadCounters counters = countersByRouteId.computeIfAbsent(routeId, ReadCounters::new);
-                switch (msgTypeId)
-                {
-                case WindowFW.TYPE_ID:
-                    counters.windows.increment();
-                    throttle.accept(msgTypeId, buffer, index, length);
-                    break;
-                case ResetFW.TYPE_ID:
-                    counters.resets.increment();
-                    throttle.accept(msgTypeId, buffer, index, length);
-                    throttles.remove(streamId);
-                    break;
-                default:
-                    break;
-                }
-            }
-        }
-    }
-
-    private void handleReadReply(
-        long routeId,
-        long streamId,
-        int msgTypeId,
-        MutableDirectBuffer buffer,
-        int index,
-        int length)
-    {
-        if ((msgTypeId & 0x4000_0000) == 0)
-        {
-            final MessageConsumer handler = streams.get(streamId);
-            if (handler != null)
-            {
-                final ReadCounters counters = countersByRouteId.computeIfAbsent(routeId, ReadCounters::new);
-                switch (msgTypeId)
-                {
-                case BeginFW.TYPE_ID:
-                    counters.opens.increment();
-                    handler.accept(msgTypeId, buffer, index, length);
-                    break;
-                case DataFW.TYPE_ID:
-                    counters.frames.increment();
-                    counters.bytes.add(buffer.getInt(index + DataFW.FIELD_OFFSET_LENGTH));
-                    handler.accept(msgTypeId, buffer, index, length);
-                    break;
-                case EndFW.TYPE_ID:
-                    counters.closes.increment();
-                    handler.accept(msgTypeId, buffer, index, length);
-                    streams.remove(streamId);
-                    break;
-                case AbortFW.TYPE_ID:
-                    counters.aborts.increment();
-                    handler.accept(msgTypeId, buffer, index, length);
-                    streams.remove(streamId);
-                    break;
-                case SignalFW.TYPE_ID:
-                    handler.accept(msgTypeId, buffer, index, length);
-                    break;
-                default:
-                    doReset(routeId, streamId);
-                    break;
-                }
-            }
-            else if (msgTypeId == BeginFW.TYPE_ID)
-            {
-                final MessageConsumer newHandler = handleBegin(msgTypeId, buffer, index, length);
-                if (newHandler != null)
-                {
-                    final ReadCounters counters = countersByRouteId.computeIfAbsent(routeId, ReadCounters::new);
-                    counters.opens.increment();
-                    newHandler.accept(msgTypeId, buffer, index, length);
-                }
-                else
-                {
-                    doReset(routeId, streamId);
-                }
-            }
-        }
-        else
-        {
-            final MessageConsumer throttle = throttles.get(streamId);
-            if (throttle != null)
-            {
-                switch (msgTypeId)
-                {
-                case WindowFW.TYPE_ID:
-                    throttle.accept(msgTypeId, buffer, index, length);
-                    break;
-                case ResetFW.TYPE_ID:
-                    throttle.accept(msgTypeId, buffer, index, length);
-                    throttles.remove(streamId);
-                    break;
-                default:
-                    break;
-                }
-            }
-        }
-    }
-
-    private MessageConsumer handleBegin(
-        int msgTypeId,
-        DirectBuffer buffer,
-        int index,
-        int length)
-    {
-        final BeginFW begin = beginRO.wrap(buffer, index, index + length);
-        final long routeId = begin.routeId();
-        final long streamId = begin.streamId();
-        final RouteKind routeKind = resolveRouteKind(routeId, streamId);
-
-        StreamFactory streamFactory = streamFactories.get(routeKind);
-        MessageConsumer newStream = null;
-        if (streamFactory != null)
-        {
-            final MessageConsumer replyTo = supplyReplyTo(routeId, streamId);
-            newStream = streamFactory.newStream(msgTypeId, buffer, index, length, replyTo);
-            if (newStream != null)
-            {
-                streams.put(streamId, newStream);
-            }
-        }
-
-        return newStream;
-    }
-
-    private void doReset(
-        final long routeId,
-        final long streamId)
-    {
-        final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                .routeId(routeId)
-                .streamId(streamId)
-                .build();
-
-        final MessageConsumer replyTo = supplyReplyTo(routeId, streamId);
-        replyTo.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
-    }
-
-    private void doSyntheticAbort(
-        long streamId,
-        MessageConsumer stream)
-    {
-        final long syntheticAbortRouteId = 0L;
-
-        final AbortFW abort = abortRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                                     .routeId(syntheticAbortRouteId)
-                                     .streamId(streamId)
-                                     .build();
-
-        stream.accept(abort.typeId(), abort.buffer(), abort.offset(), abort.sizeof());
-    }
-
-    private Future<?> executeAndSignal(
-        Runnable task,
-        long routeId,
-        long streamId,
-        long signalId)
-    {
-        if (executor != null)
-        {
-            return executor.submit(() -> invokeAndSignal(task, routeId, streamId, signalId));
-        }
-        else
-        {
-            invokeAndSignal(task, routeId, streamId, signalId);
-            return new Future<Void>()
-            {
-                @Override
-                public boolean cancel(
-                    boolean mayInterruptIfRunning)
-                {
-                    return false;
-                }
-
-                @Override
-                public boolean isCancelled()
-                {
-                    return false;
-                }
-
-                @Override
-                public boolean isDone()
-                {
-                    return true;
-                }
-
-                @Override
-                public Void get() throws InterruptedException, ExecutionException
-                {
-                    return null;
-                }
-
-                @Override
-                public Void get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException
-                {
-                    return null;
-                }
-            };
-        }
-    }
-
-    private void invokeAndSignal(
-        Runnable task,
-        long routeId,
-        long streamId,
-        long signalId)
-    {
-        try
-        {
-            task.run();
-        }
-        finally
-        {
-            final long timestamp = timestamps ? System.nanoTime() : 0L;
-
-            final SignalFW signal = signalRW.get()
-                                            .rewrap()
-                                            .routeId(routeId)
-                                            .streamId(streamId)
-                                            .timestamp(timestamp)
-                                            .signalId(signalId)
-                                            .build();
-
-            streamsBuffer.write(signal.typeId(), signal.buffer(), signal.offset(), signal.sizeof());
-        }
-    }
-
-    private static SignalFW.Builder newSignalRW()
-    {
-        MutableDirectBuffer buffer = new UnsafeBuffer(new byte[512]);
-        return new SignalFW.Builder().wrap(buffer, 0, buffer.capacity());
-    }
-
-    final class ReadCounters
-    {
-        private final AtomicCounter opens;
-        private final AtomicCounter closes;
-        private final AtomicCounter aborts;
-        private final AtomicCounter windows;
-        private final AtomicCounter resets;
-        private final AtomicCounter bytes;
-        private final AtomicCounter frames;
-
-        ReadCounters(
-            long routeId)
-        {
-            this.opens = counters.counter(format("%d.opens.read", routeId));
-            this.closes = counters.counter(format("%d.closes.read", routeId));
-            this.aborts = counters.counter(format("%d.aborts.read", routeId));
-            this.windows = counters.counter(format("%d.windows.read", routeId));
-            this.resets = counters.counter(format("%d.resets.read", routeId));
-            this.bytes = counters.counter(format("%d.bytes.read", routeId));
-            this.frames = counters.counter(format("%d.frames.read", routeId));
-        }
+        final DirectBuffer oldRoutesBuffer = routes.routesBuffer();
+        final MutableDirectBuffer newRoutesBuffer = new UnsafeBuffer(new byte[oldRoutesBuffer.capacity()]);
+        newRoutesBuffer.putBytes(0, oldRoutesBuffer, 0, oldRoutesBuffer.capacity());
+        return newRoutesBuffer;
     }
 }

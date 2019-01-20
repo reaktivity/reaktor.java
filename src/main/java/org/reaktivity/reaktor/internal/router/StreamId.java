@@ -13,18 +13,35 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.reaktor.internal.util.function;
+package org.reaktivity.reaktor.internal.router;
 
-import java.util.function.BiFunction;
-
-@FunctionalInterface
-public interface LongLongFunction<R> extends BiFunction<Long, Long, R>
+public final class StreamId
 {
-    R apply(long t, long u);
-
-    @Override
-    default R apply(Long t, Long u)
+    public static int replyToIndex(
+        long streamId)
     {
-        return this.apply(t.longValue(), u.longValue());
+        return isInitial(streamId) ? localIndex(streamId) : remoteIndex(streamId);
+    }
+
+    public static int localIndex(
+        long streamId)
+    {
+        return (int)(streamId >> 56) & 0x7f;
+    }
+
+    public static int remoteIndex(
+        long streamId)
+    {
+        return (int)(streamId >> 48) & 0x7f;
+    }
+
+    public static boolean isInitial(
+        long streamId)
+    {
+        return (streamId & 0x8000_0000_0000_0000L) == 0L;
+    }
+
+    private StreamId()
+    {
     }
 }

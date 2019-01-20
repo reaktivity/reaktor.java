@@ -15,10 +15,10 @@
  */
 package org.reaktivity.reaktor;
 
-import static java.util.Collections.emptyList;
 import static java.util.Collections.emptySet;
-import static java.util.Collections.singletonList;
-import static org.junit.Assert.assertNotSame;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import org.agrona.ErrorHandler;
 import org.agrona.concurrent.Agent;
@@ -29,14 +29,12 @@ import org.jmock.lib.concurrent.Synchroniser;
 import org.junit.Rule;
 import org.junit.Test;
 import org.reaktivity.nukleus.Controller;
-import org.reaktivity.nukleus.buffer.BufferPool;
-import org.reaktivity.reaktor.internal.State;
+import org.reaktivity.reaktor.internal.agent.ControllerAgent;
 
 public class ReaktorTest
 {
-
     @Rule
-    public JUnitRuleMockery context = new JUnitRuleMockery()
+    public final JUnitRuleMockery context = new JUnitRuleMockery()
     {
         {
             setThreadingPolicy(new Synchroniser());
@@ -49,61 +47,28 @@ public class ReaktorTest
         final Controller controller = context.mock(Controller.class);
         final IdleStrategy idleStrategy = context.mock(IdleStrategy.class);
         final ErrorHandler errorHandler = context.mock(ErrorHandler.class);
-        final State state = context.mock(State.class);
-        final BufferPool bufferPool = context.mock(BufferPool.class);
 
         context.checking(new Expectations()
         {
             {
                 allowing(controller).process(); will(returnValue(0));
                 allowing(idleStrategy).idle(with(any(int.class)));
-                allowing(state).bufferPool(); will(returnValue(bufferPool));
-                allowing(state).agents(); will(returnValue(emptyList()));
-                allowing(state).controllers(); will(returnValue(singletonList(controller)));
 
-                oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
                 oneOf(controller).kind(); will(returnValue(Controller.class));
                 oneOf(controller).close();
             }
         });
+
+        final ExecutorService executor = Executors.newFixedThreadPool(1);
+        final ControllerAgent controllerAgent = new ControllerAgent();
+        controllerAgent.assign(controller);
+
         Reaktor reaktor = new Reaktor(
             idleStrategy,
             errorHandler,
             emptySet(),
-            new State[] {state},
-            t -> "reaktor");
-        reaktor.start();
-        reaktor.close();
-    }
-
-    @Test
-    public void shouldCloseNuklei() throws Exception
-    {
-        final Agent nukleus = context.mock(Agent.class);
-        final IdleStrategy idleStrategy = context.mock(IdleStrategy.class);
-        final ErrorHandler errorHandler = context.mock(ErrorHandler.class);
-        final State state = context.mock(State.class);
-        final BufferPool bufferPool = context.mock(BufferPool.class);
-
-        context.checking(new Expectations()
-        {
-            {
-                allowing(nukleus).doWork(); will(returnValue(0));
-                allowing(idleStrategy).idle(with(any(int.class)));
-                allowing(state).bufferPool(); will(returnValue(bufferPool));
-                allowing(state).agents(); will(returnValue(singletonList(nukleus)));
-                allowing(state).controllers(); will(returnValue(emptyList()));
-
-                oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
-                oneOf(nukleus).onClose();
-            }
-        });
-        Reaktor reaktor = new Reaktor(
-            idleStrategy,
-            errorHandler,
-            emptySet(),
-            new State[] {state},
-            t -> "reaktor");
+            executor,
+            new Agent[] { controllerAgent });
         reaktor.start();
         reaktor.close();
     }
@@ -114,29 +79,28 @@ public class ReaktorTest
         final Controller controller = context.mock(Controller.class);
         final IdleStrategy idleStrategy = context.mock(IdleStrategy.class);
         final ErrorHandler errorHandler = context.mock(ErrorHandler.class);
-        final State state = context.mock(State.class);
-        final BufferPool bufferPool = context.mock(BufferPool.class);
 
         context.checking(new Expectations()
         {
             {
                 allowing(controller).process(); will(returnValue(0));
                 allowing(idleStrategy).idle(with(any(int.class)));
-                allowing(state).bufferPool(); will(returnValue(bufferPool));
-                allowing(state).agents(); will(returnValue(emptyList()));
-                allowing(state).controllers(); will(returnValue(singletonList(controller)));
 
-                oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
                 oneOf(controller).kind(); will(returnValue(Controller.class));
                 oneOf(controller).close(); will(throwException(new Exception("controller close failed")));
             }
         });
+
+        final ExecutorService executor = Executors.newFixedThreadPool(1);
+        final ControllerAgent controllerAgent = new ControllerAgent();
+        controllerAgent.assign(controller);
+
         Reaktor reaktor = new Reaktor(
-                idleStrategy,
-                errorHandler,
-                emptySet(),
-                new State[] {state},
-                t -> "reaktor");
+            idleStrategy,
+            errorHandler,
+            emptySet(),
+            executor,
+            new Agent[] { controllerAgent });
         reaktor.start();
         try
         {
@@ -145,91 +109,6 @@ public class ReaktorTest
         catch(Throwable t)
         {
             assert(t.getSuppressed().length == 0);
-            throw t;
-        }
-    }
-
-    @Test(expected = Exception.class)
-    public void shouldReportNukleusCloseError() throws Exception
-    {
-        final Agent nukleus = context.mock(Agent.class);
-        final IdleStrategy idleStrategy = context.mock(IdleStrategy.class);
-        final ErrorHandler errorHandler = context.mock(ErrorHandler.class);
-        final State state = context.mock(State.class);
-        final BufferPool bufferPool = context.mock(BufferPool.class);
-
-        context.checking(new Expectations()
-        {
-            {
-                allowing(nukleus).doWork(); will(returnValue(0));
-                allowing(idleStrategy).idle(with(any(int.class)));
-                allowing(state).bufferPool(); will(returnValue(bufferPool));
-                allowing(state).agents(); will(returnValue(singletonList(nukleus)));
-                allowing(state).controllers(); will(returnValue(emptyList()));
-
-                oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
-                oneOf(nukleus).onClose(); will(throwException(new Exception("Nukleus close failed")));
-            }
-        });
-        Reaktor reaktor = new Reaktor(
-                idleStrategy,
-                errorHandler,
-                emptySet(),
-                new State[] {state},
-                t -> "reaktor");
-        reaktor.start();
-        try
-        {
-            reaktor.close();
-        }
-        catch(Throwable t)
-        {
-            assert(t.getSuppressed().length == 0);
-            throw t;
-        }
-    }
-
-    @Test(expected = Exception.class)
-    public void shouldReportAllCloseErrors() throws Exception
-    {
-        final Controller controller = context.mock(Controller.class);
-        final Agent nukleus = context.mock(Agent.class);
-        final IdleStrategy idleStrategy = context.mock(IdleStrategy.class);
-        final ErrorHandler errorHandler = context.mock(ErrorHandler.class);
-        final State state = context.mock(State.class);
-        final BufferPool bufferPool = context.mock(BufferPool.class);
-
-        context.checking(new Expectations()
-        {
-            {
-                allowing(controller).process(); will(returnValue(0));
-                allowing(nukleus).doWork(); will(returnValue(0));
-                allowing(idleStrategy).idle(with(any(int.class)));
-                allowing(state).bufferPool(); will(returnValue(bufferPool));
-                allowing(state).agents(); will(returnValue(singletonList(nukleus)));
-                allowing(state).controllers(); will(returnValue(singletonList(controller)));
-
-                oneOf(bufferPool).acquiredSlots(); will(returnValue(0));
-                oneOf(controller).kind(); will(returnValue(Controller.class));
-                oneOf(controller).close(); will(throwException(new Exception("controller close failed")));
-                oneOf(nukleus).onClose(); will(throwException(new Exception("Nukleus close failed")));
-            }
-        });
-        Reaktor reaktor = new Reaktor(
-                idleStrategy,
-                errorHandler,
-                emptySet(),
-                new State[] {state},
-                t -> "reaktor");
-        reaktor.start();
-        try
-        {
-            reaktor.close();
-        }
-        catch(Throwable t)
-        {
-            assert(t.getSuppressed().length == 1);
-            assertNotSame(t, t.getSuppressed()[0]);
             throw t;
         }
     }

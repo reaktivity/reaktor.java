@@ -19,14 +19,14 @@ import org.agrona.collections.Long2LongHashMap;
 
 import java.util.function.IntUnaryOperator;
 
-class GroupBudgetManager
+public class GroupBudgetManager
 {
     private static final IntUnaryOperator NOOP_CLAIM = IntUnaryOperator.identity();
     private static final IntUnaryOperator NOOP_RELEASE = groupId -> Integer.MAX_VALUE;
 
     private final Long2LongHashMap budgets;
 
-    GroupBudgetManager()
+    public GroupBudgetManager()
     {
         budgets = new Long2LongHashMap(0L);
     }

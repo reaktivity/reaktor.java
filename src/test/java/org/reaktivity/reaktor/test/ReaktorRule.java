@@ -33,7 +33,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.function.Predicate;
+import java.util.regex.Pattern;
 
+import org.agrona.ErrorHandler;
 import org.agrona.LangUtil;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
@@ -44,14 +46,17 @@ import org.reaktivity.nukleus.NukleusFactorySpi;
 import org.reaktivity.reaktor.Reaktor;
 import org.reaktivity.reaktor.ReaktorBuilder;
 import org.reaktivity.reaktor.internal.ReaktorConfiguration;
-import org.reaktivity.reaktor.internal.agent.NukleusAgent;
 import org.reaktivity.reaktor.test.annotation.Configure;
 
 public final class ReaktorRule implements TestRule
 {
+    public static final long EXTERNAL_AFFINITY_MASK = 1L << (Long.SIZE - 1);
+
     // needed by test annotations
     public static final String REAKTOR_BUFFER_POOL_CAPACITY_NAME = "reaktor.buffer.pool.capacity";
     public static final String REAKTOR_BUFFER_SLOT_CAPACITY_NAME = "reaktor.buffer.slot.capacity";
+
+    private static final Pattern DATA_FILENAME_PATTERN = Pattern.compile("data\\d+");
 
     private final Properties properties;
     private final ReaktorBuilder builder;
@@ -135,26 +140,18 @@ public final class ReaktorRule implements TestRule
         return this;
     }
 
-    private NukleusAgent nukleus(
-        String name)
+    public ReaktorRule affinityMask(
+        String address,
+        long affinityMask)
     {
-        if (reaktor == null)
-        {
-            throw new IllegalStateException("Reaktor not started");
-        }
-
-        NukleusAgent nukleus = (NukleusAgent) reaktor.nukleus(name);
-        if (nukleus == null)
-        {
-            throw new IllegalStateException("nukleus not found: " + name);
-        }
-
-        return nukleus;
+        builder.affinityMask(address, affinityMask);
+        return this;
     }
 
-    public ReaktorRule nukleusFactory(Class<? extends NukleusFactorySpi> factory)
+    public ReaktorRule nukleusFactory(
+        Class<? extends NukleusFactorySpi> factory)
     {
-        loader(new NukleusClassLoader(factory.getName()));
+        loader(Services.newLoader(NukleusFactorySpi.class, factory));
         return this;
     }
 
@@ -179,91 +176,95 @@ public final class ReaktorRule implements TestRule
         String nukleus,
         long routeId)
     {
-        return counter(nukleus, format("%d.opens.read", routeId));
+        return counter(format("%s.%d.opens.read", nukleus, routeId));
     }
 
     public long opensWritten(
         String nukleus,
         long routeId)
     {
-        return counter(nukleus, format("%d.opens.written", routeId));
+        return counter(format("%s.%d.opens.written", nukleus, routeId));
     }
 
     public long closesRead(
         String nukleus,
         long routeId)
     {
-        return counter(nukleus, format("%d.closes.read", routeId));
+        return counter(format("%s.%d.closes.read", nukleus, routeId));
     }
 
     public long closesWritten(
         String nukleus,
         long routeId)
     {
-        return counter(nukleus, format("%d.closes.written", routeId));
+        return counter(format("%s.%d.closes.written", nukleus, routeId));
     }
 
     public long abortsRead(
         String nukleus,
         long routeId)
     {
-        return counter(nukleus, format("%d.aborts.read", routeId));
+        return counter(format("%s.%d.aborts.read", nukleus, routeId));
     }
 
     public long abortsWritten(
         String nukleus,
         long routeId)
     {
-        return counter(nukleus, format("%d.aborts.written", routeId));
+        return counter(format("%s.%d.aborts.written", nukleus, routeId));
     }
 
     public long resetsRead(
         String nukleus,
         long routeId)
     {
-        return counter(nukleus, format("%d.resets.read", routeId));
+        return counter(format("%s.%d.resets.read", nukleus, routeId));
     }
 
     public long resetsWritten(
         String nukleus,
         long routeId)
     {
-        return counter(nukleus, format("%d.resets.written", routeId));
+        return counter(format("%s.%d.resets.written", nukleus, routeId));
     }
 
     public long bytesRead(
         String nukleus,
         long routeId)
     {
-        return counter(nukleus, format("%d.bytes.read", routeId));
+        return counter(format("%s.%d.bytes.read", nukleus, routeId));
     }
 
     public long bytesWritten(
         String nukleus,
         long routeId)
     {
-        return counter(nukleus, format("%d.bytes.written", routeId));
+        return counter(format("%s.%d.bytes.written", nukleus, routeId));
     }
 
     public long framesRead(
         String nukleus,
         long routeId)
     {
-        return counter(nukleus, format("%d.frames.read", routeId));
+        return counter(format("%s.%d.frames.read", nukleus, routeId));
     }
 
     public long framesWritten(
         String nukleus,
         long routeId)
     {
-        return counter(nukleus, format("%d.frames.written", routeId));
+        return counter(format("%s.%d.frames.written", nukleus, routeId));
     }
 
-    private long counter(
-        String nukleus,
+    public long counter(
         String name)
     {
-        return nukleus(nukleus).counter(name);
+        if (reaktor == null)
+        {
+            throw new IllegalStateException("Reaktor not started");
+        }
+
+        return reaktor.counter(name);
     }
 
     private ReaktorConfiguration configuration()
@@ -297,11 +298,12 @@ public final class ReaktorRule implements TestRule
             private boolean shouldDeletePath(
                 Path path)
             {
-                final int count = path.getNameCount();
-                return "control".equals(path.getName(count - 1).toString()) ||
-                       "routes".equals(path.getName(count - 1).toString()) ||
-                       "streams".equals(path.getName(count - 1).toString()) ||
-                       "labels".equals(path.getName(count - 1).toString());
+                String filename = path.getFileName().toString();
+                return "control".equals(filename) ||
+                       "routes".equals(filename) ||
+                       "streams".equals(filename) ||
+                       "labels".equals(filename) ||
+                       DATA_FILENAME_PATTERN.matcher(filename).matches();
             }
 
             @Override
@@ -318,10 +320,15 @@ public final class ReaktorRule implements TestRule
                          .forEach(File::delete);
                 }
 
+                final Thread baseThread = Thread.currentThread();
                 final List<Throwable> errors = new ArrayList<>();
-
+                final ErrorHandler errorHandler = ex ->
+                {
+                    errors.add(ex);
+                    baseThread.interrupt();
+                };
                 reaktor = builder.config(config)
-                                 .errorHandler(errors::add)
+                                 .errorHandler(errorHandler)
                                  .build();
 
                 try

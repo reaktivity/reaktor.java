@@ -31,39 +31,19 @@ public final class Counters implements AutoCloseable
     private final ConcurrentMap<String, LongSupplier> readonlyCounters;
     private final Function<? super String, ? extends AtomicCounter> newCounter;
 
-    Counters(
+    public Counters(
         CountersManager manager)
     {
         this.manager = manager;
         this.counters = new ConcurrentHashMap<>();
         this.readonlyCounters = new ConcurrentHashMap<>();
-        this.newCounter = manager::newCounter;
+        this.newCounter = this::newCounter;
     }
 
     @Override
     public void close() throws Exception
     {
         counters.values().forEach(CloseHelper::quietClose);
-    }
-
-    public AtomicCounter routes()
-    {
-        return counter("routes");
-    }
-
-    public AtomicCounter streams()
-    {
-        return counter("streams");
-    }
-
-    public AtomicCounter acquires()
-    {
-        return counter("acquires");
-    }
-
-    public AtomicCounter releases()
-    {
-        return counter("releases");
     }
 
     public AtomicCounter counter(
@@ -88,6 +68,12 @@ public final class Counters implements AutoCloseable
         }
 
         return readonlyCounter;
+    }
+
+    private AtomicCounter newCounter(
+        String name)
+    {
+        return manager.newCounter(name);
     }
 
     private void populateReadonlyCounter(

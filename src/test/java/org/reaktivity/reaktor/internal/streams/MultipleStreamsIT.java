@@ -24,6 +24,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.reaktivity.reaktor.test.ReaktorRule.EXTERNAL_AFFINITY_MASK;
 
 import java.util.function.Function;
 import java.util.function.IntUnaryOperator;
@@ -75,6 +76,8 @@ public class MultipleStreamsIT
         .responseBufferCapacity(1024)
         .counterValuesBufferCapacity(4096)
         .nukleusFactory(ExampleNukleusFactorySpi.class)
+        .affinityMask("target#0", EXTERNAL_AFFINITY_MASK)
+        .affinityMask("target#1", EXTERNAL_AFFINITY_MASK)
         .clean();
 
     @Rule
@@ -105,7 +108,7 @@ public class MultipleStreamsIT
         private ArgumentCaptor<LongSupplier> supplySourceCorrelationId = forClass(LongSupplier.class);
         private ArgumentCaptor<LongSupplier> supplyTargetCorrelationIdRef = forClass(LongSupplier.class);
         private ArgumentCaptor<RouteManager> routerRef = forClass(RouteManager.class);
-        private ArgumentCaptor<LongSupplier> supplyInitialIdRef = forClass(LongSupplier.class);
+        private ArgumentCaptor<LongUnaryOperator> supplyInitialIdRef = forClass(LongUnaryOperator.class);
         private ArgumentCaptor<LongUnaryOperator> supplyReplyIdRef = forClass(LongUnaryOperator.class);
         private ArgumentCaptor<LongSupplier> supplyGroupId = forClass(LongSupplier.class);
         @SuppressWarnings("unchecked")
@@ -235,7 +238,7 @@ public class MultipleStreamsIT
 
                 if (route != null)
                 {
-                    final LongSupplier supplyInitialId = supplyInitialIdRef.getValue();
+                    final LongUnaryOperator supplyInitialId = supplyInitialIdRef.getValue();
                     final LongUnaryOperator supplyReplyId = supplyReplyIdRef.getValue();
                     final LongSupplier supplyTargetCorrelationId = supplyTargetCorrelationIdRef.getValue();
 
@@ -244,12 +247,12 @@ public class MultipleStreamsIT
                     acceptCorrelationId1 = begin.correlationId();
                     acceptReplyId1 = supplyReplyId.applyAsLong(begin.streamId());
 
-                    connectInitialId1 = supplyInitialId.getAsLong();
-                    connectReplyId1 = supplyReplyId.applyAsLong(connectInitialId1);
                     connectRouteId1 = route.correlationId();
+                    connectInitialId1 = supplyInitialId.applyAsLong(connectRouteId1);
+                    connectReplyId1 = supplyReplyId.applyAsLong(connectInitialId1);
                     connectCorrelationId1 = supplyTargetCorrelationId.getAsLong();
 
-                    connectInitial1 = router.supplyReceiver(connectRouteId1);
+                    connectInitial1 = router.supplyReceiver(connectInitialId1);
 
                     doBegin(connectInitial1, connectRouteId1, connectInitialId1,
                             begin.authorization(), connectCorrelationId1);
@@ -333,7 +336,7 @@ public class MultipleStreamsIT
 
                 if (route != null)
                 {
-                    final LongSupplier supplyInitialId = supplyInitialIdRef.getValue();
+                    final LongUnaryOperator supplyInitialId = supplyInitialIdRef.getValue();
                     final LongUnaryOperator supplyReplyId = supplyReplyIdRef.getValue();
                     final LongSupplier supplyTargetCorrelationId = supplyTargetCorrelationIdRef.getValue();
 
@@ -342,12 +345,12 @@ public class MultipleStreamsIT
                     acceptCorrelationId2 = begin.correlationId();
                     acceptReplyId2 = supplyReplyId.applyAsLong(begin.streamId());
 
-                    connectInitialId2 = supplyInitialId.getAsLong();
-                    connectReplyId2 = supplyReplyId.applyAsLong(connectInitialId2);
                     connectRouteId2 = route.correlationId();
+                    connectInitialId2 = supplyInitialId.applyAsLong(connectRouteId2);
+                    connectReplyId2 = supplyReplyId.applyAsLong(connectInitialId2);
                     connectCorrelationId2 = supplyTargetCorrelationId.getAsLong();
 
-                    connectInitial2 = router.supplyReceiver(connectRouteId2);
+                    connectInitial2 = router.supplyReceiver(connectInitialId2);
 
                     doBegin(connectInitial2, connectRouteId2, connectInitialId2,
                             begin.authorization(), connectCorrelationId2);

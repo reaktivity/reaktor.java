@@ -16,71 +16,62 @@
 package org.reaktivity.reaktor;
 
 import static org.agrona.LangUtil.rethrowUnchecked;
-import static org.agrona.concurrent.AgentRunner.startOnThread;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 import java.util.function.BiConsumer;
-import java.util.function.IntFunction;
+import java.util.stream.Stream;
 
 import org.agrona.CloseHelper;
 import org.agrona.ErrorHandler;
-import org.agrona.LangUtil;
+import org.agrona.collections.ArrayUtil;
 import org.agrona.concurrent.Agent;
 import org.agrona.concurrent.AgentRunner;
 import org.agrona.concurrent.IdleStrategy;
 import org.reaktivity.nukleus.Configuration;
 import org.reaktivity.nukleus.Controller;
-import org.reaktivity.nukleus.buffer.BufferPool;
-import org.reaktivity.reaktor.internal.State;
+import org.reaktivity.reaktor.internal.agent.ControllerAgent;
 import org.reaktivity.reaktor.internal.agent.NukleusAgent;
 
 public final class Reaktor implements AutoCloseable
 {
-    private final IdleStrategy idleStrategy;
-    private final ErrorHandler errorHandler;
     private final Set<Configuration> configs;
-    private final Map<String, NukleusAgent> nukleiByName;
-    private final Map<Class<? extends Controller>, Controller> controllersByKind;
-
-    private volatile Core[] cores;
+    private final ExecutorService executor;
+    private final AgentRunner[] runners;
+    private final NukleusAgent nukleusAgent;
+    private final ControllerAgent controllerAgent;
 
     Reaktor(
         IdleStrategy idleStrategy,
         ErrorHandler errorHandler,
         Set<Configuration> configs,
-        State[] states,
-        IntFunction<String> namer)
+        ExecutorService executor,
+        Agent[] agents)
     {
-        this.idleStrategy = idleStrategy;
-        this.errorHandler = errorHandler;
         this.configs = configs;
-        this.nukleiByName = new ConcurrentHashMap<>();
-        this.controllersByKind = new ConcurrentHashMap<>();
+        this.executor = executor;
 
-        Core[] cores = new Core[states.length];
-        for (int i=0; i < states.length; i++)
+        AgentRunner[] runners = new AgentRunner[0];
+        for (Agent agent : agents)
         {
-            cores[i] = new Core(namer.apply(i), states[i]);
-
-            for (Agent agent : states[i].agents())
-            {
-                if (agent instanceof NukleusAgent)
-                {
-                    NukleusAgent nukleus = (NukleusAgent) agent;
-                    nukleiByName.put(nukleus.roleName(), nukleus);
-                }
-            }
-
-            for (Controller controller : states[i].controllers())
-            {
-                controllersByKind.put(controller.kind(), controller);
-            }
+            runners = ArrayUtil.add(runners, new AgentRunner(idleStrategy, errorHandler, null, agent));
         }
-        this.cores = cores;
+        this.runners = runners;
+
+        this.controllerAgent = Arrays.stream(agents)
+            .filter(agent -> agent instanceof ControllerAgent)
+            .map(ControllerAgent.class::cast)
+            .findFirst()
+            .orElse(null);
+
+        this.nukleusAgent = Arrays.stream(agents)
+                .filter(agent -> agent instanceof NukleusAgent)
+                .map(NukleusAgent.class::cast)
+                .findFirst()
+                .orElse(null);
     }
 
     public void properties(
@@ -93,25 +84,25 @@ public final class Reaktor implements AutoCloseable
     public <T extends Controller> T controller(
         Class<T> kind)
     {
-        return kind.cast(controllersByKind.get(kind));
+        return controllerAgent != null ? controllerAgent.controller(kind) : null;
     }
 
-    public Agent nukleus(
+    public Stream<Controller> controllers()
+    {
+        return controllerAgent != null ? controllerAgent.controllers() : null;
+    }
+
+    public long counter(
         String name)
     {
-        return nukleiByName.get(name);
-    }
-
-    public Set<Class<? extends Controller>> controllerKinds()
-    {
-        return controllersByKind.keySet();
+        return nukleusAgent != null ? nukleusAgent.counter(name) : 0L;
     }
 
     public Reaktor start()
     {
-        for (Core core : cores)
+        for (AgentRunner runner : runners)
         {
-            core.start();
+            AgentRunner.startOnThread(runner);
         }
 
         return this;
@@ -121,17 +112,19 @@ public final class Reaktor implements AutoCloseable
     public void close() throws Exception
     {
         final List<Throwable> errors = new ArrayList<>();
-        for (Core core : cores)
+        for (AgentRunner runner : runners)
         {
             try
             {
-                core.stop();
+                CloseHelper.close(runner);
             }
             catch (Throwable t)
             {
                 errors.add(t);
             }
         }
+
+        executor.shutdownNow();
 
         if (!errors.isEmpty())
         {
@@ -144,102 +137,5 @@ public final class Reaktor implements AutoCloseable
     public static ReaktorBuilder builder()
     {
         return new ReaktorBuilder();
-    }
-
-    private final class Core implements Agent
-    {
-        private final String roleName;
-        private final BufferPool bufferPool;
-        private final Agent[] agents;
-        private final Controller[] controllers;
-
-        private volatile AgentRunner runner;
-
-        Core(
-            String roleName,
-            State state)
-        {
-            this.agents = state.agents().toArray(new Agent[0]);
-            this.roleName = roleName;
-            this.controllers = state.controllers().toArray(new Controller[0]);
-            this.bufferPool = state.bufferPool();
-        }
-
-        public void start()
-        {
-            this.runner = new AgentRunner(idleStrategy, errorHandler, null, this);
-
-            startOnThread(runner);
-        }
-
-        public void stop()
-        {
-            CloseHelper.close(runner);
-        }
-
-        @Override
-        public String roleName()
-        {
-            return roleName;
-        }
-
-        @Override
-        public int doWork() throws Exception
-        {
-            int workDone = 0;
-
-            for (final Agent agent : agents)
-            {
-                workDone += agent.doWork();
-            }
-
-            final Controller[] controllers = this.controllers;
-            for (int i=0; i < controllers.length; i++)
-            {
-                workDone += controllers[i].process();
-            }
-
-            return workDone;
-        }
-
-        @Override
-        public void onClose()
-        {
-            final List<Throwable> errors = new ArrayList<>();
-            for (int i=0; i < agents.length; i++)
-            {
-                try
-                {
-                    agents[i].onClose();
-                }
-                catch (Throwable t)
-                {
-                    errors.add(t);
-                }
-            }
-            for (int i=0; i < controllers.length; i++)
-            {
-                try
-                {
-                    controllers[i].close();
-                }
-                catch (Throwable t)
-                {
-                    errors.add(t);
-                }
-            }
-
-            if (bufferPool.acquiredSlots() != 0)
-            {
-                errors.add(new IllegalStateException("Buffer pool has unreleased slots: " + bufferPool.acquiredSlots()));
-            }
-
-            if (!errors.isEmpty())
-            {
-                final Throwable t = errors.get(0);
-                errors.stream().filter(x -> x != t).forEach(x -> t.addSuppressed(x));
-                LangUtil.rethrowUnchecked(t);
-            }
-        }
     }
 }

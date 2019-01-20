@@ -15,16 +15,16 @@
  */
 package org.reaktivity.reaktor.internal.router;
 
-import static java.lang.String.format;
 import static org.reaktivity.reaktor.internal.types.stream.FrameFW.FIELD_OFFSET_TIMESTAMP;
+
+import java.util.function.LongFunction;
 
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Long2ObjectHashMap;
-import org.agrona.concurrent.status.AtomicCounter;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessagePredicate;
-import org.reaktivity.reaktor.internal.Counters;
+import org.reaktivity.reaktor.internal.ReaktorConfiguration;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
 import org.reaktivity.reaktor.internal.types.stream.AbortFW;
 import org.reaktivity.reaktor.internal.types.stream.BeginFW;
@@ -34,42 +34,50 @@ import org.reaktivity.reaktor.internal.types.stream.FrameFW;
 import org.reaktivity.reaktor.internal.types.stream.ResetFW;
 import org.reaktivity.reaktor.internal.types.stream.WindowFW;
 
-final class Target implements AutoCloseable
+public final class Target implements AutoCloseable
 {
     private final FrameFW frameRO = new FrameFW();
 
     private final ResetFW.Builder resetRW = new ResetFW.Builder();
 
     private final String targetName;
-    private final AutoCloseable layout;
+    private final AutoCloseable streamsLayout;
     private final MutableDirectBuffer writeBuffer;
-    private final Counters counters;
     private final boolean timestamps;
     private final Long2ObjectHashMap<MessageConsumer> streams;
     private final Long2ObjectHashMap<MessageConsumer> throttles;
     private final Long2ObjectHashMap<WriteCounters> countersByRouteId;
     private final MessageConsumer writeHandler;
+    private final LongFunction<WriteCounters> newWriteCounters;
 
     private MessagePredicate streamsBuffer;
 
-    Target(
-        String targetName,
-        StreamsLayout layout,
+    public Target(
+        ReaktorConfiguration config,
+        int index,
         MutableDirectBuffer writeBuffer,
-        Counters counters,
-        boolean timestamps,
-        int maximumMessagesPerRead,
         Long2ObjectHashMap<MessageConsumer> streams,
-        Long2ObjectHashMap<MessageConsumer> throttles)
+        Long2ObjectHashMap<MessageConsumer> throttles,
+        LongFunction<WriteCounters> newWriteCounters)
     {
+        this.timestamps = config.timestamps();
+
+        final String targetName = String.format("data%d", index);
         this.targetName = targetName;
-        this.layout = layout;
+
+        final StreamsLayout streamsLayout = new StreamsLayout.Builder()
+                .path(config.directory().resolve(targetName))
+                .streamsCapacity(config.streamsBufferCapacity())
+                .readonly(true)
+                .build();
+        this.streamsLayout = streamsLayout;
+        this.streamsBuffer = streamsLayout.streamsBuffer()::write;
+
         this.writeBuffer = writeBuffer;
-        this.counters = counters;
-        this.timestamps = timestamps;
-        this.streamsBuffer = layout.streamsBuffer()::write;
+        this.newWriteCounters = newWriteCounters;
         this.streams = streams;
         this.throttles = throttles;
+
         this.writeHandler = this::handleWrite;
         this.countersByRouteId = new Long2ObjectHashMap<>();
     }
@@ -84,7 +92,7 @@ final class Target implements AutoCloseable
     {
         throttles.forEach(this::doSyntheticReset);
 
-        layout.close();
+        streamsLayout.close();
     }
 
     @Override
@@ -142,7 +150,7 @@ final class Target implements AutoCloseable
 
         if ((msgTypeId & 0x4000_0000) == 0)
         {
-            final WriteCounters counters = countersByRouteId.computeIfAbsent(routeId, WriteCounters::new);
+            final WriteCounters counters = countersByRouteId.computeIfAbsent(routeId, newWriteCounters);
 
             switch (msgTypeId)
             {
@@ -225,7 +233,7 @@ final class Target implements AutoCloseable
         }
         else
         {
-            final WriteCounters counters = countersByRouteId.computeIfAbsent(routeId, WriteCounters::new);
+            final WriteCounters counters = countersByRouteId.computeIfAbsent(routeId, newWriteCounters);
             switch (msgTypeId)
             {
             case WindowFW.TYPE_ID:
@@ -258,28 +266,5 @@ final class Target implements AutoCloseable
                 .build();
 
         sender.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
-    }
-
-    final class WriteCounters
-    {
-        private final AtomicCounter opens;
-        private final AtomicCounter closes;
-        private final AtomicCounter aborts;
-        private final AtomicCounter windows;
-        private final AtomicCounter resets;
-        private final AtomicCounter bytes;
-        private final AtomicCounter frames;
-
-        WriteCounters(
-            long routeId)
-        {
-            this.opens = counters.counter(format("%d.opens.written", routeId));
-            this.closes = counters.counter(format("%d.closes.written", routeId));
-            this.aborts = counters.counter(format("%d.aborts.written", routeId));
-            this.windows = counters.counter(format("%d.windows.written", routeId));
-            this.resets = counters.counter(format("%d.resets.written", routeId));
-            this.bytes = counters.counter(format("%d.bytes.written", routeId));
-            this.frames = counters.counter(format("%d.frames.written", routeId));
-        }
     }
 }

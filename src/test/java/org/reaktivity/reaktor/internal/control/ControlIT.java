@@ -241,7 +241,11 @@ public class ControlIT
             @Override
             public Elektron supplyElektron()
             {
-                return null;
+                return new ExampleElektron();
+            }
+
+            private static final class ExampleElektron implements Elektron
+            {
             }
         }
     }
