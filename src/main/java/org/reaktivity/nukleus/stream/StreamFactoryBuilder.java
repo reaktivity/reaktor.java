@@ -40,7 +40,7 @@ public interface StreamFactoryBuilder
     }
 
     StreamFactoryBuilder setInitialIdSupplier(
-        LongSupplier supplyInitialId);
+        LongUnaryOperator supplyInitialId);
 
     StreamFactoryBuilder setReplyIdSupplier(
         LongUnaryOperator supplyReplyId);

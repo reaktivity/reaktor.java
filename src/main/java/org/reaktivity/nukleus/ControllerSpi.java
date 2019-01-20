@@ -16,12 +16,8 @@
 package org.reaktivity.nukleus;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiFunction;
-import java.util.function.ToIntFunction;
 
 import org.agrona.DirectBuffer;
-import org.reaktivity.nukleus.function.MessageConsumer;
-import org.reaktivity.nukleus.function.MessagePredicate;
 
 public interface ControllerSpi
 {
@@ -60,11 +56,4 @@ public interface ControllerSpi
         DirectBuffer buffer,
         int index,
         int length);
-
-    <R> R doSupplyTarget(
-        String target,
-        BiFunction<ToIntFunction<MessageConsumer>, MessagePredicate, R> factory);
-
-    long doCount(String name);
-
 }

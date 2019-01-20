@@ -15,8 +15,6 @@
  */
 package org.reaktivity.nukleus;
 
-import java.util.concurrent.ExecutorService;
-
 import org.reaktivity.nukleus.function.CommandHandler;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteKind;
@@ -35,11 +33,6 @@ public interface Nukleus
 
     default MessagePredicate routeHandler(
         RouteKind kind)
-    {
-        return null;
-    }
-
-    default ExecutorService executor()
     {
         return null;
     }
