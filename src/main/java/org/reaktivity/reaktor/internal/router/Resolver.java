@@ -35,7 +35,7 @@ import org.reaktivity.reaktor.internal.types.state.RouteTableFW;
 
 public final class Resolver implements RouteManager
 {
-    private final RouteFW routeRO = new RouteFW();
+    private final ThreadLocal<RouteFW> routeRO = ThreadLocal.withInitial(RouteFW::new);
     private final RouteTableFW routeTableRO = new RouteTableFW();
 
     private final Counters counters;
@@ -87,7 +87,7 @@ public final class Resolver implements RouteManager
         final RouteEntryFW routeEntry = routeTable.entries().matchFirst(re ->
         {
             final OctetsFW entry = re.route();
-            final RouteFW candidate = routeRO.wrap(entry.buffer(), entry.offset(), entry.limit());
+            final RouteFW candidate = routeRO.get().wrap(entry.buffer(), entry.offset(), entry.limit());
             return (authorization & candidate.authorization()) == candidate.authorization() &&
                    filter.test(candidate.typeId(), candidate.buffer(), candidate.offset(), candidate.sizeof());
         });
@@ -96,7 +96,7 @@ public final class Resolver implements RouteManager
         if (routeEntry != null)
         {
             final OctetsFW entry = routeEntry.route();
-            final RouteFW route = routeRO.wrap(entry.buffer(), entry.offset(), entry.limit());
+            final RouteFW route = routeRO.get().wrap(entry.buffer(), entry.offset(), entry.limit());
             result = mapper.apply(route.typeId(), route.buffer(), route.offset(), route.sizeof());
         }
         return result;
@@ -115,7 +115,7 @@ public final class Resolver implements RouteManager
         RouteEntryFW routeEntry = routeTable.entries().matchFirst(re ->
         {
             final OctetsFW entry = re.route();
-            final RouteFW candidate = routeRO.wrap(entry.buffer(), entry.offset(), entry.limit());
+            final RouteFW candidate = routeRO.get().wrap(entry.buffer(), entry.offset(), entry.limit());
             return remoteId(routeId) == localId(candidate.correlationId()) &&
                    (authorization & candidate.authorization()) == candidate.authorization() &&
                    filter.test(candidate.typeId(), candidate.buffer(), candidate.offset(), candidate.sizeof());
@@ -125,7 +125,7 @@ public final class Resolver implements RouteManager
         if (routeEntry != null)
         {
             final OctetsFW entry = routeEntry.route();
-            final RouteFW route = routeRO.wrap(entry.buffer(), entry.offset(), entry.limit());
+            final RouteFW route = routeRO.get().wrap(entry.buffer(), entry.offset(), entry.limit());
             result = mapper.apply(route.typeId(), route.buffer(), route.offset(), route.sizeof());
         }
         return result;
@@ -141,7 +141,7 @@ public final class Resolver implements RouteManager
         routeTable.entries().forEach(re ->
         {
             final OctetsFW entry = re.route();
-            final RouteFW route = routeRO.wrap(entry.buffer(), entry.offset(), entry.limit());
+            final RouteFW route = routeRO.get().wrap(entry.buffer(), entry.offset(), entry.limit());
             consumer.accept(route.typeId(), route.buffer(), route.offset(), route.sizeof());
         });
     }
