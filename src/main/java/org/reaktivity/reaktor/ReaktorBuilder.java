@@ -175,8 +175,8 @@ public class ReaktorBuilder
             }
         }
 
-        // TODO: ReaktorConfiguration for executor pool size
-        final ExecutorService executor = Executors.newFixedThreadPool(1);
+        final int parallelism = config.taskParallelism();
+        final ExecutorService executor = Executors.newWorkStealingPool(parallelism);
 
         final int count = threads;
         final ElektronAgent[] elektronAgents = new ElektronAgent[count];
