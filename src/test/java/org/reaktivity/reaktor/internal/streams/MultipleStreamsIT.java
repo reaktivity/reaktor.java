@@ -74,7 +74,7 @@ public class MultipleStreamsIT
         .directory("target/nukleus-itests")
         .commandBufferCapacity(1024)
         .responseBufferCapacity(1024)
-        .counterValuesBufferCapacity(4096)
+        .counterValuesBufferCapacity(8192)
         .nukleusFactory(ExampleNukleusFactorySpi.class)
         .affinityMask("target#0", EXTERNAL_AFFINITY_MASK)
         .affinityMask("target#1", EXTERNAL_AFFINITY_MASK)

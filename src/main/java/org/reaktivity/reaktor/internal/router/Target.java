@@ -148,10 +148,9 @@ public final class Target implements AutoCloseable
     {
         boolean handled;
 
+        final WriteCounters counters = countersByRouteId.computeIfAbsent(routeId, newWriteCounters);
         if ((msgTypeId & 0x4000_0000) == 0)
         {
-            final WriteCounters counters = countersByRouteId.computeIfAbsent(routeId, newWriteCounters);
-
             switch (msgTypeId)
             {
             case BeginFW.TYPE_ID:
@@ -183,9 +182,11 @@ public final class Target implements AutoCloseable
             switch (msgTypeId)
             {
             case WindowFW.TYPE_ID:
+                counters.windows.increment();
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 break;
             case ResetFW.TYPE_ID:
+                counters.resets.increment();
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 streams.remove(streamId);
                 break;
@@ -208,21 +209,27 @@ public final class Target implements AutoCloseable
     {
         boolean handled;
 
+        final WriteCounters counters = countersByRouteId.computeIfAbsent(routeId, newWriteCounters);
         if ((msgTypeId & 0x4000_0000) == 0)
         {
             switch (msgTypeId)
             {
             case BeginFW.TYPE_ID:
+                counters.opens.increment();
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 break;
             case DataFW.TYPE_ID:
+                counters.frames.increment();
+                counters.bytes.add(buffer.getInt(index + DataFW.FIELD_OFFSET_LENGTH));
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 break;
             case EndFW.TYPE_ID:
+                counters.closes.increment();
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 throttles.remove(streamId);
                 break;
             case AbortFW.TYPE_ID:
+                counters.aborts.increment();
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 throttles.remove(streamId);
                 break;
@@ -233,7 +240,6 @@ public final class Target implements AutoCloseable
         }
         else
         {
-            final WriteCounters counters = countersByRouteId.computeIfAbsent(routeId, newWriteCounters);
             switch (msgTypeId)
             {
             case WindowFW.TYPE_ID:
