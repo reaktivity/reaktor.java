@@ -32,14 +32,14 @@ public class NukleusClientChannelFactory implements ChannelFactory
     {
         this.channelSink = new NukleusClientChannelSink();
         this.reaktorPool = reaktorPool;
-        this.initialId = new AtomicLong((long)(Long.SIZE - 1) << 56);
+        this.initialId = new AtomicLong(((long)(Long.SIZE - 1) << 56) | 0x0000_0000_0000_0001L);
     }
 
     @Override
     public Channel newChannel(
         ChannelPipeline pipeline)
     {
-        final long targetId = initialId.incrementAndGet();
+        final long targetId = initialId.addAndGet(2L);
         return new NukleusClientChannel(this, pipeline, channelSink, reaktorPool.nextReaktor(), targetId);
     }
 

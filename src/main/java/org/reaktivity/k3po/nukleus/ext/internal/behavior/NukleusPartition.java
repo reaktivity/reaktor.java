@@ -165,7 +165,7 @@ final class NukleusPartition implements AutoCloseable
         final long streamId = begin.streamId();
         final long authorization = begin.authorization();
 
-        if ((streamId & 0x8000_0000_0000_0000L) == 0L)
+        if ((streamId & 0x0000_0000_0000_0001L) != 0L)
         {
             final NukleusServerChannel serverChannel = lookupRoute.apply(routeId, authorization);
             if (serverChannel != null)
@@ -190,7 +190,7 @@ final class NukleusPartition implements AutoCloseable
         final long routeId = begin.routeId();
         final long initialId = begin.streamId();
         final long correlationId = begin.correlationId();
-        final long replyId = initialId | 0x8000_0000_0000_0000L;
+        final long replyId = initialId & 0xffff_ffff_ffff_fffeL;
 
         final NukleusChildChannel childChannel = doAccept(serverChannel, routeId, initialId, replyId, correlationId);
         final NukleusTarget sender = supplySender.apply(childChannel.routeId(), initialId);
