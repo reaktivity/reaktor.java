@@ -61,7 +61,7 @@ public class DefaultBufferPool implements BufferPool
         this.bitsPerSlot = Integer.numberOfTrailingZeros(slotCapacity);
         int totalSlots = slotCapacity != 0 ? totalCapacity / slotCapacity : 0;
         this.mask = totalSlots - 1;
-        this.slabBuffer = new UnsafeBuffer(ByteBuffer.allocateDirect(totalCapacity));
+        this.slabBuffer = new UnsafeBuffer(ByteBuffer.allocate(totalCapacity));
         this.slotByteBuffer = slabBuffer.byteBuffer().duplicate();
         this.used = new BitSet(totalSlots);
         this.availableSlots = new int[] { totalSlots };
@@ -100,8 +100,7 @@ public class DefaultBufferPool implements BufferPool
     public MutableDirectBuffer buffer(int slot)
     {
         assert used.get(slot);
-        final long slotAddressOffset = slabBuffer.addressOffset() + (slot << bitsPerSlot);
-        slotBuffer.wrap(slotAddressOffset, slotCapacity);
+        slotBuffer.wrap(slabBuffer, slot << bitsPerSlot, slotCapacity);
         return slotBuffer;
     }
 

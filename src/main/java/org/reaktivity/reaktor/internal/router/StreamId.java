@@ -35,10 +35,31 @@ public final class StreamId
         return (int)(streamId >> 48) & 0x7f;
     }
 
+    public static int instanceId(
+        long streamId)
+    {
+        return (int)(streamId & 0xffff_ffffL);
+    }
+
+    public static long streamId(
+        int receiverIndex,
+        int senderIndex,
+        int instanceId)
+    {
+        return isInitial(instanceId) ? ((receiverIndex & 0x7fL) << 56) | ((senderIndex & 0x7fL) << 48) | instanceId
+                : ((senderIndex & 0x7fL) << 56) | ((receiverIndex & 0x7fL) << 48) | instanceId;
+    }
+
     public static boolean isInitial(
         long streamId)
     {
-        return (streamId & 0x8000_0000_0000_0000L) == 0L;
+        return (streamId & 0x0000_0000_0000_0001L) != 0L;
+    }
+
+    private static boolean isInitial(
+        int instanceId)
+    {
+        return (instanceId & 0x0000_0001) != 0;
     }
 
     private StreamId()

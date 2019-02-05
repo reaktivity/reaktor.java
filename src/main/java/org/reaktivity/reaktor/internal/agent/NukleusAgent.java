@@ -22,10 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
-import java.util.function.LongSupplier;
 import java.util.function.ToLongFunction;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.agrona.CloseHelper;
 import org.agrona.DirectBuffer;
@@ -37,12 +34,10 @@ import org.agrona.concurrent.UnsafeBuffer;
 import org.agrona.concurrent.broadcast.BroadcastTransmitter;
 import org.agrona.concurrent.ringbuffer.ManyToOneRingBuffer;
 import org.agrona.concurrent.ringbuffer.RingBuffer;
-import org.agrona.concurrent.status.CountersManager;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.function.CommandHandler;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteKind;
-import org.reaktivity.reaktor.internal.Counters;
 import org.reaktivity.reaktor.internal.LabelManager;
 import org.reaktivity.reaktor.internal.ReaktorConfiguration;
 import org.reaktivity.reaktor.internal.layouts.ControlLayout;
@@ -59,10 +54,6 @@ import org.reaktivity.reaktor.internal.types.control.UnroutedFW;
 
 public class NukleusAgent implements Agent
 {
-    private static final Pattern ADDRESS_PATTERN = Pattern.compile("^([^#]+)(:?#.*)$");
-
-    private final ControlLayout.Builder controlRW = new ControlLayout.Builder();
-
     private final CommandFW commandRO = new CommandFW();
     private final RouteFW routeRO = new RouteFW();
     private final UnrouteFW unrouteRO = new UnrouteFW();
@@ -83,8 +74,6 @@ public class NukleusAgent implements Agent
     private final RingBuffer commandBuffer;
     private final BroadcastTransmitter responseBuffer;
     private final MutableDirectBuffer sendBuffer;
-    private final CountersManager countersManager;
-    private final Counters counters;
     private final MessageHandler commandHandler;
 
     public NukleusAgent(
@@ -95,22 +84,18 @@ public class NukleusAgent implements Agent
         this.elektronAgents = new ArrayList<>();
         this.nukleiByName = new HashMap<>();
 
-        this.control = controlRW
+        this.control = new ControlLayout.Builder()
                 .controlPath(config.directory().resolve("control"))
                 .commandBufferCapacity(config.commandBufferCapacity())
                 .responseBufferCapacity(config.responseBufferCapacity())
-                .counterLabelsBufferCapacity(config.counterLabelsBufferCapacity())
-                .counterValuesBufferCapacity(config.counterValuesBufferCapacity())
                 .readonly(false)
                 .build();
 
         this.commandBuffer = new ManyToOneRingBuffer(control.commandBuffer());
         this.responseBuffer = new BroadcastTransmitter(control.responseBuffer());
-        this.sendBuffer =    new UnsafeBuffer(allocateDirect(responseBuffer.maxMsgLength()));
-        this.countersManager = new CountersManager(control.counterLabelsBuffer(), control.counterValuesBuffer());
-        this.counters = new Counters(countersManager);
+        this.sendBuffer = new UnsafeBuffer(allocateDirect(responseBuffer.maxMsgLength()));
 
-        this.router = new Router(config, labels, counters, commandBuffer.maxMsgLength());
+        this.router = new Router(config, labels, commandBuffer.maxMsgLength());
 
         this.commandHandler = this::handleCommand;
     }
@@ -137,13 +122,19 @@ public class NukleusAgent implements Agent
         return nukleiByName.get(name);
     }
 
+    public LabelManager labels()
+    {
+        return labels;
+    }
+
     public ElektronAgent supplyElektronAgent(
         int index,
         int count,
         ExecutorService executor,
         ToLongFunction<String> affinityMask)
     {
-        ElektronAgent newElektronAgent = new ElektronAgent(index, count, config, labels, executor, affinityMask, counters, this);
+        ElektronAgent newElektronAgent = new ElektronAgent(index, count, config, labels, executor, affinityMask,
+                router::readonlyRoutesBuffer);
         elektronAgents.add(newElektronAgent);
         return newElektronAgent;
     }
@@ -158,22 +149,6 @@ public class NukleusAgent implements Agent
         Nukleus nukleus)
     {
         nukleiByName.remove(nukleus.name());
-    }
-
-    public long counter(
-        String name)
-    {
-        final LongSupplier counter = counters.readonlyCounter(name);
-        return counter != null ? counter.getAsLong() : 0L;
-    }
-
-    public String nukleus(
-        int localId)
-    {
-        final String localAddress = labels.lookupLabel(localId);
-        final Matcher matcher = ADDRESS_PATTERN.matcher(localAddress);
-        matcher.matches();
-        return matcher.group(1);
     }
 
     public boolean isEmpty()

@@ -17,17 +17,18 @@ package org.reaktivity.reaktor.internal.router;
 
 import static org.reaktivity.reaktor.internal.router.RouteId.localId;
 import static org.reaktivity.reaktor.internal.router.RouteId.remoteId;
+import static org.reaktivity.reaktor.internal.router.StreamId.instanceId;
+import static org.reaktivity.reaktor.internal.router.StreamId.replyToIndex;
 
 import java.util.function.LongFunction;
 import java.util.function.Supplier;
 
 import org.agrona.DirectBuffer;
-import org.agrona.collections.Long2ObjectHashMap;
+import org.agrona.collections.Int2ObjectHashMap;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessageFunction;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteManager;
-import org.reaktivity.reaktor.internal.Counters;
 import org.reaktivity.reaktor.internal.types.OctetsFW;
 import org.reaktivity.reaktor.internal.types.control.RouteFW;
 import org.reaktivity.reaktor.internal.types.state.RouteEntryFW;
@@ -38,26 +39,18 @@ public final class Resolver implements RouteManager
     private final ThreadLocal<RouteFW> routeRO = ThreadLocal.withInitial(RouteFW::new);
     private final RouteTableFW routeTableRO = new RouteTableFW();
 
-    private final Counters counters;
-    private final Long2ObjectHashMap<MessageConsumer> throttles;
+    private final Int2ObjectHashMap<MessageConsumer>[] throttles;
     private final Supplier<DirectBuffer> routesBufferRef;
     private final LongFunction<MessageConsumer> supplyReceiver;
 
     public Resolver(
-        Counters counters,
         Supplier<DirectBuffer> routesBufferRef,
-        Long2ObjectHashMap<MessageConsumer> throttles,
+        Int2ObjectHashMap<MessageConsumer>[] throttles,
         LongFunction<MessageConsumer> supplyReceiver)
     {
-        this.counters = counters;
         this.throttles = throttles;
         this.routesBufferRef = routesBufferRef;
         this.supplyReceiver = supplyReceiver;
-    }
-
-    public Counters counters()
-    {
-        return counters;
     }
 
     @Override
@@ -72,7 +65,7 @@ public final class Resolver implements RouteManager
         long streamId,
         MessageConsumer throttle)
     {
-        throttles.put(streamId, throttle);
+        throttles[replyToIndex(streamId)].put(instanceId(streamId), throttle);
     }
 
     @Override

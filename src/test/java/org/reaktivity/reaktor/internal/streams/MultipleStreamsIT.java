@@ -24,6 +24,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.reaktivity.reaktor.internal.router.StreamId.isInitial;
 import static org.reaktivity.reaktor.test.ReaktorRule.EXTERNAL_AFFINITY_MASK;
 
 import java.util.function.Function;
@@ -193,18 +194,7 @@ public class MultipleStreamsIT
                      final BeginFW begin = beginRO.wrap(buffer, index, index + length);
 
                      MessageConsumer result;
-                     if ((begin.streamId() & 0x8000_0000_0000_0000L) != 0L)
-                     {
-                         if (begin.correlationId() == connectCorrelationId1)
-                         {
-                             result = connectReply1;
-                         }
-                         else
-                         {
-                             result = connectReply2;
-                         }
-                     }
-                     else
+                     if (isInitial(begin.streamId()))
                      {
                          if (!newStream1Started)
                          {
@@ -216,6 +206,17 @@ public class MultipleStreamsIT
                          {
                              acceptReply2 = acceptReplyRef.getValue();
                              result = acceptInitial2;
+                         }
+                     }
+                     else
+                     {
+                         if (begin.correlationId() == connectCorrelationId1)
+                         {
+                             result = connectReply1;
+                         }
+                         else
+                         {
+                             result = connectReply2;
                          }
                      }
                      return result;

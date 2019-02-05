@@ -20,17 +20,13 @@ import static org.reaktivity.reaktor.internal.router.RouteId.routeId;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.LongFunction;
 import java.util.function.ToIntFunction;
 
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
-import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.concurrent.UnsafeBuffer;
-import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteKind;
-import org.reaktivity.reaktor.internal.Counters;
 import org.reaktivity.reaktor.internal.LabelManager;
 import org.reaktivity.reaktor.internal.ReaktorConfiguration;
 import org.reaktivity.reaktor.internal.layouts.RoutesLayout;
@@ -50,7 +46,6 @@ public final class Router
     private final RouteFW.Builder routeRW = new RouteFW.Builder();
     private final RouteTableFW.Builder routeTableRW = new RouteTableFW.Builder();
 
-    private final Counters counters;
     private final ToIntFunction<String> supplyLabelId;
     private final MutableDirectBuffer routeBuf;
 
@@ -64,10 +59,8 @@ public final class Router
     public Router(
         ReaktorConfiguration config,
         LabelManager labels,
-        Counters counters,
         int maxControlCommandLength)
     {
-        this.counters = counters;
         this.supplyLabelId = labels::supplyLabelId;
         this.localAddressKinds = new HashMap<>();
 
@@ -190,14 +183,7 @@ public final class Router
                       .build();
     }
 
-    public Resolver newResolver(
-        Long2ObjectHashMap<MessageConsumer> throttles,
-        LongFunction<MessageConsumer> supplyReceiver)
-    {
-        return new Resolver(counters, this::readonlyRoutesBuffer, throttles, supplyReceiver);
-    }
-
-    public MutableDirectBuffer newCopyOfRoutesBuffer()
+    private MutableDirectBuffer newCopyOfRoutesBuffer()
     {
         final DirectBuffer oldRoutesBuffer = routes.routesBuffer();
         final MutableDirectBuffer newRoutesBuffer = new UnsafeBuffer(new byte[oldRoutesBuffer.capacity()]);

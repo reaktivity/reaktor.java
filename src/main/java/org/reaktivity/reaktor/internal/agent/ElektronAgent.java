@@ -24,8 +24,11 @@ import static org.agrona.CloseHelper.quietClose;
 import static org.agrona.LangUtil.rethrowUnchecked;
 import static org.reaktivity.reaktor.internal.router.RouteId.localId;
 import static org.reaktivity.reaktor.internal.router.RouteId.remoteId;
+import static org.reaktivity.reaktor.internal.router.StreamId.instanceId;
+import static org.reaktivity.reaktor.internal.router.StreamId.isInitial;
 import static org.reaktivity.reaktor.internal.router.StreamId.remoteIndex;
 import static org.reaktivity.reaktor.internal.router.StreamId.replyToIndex;
+import static org.reaktivity.reaktor.internal.router.StreamId.streamId;
 
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -38,10 +41,15 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
+import java.util.function.IntFunction;
 import java.util.function.LongConsumer;
+import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
+import java.util.function.LongUnaryOperator;
 import java.util.function.Supplier;
 import java.util.function.ToLongFunction;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
@@ -54,6 +62,7 @@ import org.agrona.concurrent.MessageHandler;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.agrona.concurrent.ringbuffer.RingBuffer;
 import org.agrona.concurrent.status.AtomicCounter;
+import org.agrona.concurrent.status.CountersManager;
 import org.reaktivity.nukleus.Elektron;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.buffer.BufferPool;
@@ -66,10 +75,10 @@ import org.reaktivity.reaktor.internal.LabelManager;
 import org.reaktivity.reaktor.internal.ReaktorConfiguration;
 import org.reaktivity.reaktor.internal.buffer.CountingBufferPool;
 import org.reaktivity.reaktor.internal.buffer.DefaultBufferPool;
+import org.reaktivity.reaktor.internal.layouts.MetricsLayout;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
 import org.reaktivity.reaktor.internal.router.GroupBudgetManager;
 import org.reaktivity.reaktor.internal.router.Resolver;
-import org.reaktivity.reaktor.internal.router.Router;
 import org.reaktivity.reaktor.internal.router.Target;
 import org.reaktivity.reaktor.internal.router.WriteCounters;
 import org.reaktivity.reaktor.internal.types.stream.AbortFW;
@@ -83,6 +92,8 @@ import org.reaktivity.reaktor.internal.types.stream.WindowFW;
 
 public class ElektronAgent implements Agent
 {
+    private static final Pattern ADDRESS_PATTERN = Pattern.compile("^([^#]+)(:?#.*)$");
+
     private final ThreadLocal<SignalFW.Builder> signalRW = withInitial(ElektronAgent::newSignalRW);
 
     private final FrameFW frameRO = new FrameFW();
@@ -97,13 +108,13 @@ public class ElektronAgent implements Agent
     private final ToLongFunction<String> affinityMask;
     private final String elektronName;
     private final Counters counters;
-    private final NukleusAgent nukleusAgent;
     private final boolean timestamps;
+    private final MetricsLayout metricsLayout;
     private final StreamsLayout streamsLayout;
     private final RingBuffer streamsBuffer;
     private final MutableDirectBuffer writeBuffer;
-    private final Long2ObjectHashMap<MessageConsumer> streams;
-    private final Long2ObjectHashMap<MessageConsumer> throttles;
+    private final Int2ObjectHashMap<MessageConsumer>[] streams;
+    private final Int2ObjectHashMap<MessageConsumer>[] throttles;
     private final Long2ObjectHashMap<ReadCounters> countersByRouteId;
     private final Int2ObjectHashMap<MessageConsumer> writersByIndex;
     private final Int2ObjectHashMap<Target> targetsByIndex;
@@ -113,6 +124,11 @@ public class ElektronAgent implements Agent
     private final MessageHandler readHandler;
     private final int readLimit;
     private final GroupBudgetManager groupBudgetManager;
+    private final LongFunction<? extends ReadCounters> newReadCounters;
+    private final IntFunction<MessageConsumer> supplyWriter;
+    private final IntFunction<Target> newTarget;
+    private final LongFunction<WriteCounters> newWriteCounters;
+    private final LongUnaryOperator resolveAffinity;
 
     private final Resolver resolver;
 
@@ -135,8 +151,7 @@ public class ElektronAgent implements Agent
         LabelManager labels,
         ExecutorService executor,
         ToLongFunction<String> affinityMask,
-        Counters counters,
-        NukleusAgent nukleusAgent)
+        Supplier<DirectBuffer> routesBufferRef)
     {
         this.localIndex = index;
         this.config = config;
@@ -144,45 +159,58 @@ public class ElektronAgent implements Agent
         this.executor = executor;
         this.affinityMask = affinityMask;
 
+        final MetricsLayout metricsLayout = new MetricsLayout.Builder()
+                .path(config.directory().resolve(String.format("metrics%d", index)))
+                .labelsBufferCapacity(config.counterLabelsBufferCapacity())
+                .valuesBufferCapacity(config.counterValuesBufferCapacity())
+                .readonly(false)
+                .build();
+
         final StreamsLayout streamsLayout = new StreamsLayout.Builder()
             .path(config.directory().resolve(String.format("data%d", index)))
             .streamsCapacity(config.streamsBufferCapacity())
             .readonly(false)
             .build();
+
+        this.elektronName = String.format("reaktor/data#%d", index);
+        this.metricsLayout = metricsLayout;
         this.streamsLayout = streamsLayout;
         this.groupBudgetManager = new GroupBudgetManager();
 
-        this.elektronName = String.format("reaktor/data#%d", index);
-        this.counters = counters;
-        this.nukleusAgent = nukleusAgent;
+        final CountersManager countersManager =
+                new CountersManager(metricsLayout.labelsBuffer(), metricsLayout.valuesBuffer());
+        this.counters = new Counters(countersManager);
+
         this.timestamps = config.timestamps();
         this.readLimit = config.maximumMessagesPerRead();
         this.streamsBuffer = streamsLayout.streamsBuffer();
         this.writeBuffer = new UnsafeBuffer(new byte[streamsBuffer.maxMsgLength()]);
-        this.streams = new Long2ObjectHashMap<>();
-        this.throttles = new Long2ObjectHashMap<>();
+        this.streams = initDispatcher();
+        this.throttles = initDispatcher();
         this.countersByRouteId = new Long2ObjectHashMap<>();
         this.streamFactoriesByLabelId = new Int2ObjectHashMap<>();
         this.readHandler = this::handleRead;
+        this.newReadCounters = this::newReadCounters;
+        this.supplyWriter = this::supplyWriter;
+        this.newTarget = this::newTarget;
+        this.newWriteCounters = this::newWriteCounters;
+        this.resolveAffinity = this::resolveAffinity;
         this.elektronByName = new ConcurrentHashMap<>();
         this.affinityByRemoteId = new Long2LongHashMap(-1L);
         this.targetsByIndex = new Int2ObjectHashMap<>();
         this.writersByIndex = new Int2ObjectHashMap<>();
         this.agents = new Agent[0];
 
-        final Router router = nukleusAgent.router();
-        this.resolver = router.newResolver(throttles, this::supplyInitialWriter);
+        this.resolver = new Resolver(routesBufferRef, throttles, this::supplyInitialWriter);
 
         final int bufferPoolCapacity = config.bufferPoolCapacity();
         final int bufferSlotCapacity = config.bufferSlotCapacity();
         final BufferPool bufferPool = new DefaultBufferPool(bufferPoolCapacity, bufferSlotCapacity);
 
-        final int reserved = Byte.SIZE; // includes reply bit
+        final int reserved = Byte.SIZE;
         final int bits = Long.SIZE - reserved;
         final long initial = ((long) index) << bits;
         final long mask = initial | (-1L >>> reserved);
-
-        assert mask >= 0; // high bit used by reply id
 
         this.mask = mask;
         this.bufferPool = bufferPool;
@@ -213,6 +241,13 @@ public class ElektronAgent implements Agent
         return workDone;
     }
 
+    public long counter(
+        String name)
+    {
+        final LongSupplier counter = counters.readonlyCounter(name);
+        return counter != null ? counter.getAsLong() : 0L;
+    }
+
     @Override
     public void onClose()
     {
@@ -221,12 +256,17 @@ public class ElektronAgent implements Agent
             agent.onClose();
         }
 
-        streams.forEach(this::doSyntheticAbort);
+        for (int senderIndex=0; senderIndex < streams.length; senderIndex++)
+        {
+            final int senderIndex0 = senderIndex;
+            streams[senderIndex].forEach((id, handler) -> doSyntheticAbort(streamId(localIndex, senderIndex0, id), handler));
+        }
 
         targetsByIndex.forEach((k, v) -> v.detach());
         targetsByIndex.forEach((k, v) -> quietClose(v));
 
         quietClose(streamsLayout);
+        quietClose(metricsLayout);
 
         if (bufferPool.acquiredSlots() != 0)
         {
@@ -296,7 +336,7 @@ public class ElektronAgent implements Agent
 
         try
         {
-            if ((streamId & 0x8000_0000_0000_0000L) == 0L)
+            if (isInitial(streamId))
             {
                 handleReadInitial(routeId, streamId, msgTypeId, buffer, index, length);
             }
@@ -321,9 +361,12 @@ public class ElektronAgent implements Agent
         int index,
         int length)
     {
+        final int instanceId = instanceId(streamId);
+
         if ((msgTypeId & 0x4000_0000) == 0)
         {
-            final MessageConsumer handler = streams.get(streamId);
+            final Int2ObjectHashMap<MessageConsumer> dispatcher = streams[replyToIndex(streamId)];
+            final MessageConsumer handler = dispatcher.get(instanceId);
             if (handler != null)
             {
                 switch (msgTypeId)
@@ -336,11 +379,11 @@ public class ElektronAgent implements Agent
                     break;
                 case EndFW.TYPE_ID:
                     handler.accept(msgTypeId, buffer, index, length);
-                    streams.remove(streamId);
+                    dispatcher.remove(instanceId);
                     break;
                 case AbortFW.TYPE_ID:
                     handler.accept(msgTypeId, buffer, index, length);
-                    streams.remove(streamId);
+                    dispatcher.remove(instanceId);
                     break;
                 case SignalFW.TYPE_ID:
                     handler.accept(msgTypeId, buffer, index, length);
@@ -365,10 +408,11 @@ public class ElektronAgent implements Agent
         }
         else
         {
-            final MessageConsumer throttle = throttles.get(streamId);
+            final Int2ObjectHashMap<MessageConsumer> dispatcher = throttles[replyToIndex(streamId)];
+            final MessageConsumer throttle = dispatcher.get(instanceId);
             if (throttle != null)
             {
-                final ReadCounters counters = countersByRouteId.computeIfAbsent(routeId, this::newReadCounters);
+                final ReadCounters counters = countersByRouteId.computeIfAbsent(routeId, newReadCounters);
                 switch (msgTypeId)
                 {
                 case WindowFW.TYPE_ID:
@@ -378,7 +422,7 @@ public class ElektronAgent implements Agent
                 case ResetFW.TYPE_ID:
                     counters.resets.increment();
                     throttle.accept(msgTypeId, buffer, index, length);
-                    throttles.remove(streamId);
+                    dispatcher.remove(instanceId);
                     break;
                 default:
                     break;
@@ -395,12 +439,15 @@ public class ElektronAgent implements Agent
         int index,
         int length)
     {
+        final int instanceId = instanceId(streamId);
+
         if ((msgTypeId & 0x4000_0000) == 0)
         {
-            final MessageConsumer handler = streams.get(streamId);
+            final Int2ObjectHashMap<MessageConsumer> dispatcher = streams[replyToIndex(streamId)];
+            final MessageConsumer handler = dispatcher.get(instanceId);
             if (handler != null)
             {
-                final ReadCounters counters = countersByRouteId.computeIfAbsent(routeId, this::newReadCounters);
+                final ReadCounters counters = countersByRouteId.computeIfAbsent(routeId, newReadCounters);
                 switch (msgTypeId)
                 {
                 case BeginFW.TYPE_ID:
@@ -415,12 +462,12 @@ public class ElektronAgent implements Agent
                 case EndFW.TYPE_ID:
                     counters.closes.increment();
                     handler.accept(msgTypeId, buffer, index, length);
-                    streams.remove(streamId);
+                    dispatcher.remove(instanceId);
                     break;
                 case AbortFW.TYPE_ID:
                     counters.aborts.increment();
                     handler.accept(msgTypeId, buffer, index, length);
-                    streams.remove(streamId);
+                    dispatcher.remove(instanceId);
                     break;
                 case SignalFW.TYPE_ID:
                     handler.accept(msgTypeId, buffer, index, length);
@@ -435,7 +482,7 @@ public class ElektronAgent implements Agent
                 final MessageConsumer newHandler = handleBeginReply(msgTypeId, buffer, index, length);
                 if (newHandler != null)
                 {
-                    final ReadCounters counters = countersByRouteId.computeIfAbsent(routeId, this::newReadCounters);
+                    final ReadCounters counters = countersByRouteId.computeIfAbsent(routeId, newReadCounters);
                     counters.opens.increment();
                     newHandler.accept(msgTypeId, buffer, index, length);
                 }
@@ -447,7 +494,8 @@ public class ElektronAgent implements Agent
         }
         else
         {
-            final MessageConsumer throttle = throttles.get(streamId);
+            final Int2ObjectHashMap<MessageConsumer> dispatcher = throttles[replyToIndex(streamId)];
+            final MessageConsumer throttle = dispatcher.get(instanceId);
             if (throttle != null)
             {
                 switch (msgTypeId)
@@ -457,7 +505,7 @@ public class ElektronAgent implements Agent
                     break;
                 case ResetFW.TYPE_ID:
                     throttle.accept(msgTypeId, buffer, index, length);
-                    throttles.remove(streamId);
+                    dispatcher.remove(instanceId);
                     break;
                 default:
                     break;
@@ -486,7 +534,7 @@ public class ElektronAgent implements Agent
             newStream = streamFactory.newStream(msgTypeId, buffer, index, length, replyTo);
             if (newStream != null)
             {
-                streams.put(streamId, newStream);
+                streams[replyToIndex(streamId)].put(instanceId(streamId), newStream);
             }
         }
 
@@ -513,7 +561,7 @@ public class ElektronAgent implements Agent
             newStream = streamFactory.newStream(msgTypeId, buffer, index, length, replyTo);
             if (newStream != null)
             {
-                streams.put(streamId, newStream);
+                streams[replyToIndex(streamId)].put(instanceId(streamId), newStream);
             }
         }
 
@@ -551,14 +599,14 @@ public class ElektronAgent implements Agent
         long streamId)
     {
         final int index = replyToIndex(streamId);
-        return writersByIndex.computeIfAbsent(index, this::supplyWriter);
+        return writersByIndex.computeIfAbsent(index, supplyWriter);
     }
 
     private MessageConsumer supplyInitialWriter(
         long streamId)
     {
         final int index = remoteIndex(streamId);
-        return writersByIndex.computeIfAbsent(index, this::supplyWriter);
+        return writersByIndex.computeIfAbsent(index, supplyWriter);
     }
 
     private MessageConsumer supplyWriter(
@@ -570,20 +618,20 @@ public class ElektronAgent implements Agent
     private Target supplyTarget(
         int index)
     {
-        return targetsByIndex.computeIfAbsent(index, this::newTarget);
+        return targetsByIndex.computeIfAbsent(index, newTarget);
     }
 
     private Target newTarget(
         int index)
     {
-        return new Target(config, index, writeBuffer, streams, throttles, this::newWriteCounters);
+        return new Target(config, index, writeBuffer, streams, throttles, newWriteCounters);
     }
 
     private ReadCounters newReadCounters(
         long routeId)
     {
         final int localId = localId(routeId);
-        final String nukleus = nukleusAgent.nukleus(localId);
+        final String nukleus = nukleus(localId);
         return new ReadCounters(counters, nukleus, routeId);
     }
 
@@ -591,8 +639,17 @@ public class ElektronAgent implements Agent
         long routeId)
     {
         final int localId = localId(routeId);
-        final String nukleus = nukleusAgent.nukleus(localId);
+        final String nukleus = nukleus(localId);
         return new WriteCounters(counters, nukleus, routeId);
+    }
+
+    private String nukleus(
+        int localId)
+    {
+        final String localAddress = labels.lookupLabel(localId);
+        final Matcher matcher = ADDRESS_PATTERN.matcher(localAddress);
+        matcher.matches();
+        return matcher.group(1);
     }
 
     private static final class ReadCounters
@@ -746,18 +803,18 @@ public class ElektronAgent implements Agent
             final int remoteId = remoteId(routeId);
             final int remoteIndex = lookupTargetIndex(remoteId);
 
-            streamId++;
+            streamId += 2L;
             streamId &= mask;
 
             return (((long)remoteIndex << 48) & 0x00ff_0000_0000_0000L) |
-                   (streamId & 0xff00_ffff_ffff_ffffL);
+                   (streamId & 0xff00_ffff_ffff_ffffL) | 0x0000_0000_0000_0001L;
         }
 
         public long supplyReplyId(
             long initialId)
         {
-            assert (initialId & 0x8000_0000_0000_0000L) == 0L;
-            return initialId | 0x8000_0000_0000_0000L;
+            assert isInitial(initialId);
+            return initialId & 0xffff_ffff_ffff_fffeL | 0x8000_0000_0000_0000L; // hash
         }
 
         public long supplyGroupId()
@@ -867,7 +924,7 @@ public class ElektronAgent implements Agent
     private long supplyAffinity(
         int remoteId)
     {
-        return affinityByRemoteId.computeIfAbsent(remoteId, this::resolveAffinity);
+        return affinityByRemoteId.computeIfAbsent(remoteId, resolveAffinity);
     }
 
     public long resolveAffinity(
@@ -891,5 +948,16 @@ public class ElektronAgent implements Agent
     {
         MutableDirectBuffer buffer = new UnsafeBuffer(new byte[512]);
         return new SignalFW.Builder().wrap(buffer, 0, buffer.capacity());
+    }
+
+    private Int2ObjectHashMap<MessageConsumer>[] initDispatcher()
+    {
+        @SuppressWarnings("unchecked")
+        Int2ObjectHashMap<MessageConsumer>[] dispatcher = new Int2ObjectHashMap[64];
+        for (int i=0; i < dispatcher.length; i++)
+        {
+            dispatcher[i] = new Int2ObjectHashMap<>();
+        }
+        return dispatcher;
     }
 }
