@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.agrona.CloseHelper;
@@ -34,15 +35,15 @@ import org.agrona.concurrent.IdleStrategy;
 import org.reaktivity.nukleus.Configuration;
 import org.reaktivity.nukleus.Controller;
 import org.reaktivity.reaktor.internal.agent.ControllerAgent;
-import org.reaktivity.reaktor.internal.agent.NukleusAgent;
+import org.reaktivity.reaktor.internal.agent.ElektronAgent;
 
 public final class Reaktor implements AutoCloseable
 {
     private final Set<Configuration> configs;
     private final ExecutorService executor;
     private final AgentRunner[] runners;
-    private final NukleusAgent nukleusAgent;
     private final ControllerAgent controllerAgent;
+    private final List<ElektronAgent> elektronAgents;
 
     Reaktor(
         IdleStrategy idleStrategy,
@@ -67,11 +68,10 @@ public final class Reaktor implements AutoCloseable
             .findFirst()
             .orElse(null);
 
-        this.nukleusAgent = Arrays.stream(agents)
-                .filter(agent -> agent instanceof NukleusAgent)
-                .map(NukleusAgent.class::cast)
-                .findFirst()
-                .orElse(null);
+        this.elektronAgents = Arrays.stream(agents)
+                .filter(agent -> agent instanceof ElektronAgent)
+                .map(ElektronAgent.class::cast)
+                .collect(Collectors.toList());
     }
 
     public void properties(
@@ -95,7 +95,7 @@ public final class Reaktor implements AutoCloseable
     public long counter(
         String name)
     {
-        return nukleusAgent != null ? nukleusAgent.counter(name) : 0L;
+        return elektronAgents.stream().mapToLong(agent -> agent.counter(name)).sum();
     }
 
     public Reaktor start()

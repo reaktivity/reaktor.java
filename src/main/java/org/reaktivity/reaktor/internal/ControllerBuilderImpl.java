@@ -108,8 +108,6 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
                     .controlPath(config.directory().resolve("control"))
                     .commandBufferCapacity(config.commandBufferCapacity())
                     .responseBufferCapacity(config.responseBufferCapacity())
-                    .counterLabelsBufferCapacity(config.counterLabelsBufferCapacity())
-                    .counterValuesBufferCapacity(config.counterValuesBufferCapacity())
                     .readonly(true)
                     .build();
 

@@ -15,12 +15,17 @@
  */
 package org.reaktivity.reaktor.internal.router;
 
+import static org.reaktivity.reaktor.internal.router.StreamId.instanceId;
+import static org.reaktivity.reaktor.internal.router.StreamId.isInitial;
+import static org.reaktivity.reaktor.internal.router.StreamId.replyToIndex;
+import static org.reaktivity.reaktor.internal.router.StreamId.streamId;
 import static org.reaktivity.reaktor.internal.types.stream.FrameFW.FIELD_OFFSET_TIMESTAMP;
 
 import java.util.function.LongFunction;
 
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
+import org.agrona.collections.Int2ObjectHashMap;
 import org.agrona.collections.Long2ObjectHashMap;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessagePredicate;
@@ -40,12 +45,13 @@ public final class Target implements AutoCloseable
 
     private final ResetFW.Builder resetRW = new ResetFW.Builder();
 
+    private final int localIndex;
     private final String targetName;
     private final AutoCloseable streamsLayout;
     private final MutableDirectBuffer writeBuffer;
     private final boolean timestamps;
-    private final Long2ObjectHashMap<MessageConsumer> streams;
-    private final Long2ObjectHashMap<MessageConsumer> throttles;
+    private final Int2ObjectHashMap<MessageConsumer>[] streams;
+    private final Int2ObjectHashMap<MessageConsumer>[] throttles;
     private final Long2ObjectHashMap<WriteCounters> countersByRouteId;
     private final MessageConsumer writeHandler;
     private final LongFunction<WriteCounters> newWriteCounters;
@@ -56,11 +62,12 @@ public final class Target implements AutoCloseable
         ReaktorConfiguration config,
         int index,
         MutableDirectBuffer writeBuffer,
-        Long2ObjectHashMap<MessageConsumer> streams,
-        Long2ObjectHashMap<MessageConsumer> throttles,
+        Int2ObjectHashMap<MessageConsumer>[] streams,
+        Int2ObjectHashMap<MessageConsumer>[] throttles,
         LongFunction<WriteCounters> newWriteCounters)
     {
         this.timestamps = config.timestamps();
+        this.localIndex = index;
 
         final String targetName = String.format("data%d", index);
         this.targetName = targetName;
@@ -90,7 +97,11 @@ public final class Target implements AutoCloseable
     @Override
     public void close() throws Exception
     {
-        throttles.forEach(this::doSyntheticReset);
+        for (int remoteIndex=0; remoteIndex < throttles.length; remoteIndex++)
+        {
+            final int remoteIndex0 = remoteIndex;
+            throttles[remoteIndex].forEach((id, handler) -> doSyntheticReset(streamId(localIndex, remoteIndex0, id), handler));
+        }
 
         streamsLayout.close();
     }
@@ -123,7 +134,7 @@ public final class Target implements AutoCloseable
         final long streamId = frame.streamId();
         final long routeId = frame.routeId();
 
-        if ((streamId & 0x8000_0000_0000_0000L) == 0L)
+        if (isInitial(streamId))
         {
             handled = handleWriteInitial(streamId, routeId, msgTypeId, buffer, index, length);
         }
@@ -166,12 +177,12 @@ public final class Target implements AutoCloseable
             case EndFW.TYPE_ID:
                 counters.closes.increment();
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
-                throttles.remove(streamId);
+                throttles[replyToIndex(streamId)].remove(instanceId(streamId));
                 break;
             case AbortFW.TYPE_ID:
                 counters.aborts.increment();
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
-                throttles.remove(streamId);
+                throttles[replyToIndex(streamId)].remove(instanceId(streamId));
                 break;
             default:
                 handled = true;
@@ -187,7 +198,7 @@ public final class Target implements AutoCloseable
                 break;
             case ResetFW.TYPE_ID:
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
-                streams.remove(streamId);
+                streams[replyToIndex(streamId)].remove(instanceId(streamId));
                 break;
             default:
                 handled = true;
@@ -220,11 +231,11 @@ public final class Target implements AutoCloseable
                 break;
             case EndFW.TYPE_ID:
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
-                throttles.remove(streamId);
+                throttles[replyToIndex(streamId)].remove(instanceId(streamId));
                 break;
             case AbortFW.TYPE_ID:
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
-                throttles.remove(streamId);
+                throttles[replyToIndex(streamId)].remove(instanceId(streamId));
                 break;
             default:
                 handled = true;
@@ -243,7 +254,7 @@ public final class Target implements AutoCloseable
             case ResetFW.TYPE_ID:
                 counters.resets.increment();
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
-                streams.remove(streamId);
+                streams[replyToIndex(streamId)].remove(instanceId(streamId));
                 break;
             default:
                 handled = true;
