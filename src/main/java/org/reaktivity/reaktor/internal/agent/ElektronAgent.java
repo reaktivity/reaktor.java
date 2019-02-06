@@ -814,7 +814,7 @@ public class ElektronAgent implements Agent
             long initialId)
         {
             assert isInitial(initialId);
-            return initialId & 0xffff_ffff_ffff_fffeL | 0x8000_0000_0000_0000L; // hash
+            return initialId & 0xffff_ffff_ffff_fffeL;
         }
 
         public long supplyGroupId()
