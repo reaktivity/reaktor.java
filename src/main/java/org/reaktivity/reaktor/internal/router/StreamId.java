@@ -17,10 +17,16 @@ package org.reaktivity.reaktor.internal.router;
 
 public final class StreamId
 {
-    public static int replyToIndex(
+    public static int streamIndex(
         long streamId)
     {
         return isInitial(streamId) ? localIndex(streamId) : remoteIndex(streamId);
+    }
+
+    public static int throttleIndex(
+        long streamId)
+    {
+        return isInitial(streamId) ? remoteIndex(streamId) : localIndex(streamId);
     }
 
     public static int localIndex(
@@ -42,12 +48,21 @@ public final class StreamId
     }
 
     public static long streamId(
-        int receiverIndex,
-        int senderIndex,
+        int localIndex,
+        int remoteIndex,
         int instanceId)
     {
-        return isInitial(instanceId) ? ((receiverIndex & 0x7fL) << 56) | ((senderIndex & 0x7fL) << 48) | instanceId
-                : ((senderIndex & 0x7fL) << 56) | ((receiverIndex & 0x7fL) << 48) | instanceId;
+        return isInitial(instanceId) ? ((localIndex & 0x7fL) << 56) | ((remoteIndex & 0x7fL) << 48) | instanceId
+                : ((remoteIndex & 0x7fL) << 56) | ((localIndex & 0x7fL) << 48) | instanceId;
+    }
+
+    public static long throttleId(
+        int localIndex,
+        int remoteIndex,
+        int instanceId)
+    {
+        return isInitial(instanceId) ? ((remoteIndex & 0x7fL) << 56) | ((localIndex & 0x7fL) << 48) | instanceId
+                : ((localIndex & 0x7fL) << 56) | ((remoteIndex & 0x7fL) << 48) | instanceId;
     }
 
     public static boolean isInitial(

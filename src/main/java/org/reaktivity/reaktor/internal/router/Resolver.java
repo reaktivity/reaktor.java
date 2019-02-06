@@ -18,7 +18,7 @@ package org.reaktivity.reaktor.internal.router;
 import static org.reaktivity.reaktor.internal.router.RouteId.localId;
 import static org.reaktivity.reaktor.internal.router.RouteId.remoteId;
 import static org.reaktivity.reaktor.internal.router.StreamId.instanceId;
-import static org.reaktivity.reaktor.internal.router.StreamId.replyToIndex;
+import static org.reaktivity.reaktor.internal.router.StreamId.throttleIndex;
 
 import java.util.function.LongFunction;
 import java.util.function.Supplier;
@@ -65,7 +65,7 @@ public final class Resolver implements RouteManager
         long streamId,
         MessageConsumer throttle)
     {
-        throttles[replyToIndex(streamId)].put(instanceId(streamId), throttle);
+        throttles[throttleIndex(streamId)].put(instanceId(streamId), throttle);
     }
 
     @Override
