@@ -17,8 +17,9 @@ package org.reaktivity.reaktor.internal.router;
 
 import static org.reaktivity.reaktor.internal.router.StreamId.instanceId;
 import static org.reaktivity.reaktor.internal.router.StreamId.isInitial;
-import static org.reaktivity.reaktor.internal.router.StreamId.replyToIndex;
-import static org.reaktivity.reaktor.internal.router.StreamId.streamId;
+import static org.reaktivity.reaktor.internal.router.StreamId.streamIndex;
+import static org.reaktivity.reaktor.internal.router.StreamId.throttleId;
+import static org.reaktivity.reaktor.internal.router.StreamId.throttleIndex;
 import static org.reaktivity.reaktor.internal.types.stream.FrameFW.FIELD_OFFSET_TIMESTAMP;
 
 import java.util.function.LongFunction;
@@ -100,7 +101,7 @@ public final class Target implements AutoCloseable
         for (int remoteIndex=0; remoteIndex < throttles.length; remoteIndex++)
         {
             final int remoteIndex0 = remoteIndex;
-            throttles[remoteIndex].forEach((id, handler) -> doSyntheticReset(streamId(localIndex, remoteIndex0, id), handler));
+            throttles[remoteIndex].forEach((id, handler) -> doSyntheticReset(throttleId(localIndex, remoteIndex0, id), handler));
         }
 
         streamsLayout.close();
@@ -177,12 +178,12 @@ public final class Target implements AutoCloseable
             case EndFW.TYPE_ID:
                 counters.closes.increment();
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
-                throttles[replyToIndex(streamId)].remove(instanceId(streamId));
+                throttles[throttleIndex(streamId)].remove(instanceId(streamId));
                 break;
             case AbortFW.TYPE_ID:
                 counters.aborts.increment();
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
-                throttles[replyToIndex(streamId)].remove(instanceId(streamId));
+                throttles[throttleIndex(streamId)].remove(instanceId(streamId));
                 break;
             default:
                 handled = true;
@@ -198,7 +199,7 @@ public final class Target implements AutoCloseable
                 break;
             case ResetFW.TYPE_ID:
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
-                streams[replyToIndex(streamId)].remove(instanceId(streamId));
+                streams[streamIndex(streamId)].remove(instanceId(streamId));
                 break;
             default:
                 handled = true;
@@ -231,11 +232,11 @@ public final class Target implements AutoCloseable
                 break;
             case EndFW.TYPE_ID:
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
-                throttles[replyToIndex(streamId)].remove(instanceId(streamId));
+                throttles[throttleIndex(streamId)].remove(instanceId(streamId));
                 break;
             case AbortFW.TYPE_ID:
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
-                throttles[replyToIndex(streamId)].remove(instanceId(streamId));
+                throttles[throttleIndex(streamId)].remove(instanceId(streamId));
                 break;
             default:
                 handled = true;
@@ -254,7 +255,7 @@ public final class Target implements AutoCloseable
             case ResetFW.TYPE_ID:
                 counters.resets.increment();
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
-                streams[replyToIndex(streamId)].remove(instanceId(streamId));
+                streams[streamIndex(streamId)].remove(instanceId(streamId));
                 break;
             default:
                 handled = true;

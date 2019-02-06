@@ -27,8 +27,9 @@ import static org.reaktivity.reaktor.internal.router.RouteId.remoteId;
 import static org.reaktivity.reaktor.internal.router.StreamId.instanceId;
 import static org.reaktivity.reaktor.internal.router.StreamId.isInitial;
 import static org.reaktivity.reaktor.internal.router.StreamId.remoteIndex;
-import static org.reaktivity.reaktor.internal.router.StreamId.replyToIndex;
 import static org.reaktivity.reaktor.internal.router.StreamId.streamId;
+import static org.reaktivity.reaktor.internal.router.StreamId.streamIndex;
+import static org.reaktivity.reaktor.internal.router.StreamId.throttleIndex;
 
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -365,7 +366,7 @@ public class ElektronAgent implements Agent
 
         if ((msgTypeId & 0x4000_0000) == 0)
         {
-            final Int2ObjectHashMap<MessageConsumer> dispatcher = streams[replyToIndex(streamId)];
+            final Int2ObjectHashMap<MessageConsumer> dispatcher = streams[streamIndex(streamId)];
             final MessageConsumer handler = dispatcher.get(instanceId);
             if (handler != null)
             {
@@ -408,7 +409,7 @@ public class ElektronAgent implements Agent
         }
         else
         {
-            final Int2ObjectHashMap<MessageConsumer> dispatcher = throttles[replyToIndex(streamId)];
+            final Int2ObjectHashMap<MessageConsumer> dispatcher = throttles[throttleIndex(streamId)];
             final MessageConsumer throttle = dispatcher.get(instanceId);
             if (throttle != null)
             {
@@ -443,7 +444,7 @@ public class ElektronAgent implements Agent
 
         if ((msgTypeId & 0x4000_0000) == 0)
         {
-            final Int2ObjectHashMap<MessageConsumer> dispatcher = streams[replyToIndex(streamId)];
+            final Int2ObjectHashMap<MessageConsumer> dispatcher = streams[streamIndex(streamId)];
             final MessageConsumer handler = dispatcher.get(instanceId);
             if (handler != null)
             {
@@ -494,7 +495,7 @@ public class ElektronAgent implements Agent
         }
         else
         {
-            final Int2ObjectHashMap<MessageConsumer> dispatcher = throttles[replyToIndex(streamId)];
+            final Int2ObjectHashMap<MessageConsumer> dispatcher = throttles[throttleIndex(streamId)];
             final MessageConsumer throttle = dispatcher.get(instanceId);
             if (throttle != null)
             {
@@ -534,7 +535,7 @@ public class ElektronAgent implements Agent
             newStream = streamFactory.newStream(msgTypeId, buffer, index, length, replyTo);
             if (newStream != null)
             {
-                streams[replyToIndex(streamId)].put(instanceId(streamId), newStream);
+                streams[streamIndex(streamId)].put(instanceId(streamId), newStream);
             }
         }
 
@@ -561,7 +562,7 @@ public class ElektronAgent implements Agent
             newStream = streamFactory.newStream(msgTypeId, buffer, index, length, replyTo);
             if (newStream != null)
             {
-                streams[replyToIndex(streamId)].put(instanceId(streamId), newStream);
+                streams[streamIndex(streamId)].put(instanceId(streamId), newStream);
             }
         }
 
@@ -598,7 +599,7 @@ public class ElektronAgent implements Agent
     private MessageConsumer supplyReplyTo(
         long streamId)
     {
-        final int index = replyToIndex(streamId);
+        final int index = streamIndex(streamId);
         return writersByIndex.computeIfAbsent(index, supplyWriter);
     }
 
