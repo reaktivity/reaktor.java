@@ -236,7 +236,16 @@ public class ElektronAgent implements Agent
             workDone += agent.doWork();
         }
 
-        workDone += streamsBuffer.read(readHandler, readLimit);
+        try
+        {
+            workDone += streamsBuffer.read(readHandler, readLimit);
+        }
+        catch (Throwable ex)
+        {
+            ex.addSuppressed(new Exception(String.format("[%s]\t[0x%016x] %s",
+                                                         elektronName, streamId, streamsLayout)));
+            rethrowUnchecked(ex);
+        }
 
         return workDone;
     }
@@ -334,22 +343,13 @@ public class ElektronAgent implements Agent
         final long streamId = frame.streamId();
         final long routeId = frame.routeId();
 
-        try
+        if (isInitial(streamId))
         {
-            if (isInitial(streamId))
-            {
-                handleReadInitial(routeId, streamId, msgTypeId, buffer, index, length);
-            }
-            else
-            {
-                handleReadReply(routeId, streamId, msgTypeId, buffer, index, length);
-            }
+            handleReadInitial(routeId, streamId, msgTypeId, buffer, index, length);
         }
-        catch (Throwable ex)
+        else
         {
-            ex.addSuppressed(new Exception(String.format("[%s]\t[0x%016x] %s",
-                                                         elektronName, streamId, streamsLayout)));
-            rethrowUnchecked(ex);
+            handleReadReply(routeId, streamId, msgTypeId, buffer, index, length);
         }
     }
 

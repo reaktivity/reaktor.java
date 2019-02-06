@@ -53,8 +53,8 @@ public final class StreamsLayout extends Layout
     @Override
     public String toString()
     {
-        return String.format("streams=[tailAt=0x%016x, headAt=0x%016x]",
-                streamsBuffer.producerPosition(), streamsBuffer.consumerPosition());
+        return String.format("streams=[consumeAt=0x%016x, produceAt=0x%016x]",
+                streamsBuffer.consumerPosition(), streamsBuffer.producerPosition());
     }
 
     public static final class Builder extends Layout.Builder<StreamsLayout>
