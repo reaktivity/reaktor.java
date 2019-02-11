@@ -68,7 +68,10 @@ import org.reaktivity.nukleus.Elektron;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.function.MessageConsumer;
+import org.reaktivity.nukleus.function.MessageFunction;
+import org.reaktivity.nukleus.function.MessagePredicate;
 import org.reaktivity.nukleus.route.RouteKind;
+import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 import org.reaktivity.reaktor.internal.Counters;
@@ -131,12 +134,13 @@ public class ElektronAgent implements Agent
     private final LongFunction<WriteCounters> newWriteCounters;
     private final LongUnaryOperator resolveAffinity;
 
-    private final Resolver resolver;
+    private final RouteManager resolver;
 
     // TODO: copy-on-write
     private final Int2ObjectHashMap<StreamFactory> streamFactoriesByLabelId;
 
     private final Long2LongHashMap affinityByRemoteId;
+    private final Supplier<DirectBuffer> routesBufferRef;
 
     private long streamId;
     private long correlationId;
@@ -159,6 +163,7 @@ public class ElektronAgent implements Agent
         this.labels = labels;
         this.executor = executor;
         this.affinityMask = affinityMask;
+        this.routesBufferRef = routesBufferRef;
 
         final MetricsLayout metricsLayout = new MetricsLayout.Builder()
                 .path(config.directory().resolve(String.format("metrics%d", index)))
@@ -202,7 +207,7 @@ public class ElektronAgent implements Agent
         this.writersByIndex = new Int2ObjectHashMap<>();
         this.agents = new Agent[0];
 
-        this.resolver = new Resolver(routesBufferRef, throttles, this::supplyInitialWriter);
+        this.resolver = new ResolverRef(this::newResolver);
 
         final int bufferPoolCapacity = config.bufferPoolCapacity();
         final int bufferSlotCapacity = config.bufferSlotCapacity();
@@ -219,6 +224,51 @@ public class ElektronAgent implements Agent
         this.correlationId = initial;
         this.traceId = initial;
         this.groupId = initial;
+    }
+
+    private static class ResolverRef implements RouteManager
+    {
+        final ThreadLocal<Resolver> resolver;
+
+        ResolverRef(Supplier<Resolver> resolverSupplier)
+        {
+            resolver = ThreadLocal.withInitial(resolverSupplier);
+        }
+
+        @Override
+        public <R> R resolveExternal(long authorization, MessagePredicate filter, MessageFunction<R> mapper)
+        {
+            return resolver.get().resolveExternal(authorization, filter, mapper);
+        }
+
+        @Override
+        public <R> R resolve(long routeId, long authorization, MessagePredicate filter, MessageFunction<R> mapper)
+        {
+            return resolver.get().resolve(routeId, authorization, filter, mapper);
+        }
+
+        @Override
+        public void forEach(MessageConsumer consumer)
+        {
+            resolver.get().forEach(consumer);
+        }
+
+        @Override
+        public MessageConsumer supplyReceiver(long streamId)
+        {
+            return resolver.get().supplyReceiver(streamId);
+        }
+
+        @Override
+        public void setThrottle(long streamId, MessageConsumer throttle)
+        {
+            resolver.get().setThrottle(streamId, throttle);
+        }
+    }
+
+    private Resolver newResolver()
+    {
+        return new Resolver(routesBufferRef, throttles, this::supplyInitialWriter);
     }
 
     @Override
