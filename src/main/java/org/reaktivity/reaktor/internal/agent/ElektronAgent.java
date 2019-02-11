@@ -228,39 +228,51 @@ public class ElektronAgent implements Agent
 
     private static class ResolverRef implements RouteManager
     {
-        final ThreadLocal<Resolver> resolver;
+        private final ThreadLocal<Resolver> resolver;
 
-        ResolverRef(Supplier<Resolver> resolverSupplier)
+        ResolverRef(
+            Supplier<Resolver> supplyResolver)
         {
-            resolver = ThreadLocal.withInitial(resolverSupplier);
+            resolver = ThreadLocal.withInitial(supplyResolver);
         }
 
         @Override
-        public <R> R resolveExternal(long authorization, MessagePredicate filter, MessageFunction<R> mapper)
+        public <R> R resolveExternal(
+            long authorization,
+            MessagePredicate filter,
+            MessageFunction<R> mapper)
         {
             return resolver.get().resolveExternal(authorization, filter, mapper);
         }
 
         @Override
-        public <R> R resolve(long routeId, long authorization, MessagePredicate filter, MessageFunction<R> mapper)
+        public <R> R resolve(
+            long routeId,
+            long authorization,
+            MessagePredicate filter,
+            MessageFunction<R> mapper)
         {
             return resolver.get().resolve(routeId, authorization, filter, mapper);
         }
 
         @Override
-        public void forEach(MessageConsumer consumer)
+        public void forEach(
+            MessageConsumer consumer)
         {
             resolver.get().forEach(consumer);
         }
 
         @Override
-        public MessageConsumer supplyReceiver(long streamId)
+        public MessageConsumer supplyReceiver(
+            long streamId)
         {
             return resolver.get().supplyReceiver(streamId);
         }
 
         @Override
-        public void setThrottle(long streamId, MessageConsumer throttle)
+        public void setThrottle(
+            long streamId,
+            MessageConsumer throttle)
         {
             resolver.get().setThrottle(streamId, throttle);
         }
