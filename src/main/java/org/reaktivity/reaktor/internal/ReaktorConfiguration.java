@@ -85,6 +85,11 @@ public class ReaktorConfiguration extends Configuration
         super(REAKTOR_CONFIG, config, defaultOverrides);
     }
 
+    public ReaktorConfiguration()
+    {
+        super(REAKTOR_CONFIG, new Configuration());
+    }
+
     @Override
     public final Path directory()
     {

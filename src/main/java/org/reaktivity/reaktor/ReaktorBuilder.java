@@ -32,8 +32,6 @@ import java.util.function.ToLongFunction;
 
 import org.agrona.ErrorHandler;
 import org.agrona.concurrent.Agent;
-import org.agrona.concurrent.BackoffIdleStrategy;
-import org.agrona.concurrent.IdleStrategy;
 import org.reaktivity.nukleus.Configuration;
 import org.reaktivity.nukleus.Controller;
 import org.reaktivity.nukleus.ControllerFactory;
@@ -52,7 +50,6 @@ public class ReaktorBuilder
     private Predicate<String> controllerMatcher;
     private Map<String, Long> affinityMasks;
     private ToLongFunction<String> affinityMaskDefault;
-    private IdleStrategy idleStrategy;
     private ErrorHandler errorHandler;
     private Supplier<NukleusFactory> supplyNukleusFactory;
 
@@ -110,13 +107,6 @@ public class ReaktorBuilder
         long affinityMask)
     {
         this.affinityMasks.put(address, affinityMask);
-        return this;
-    }
-
-    public ReaktorBuilder idleStrategy(
-        IdleStrategy idleStrategy)
-    {
-        this.idleStrategy = requireNonNull(idleStrategy);
         return this;
     }
 
@@ -194,15 +184,6 @@ public class ReaktorBuilder
         final ControllerAgent controllerAgent = new ControllerAgent();
         controllers.forEach(controllerAgent::assign);
 
-        IdleStrategy idleStrategy = this.idleStrategy;
-        if (idleStrategy == null)
-        {
-            idleStrategy = new BackoffIdleStrategy(
-                config.maxSpins(),
-                config.maxYields(),
-                config.minParkNanos(),
-                config.maxParkNanos());
-        }
         ErrorHandler errorHandler = requireNonNull(this.errorHandler, "errorHandler");
 
         List<Agent> agents = new ArrayList<>();
@@ -219,6 +200,6 @@ public class ReaktorBuilder
             agents.add(controllerAgent);
         }
 
-        return new Reaktor(idleStrategy, errorHandler, configs, executor, agents.toArray(new Agent[0]));
+        return new Reaktor(config, errorHandler, configs, executor, agents.toArray(new Agent[0]));
     }
 }
