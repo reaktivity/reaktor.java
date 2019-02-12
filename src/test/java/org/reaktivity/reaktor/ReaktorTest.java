@@ -22,13 +22,13 @@ import java.util.concurrent.Executors;
 
 import org.agrona.ErrorHandler;
 import org.agrona.concurrent.Agent;
-import org.agrona.concurrent.IdleStrategy;
 import org.jmock.Expectations;
 import org.jmock.integration.junit4.JUnitRuleMockery;
 import org.jmock.lib.concurrent.Synchroniser;
 import org.junit.Rule;
 import org.junit.Test;
 import org.reaktivity.nukleus.Controller;
+import org.reaktivity.reaktor.internal.ReaktorConfiguration;
 import org.reaktivity.reaktor.internal.agent.ControllerAgent;
 
 public class ReaktorTest
@@ -44,15 +44,14 @@ public class ReaktorTest
     @Test
     public void shouldCloseControllers() throws Exception
     {
+        final ReaktorConfiguration config = new ReaktorConfiguration();
         final Controller controller = context.mock(Controller.class);
-        final IdleStrategy idleStrategy = context.mock(IdleStrategy.class);
         final ErrorHandler errorHandler = context.mock(ErrorHandler.class);
 
         context.checking(new Expectations()
         {
             {
                 allowing(controller).process(); will(returnValue(0));
-                allowing(idleStrategy).idle(with(any(int.class)));
 
                 oneOf(controller).kind(); will(returnValue(Controller.class));
                 oneOf(controller).close();
@@ -64,7 +63,7 @@ public class ReaktorTest
         controllerAgent.assign(controller);
 
         Reaktor reaktor = new Reaktor(
-            idleStrategy,
+            config,
             errorHandler,
             emptySet(),
             executor,
@@ -76,15 +75,14 @@ public class ReaktorTest
     @Test(expected = Exception.class)
     public void shouldReportControllerCloseError() throws Exception
     {
+        final ReaktorConfiguration config = new ReaktorConfiguration();
         final Controller controller = context.mock(Controller.class);
-        final IdleStrategy idleStrategy = context.mock(IdleStrategy.class);
         final ErrorHandler errorHandler = context.mock(ErrorHandler.class);
 
         context.checking(new Expectations()
         {
             {
                 allowing(controller).process(); will(returnValue(0));
-                allowing(idleStrategy).idle(with(any(int.class)));
 
                 oneOf(controller).kind(); will(returnValue(Controller.class));
                 oneOf(controller).close(); will(throwException(new Exception("controller close failed")));
@@ -96,7 +94,7 @@ public class ReaktorTest
         controllerAgent.assign(controller);
 
         Reaktor reaktor = new Reaktor(
-            idleStrategy,
+            config,
             errorHandler,
             emptySet(),
             executor,

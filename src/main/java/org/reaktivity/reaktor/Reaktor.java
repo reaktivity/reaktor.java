@@ -31,9 +31,11 @@ import org.agrona.ErrorHandler;
 import org.agrona.collections.ArrayUtil;
 import org.agrona.concurrent.Agent;
 import org.agrona.concurrent.AgentRunner;
+import org.agrona.concurrent.BackoffIdleStrategy;
 import org.agrona.concurrent.IdleStrategy;
 import org.reaktivity.nukleus.Configuration;
 import org.reaktivity.nukleus.Controller;
+import org.reaktivity.reaktor.internal.ReaktorConfiguration;
 import org.reaktivity.reaktor.internal.agent.ControllerAgent;
 import org.reaktivity.reaktor.internal.agent.ElektronAgent;
 
@@ -46,7 +48,7 @@ public final class Reaktor implements AutoCloseable
     private final List<ElektronAgent> elektronAgents;
 
     Reaktor(
-        IdleStrategy idleStrategy,
+        ReaktorConfiguration config,
         ErrorHandler errorHandler,
         Set<Configuration> configs,
         ExecutorService executor,
@@ -58,6 +60,11 @@ public final class Reaktor implements AutoCloseable
         AgentRunner[] runners = new AgentRunner[0];
         for (Agent agent : agents)
         {
+            final IdleStrategy idleStrategy = new BackoffIdleStrategy(
+                    config.maxSpins(),
+                    config.maxYields(),
+                    config.minParkNanos(),
+                    config.maxParkNanos());
             runners = ArrayUtil.add(runners, new AgentRunner(idleStrategy, errorHandler, null, agent));
         }
         this.runners = runners;
