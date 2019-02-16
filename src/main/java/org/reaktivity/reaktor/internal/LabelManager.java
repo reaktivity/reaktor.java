@@ -29,10 +29,10 @@ import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.agrona.LangUtil;
 
@@ -47,21 +47,21 @@ public final class LabelManager
     public LabelManager(
         Path directory)
     {
-        this.labels =  new CopyOnWriteArrayList<>();
-        this.labelIds = new ConcurrentHashMap<>();
+        this.labels =  new ArrayList<>();
+        this.labelIds = new HashMap<>();
 
         this.labelsPath = directory.resolve("labels");
         this.sizeInBytes = -1L;
     }
 
-    public int supplyLabelId(
+    public synchronized int supplyLabelId(
         String label)
     {
         checkSnapshot();
         return labelIds.computeIfAbsent(label, this::nextLabelId);
     }
 
-    public String lookupLabel(
+    public synchronized String lookupLabel(
         int labelId)
     {
         if (labelId < 1 || labelId > labels.size())
@@ -72,7 +72,7 @@ public final class LabelManager
         return labels.get(labelId - 1);
     }
 
-    private synchronized int nextLabelId(
+    private int nextLabelId(
         String nextLabel)
     {
         try (FileChannel channel = FileChannel.open(labelsPath, APPEND))
