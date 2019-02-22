@@ -7,16 +7,16 @@
 5. Protect the `develop` branch (check everything except "Include Administrators")
 6. Protect the `master` branch (check only "Protect this branch")
 7. Clone the new repository locally, then
-```
+```bash
 $ git config merge.ours.driver true
 $ git remote add --track develop build https://github.com/reaktivity/build-template.java
 $ git fetch build develop
-$ git merge build/develop --no-commit
+$ git merge build/develop --allow-unrelated-histories --no-commit
 ```
 Review the changes, modify the `pom.xml` to reflect your project `name`, `description`, and `artifactId`.
 Activate the new repository in Travis CI.
 Commit the changes and push them back.
-```
+```bash
 $ git add pom.xml
 $ git commit
 $ git push origin develop
