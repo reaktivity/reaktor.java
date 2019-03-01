@@ -38,6 +38,7 @@ import org.reaktivity.reaktor.internal.types.stream.DataFW;
 import org.reaktivity.reaktor.internal.types.stream.EndFW;
 import org.reaktivity.reaktor.internal.types.stream.FrameFW;
 import org.reaktivity.reaktor.internal.types.stream.ResetFW;
+import org.reaktivity.reaktor.internal.types.stream.SignalFW;
 import org.reaktivity.reaktor.internal.types.stream.WindowFW;
 
 public final class Target implements AutoCloseable
@@ -185,6 +186,9 @@ public final class Target implements AutoCloseable
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 throttles[throttleIndex(streamId)].remove(instanceId(streamId));
                 break;
+            case SignalFW.TYPE_ID:
+                handled = streamsBuffer.test(msgTypeId, buffer, index, length);
+                break;
             default:
                 handled = true;
                 break;
@@ -237,6 +241,9 @@ public final class Target implements AutoCloseable
             case AbortFW.TYPE_ID:
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 throttles[throttleIndex(streamId)].remove(instanceId(streamId));
+                break;
+            case SignalFW.TYPE_ID:
+                handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 break;
             default:
                 handled = true;
