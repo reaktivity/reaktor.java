@@ -55,9 +55,9 @@ public final class Resolver implements RouteManager
 
     @Override
     public MessageConsumer supplyReceiver(
-        long routeId)
+        long streamId)
     {
-        return supplyReceiver.apply(routeId);
+        return supplyReceiver.apply(streamId);
     }
 
     @Override
