@@ -18,11 +18,12 @@ package org.reaktivity.reaktor.internal.agent;
 import static java.nio.ByteBuffer.allocateDirect;
 
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
-import java.util.function.ToLongFunction;
+import java.util.function.Function;
 
 import org.agrona.CloseHelper;
 import org.agrona.DirectBuffer;
@@ -131,7 +132,7 @@ public class NukleusAgent implements Agent
         int index,
         int count,
         ExecutorService executor,
-        ToLongFunction<String> affinityMask)
+        Function<String, BitSet> affinityMask)
     {
         ElektronAgent newElektronAgent = new ElektronAgent(index, count, config, labels, executor, affinityMask,
                 router::readonlyRoutesBuffer);

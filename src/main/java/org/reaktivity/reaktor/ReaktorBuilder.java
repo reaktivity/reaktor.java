@@ -18,6 +18,7 @@ package org.reaktivity.reaktor;
 import static java.util.Objects.requireNonNull;
 
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -26,9 +27,9 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import java.util.function.ToLongFunction;
 
 import org.agrona.ErrorHandler;
 import org.agrona.concurrent.Agent;
@@ -48,20 +49,21 @@ public class ReaktorBuilder
     private Configuration config;
     private Predicate<String> nukleusMatcher;
     private Predicate<String> controllerMatcher;
-    private Map<String, Long> affinityMasks;
-    private ToLongFunction<String> affinityMaskDefault;
+    private Map<String, BitSet> affinityMasks;
+    private Function<String, BitSet> affinityMaskDefault;
     private ErrorHandler errorHandler;
     private Supplier<NukleusFactory> supplyNukleusFactory;
 
     private int threads = 1;
-
+    private BitSet affinityMaskDefaultBits;
 
     ReaktorBuilder()
     {
         this.nukleusMatcher = n -> false;
         this.controllerMatcher = c -> false;
         this.affinityMasks = new HashMap<>();
-        this.affinityMaskDefault = n -> 1L;
+        this.affinityMaskDefaultBits = BitSet.valueOf(new long[] { (1L << threads) - 1L });
+        this.affinityMaskDefault = n -> affinityMaskDefaultBits;
         this.supplyNukleusFactory = NukleusFactory::instantiate;
     }
 
@@ -76,6 +78,7 @@ public class ReaktorBuilder
         int threads)
     {
         this.threads = threads;
+        this.affinityMaskDefaultBits = BitSet.valueOf(new long[] { (1L << threads) - 1L });
         return this;
     }
 
@@ -96,7 +99,7 @@ public class ReaktorBuilder
     }
 
     public ReaktorBuilder affinityMaskDefault(
-        ToLongFunction<String> affinityMaskDefault)
+        Function<String, BitSet> affinityMaskDefault)
     {
         this.affinityMaskDefault = affinityMaskDefault;
         return this;
@@ -106,7 +109,8 @@ public class ReaktorBuilder
         String address,
         long affinityMask)
     {
-        this.affinityMasks.put(address, affinityMask);
+        BitSet affinityBits = BitSet.valueOf(new long[] { affinityMask });
+        this.affinityMasks.put(address, affinityBits);
         return this;
     }
 
@@ -173,8 +177,8 @@ public class ReaktorBuilder
 
         if (nukleusAgent != null)
         {
-            final BiFunction<String, Long, Long> remapper = (k, v) -> v != null ? v : affinityMaskDefault.applyAsLong(k);
-            final ToLongFunction<String> affinityMask = n -> affinityMasks.compute(n, remapper);
+            final BiFunction<String, BitSet, BitSet> remapper = (k, v) -> v != null ? v : affinityMaskDefault.apply(k);
+            final Function<String, BitSet> affinityMask = n -> affinityMasks.compute(n, remapper);
             for (int index=0; index < count; index++)
             {
                 elektronAgents[index] = nukleusAgent.supplyElektronAgent(index, count, executor, affinityMask);
