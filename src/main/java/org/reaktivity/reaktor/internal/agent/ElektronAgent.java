@@ -15,8 +15,6 @@
  */
 package org.reaktivity.reaktor.internal.agent;
 
-import static java.lang.Long.bitCount;
-import static java.lang.Long.numberOfTrailingZeros;
 import static java.lang.String.format;
 import static java.lang.ThreadLocal.withInitial;
 import static java.util.Objects.requireNonNull;
@@ -31,6 +29,7 @@ import static org.reaktivity.reaktor.internal.router.StreamId.streamId;
 import static org.reaktivity.reaktor.internal.router.StreamId.streamIndex;
 import static org.reaktivity.reaktor.internal.router.StreamId.throttleIndex;
 
+import java.util.BitSet;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -46,9 +45,7 @@ import java.util.function.IntFunction;
 import java.util.function.LongConsumer;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
-import java.util.function.LongUnaryOperator;
 import java.util.function.Supplier;
-import java.util.function.ToLongFunction;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -56,7 +53,6 @@ import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.ArrayUtil;
 import org.agrona.collections.Int2ObjectHashMap;
-import org.agrona.collections.Long2LongHashMap;
 import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.concurrent.Agent;
 import org.agrona.concurrent.MessageHandler;
@@ -109,7 +105,7 @@ public class ElektronAgent implements Agent
     private final ReaktorConfiguration config;
     private final LabelManager labels;
     private final ExecutorService executor;
-    private final ToLongFunction<String> affinityMask;
+    private final Function<String, BitSet> affinityMask;
     private final String elektronName;
     private final Counters counters;
     private final boolean timestamps;
@@ -132,14 +128,14 @@ public class ElektronAgent implements Agent
     private final IntFunction<MessageConsumer> supplyWriter;
     private final IntFunction<Target> newTarget;
     private final LongFunction<WriteCounters> newWriteCounters;
-    private final LongUnaryOperator resolveAffinity;
+    private final LongFunction<Affinity> resolveAffinity;
 
     private final RouteManager resolver;
 
     // TODO: copy-on-write
     private final Int2ObjectHashMap<StreamFactory> streamFactoriesByLabelId;
 
-    private final Long2LongHashMap affinityByRemoteId;
+    private final Long2ObjectHashMap<Affinity> affinityByRemoteId;
     private final Supplier<DirectBuffer> routesBufferRef;
 
     private long streamId;
@@ -155,7 +151,7 @@ public class ElektronAgent implements Agent
         ReaktorConfiguration config,
         LabelManager labels,
         ExecutorService executor,
-        ToLongFunction<String> affinityMask,
+        Function<String, BitSet> affinityMask,
         Supplier<DirectBuffer> routesBufferRef)
     {
         this.localIndex = index;
@@ -202,7 +198,7 @@ public class ElektronAgent implements Agent
         this.newWriteCounters = this::newWriteCounters;
         this.resolveAffinity = this::resolveAffinity;
         this.elektronByName = new ConcurrentHashMap<>();
-        this.affinityByRemoteId = new Long2LongHashMap(-1L);
+        this.affinityByRemoteId = new Long2ObjectHashMap<>();
         this.targetsByIndex = new Int2ObjectHashMap<>();
         this.writersByIndex = new Int2ObjectHashMap<>();
         this.agents = new Agent[0];
@@ -359,8 +355,8 @@ public class ElektronAgent implements Agent
         String nukleusName = nukleus.name();
         int localAddressId = localId(routeId);
         String localAddress = labels.lookupLabel(localAddressId);
-        long affinity = affinityMask.applyAsLong(localAddress);
-        if ((affinity & (1L << localIndex)) != 0L)
+        BitSet affinity = affinityMask.apply(localAddress);
+        if (affinity.get(localIndex))
         {
             elektronByName.computeIfAbsent(nukleusName, name -> new ElektronRef(name, nukleus.supplyElektron()));
         }
@@ -374,8 +370,8 @@ public class ElektronAgent implements Agent
         String nukleusName = nukleus.name();
         int localAddressId = localId(routeId);
         String localAddress = labels.lookupLabel(localAddressId);
-        long affinity = affinityMask.applyAsLong(localAddress);
-        if ((affinity & (1L << localIndex)) != 0L)
+        BitSet affinity = affinityMask.apply(localAddress);
+        if (affinity.get(localIndex))
         {
             elektronByName.computeIfPresent(nukleusName, (a, r) -> r.assign(routeKind, localAddressId));
         }
@@ -389,8 +385,8 @@ public class ElektronAgent implements Agent
         String nukleusName = nukleus.name();
         int localAddressId = localId(routeId);
         String localAddress = labels.lookupLabel(localAddressId);
-        long affinity = affinityMask.applyAsLong(localAddress);
-        if ((affinity & (1L << localIndex)) != 0L)
+        BitSet affinity = affinityMask.apply(localAddress);
+        if (affinity.get(localIndex))
         {
             elektronByName.computeIfPresent(nukleusName, (a, r) -> r.unassign(routeKind, localAddressId));
         }
@@ -864,7 +860,7 @@ public class ElektronAgent implements Agent
             long routeId)
         {
             final int remoteId = remoteId(routeId);
-            final int remoteIndex = lookupTargetIndex(remoteId);
+            final int remoteIndex = resolveRemoteIndex(remoteId);
 
             streamId += 2L;
             streamId &= mask;
@@ -977,34 +973,53 @@ public class ElektronAgent implements Agent
         }
     }
 
-    private int lookupTargetIndex(
+    private int resolveRemoteIndex(
         int remoteId)
     {
-        final long affinityMask = supplyAffinity(remoteId);
-        return numberOfTrailingZeros(affinityMask);
+        final Affinity affinity = supplyAffinity(remoteId);
+        final BitSet mask = affinity.mask;
+        final int remoteIndex = affinity.nextIndex;
+
+        // currently round-robin with prefer-local only
+        assert mask.cardinality() != 0;
+        if (remoteIndex != localIndex)
+        {
+            int nextIndex = affinity.mask.nextSetBit(remoteIndex + 1);
+            if (nextIndex == -1)
+            {
+                nextIndex = affinity.mask.nextSetBit(0);
+            }
+            affinity.nextIndex = nextIndex;
+        }
+
+        return remoteIndex;
     }
 
-    private long supplyAffinity(
+    private Affinity supplyAffinity(
         int remoteId)
     {
         return affinityByRemoteId.computeIfAbsent(remoteId, resolveAffinity);
     }
 
-    public long resolveAffinity(
+    public Affinity resolveAffinity(
         long remoteIdAsLong)
     {
         final int remoteId = (int)(remoteIdAsLong & 0xffff_ffffL);
         String remoteAddress = labels.lookupLabel(remoteId);
 
-        long mask = affinityMask.applyAsLong(remoteAddress);
+        BitSet mask = affinityMask.apply(remoteAddress);
 
-        if (bitCount(mask) != 1)
+        if (mask.cardinality() == 0)
         {
-            throw new IllegalStateException(String.format("affinity mask must specify exactly one bit: %s %d",
+            throw new IllegalStateException(String.format("affinity mask must specify at least one bit: %s %d",
                     remoteAddress, mask));
         }
 
-        return mask;
+        Affinity affinity = new Affinity();
+        affinity.mask = mask;
+        affinity.nextIndex = mask.get(localIndex) ? localIndex : mask.nextSetBit(0);
+
+        return affinity;
     }
 
     private static SignalFW.Builder newSignalRW()
@@ -1022,5 +1037,11 @@ public class ElektronAgent implements Agent
             dispatcher[i] = new Int2ObjectHashMap<>();
         }
         return dispatcher;
+    }
+
+    private static class Affinity
+    {
+        BitSet mask;
+        int nextIndex;
     }
 }
