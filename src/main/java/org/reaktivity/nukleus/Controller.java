@@ -15,10 +15,23 @@
  */
 package org.reaktivity.nukleus;
 
+import java.util.concurrent.CompletableFuture;
+
+import org.reaktivity.nukleus.route.RouteKind;
+
 @FunctionalInterface
 public interface Controller extends AutoCloseable
 {
     int process();
+
+    default CompletableFuture<Long> route(
+       RouteKind kind,
+       String localAddress,
+       String remoteAddress,
+       String extension)
+    {
+        throw new UnsupportedOperationException("route");
+    }
 
     @Override
     default void close() throws Exception

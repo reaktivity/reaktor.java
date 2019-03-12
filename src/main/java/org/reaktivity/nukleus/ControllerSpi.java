@@ -18,6 +18,7 @@ package org.reaktivity.nukleus;
 import java.util.concurrent.CompletableFuture;
 
 import org.agrona.DirectBuffer;
+import org.reaktivity.nukleus.function.MessageFunction;
 
 public interface ControllerSpi
 {
@@ -56,4 +57,18 @@ public interface ControllerSpi
         DirectBuffer buffer,
         int index,
         int length);
+
+    CompletableFuture<Void> doCommand(
+        int msgTypeId,
+        DirectBuffer buffer,
+        int index,
+        int length);
+
+    <R> CompletableFuture<R> doCommand(
+        int msgTypeId,
+        DirectBuffer buffer,
+        int index,
+        int length,
+        MessageFunction<R> mapper);
+
 }
