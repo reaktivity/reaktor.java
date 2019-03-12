@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import org.agrona.CloseHelper;
 import org.agrona.DirectBuffer;
@@ -35,6 +36,7 @@ import org.agrona.concurrent.UnsafeBuffer;
 import org.agrona.concurrent.broadcast.BroadcastTransmitter;
 import org.agrona.concurrent.ringbuffer.ManyToOneRingBuffer;
 import org.agrona.concurrent.ringbuffer.RingBuffer;
+import org.reaktivity.nukleus.AgentBuilder;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.function.CommandHandler;
 import org.reaktivity.nukleus.function.MessagePredicate;
@@ -66,6 +68,7 @@ public class NukleusAgent implements Agent
     private final FrozenFW.Builder frozenRW = new FrozenFW.Builder();
 
     private final ReaktorConfiguration config;
+    private final Supplier<AgentBuilder> supplyAgentBuilder;
     private final LabelManager labels;
     private final List<ElektronAgent> elektronAgents;
     private final Map<String, Nukleus> nukleiByName;
@@ -78,9 +81,11 @@ public class NukleusAgent implements Agent
     private final MessageHandler commandHandler;
 
     public NukleusAgent(
-        ReaktorConfiguration config)
+        ReaktorConfiguration config,
+        Supplier<AgentBuilder> supplyAgentBuilder)
     {
         this.config = config;
+        this.supplyAgentBuilder = supplyAgentBuilder;
         this.labels = new LabelManager(config.directory());
         this.elektronAgents = new ArrayList<>();
         this.nukleiByName = new HashMap<>();
@@ -135,7 +140,7 @@ public class NukleusAgent implements Agent
         Function<String, BitSet> affinityMask)
     {
         ElektronAgent newElektronAgent = new ElektronAgent(index, count, config, labels, executor, affinityMask,
-                router::readonlyRoutesBuffer);
+                router::readonlyRoutesBuffer, supplyAgentBuilder);
         elektronAgents.add(newElektronAgent);
         return newElektronAgent;
     }
