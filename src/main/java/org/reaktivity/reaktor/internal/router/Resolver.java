@@ -124,6 +124,30 @@ public final class Resolver implements RouteManager
         return result;
     }
 
+    public String resolveTag(long routeId)
+    {
+        final DirectBuffer routesBuffer = routesBufferRef.get();
+        RouteTableFW routeTable = routeTableRO.wrap(routesBuffer, 0, routesBuffer.capacity());
+
+        RouteEntryFW routeEntry = routeTable.entries().matchFirst(re ->
+        {
+            final OctetsFW entry = re.route();
+            final RouteFW candidate = routeRO.wrap(entry.buffer(), entry.offset(), entry.limit());
+            return remoteId(routeId) == localId(candidate.correlationId());
+        });
+
+         if (routeEntry != null)
+         {
+             final OctetsFW entry = routeEntry.route();
+             final RouteFW route = routeRO.wrap(entry.buffer(), entry.offset(), entry.limit());
+             return route.tag().asString();
+         }
+         else
+         {
+            return null;
+         }
+    }
+
     @Override
     public void forEach(
         MessageConsumer consumer)

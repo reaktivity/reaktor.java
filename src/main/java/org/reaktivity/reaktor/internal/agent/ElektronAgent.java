@@ -81,6 +81,7 @@ import org.reaktivity.reaktor.internal.router.GroupBudgetManager;
 import org.reaktivity.reaktor.internal.router.Resolver;
 import org.reaktivity.reaktor.internal.router.Target;
 import org.reaktivity.reaktor.internal.router.WriteCounters;
+import org.reaktivity.reaktor.internal.types.control.RouteFW;
 import org.reaktivity.reaktor.internal.types.stream.AbortFW;
 import org.reaktivity.reaktor.internal.types.stream.BeginFW;
 import org.reaktivity.reaktor.internal.types.stream.DataFW;
@@ -98,6 +99,7 @@ public class ElektronAgent implements Agent
 
     private final FrameFW frameRO = new FrameFW();
     private final BeginFW beginRO = new BeginFW();
+    private final RouteFW routeRO = new RouteFW();
     private final AbortFW.Builder abortRW = new AbortFW.Builder();
     private final ResetFW.Builder resetRW = new ResetFW.Builder();
 
@@ -239,6 +241,12 @@ public class ElektronAgent implements Agent
             MessageFunction<R> mapper)
         {
             return resolver.get().resolveExternal(authorization, filter, mapper);
+        }
+
+        @Override
+        public String resolveTag(long routeId)
+        {
+            return resolver.get().resolveTag(routeId);
         }
 
         @Override
@@ -401,6 +409,8 @@ public class ElektronAgent implements Agent
         final FrameFW frame = frameRO.wrap(buffer, index, index + length);
         final long streamId = frame.streamId();
         final long routeId = frame.routeId();
+        final MessagePredicate filter = (t, b, o, l) -> true;
+        final RouteFW route = resolver.resolve(routeId, frame.authorization(), filter, this::wrapRoute);
 
         if (isInitial(streamId))
         {
@@ -410,6 +420,11 @@ public class ElektronAgent implements Agent
         {
             handleReadReply(routeId, streamId, msgTypeId, buffer, index, length);
         }
+    }
+
+    private RouteFW wrapRoute(int msgTypeId, DirectBuffer buffer, int index, int length)
+    {
+        return routeRO.wrap(buffer, index, index + length);
     }
 
     private void handleReadInitial(
@@ -691,7 +706,8 @@ public class ElektronAgent implements Agent
     {
         final int localId = localId(routeId);
         final String nukleus = nukleus(localId);
-        return new ReadCounters(counters, nukleus, routeId);
+        final String tag = resolver.resolveTag(routeId);
+        return new ReadCounters(counters, nukleus, tag, routeId);
     }
 
     private WriteCounters newWriteCounters(
@@ -724,15 +740,30 @@ public class ElektronAgent implements Agent
         ReadCounters(
             Counters counters,
             String nukleus,
+            String tag,
             long routeId)
         {
-            this.opens = counters.counter(format("%s.%d.opens.read", nukleus, routeId));
-            this.closes = counters.counter(format("%s.%d.closes.read", nukleus, routeId));
-            this.aborts = counters.counter(format("%s.%d.aborts.read", nukleus, routeId));
-            this.windows = counters.counter(format("%s.%d.windows.read", nukleus, routeId));
-            this.resets = counters.counter(format("%s.%d.resets.read", nukleus, routeId));
-            this.bytes = counters.counter(format("%s.%d.bytes.read", nukleus, routeId));
-            this.frames = counters.counter(format("%s.%d.frames.read", nukleus, routeId));
+            if (tag != null && !tag.isEmpty())
+            {
+                this.opens = counters.counter(format("%s.%s.opens.read", nukleus, tag));
+                this.closes = counters.counter(format("%s.%s.closes.read", nukleus, tag));
+                this.aborts = counters.counter(format("%s.%s.aborts.read", nukleus, tag));
+                this.windows = counters.counter(format("%s.%s.windows.read", nukleus, tag));
+                this.resets = counters.counter(format("%s.%s.resets.read", nukleus, tag));
+                this.bytes = counters.counter(format("%s.%s.bytes.read", nukleus, tag));
+                this.frames = counters.counter(format("%s.%s.frames.read", nukleus, tag));
+            }
+            else
+            {
+                this.opens = counters.counter(format("%s.%d.opens.read", nukleus, routeId));
+                this.closes = counters.counter(format("%s.%d.closes.read", nukleus, routeId));
+                this.aborts = counters.counter(format("%s.%d.aborts.read", nukleus, routeId));
+                this.windows = counters.counter(format("%s.%d.windows.read", nukleus, routeId));
+                this.resets = counters.counter(format("%s.%d.resets.read", nukleus, routeId));
+                this.bytes = counters.counter(format("%s.%d.bytes.read", nukleus, routeId));
+                this.frames = counters.counter(format("%s.%d.frames.read", nukleus, routeId));
+            }
+
         }
     }
 
