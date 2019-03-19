@@ -60,6 +60,8 @@ import org.agrona.concurrent.UnsafeBuffer;
 import org.agrona.concurrent.ringbuffer.RingBuffer;
 import org.agrona.concurrent.status.AtomicCounter;
 import org.agrona.concurrent.status.CountersManager;
+import org.agrona.hints.ThreadHints;
+import org.reaktivity.nukleus.AgentBuilder;
 import org.reaktivity.nukleus.Elektron;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.buffer.BufferPool;
@@ -135,7 +137,7 @@ public class ElektronAgent implements Agent
     private final RouteManager resolver;
 
     // TODO: copy-on-write
-    private final Int2ObjectHashMap<StreamFactory> streamFactoriesByLabelId;
+    private final Int2ObjectHashMap<StreamFactory> streamFactoriesByAddressId;
 
     private final Long2ObjectHashMap<Affinity> affinityByRemoteId;
     private final Supplier<DirectBuffer> routesBufferRef;
@@ -154,7 +156,8 @@ public class ElektronAgent implements Agent
         LabelManager labels,
         ExecutorService executor,
         Function<String, BitSet> affinityMask,
-        Supplier<DirectBuffer> routesBufferRef)
+        Supplier<DirectBuffer> routesBufferRef,
+        Supplier<AgentBuilder> supplyAgentBuilder)
     {
         this.localIndex = index;
         this.config = config;
@@ -192,7 +195,7 @@ public class ElektronAgent implements Agent
         this.streams = initDispatcher();
         this.throttles = initDispatcher();
         this.countersByRouteId = new Long2ObjectHashMap<>();
-        this.streamFactoriesByLabelId = new Int2ObjectHashMap<>();
+        this.streamFactoriesByAddressId = new Int2ObjectHashMap<>();
         this.readHandler = this::handleRead;
         this.newReadCounters = this::newReadCounters;
         this.supplyWriter = this::supplyWriter;
@@ -222,6 +225,30 @@ public class ElektronAgent implements Agent
         this.correlationId = initial;
         this.traceId = initial;
         this.groupId = initial;
+
+        if (supplyAgentBuilder != null)
+        {
+            final AgentBuilder agentBuilder = supplyAgentBuilder.get();
+            final Agent agent = agentBuilder
+                    .setRouteManager(resolver)
+                    .setExecutor(this::executeAndSignal)
+                    .setWriteBuffer(writeBuffer)
+                    .setAddressIdSupplier(labels::supplyLabelId)
+                    .setStreamFactorySupplier(this::supplyStreamFactory)
+                    .setThrottleSupplier(this::supplyThrottle)
+                    .setThrottleRemover(this::removeThrottle)
+                    .setInitialIdSupplier(this::supplyInitialId)
+                    .setReplyIdSupplier(this::supplyReplyId)
+                    .setSourceCorrelationIdSupplier(this::supplyCorrelationId)
+                    .setTargetCorrelationIdSupplier(this::supplyCorrelationId)
+                    .setTraceIdSupplier(this::supplyTrace)
+                    .setGroupIdSupplier(this::supplyGroupId)
+                    .setGroupBudgetClaimer(groupBudgetManager::claim)
+                    .setGroupBudgetReleaser(groupBudgetManager::release)
+                    .setBufferPool(bufferPool)
+                    .build();
+            this.agents = ArrayUtil.add(agents, agent);
+        }
     }
 
     private static class ResolverRef implements RouteManager
@@ -327,6 +354,11 @@ public class ElektronAgent implements Agent
     @Override
     public void onClose()
     {
+        while (streamsBuffer.consumerPosition() < streamsBuffer.producerPosition())
+        {
+            ThreadHints.onSpinWait();
+        }
+
         for (final Agent agent : agents)
         {
             agent.onClose();
@@ -597,11 +629,11 @@ public class ElektronAgent implements Agent
         final BeginFW begin = beginRO.wrap(buffer, index, index + length);
         final long routeId = begin.routeId();
         final long streamId = begin.streamId();
-        final int labelId = remoteId(routeId);
+        final int addressId = remoteId(routeId);
 
         MessageConsumer newStream = null;
 
-        final StreamFactory streamFactory = streamFactoriesByLabelId.get(labelId);
+        final StreamFactory streamFactory = streamFactoriesByAddressId.get(addressId);
         if (streamFactory != null)
         {
             final MessageConsumer replyTo = supplyReplyTo(streamId);
@@ -628,7 +660,7 @@ public class ElektronAgent implements Agent
 
         MessageConsumer newStream = null;
 
-        final StreamFactory streamFactory = streamFactoriesByLabelId.get(labelId);
+        final StreamFactory streamFactory = streamFactoriesByAddressId.get(labelId);
         if (streamFactory != null)
         {
             final MessageConsumer replyTo = supplyReplyTo(streamId);
@@ -796,22 +828,8 @@ public class ElektronAgent implements Agent
                 final StreamFactoryBuilder streamFactoryBuilder = elektron.streamFactoryBuilder(routeKind);
                 if (streamFactoryBuilder != null)
                 {
-                    StreamFactory streamFactory = streamFactoryBuilder
-                            .setRouteManager(resolver)
-                            .setExecutor(this::executeAndSignal)
-                            .setWriteBuffer(writeBuffer)
-                            .setInitialIdSupplier(this::supplyInitialId)
-                            .setReplyIdSupplier(this::supplyReplyId)
-                            .setSourceCorrelationIdSupplier(this::supplyCorrelationId)
-                            .setTargetCorrelationIdSupplier(this::supplyCorrelationId)
-                            .setTraceSupplier(this::supplyTrace)
-                            .setGroupIdSupplier(this::supplyGroupId)
-                            .setGroupBudgetClaimer(groupBudgetManager::claim)
-                            .setGroupBudgetReleaser(groupBudgetManager::release)
-                            .setCounterSupplier(supplyCounter)
-                            .setAccumulatorSupplier(supplyAccumulator)
-                            .setBufferPoolSupplier(supplyCountingBufferPool)
-                            .build();
+                    StreamFactory streamFactory =
+                            newStreamFactory(supplyCounter, supplyAccumulator, supplyCountingBufferPool, streamFactoryBuilder);
                     streamFactories.put(routeKind, streamFactory);
                 }
             }
@@ -836,7 +854,7 @@ public class ElektronAgent implements Agent
                 final StreamFactory streamFactory = streamFactories.get(routeKind);
                 if (streamFactory != null)
                 {
-                    streamFactoriesByLabelId.put(labelId, streamFactory);
+                    streamFactoriesByAddressId.put(labelId, streamFactory);
                 }
                 this.count++;
             }
@@ -854,7 +872,7 @@ public class ElektronAgent implements Agent
 
                 if (this.count == 0)
                 {
-                    final StreamFactory streamFactory = streamFactoriesByLabelId.remove(labelId);
+                    final StreamFactory streamFactory = streamFactoriesByAddressId.remove(labelId);
                     assert streamFactory == streamFactories.get(routeKind);
 
                     final Agent agent = elektron.agent();
@@ -886,121 +904,167 @@ public class ElektronAgent implements Agent
 
             return this;
         }
+    }
 
-        public long supplyInitialId(
-            long routeId)
+    private StreamFactory newStreamFactory(
+        final Function<String, LongSupplier> supplyCounter,
+        final Function<String, LongConsumer> supplyAccumulator,
+        final Supplier<BufferPool> supplyCountingBufferPool,
+        final StreamFactoryBuilder streamFactoryBuilder)
+    {
+        return streamFactoryBuilder
+                .setRouteManager(resolver)
+                .setExecutor(this::executeAndSignal)
+                .setWriteBuffer(writeBuffer)
+                .setInitialIdSupplier(this::supplyInitialId)
+                .setReplyIdSupplier(this::supplyReplyId)
+                .setSourceCorrelationIdSupplier(this::supplyCorrelationId)
+                .setTargetCorrelationIdSupplier(this::supplyCorrelationId)
+                .setTraceSupplier(this::supplyTrace)
+                .setGroupIdSupplier(this::supplyGroupId)
+                .setGroupBudgetClaimer(groupBudgetManager::claim)
+                .setGroupBudgetReleaser(groupBudgetManager::release)
+                .setCounterSupplier(supplyCounter)
+                .setAccumulatorSupplier(supplyAccumulator)
+                .setBufferPoolSupplier(supplyCountingBufferPool)
+                .build();
+    }
+
+    private StreamFactory supplyStreamFactory(
+        int addressId)
+    {
+        return streamFactoriesByAddressId.get(addressId);
+    }
+
+    private MessageConsumer supplyThrottle(
+        long streamId)
+    {
+        final int instanceId = instanceId(streamId);
+        final Int2ObjectHashMap<MessageConsumer> dispatcher = throttles[throttleIndex(streamId)];
+        return dispatcher.get(instanceId);
+    }
+
+    private void removeThrottle(
+        long streamId)
+    {
+        final int instanceId = instanceId(streamId);
+        final Int2ObjectHashMap<MessageConsumer> dispatcher = throttles[throttleIndex(streamId)];
+        dispatcher.remove(instanceId);
+    }
+
+    private long supplyInitialId(
+        long routeId)
+    {
+        final int remoteId = remoteId(routeId);
+        final int remoteIndex = resolveRemoteIndex(remoteId);
+
+        streamId += 2L;
+        streamId &= mask;
+
+        return (((long)remoteIndex << 48) & 0x00ff_0000_0000_0000L) |
+               (streamId & 0xff00_ffff_ffff_ffffL) | 0x0000_0000_0000_0001L;
+    }
+
+    private long supplyReplyId(
+        long initialId)
+    {
+        assert isInitial(initialId);
+        return initialId & 0xffff_ffff_ffff_fffeL;
+    }
+
+    private long supplyGroupId()
+    {
+        groupId++;
+        groupId &= mask;
+        return groupId;
+    }
+
+    private long supplyTrace()
+    {
+        traceId++;
+        traceId &= mask;
+        return traceId;
+    }
+
+    private long supplyCorrelationId()
+    {
+        correlationId++;
+        correlationId &= mask;
+        return correlationId;
+    }
+
+    private Future<?> executeAndSignal(
+        Runnable task,
+        long routeId,
+        long streamId,
+        long signalId)
+    {
+        if (executor != null)
         {
-            final int remoteId = remoteId(routeId);
-            final int remoteIndex = resolveRemoteIndex(remoteId);
-
-            streamId += 2L;
-            streamId &= mask;
-
-            return (((long)remoteIndex << 48) & 0x00ff_0000_0000_0000L) |
-                   (streamId & 0xff00_ffff_ffff_ffffL) | 0x0000_0000_0000_0001L;
+            return executor.submit(() -> invokeAndSignal(task, routeId, streamId, signalId));
         }
-
-        public long supplyReplyId(
-            long initialId)
+        else
         {
-            assert isInitial(initialId);
-            return initialId & 0xffff_ffff_ffff_fffeL;
-        }
-
-        public long supplyGroupId()
-        {
-            groupId++;
-            groupId &= mask;
-            return groupId;
-        }
-
-        public long supplyTrace()
-        {
-            traceId++;
-            traceId &= mask;
-            return traceId;
-        }
-
-        public long supplyCorrelationId()
-        {
-            correlationId++;
-            correlationId &= mask;
-            return correlationId;
-        }
-
-        private Future<?> executeAndSignal(
-            Runnable task,
-            long routeId,
-            long streamId,
-            long signalId)
-        {
-            if (executor != null)
+            invokeAndSignal(task, routeId, streamId, signalId);
+            return new Future<Void>()
             {
-                return executor.submit(() -> invokeAndSignal(task, routeId, streamId, signalId));
-            }
-            else
-            {
-                invokeAndSignal(task, routeId, streamId, signalId);
-                return new Future<Void>()
+                @Override
+                public boolean cancel(
+                    boolean mayInterruptIfRunning)
                 {
-                    @Override
-                    public boolean cancel(
-                        boolean mayInterruptIfRunning)
-                    {
-                        return false;
-                    }
+                    return false;
+                }
 
-                    @Override
-                    public boolean isCancelled()
-                    {
-                        return false;
-                    }
+                @Override
+                public boolean isCancelled()
+                {
+                    return false;
+                }
 
-                    @Override
-                    public boolean isDone()
-                    {
-                        return true;
-                    }
+                @Override
+                public boolean isDone()
+                {
+                    return true;
+                }
 
-                    @Override
-                    public Void get() throws InterruptedException, ExecutionException
-                    {
-                        return null;
-                    }
+                @Override
+                public Void get() throws InterruptedException, ExecutionException
+                {
+                    return null;
+                }
 
-                    @Override
-                    public Void get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException
-                    {
-                        return null;
-                    }
-                };
-            }
+                @Override
+                public Void get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException
+                {
+                    return null;
+                }
+            };
         }
+    }
 
-        private void invokeAndSignal(
-            Runnable task,
-            long routeId,
-            long streamId,
-            long signalId)
+    private void invokeAndSignal(
+        Runnable task,
+        long routeId,
+        long streamId,
+        long signalId)
+    {
+        try
         {
-            try
-            {
-                task.run();
-            }
-            finally
-            {
-                final long timestamp = timestamps ? System.nanoTime() : 0L;
+            task.run();
+        }
+        finally
+        {
+            final long timestamp = timestamps ? System.nanoTime() : 0L;
 
-                final SignalFW signal = signalRW.get()
-                                                .rewrap()
-                                                .routeId(routeId)
-                                                .streamId(streamId)
-                                                .timestamp(timestamp)
-                                                .signalId(signalId)
-                                                .build();
+            final SignalFW signal = signalRW.get()
+                                            .rewrap()
+                                            .routeId(routeId)
+                                            .streamId(streamId)
+                                            .timestamp(timestamp)
+                                            .signalId(signalId)
+                                            .build();
 
-                streamsBuffer.write(signal.typeId(), signal.buffer(), signal.offset(), signal.sizeof());
-            }
+            streamsBuffer.write(signal.typeId(), signal.buffer(), signal.offset(), signal.sizeof());
         }
     }
 

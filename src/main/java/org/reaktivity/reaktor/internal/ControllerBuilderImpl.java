@@ -31,19 +31,18 @@ import org.agrona.concurrent.ringbuffer.RingBuffer;
 import org.reaktivity.nukleus.Controller;
 import org.reaktivity.nukleus.ControllerBuilder;
 import org.reaktivity.nukleus.ControllerSpi;
+import org.reaktivity.nukleus.function.MessageFunction;
 import org.reaktivity.reaktor.internal.layouts.ControlLayout;
 import org.reaktivity.reaktor.internal.types.control.CommandFW;
 import org.reaktivity.reaktor.internal.types.control.ErrorFW;
 import org.reaktivity.reaktor.internal.types.control.FreezeFW;
-import org.reaktivity.reaktor.internal.types.control.FrozenFW;
+import org.reaktivity.reaktor.internal.types.control.ResponseFW;
 import org.reaktivity.reaktor.internal.types.control.RouteFW;
 import org.reaktivity.reaktor.internal.types.control.RoutedFW;
 import org.reaktivity.reaktor.internal.types.control.UnrouteFW;
-import org.reaktivity.reaktor.internal.types.control.UnroutedFW;
 import org.reaktivity.reaktor.internal.types.control.auth.ResolveFW;
 import org.reaktivity.reaktor.internal.types.control.auth.ResolvedFW;
 import org.reaktivity.reaktor.internal.types.control.auth.UnresolveFW;
-import org.reaktivity.reaktor.internal.types.control.auth.UnresolvedFW;
 
 public final class ControllerBuilderImpl<T extends Controller> implements ControllerBuilder<T>
 {
@@ -88,16 +87,14 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
     {
         private final ControlLayout.Builder controlRW = new ControlLayout.Builder();
         private final CommandFW commandRO = new CommandFW();
+        private final ResponseFW responseRO = new ResponseFW();
+
         private final RoutedFW routedRO = new RoutedFW();
         private final ResolvedFW resolvedRO = new ResolvedFW();
-        private final UnresolvedFW unresolvedRO = new UnresolvedFW();
-        private final UnroutedFW unroutedRO = new UnroutedFW();
-        private final FrozenFW frozenRO = new FrozenFW();
-        private final ErrorFW errorRO = new ErrorFW();
 
         private final RingBuffer conductorCommands;
         private final CopyBroadcastReceiver conductorResponses;
-        private final ConcurrentMap<Long, CompletableFuture<?>> promisesByCorrelationId;
+        private final ConcurrentMap<Long, PendingCommand<?>> commandsByCorrelationId;
         private final MessageHandler responseHandler;
         private final ControlLayout control;
 
@@ -113,7 +110,7 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
 
             this.conductorCommands = new ManyToOneRingBuffer(control.commandBuffer());
             this.conductorResponses = new CopyBroadcastReceiver(new BroadcastReceiver(control.responseBuffer()));
-            this.promisesByCorrelationId = new ConcurrentHashMap<>();
+            this.commandsByCorrelationId = new ConcurrentHashMap<>();
             this.responseHandler = this::handleResponse;
         }
 
@@ -144,7 +141,7 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
         {
             assert msgTypeId == ResolveFW.TYPE_ID;
 
-            return doCommand(msgTypeId, buffer, index, length);
+            return doCommand(msgTypeId, buffer, index, length, (t, b, i, l) -> resolvedRO.wrap(b, i, i + l).authorization());
         }
 
         @Override
@@ -156,7 +153,7 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
         {
             assert msgTypeId == RouteFW.TYPE_ID;
 
-            return doCommand(msgTypeId, buffer, index, length);
+            return doCommand(msgTypeId, buffer, index, length, (t, b, i, l) -> routedRO.wrap(b, i, i + l).correlationId());
         }
 
         @Override
@@ -195,18 +192,31 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
             return doCommand(msgTypeId, buffer, index, length);
         }
 
-        private <R> CompletableFuture<R> doCommand(
+        @Override
+        public CompletableFuture<Void> doCommand(
             int msgTypeId,
             DirectBuffer buffer,
             int index,
             int length)
+        {
+            return doCommand(msgTypeId, buffer, index, length, (t, b, i, l) -> null);
+        }
+
+        @Override
+        public <R> CompletableFuture<R> doCommand(
+            int msgTypeId,
+            DirectBuffer buffer,
+            int index,
+            int length,
+            MessageFunction<R> mapper)
         {
             final CompletableFuture<R> promise = new CompletableFuture<>();
 
             final CommandFW command = commandRO.wrap(buffer, index, index + length);
             final long correlationId = command.correlationId();
 
-            commandSent(correlationId, promise);
+            PendingCommand<R> pending = new PendingCommand<>(mapper, promise);
+            commandSent(correlationId, pending);
 
             if (!conductorCommands.write(msgTypeId, buffer, index, length))
             {
@@ -222,141 +232,82 @@ public final class ControllerBuilderImpl<T extends Controller> implements Contro
             int index,
             int length)
         {
+            final ResponseFW response = responseRO.wrap(buffer, index, length);
+            long correlationId = response.correlationId();
+
+            PendingCommand<?> command = commandsByCorrelationId.remove(correlationId);
+
             switch (msgTypeId)
             {
             case ErrorFW.TYPE_ID:
-                handleErrorResponse(buffer, index, length);
-                break;
-            case ResolvedFW.TYPE_ID:
-                handleResolvedResponse(buffer, index, length);
-                break;
-            case RoutedFW.TYPE_ID:
-                handleRoutedResponse(buffer, index, length);
-                break;
-            case UnresolvedFW.TYPE_ID:
-                handleUnresolvedResponse(buffer, index, length);
-                break;
-            case UnroutedFW.TYPE_ID:
-                handleUnroutedResponse(buffer, index, length);
-                break;
-            case FrozenFW.TYPE_ID:
-                handleFrozenResponse(buffer, index, length);
+                commandFailed(command, "command failed");
                 break;
             default:
+                commandSucceeded(command, msgTypeId, buffer, index, length);
                 break;
             }
 
             return 1;
         }
 
-        private void handleErrorResponse(
-            DirectBuffer buffer,
-            int index,
-            int length)
-        {
-            errorRO.wrap(buffer, index, length);
-            long correlationId = errorRO.correlationId();
-
-            CompletableFuture<?> promise = promisesByCorrelationId.remove(correlationId);
-            commandFailed(promise, "command failed");
-        }
-
-        @SuppressWarnings("unchecked")
-        private void handleResolvedResponse(
-            DirectBuffer buffer,
-            int index,
-            int length)
-        {
-            final ResolvedFW response = resolvedRO.wrap(buffer, index, length);
-            long correlationId = response.correlationId();
-            long authorization = response.authorization();
-
-            CompletableFuture<Long> promise = (CompletableFuture<Long>) promisesByCorrelationId.remove(correlationId);
-            commandSucceeded(promise, authorization);
-        }
-
-        @SuppressWarnings("unchecked")
-        private void handleRoutedResponse(
-            DirectBuffer buffer,
-            int index,
-            int length)
-        {
-            final RoutedFW routed = routedRO.wrap(buffer, index, length);
-            final long correlationId = routed.correlationId();
-            final long routeId = routed.routeId();
-
-            CompletableFuture<Long> promise = (CompletableFuture<Long>) promisesByCorrelationId.remove(correlationId);
-            commandSucceeded(promise, routeId);
-        }
-
-        private void handleUnresolvedResponse(
-            DirectBuffer buffer,
-            int index,
-            int length)
-        {
-            final UnresolvedFW unrouted = unresolvedRO.wrap(buffer, index, length);
-            final long correlationId = unrouted.correlationId();
-
-            CompletableFuture<?> promise = promisesByCorrelationId.remove(correlationId);
-            commandSucceeded(promise);
-        }
-
-        private void handleUnroutedResponse(
-            DirectBuffer buffer,
-            int index,
-            int length)
-        {
-            final UnroutedFW unrouted = unroutedRO.wrap(buffer, index, length);
-            final long correlationId = unrouted.correlationId();
-
-            CompletableFuture<?> promise = promisesByCorrelationId.remove(correlationId);
-            commandSucceeded(promise);
-        }
-
-        private void handleFrozenResponse(
-            DirectBuffer buffer,
-            int index,
-            int length)
-        {
-            final FrozenFW frozen = frozenRO.wrap(buffer, index, length);
-            final long correlationId = frozen.correlationId();
-
-            CompletableFuture<?> promise = promisesByCorrelationId.remove(correlationId);
-            commandSucceeded(promise);
-        }
-
-        private void commandSent(
+        private <R> void commandSent(
             final long correlationId,
-            final CompletableFuture<?> promise)
+            final PendingCommand<R> command)
         {
-            promisesByCorrelationId.put(correlationId, promise);
+            commandsByCorrelationId.put(correlationId, command);
         }
 
         private <R> boolean commandSucceeded(
-            final CompletableFuture<R> promise)
+            final PendingCommand<R> command,
+            final int msgTypeId,
+            final DirectBuffer buffer,
+            final int index,
+            final int length)
         {
-            return commandSucceeded(promise, null);
-        }
-
-        private <R> boolean commandSucceeded(
-            final CompletableFuture<R> promise,
-            final R value)
-        {
-            return promise != null && promise.complete(value);
+            return command != null && command.succeeded(msgTypeId, buffer, index, length);
         }
 
         private boolean commandSendFailed(
             final long correlationId)
         {
-            CompletableFuture<?> promise = promisesByCorrelationId.remove(correlationId);
-            return commandFailed(promise, "unable to offer command");
+            PendingCommand<?> command = commandsByCorrelationId.remove(correlationId);
+            return commandFailed(command, "unable to offer command");
         }
 
         private boolean commandFailed(
-            final CompletableFuture<?> promise,
+            final PendingCommand<?> command,
             final String message)
         {
-            return promise != null && promise.completeExceptionally(new IllegalStateException(message));
+            return command != null && command.failed(message);
+        }
+    }
+
+    private static final class PendingCommand<R>
+    {
+        final MessageFunction<R> mapper;
+        final CompletableFuture<R> promise;
+
+        private PendingCommand(
+            final MessageFunction<R> mapper,
+            final CompletableFuture<R> promise)
+        {
+            this.mapper = mapper;
+            this.promise = promise;
+        }
+
+        private boolean succeeded(
+            final int msgTypeId,
+            final DirectBuffer buffer,
+            final int index,
+            final int length)
+        {
+            return promise.complete(mapper.apply(msgTypeId, buffer, index, length));
+        }
+
+        private boolean failed(
+            final String message)
+        {
+            return promise.completeExceptionally(new IllegalStateException(message));
         }
     }
 }
