@@ -72,6 +72,7 @@ public class NukleusAgent implements Agent
     private final LabelManager labels;
     private final List<ElektronAgent> elektronAgents;
     private final Map<String, Nukleus> nukleiByName;
+    private final Map<Long, String> routeTag;
     private final Router router;
 
     private final ControlLayout control;
@@ -89,6 +90,7 @@ public class NukleusAgent implements Agent
         this.labels = new LabelManager(config.directory());
         this.elektronAgents = new ArrayList<>();
         this.nukleiByName = new HashMap<>();
+        this.routeTag = new HashMap<>();
 
         this.control = new ControlLayout.Builder()
                 .controlPath(config.directory().resolve("control"))
@@ -128,11 +130,6 @@ public class NukleusAgent implements Agent
         return nukleiByName.get(name);
     }
 
-    public LabelManager labels()
-    {
-        return labels;
-    }
-
     public ElektronAgent supplyElektronAgent(
         int index,
         int count,
@@ -140,7 +137,7 @@ public class NukleusAgent implements Agent
         Function<String, BitSet> affinityMask)
     {
         ElektronAgent newElektronAgent = new ElektronAgent(index, count, config, labels, executor, affinityMask,
-                router::readonlyRoutesBuffer, supplyAgentBuilder);
+                router::readonlyRoutesBuffer, supplyAgentBuilder, routeTag);
         elektronAgents.add(newElektronAgent);
         return newElektronAgent;
     }
@@ -280,6 +277,15 @@ public class NukleusAgent implements Agent
             route = router.generateRouteId(route);
 
             final long newRouteId = route.correlationId();
+            if (route.tag().asString() != null && !route.tag().asString().isEmpty())
+            {
+                routeTag.put(newRouteId, route.localAddress().asString() + route.tag().asString());
+            }
+            else
+            {
+                routeTag.put(newRouteId, route.localAddress().asString() + newRouteId);
+            }
+
             this.onRouteable(newRouteId, nukleus);
 
             if (router.doRoute(route, routeHandler))

@@ -32,29 +32,14 @@ public final class WriteCounters
 
     public WriteCounters(
         Counters counters,
-        String name,
-        String tag,
-        long routeId)
+        String tag)
     {
-        if (tag != null && !tag.isEmpty())
-        {
-            this.opens = counters.counter(format("%s.%d.opens.written", name, routeId));
-            this.closes = counters.counter(format("%s.%d.closes.written", name, routeId));
-            this.aborts = counters.counter(format("%s.%d.aborts.written", name, routeId));
-            this.windows = counters.counter(format("%s.%d.windows.written", name, routeId));
-            this.resets = counters.counter(format("%s.%d.resets.written", name, routeId));
-            this.bytes = counters.counter(format("%s.%d.bytes.written", name, routeId));
-            this.frames = counters.counter(format("%s.%d.frames.written", name, routeId));
-        }
-        else
-        {
-            this.opens = counters.counter(format("%s.%d.opens.written", name, routeId));
-            this.closes = counters.counter(format("%s.%d.closes.written", name, routeId));
-            this.aborts = counters.counter(format("%s.%d.aborts.written", name, routeId));
-            this.windows = counters.counter(format("%s.%d.windows.written", name, routeId));
-            this.resets = counters.counter(format("%s.%d.resets.written", name, routeId));
-            this.bytes = counters.counter(format("%s.%d.bytes.written", name, routeId));
-            this.frames = counters.counter(format("%s.%d.frames.written", name, routeId));
-        }
+        this.opens = counters.counter(format("%s.opens.written", tag));
+        this.closes = counters.counter(format("%s.closes.written", tag));
+        this.aborts = counters.counter(format("%s.aborts.written", tag));
+        this.windows = counters.counter(format("%s.windows.written", tag));
+        this.resets = counters.counter(format("%s.resets.written", tag));
+        this.bytes = counters.counter(format("%s.bytes.written", tag));
+        this.frames = counters.counter(format("%s.frames.written", tag));
     }
 }

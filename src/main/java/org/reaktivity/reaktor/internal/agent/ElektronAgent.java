@@ -46,8 +46,6 @@ import java.util.function.LongConsumer;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
@@ -83,7 +81,6 @@ import org.reaktivity.reaktor.internal.router.GroupBudgetManager;
 import org.reaktivity.reaktor.internal.router.Resolver;
 import org.reaktivity.reaktor.internal.router.Target;
 import org.reaktivity.reaktor.internal.router.WriteCounters;
-import org.reaktivity.reaktor.internal.types.control.RouteFW;
 import org.reaktivity.reaktor.internal.types.stream.AbortFW;
 import org.reaktivity.reaktor.internal.types.stream.BeginFW;
 import org.reaktivity.reaktor.internal.types.stream.DataFW;
@@ -95,13 +92,10 @@ import org.reaktivity.reaktor.internal.types.stream.WindowFW;
 
 public class ElektronAgent implements Agent
 {
-    private static final Pattern ADDRESS_PATTERN = Pattern.compile("^([^#]+)(:?#.*)$");
-
     private final ThreadLocal<SignalFW.Builder> signalRW = withInitial(ElektronAgent::newSignalRW);
 
     private final FrameFW frameRO = new FrameFW();
     private final BeginFW beginRO = new BeginFW();
-    private final RouteFW routeRO = new RouteFW();
     private final AbortFW.Builder abortRW = new AbortFW.Builder();
     private final ResetFW.Builder resetRW = new ResetFW.Builder();
 
@@ -141,6 +135,7 @@ public class ElektronAgent implements Agent
 
     private final Long2ObjectHashMap<Affinity> affinityByRemoteId;
     private final Supplier<DirectBuffer> routesBufferRef;
+    private Map<Long, String> routeTag;
 
     private long streamId;
     private long correlationId;
@@ -157,7 +152,8 @@ public class ElektronAgent implements Agent
         ExecutorService executor,
         Function<String, BitSet> affinityMask,
         Supplier<DirectBuffer> routesBufferRef,
-        Supplier<AgentBuilder> supplyAgentBuilder)
+        Supplier<AgentBuilder> supplyAgentBuilder,
+        Map<Long, String> routeTag)
     {
         this.localIndex = index;
         this.config = config;
@@ -165,6 +161,7 @@ public class ElektronAgent implements Agent
         this.executor = executor;
         this.affinityMask = affinityMask;
         this.routesBufferRef = routesBufferRef;
+        this.routeTag = routeTag;
 
         final MetricsLayout metricsLayout = new MetricsLayout.Builder()
                 .path(config.directory().resolve(String.format("metrics%d", index)))
@@ -268,11 +265,6 @@ public class ElektronAgent implements Agent
             MessageFunction<R> mapper)
         {
             return resolver.get().resolveExternal(authorization, filter, mapper);
-        }
-
-        public final String resolveTag(long routeId)
-        {
-            return resolver.get().resolveTag(routeId);
         }
 
         @Override
@@ -728,28 +720,13 @@ public class ElektronAgent implements Agent
     private ReadCounters newReadCounters(
         long routeId)
     {
-        final int localId = localId(routeId);
-        final String localAddress = labels.lookupLabel(localId);
-        final String tag = ((ResolverRef) resolver).resolveTag(routeId);
-        return new ReadCounters(counters, localAddress, tag, routeId);
+        return new ReadCounters(counters, routeTag.get(routeId));
     }
 
     private WriteCounters newWriteCounters(
         long routeId)
     {
-        final int localId = localId(routeId);
-        final String localAddress = labels.lookupLabel(localId);
-        final String tag = ((ResolverRef) resolver).resolveTag(routeId);
-        return new WriteCounters(counters, localAddress, tag, routeId);
-    }
-
-    private String nukleus(
-        int localId)
-    {
-        final String localAddress = labels.lookupLabel(localId);
-        final Matcher matcher = ADDRESS_PATTERN.matcher(localAddress);
-        matcher.matches();
-        return matcher.group(1);
+        return new WriteCounters(counters, routeTag.get(routeId));
     }
 
     private static final class ReadCounters
@@ -764,30 +741,15 @@ public class ElektronAgent implements Agent
 
         ReadCounters(
             Counters counters,
-            String name,
-            String tag,
-            long routeId)
+            String tag)
         {
-            if (tag != null && !tag.isEmpty())
-            {
-                this.opens = counters.counter(format("%s.%s.opens.read", name, tag));
-                this.closes = counters.counter(format("%s.%s.closes.read", name, tag));
-                this.aborts = counters.counter(format("%s.%s.aborts.read", name, tag));
-                this.windows = counters.counter(format("%s.%s.windows.read", name, tag));
-                this.resets = counters.counter(format("%s.%s.resets.read", name, tag));
-                this.bytes = counters.counter(format("%s.%s.bytes.read", name, tag));
-                this.frames = counters.counter(format("%s.%s.frames.read", name, tag));
-            }
-            else
-            {
-                this.opens = counters.counter(format("%s.%d.opens.read", name, routeId));
-                this.closes = counters.counter(format("%s.%d.closes.read", name, routeId));
-                this.aborts = counters.counter(format("%s.%d.aborts.read", name, routeId));
-                this.windows = counters.counter(format("%s.%d.windows.read", name, routeId));
-                this.resets = counters.counter(format("%s.%d.resets.read", name, routeId));
-                this.bytes = counters.counter(format("%s.%d.bytes.read", name, routeId));
-                this.frames = counters.counter(format("%s.%d.frames.read", name, routeId));
-            }
+            this.opens = counters.counter(format("%s.opens.read", tag));
+            this.closes = counters.counter(format("%s.closes.read", tag));
+            this.aborts = counters.counter(format("%s.aborts.read", tag));
+            this.windows = counters.counter(format("%s.windows.read", tag));
+            this.resets = counters.counter(format("%s.resets.read", tag));
+            this.bytes = counters.counter(format("%s.bytes.read", tag));
+            this.frames = counters.counter(format("%s.frames.read", tag));
         }
     }
 
