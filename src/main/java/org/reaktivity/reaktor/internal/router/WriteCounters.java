@@ -32,15 +32,29 @@ public final class WriteCounters
 
     public WriteCounters(
         Counters counters,
-        String nukleus,
+        String name,
+        String tag,
         long routeId)
     {
-        this.opens = counters.counter(format("%s.%d.opens.written", nukleus, routeId));
-        this.closes = counters.counter(format("%s.%d.closes.written", nukleus, routeId));
-        this.aborts = counters.counter(format("%s.%d.aborts.written", nukleus, routeId));
-        this.windows = counters.counter(format("%s.%d.windows.written", nukleus, routeId));
-        this.resets = counters.counter(format("%s.%d.resets.written", nukleus, routeId));
-        this.bytes = counters.counter(format("%s.%d.bytes.written", nukleus, routeId));
-        this.frames = counters.counter(format("%s.%d.frames.written", nukleus, routeId));
+        if (tag != null && !tag.isEmpty())
+        {
+            this.opens = counters.counter(format("%s.%d.opens.written", name, routeId));
+            this.closes = counters.counter(format("%s.%d.closes.written", name, routeId));
+            this.aborts = counters.counter(format("%s.%d.aborts.written", name, routeId));
+            this.windows = counters.counter(format("%s.%d.windows.written", name, routeId));
+            this.resets = counters.counter(format("%s.%d.resets.written", name, routeId));
+            this.bytes = counters.counter(format("%s.%d.bytes.written", name, routeId));
+            this.frames = counters.counter(format("%s.%d.frames.written", name, routeId));
+        }
+        else
+        {
+            this.opens = counters.counter(format("%s.%d.opens.written", name, routeId));
+            this.closes = counters.counter(format("%s.%d.closes.written", name, routeId));
+            this.aborts = counters.counter(format("%s.%d.aborts.written", name, routeId));
+            this.windows = counters.counter(format("%s.%d.windows.written", name, routeId));
+            this.resets = counters.counter(format("%s.%d.resets.written", name, routeId));
+            this.bytes = counters.counter(format("%s.%d.bytes.written", name, routeId));
+            this.frames = counters.counter(format("%s.%d.frames.written", name, routeId));
+        }
     }
 }

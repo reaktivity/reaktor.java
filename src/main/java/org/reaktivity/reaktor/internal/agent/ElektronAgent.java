@@ -738,8 +738,9 @@ public class ElektronAgent implements Agent
         long routeId)
     {
         final int localId = localId(routeId);
-        final String nukleus = nukleus(localId);
-        return new WriteCounters(counters, nukleus, routeId);
+        final String localAddress = labels.lookupLabel(localId);
+        final String tag = ((ResolverRef) resolver).resolveTag(routeId);
+        return new WriteCounters(counters, localAddress, tag, routeId);
     }
 
     private String nukleus(
@@ -787,7 +788,6 @@ public class ElektronAgent implements Agent
                 this.bytes = counters.counter(format("%s.%d.bytes.read", name, routeId));
                 this.frames = counters.counter(format("%s.%d.frames.read", name, routeId));
             }
-
         }
     }
 
