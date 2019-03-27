@@ -763,29 +763,29 @@ public class ElektronAgent implements Agent
 
         ReadCounters(
             Counters counters,
-            String nukleus,
+            String name,
             String tag,
             long routeId)
         {
             if (tag != null && !tag.isEmpty())
             {
-                this.opens = counters.counter(format("%s.%s.opens.read", nukleus, tag));
-                this.closes = counters.counter(format("%s.%s.closes.read", nukleus, tag));
-                this.aborts = counters.counter(format("%s.%s.aborts.read", nukleus, tag));
-                this.windows = counters.counter(format("%s.%s.windows.read", nukleus, tag));
-                this.resets = counters.counter(format("%s.%s.resets.read", nukleus, tag));
-                this.bytes = counters.counter(format("%s.%s.bytes.read", nukleus, tag));
-                this.frames = counters.counter(format("%s.%s.frames.read", nukleus, tag));
+                this.opens = counters.counter(format("%s.%s.opens.read", name, tag));
+                this.closes = counters.counter(format("%s.%s.closes.read", name, tag));
+                this.aborts = counters.counter(format("%s.%s.aborts.read", name, tag));
+                this.windows = counters.counter(format("%s.%s.windows.read", name, tag));
+                this.resets = counters.counter(format("%s.%s.resets.read", name, tag));
+                this.bytes = counters.counter(format("%s.%s.bytes.read", name, tag));
+                this.frames = counters.counter(format("%s.%s.frames.read", name, tag));
             }
             else
             {
-                this.opens = counters.counter(format("%s.%d.opens.read", nukleus, routeId));
-                this.closes = counters.counter(format("%s.%d.closes.read", nukleus, routeId));
-                this.aborts = counters.counter(format("%s.%d.aborts.read", nukleus, routeId));
-                this.windows = counters.counter(format("%s.%d.windows.read", nukleus, routeId));
-                this.resets = counters.counter(format("%s.%d.resets.read", nukleus, routeId));
-                this.bytes = counters.counter(format("%s.%d.bytes.read", nukleus, routeId));
-                this.frames = counters.counter(format("%s.%d.frames.read", nukleus, routeId));
+                this.opens = counters.counter(format("%s.%d.opens.read", name, routeId));
+                this.closes = counters.counter(format("%s.%d.closes.read", name, routeId));
+                this.aborts = counters.counter(format("%s.%d.aborts.read", name, routeId));
+                this.windows = counters.counter(format("%s.%d.windows.read", name, routeId));
+                this.resets = counters.counter(format("%s.%d.resets.read", name, routeId));
+                this.bytes = counters.counter(format("%s.%d.bytes.read", name, routeId));
+                this.frames = counters.counter(format("%s.%d.frames.read", name, routeId));
             }
 
         }

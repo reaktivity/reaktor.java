@@ -95,13 +95,13 @@ public class StreamsIT
     {
         k3po.finish();
 
-        assertEquals(1, reaktor.opensRead("example", SERVER_ROUTE_ID));
+        assertEquals(1, reaktor.opensRead("example#0", SERVER_ROUTE_ID));
         assertEquals(1, reaktor.opensWritten("example", SERVER_ROUTE_ID));
-        assertEquals(0, reaktor.closesRead("example", SERVER_ROUTE_ID));
+        assertEquals(0, reaktor.closesRead("example#0", SERVER_ROUTE_ID));
         assertEquals(0, reaktor.closesWritten("example", SERVER_ROUTE_ID));
-        assertEquals(0, reaktor.abortsRead("example", SERVER_ROUTE_ID));
+        assertEquals(0, reaktor.abortsRead("example#0", SERVER_ROUTE_ID));
         assertEquals(0, reaktor.abortsWritten("example", SERVER_ROUTE_ID));
-        assertEquals(0, reaktor.resetsRead("example", SERVER_ROUTE_ID));
+        assertEquals(0, reaktor.resetsRead("example#0", SERVER_ROUTE_ID));
         assertEquals(0, reaktor.resetsWritten("example", SERVER_ROUTE_ID));
     }
 
