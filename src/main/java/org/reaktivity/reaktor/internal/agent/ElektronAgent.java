@@ -270,8 +270,7 @@ public class ElektronAgent implements Agent
             return resolver.get().resolveExternal(authorization, filter, mapper);
         }
 
-        @Override
-        public String resolveTag(long routeId)
+        public final String resolveTag(long routeId)
         {
             return resolver.get().resolveTag(routeId);
         }
@@ -441,8 +440,6 @@ public class ElektronAgent implements Agent
         final FrameFW frame = frameRO.wrap(buffer, index, index + length);
         final long streamId = frame.streamId();
         final long routeId = frame.routeId();
-        final MessagePredicate filter = (t, b, o, l) -> true;
-        final RouteFW route = resolver.resolve(routeId, frame.authorization(), filter, this::wrapRoute);
 
         if (isInitial(streamId))
         {
@@ -452,11 +449,6 @@ public class ElektronAgent implements Agent
         {
             handleReadReply(routeId, streamId, msgTypeId, buffer, index, length);
         }
-    }
-
-    private RouteFW wrapRoute(int msgTypeId, DirectBuffer buffer, int index, int length)
-    {
-        return routeRO.wrap(buffer, index, index + length);
     }
 
     private void handleReadInitial(
@@ -737,9 +729,9 @@ public class ElektronAgent implements Agent
         long routeId)
     {
         final int localId = localId(routeId);
-        final String nukleus = nukleus(localId);
-        final String tag = resolver.resolveTag(routeId);
-        return new ReadCounters(counters, nukleus, tag, routeId);
+        final String localAddress = labels.lookupLabel(localId);
+        final String tag = ((ResolverRef) resolver).resolveTag(routeId);
+        return new ReadCounters(counters, localAddress, tag, routeId);
     }
 
     private WriteCounters newWriteCounters(

@@ -157,6 +157,7 @@ public final class Router
         final String nukleus = route.nukleus().asString();
         final String localAddress = route.localAddress().asString();
         final String remoteAddress = route.remoteAddress().asString();
+        final String tag = route.tag().asString();
         final long authorization = route.authorization();
         final OctetsFW extension = route.extension();
 
@@ -179,6 +180,7 @@ public final class Router
                       .authorization(authorization)
                       .localAddress(localAddress)
                       .remoteAddress(remoteAddress)
+                      .tag(tag)
                       .extension(b -> b.set(extension))
                       .build();
     }
