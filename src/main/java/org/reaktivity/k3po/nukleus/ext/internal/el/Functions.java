@@ -76,6 +76,22 @@ public final class Functions
     }
 
     @Function
+    public static Long newClientReverseRouteId(
+        String senderAddress,
+        String receiverAddress)
+    {
+        return newRouteId(Role.CLIENT_REVERSE, receiverAddress, senderAddress);
+    }
+
+    @Function
+    public static Long newServerReverseRouteId(
+        String senderAddress,
+        String receiverAddress)
+    {
+        return newRouteId(Role.SERVER_REVERSE, receiverAddress, senderAddress);
+    }
+
+    @Function
     public static Long newProxyRouteId(
         String senderAddress,
         String receiverAddress)
