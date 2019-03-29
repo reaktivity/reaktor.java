@@ -22,6 +22,7 @@ import static org.junit.runners.model.MultipleFailureException.assertEmpty;
 import static org.reaktivity.reaktor.internal.ReaktorConfiguration.REAKTOR_COMMAND_BUFFER_CAPACITY;
 import static org.reaktivity.reaktor.internal.ReaktorConfiguration.REAKTOR_COUNTERS_BUFFER_CAPACITY;
 import static org.reaktivity.reaktor.internal.ReaktorConfiguration.REAKTOR_DIRECTORY;
+import static org.reaktivity.reaktor.internal.ReaktorConfiguration.REAKTOR_DRAIN_ON_CLOSE;
 import static org.reaktivity.reaktor.internal.ReaktorConfiguration.REAKTOR_RESPONSE_BUFFER_CAPACITY;
 import static org.reaktivity.reaktor.internal.ReaktorConfiguration.REAKTOR_STREAMS_BUFFER_CAPACITY;
 
@@ -70,6 +71,8 @@ public final class ReaktorRule implements TestRule
     {
         this.builder = Reaktor.builder();
         this.properties = new Properties();
+
+        configure(REAKTOR_DRAIN_ON_CLOSE, true);
     }
 
     public ReaktorRule directory(String directory)

@@ -342,7 +342,8 @@ public class ElektronAgent implements Agent
     @Override
     public void onClose()
     {
-        while (streamsBuffer.consumerPosition() < streamsBuffer.producerPosition())
+        while (config.drainOnClose() &&
+               streamsBuffer.consumerPosition() < streamsBuffer.producerPosition())
         {
             ThreadHints.onSpinWait();
         }
