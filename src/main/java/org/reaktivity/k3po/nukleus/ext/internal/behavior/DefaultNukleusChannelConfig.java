@@ -29,7 +29,6 @@ import org.kaazing.k3po.driver.internal.netty.bootstrap.channel.DefaultChannelCo
 
 public class DefaultNukleusChannelConfig extends DefaultChannelConfig implements NukleusChannelConfig
 {
-    private long correlation;
     private NukleusTransmission transmission = SIMPLEX;
     private int window;
     private long group;
@@ -41,19 +40,6 @@ public class DefaultNukleusChannelConfig extends DefaultChannelConfig implements
     {
         super();
         setBufferFactory(NATIVE_BUFFER_FACTORY);
-    }
-
-    @Override
-    public void setCorrelation(
-        long correlation)
-    {
-        this.correlation = correlation;
-    }
-
-    @Override
-    public long getCorrelation()
-    {
-        return correlation;
     }
 
     @Override
@@ -145,10 +131,6 @@ public class DefaultNukleusChannelConfig extends DefaultChannelConfig implements
         if (super.setOption0(key, value))
         {
             return true;
-        }
-        else if ("correlation".equals(key))
-        {
-            setCorrelation(convertToLong(value));
         }
         else if ("transmission".equals(key))
         {

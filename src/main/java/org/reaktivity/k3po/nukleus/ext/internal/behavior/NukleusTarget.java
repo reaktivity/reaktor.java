@@ -33,7 +33,6 @@ import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NullChannelBuffe
 
 import java.nio.file.Path;
 import java.util.Deque;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 import java.util.function.LongConsumer;
 import java.util.function.LongSupplier;
@@ -133,9 +132,9 @@ final class NukleusTarget implements AutoCloseable
     {
         try
         {
-            final long streamId = clientChannel.targetId();
             final long routeId = clientChannel.routeId();
-            final long correlationId = ThreadLocalRandom.current().nextLong();
+            final long initialId = clientChannel.targetId();
+            final long replyId = initialId & 0xffff_ffff_ffff_fffeL;
             ChannelFuture handshakeFuture = succeededFuture(clientChannel);
 
             NukleusChannelConfig clientConfig = clientChannel.getConfig();
@@ -143,12 +142,12 @@ final class NukleusTarget implements AutoCloseable
             {
             case DUPLEX:
                 ChannelFuture correlatedFuture = clientChannel.beginInputFuture();
-                correlateNew.accept(correlationId, new NukleusCorrelation(clientChannel, correlatedFuture));
+                correlateNew.accept(replyId, new NukleusCorrelation(clientChannel, correlatedFuture));
                 handshakeFuture = correlatedFuture;
                 break;
             case HALF_DUPLEX:
                 ChannelFuture replyFuture = clientChannel.beginInputFuture();
-                correlateNew.accept(correlationId, new NukleusCorrelation(clientChannel, replyFuture));
+                correlateNew.accept(replyId, new NukleusCorrelation(clientChannel, replyFuture));
                 replyFuture.addListener(f -> fireChannelInterestChanged(f.getChannel()));
                 break;
             default:
@@ -163,11 +162,10 @@ final class NukleusTarget implements AutoCloseable
 
             final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                    .routeId(routeId)
-                   .streamId(streamId)
+                   .streamId(initialId)
                    .timestamp(supplyTimestamp.getAsLong())
                    .trace(supplyTrace.getAsLong())
                    .authorization(authorization)
-                   .correlationId(correlationId)
                    .extension(p -> p.set(beginExtCopy))
                    .build();
 
@@ -220,20 +218,18 @@ final class NukleusTarget implements AutoCloseable
         NukleusChannel channel,
         ChannelFuture handshakeFuture)
     {
-        final long correlationId = channel.getConfig().getCorrelation();
         final ChannelBuffer beginExt = channel.writeExtBuffer(BEGIN, true);
         final int writableExtBytes = beginExt.readableBytes();
         final byte[] beginExtCopy = writeExtCopy(beginExt);
 
         final long routeId = channel.routeId();
-        final long streamId = channel.targetId();
+        final long replyId = channel.targetId();
 
         final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
-                .streamId(streamId)
+                .streamId(replyId)
                 .timestamp(supplyTimestamp.getAsLong())
                 .trace(supplyTrace.getAsLong())
-                .correlationId(correlationId)
                 .extension(p -> p.set(beginExtCopy))
                 .build();
 

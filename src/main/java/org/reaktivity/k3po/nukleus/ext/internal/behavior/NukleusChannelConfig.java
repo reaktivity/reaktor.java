@@ -19,10 +19,6 @@ import org.kaazing.k3po.driver.internal.netty.bootstrap.channel.ChannelConfig;
 
 public interface NukleusChannelConfig extends ChannelConfig
 {
-    void setCorrelation(long correlation);
-
-    long getCorrelation();
-
     void setTransmission(NukleusTransmission transmission);
 
     NukleusTransmission getTransmission();
