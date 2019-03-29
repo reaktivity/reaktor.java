@@ -1,5 +1,5 @@
 /**
- * Copyright 2016-2018 The Reaktivity Project
+ * Copyright 2016-2019 The Reaktivity Project
  *
  * The Reaktivity Project licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -75,18 +75,6 @@ public interface StreamFactoryBuilder
      */
     StreamFactoryBuilder setGroupBudgetReleaser(
         LongFunction<IntUnaryOperator> releaseGroupBudget);
-
-    default StreamFactoryBuilder setSourceCorrelationIdSupplier(
-        LongSupplier supplySourceCorrelationId)
-    {
-        return this;
-    }
-
-    default StreamFactoryBuilder setTargetCorrelationIdSupplier(
-        LongSupplier supplyTargetCorrelationId)
-    {
-        return this;
-    }
 
     StreamFactoryBuilder setWriteBuffer(
         MutableDirectBuffer writeBuffer);
