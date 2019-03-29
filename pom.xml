@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.reaktivity</groupId>
   <artifactId>reaktor</artifactId>
-  <version>0.86</version>
+  <version>0.87</version>
   <name>Reaktor for Java Nuklei</name>
   <description>Reaktor for Java Nuklei</description>
   <url>https://github.com/reaktivity/reaktor.java</url>
@@ -46,12 +46,12 @@
     <jacoco.missed.count>65</jacoco.missed.count>
 
     <nukleus.plugin.version>0.33</nukleus.plugin.version>
-    <nukleus.spec.version>0.31</nukleus.spec.version>
-    <nukleus.version>0.31</nukleus.version>
+    <nukleus.spec.version>0.32</nukleus.spec.version>
+    <nukleus.version>0.32</nukleus.version>
     <jmock.version>2.6.0</jmock.version>
     <mockito.version>2.7.13</mockito.version>
     <k3po.version>3.0.0-alpha-97</k3po.version>
-    <k3po.nukleus.ext.version>0.37</k3po.nukleus.ext.version>
+    <k3po.nukleus.ext.version>0.39</k3po.nukleus.ext.version>
   </properties>
 
   <dependencies>
@@ -122,7 +122,7 @@
         <configuration>
           <header>COPYRIGHT</header>
           <properties>
-            <copyrightYears>2016-2018</copyrightYears>
+            <copyrightYears>2016-2019</copyrightYears>
           </properties>
           <includes>
             <include>src/**</include>
@@ -145,7 +145,10 @@
         <artifactId>maven-checkstyle-plugin</artifactId>
         <version>3.0.0</version>
         <configuration>
-          <includeTestSourceDirectory>true</includeTestSourceDirectory>
+          <sourceDirectories>
+            <sourceDirectory>${project.build.sourceDirectory}</sourceDirectory>
+            <sourceDirectory>${project.build.testSourceDirectory}</sourceDirectory>
+          </sourceDirectories>
         </configuration>
         <executions>
           <execution>
@@ -159,7 +162,7 @@
           <dependency>
             <groupId>com.puppycrawl.tools</groupId>
             <artifactId>checkstyle</artifactId>
-            <version>8.3</version>
+            <version>8.18</version>
           </dependency>
         </dependencies>
       </plugin>

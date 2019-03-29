@@ -1,5 +1,5 @@
 /**
- * Copyright 2016-2018 The Reaktivity Project
+ * Copyright 2016-2019 The Reaktivity Project
  *
  * The Reaktivity Project licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -106,8 +106,6 @@ public class MultipleStreamsIT
         private StreamFactoryBuilder serverStreamFactory = mock(StreamFactoryBuilder.class);
         private StreamFactory streamFactory = mock(StreamFactory.class);
 
-        private ArgumentCaptor<LongSupplier> supplySourceCorrelationId = forClass(LongSupplier.class);
-        private ArgumentCaptor<LongSupplier> supplyTargetCorrelationIdRef = forClass(LongSupplier.class);
         private ArgumentCaptor<RouteManager> routerRef = forClass(RouteManager.class);
         private ArgumentCaptor<LongUnaryOperator> supplyInitialIdRef = forClass(LongUnaryOperator.class);
         private ArgumentCaptor<LongUnaryOperator> supplyReplyIdRef = forClass(LongUnaryOperator.class);
@@ -138,33 +136,25 @@ public class MultipleStreamsIT
         private long acceptRouteId1;
         private long acceptInitialId1;
         private long acceptReplyId1;
-        private long acceptCorrelationId1;
 
         private MessageConsumer connectInitial1;
         private long connectRouteId1;
         private long connectInitialId1;
         private long connectReplyId1;
-        private long connectCorrelationId1;
 
         private MessageConsumer acceptReply2;
         private long acceptRouteId2;
         private long acceptInitialId2;
         private long acceptReplyId2;
-        private long acceptCorrelationId2;
 
         private MessageConsumer connectInitial2;
         private long connectRouteId2;
         private long connectInitialId2;
         private long connectReplyId2;
-        private long connectCorrelationId2;
 
         @SuppressWarnings("unchecked")
         public ExampleNukleusFactorySpi()
         {
-            when(serverStreamFactory.setSourceCorrelationIdSupplier(supplySourceCorrelationId.capture()))
-                .thenReturn(serverStreamFactory);
-            when(serverStreamFactory.setTargetCorrelationIdSupplier(supplyTargetCorrelationIdRef.capture()))
-                .thenReturn(serverStreamFactory);
             when(serverStreamFactory.setInitialIdSupplier(supplyInitialIdRef.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setReplyIdSupplier(supplyReplyIdRef.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setTraceSupplier(any(LongSupplier.class))).thenReturn(serverStreamFactory);
@@ -210,7 +200,7 @@ public class MultipleStreamsIT
                      }
                      else
                      {
-                         if (begin.correlationId() == connectCorrelationId1)
+                         if (begin.streamId() == connectReplyId1)
                          {
                              result = connectReply1;
                          }
@@ -241,22 +231,19 @@ public class MultipleStreamsIT
                 {
                     final LongUnaryOperator supplyInitialId = supplyInitialIdRef.getValue();
                     final LongUnaryOperator supplyReplyId = supplyReplyIdRef.getValue();
-                    final LongSupplier supplyTargetCorrelationId = supplyTargetCorrelationIdRef.getValue();
 
                     acceptRouteId1 = routeId;
                     acceptInitialId1 = begin.streamId();
-                    acceptCorrelationId1 = begin.correlationId();
                     acceptReplyId1 = supplyReplyId.applyAsLong(begin.streamId());
 
                     connectRouteId1 = route.correlationId();
                     connectInitialId1 = supplyInitialId.applyAsLong(connectRouteId1);
                     connectReplyId1 = supplyReplyId.applyAsLong(connectInitialId1);
-                    connectCorrelationId1 = supplyTargetCorrelationId.getAsLong();
 
                     connectInitial1 = router.supplyReceiver(connectInitialId1);
 
                     doBegin(connectInitial1, connectRouteId1, connectInitialId1,
-                            begin.authorization(), connectCorrelationId1);
+                            begin.authorization());
                     router.setThrottle(connectInitialId1, connectReply1);
                 }
 
@@ -289,7 +276,7 @@ public class MultipleStreamsIT
 
             doAnswer(invocation ->
             {
-                doBegin(acceptReply1, acceptRouteId1, acceptReplyId1, 0L, acceptCorrelationId1);
+                doBegin(acceptReply1, acceptRouteId1, acceptReplyId1, 0L);
                 final RouteManager router = routerRef.getValue();
                 router.setThrottle(acceptReplyId1, acceptInitial1);
                 return null;
@@ -339,22 +326,19 @@ public class MultipleStreamsIT
                 {
                     final LongUnaryOperator supplyInitialId = supplyInitialIdRef.getValue();
                     final LongUnaryOperator supplyReplyId = supplyReplyIdRef.getValue();
-                    final LongSupplier supplyTargetCorrelationId = supplyTargetCorrelationIdRef.getValue();
 
                     acceptRouteId2 = routeId;
                     acceptInitialId2 = begin.streamId();
-                    acceptCorrelationId2 = begin.correlationId();
                     acceptReplyId2 = supplyReplyId.applyAsLong(begin.streamId());
 
                     connectRouteId2 = route.correlationId();
                     connectInitialId2 = supplyInitialId.applyAsLong(connectRouteId2);
                     connectReplyId2 = supplyReplyId.applyAsLong(connectInitialId2);
-                    connectCorrelationId2 = supplyTargetCorrelationId.getAsLong();
 
                     connectInitial2 = router.supplyReceiver(connectInitialId2);
 
                     doBegin(connectInitial2, connectRouteId2, connectInitialId2,
-                            begin.authorization(), connectCorrelationId2);
+                            begin.authorization());
                     router.setThrottle(connectInitialId2, connectReply2);
                 }
                 return null;
@@ -386,7 +370,7 @@ public class MultipleStreamsIT
 
             doAnswer(invocation ->
             {
-                doBegin(acceptReply2, acceptRouteId2, acceptReplyId2, 0L, acceptCorrelationId2);
+                doBegin(acceptReply2, acceptRouteId2, acceptReplyId2, 0L);
                 final RouteManager router = routerRef.getValue();
                 router.setThrottle(acceptReplyId2, acceptInitial2);
                 return null;
@@ -483,15 +467,13 @@ public class MultipleStreamsIT
             MessageConsumer receiver,
             long routeId,
             long streamId,
-            long authorization,
-            long correlationId)
+            long authorization)
         {
             final MutableDirectBuffer writeBuffer = writeBufferRef.getValue();
             final BeginFW begin = beginRW.wrap(writeBuffer,  0, writeBuffer.capacity())
                     .routeId(routeId)
                     .streamId(streamId)
                     .authorization(authorization)
-                    .correlationId(correlationId)
                     .build();
             receiver.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
         }

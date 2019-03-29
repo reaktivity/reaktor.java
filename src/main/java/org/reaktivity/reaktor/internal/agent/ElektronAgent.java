@@ -1,5 +1,5 @@
 /**
- * Copyright 2016-2018 The Reaktivity Project
+ * Copyright 2016-2019 The Reaktivity Project
  *
  * The Reaktivity Project licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -141,7 +141,6 @@ public class ElektronAgent implements Agent
     private final Supplier<DirectBuffer> routesBufferRef;
 
     private long streamId;
-    private long correlationId;
     private long traceId;
     private long groupId;
 
@@ -220,7 +219,6 @@ public class ElektronAgent implements Agent
         this.mask = mask;
         this.bufferPool = bufferPool;
         this.streamId = initial;
-        this.correlationId = initial;
         this.traceId = initial;
         this.groupId = initial;
 
@@ -237,8 +235,6 @@ public class ElektronAgent implements Agent
                     .setThrottleRemover(this::removeThrottle)
                     .setInitialIdSupplier(this::supplyInitialId)
                     .setReplyIdSupplier(this::supplyReplyId)
-                    .setSourceCorrelationIdSupplier(this::supplyCorrelationId)
-                    .setTargetCorrelationIdSupplier(this::supplyCorrelationId)
                     .setTraceIdSupplier(this::supplyTrace)
                     .setGroupIdSupplier(this::supplyGroupId)
                     .setGroupBudgetClaimer(groupBudgetManager::claim)
@@ -887,8 +883,6 @@ public class ElektronAgent implements Agent
                 .setWriteBuffer(writeBuffer)
                 .setInitialIdSupplier(this::supplyInitialId)
                 .setReplyIdSupplier(this::supplyReplyId)
-                .setSourceCorrelationIdSupplier(this::supplyCorrelationId)
-                .setTargetCorrelationIdSupplier(this::supplyCorrelationId)
                 .setTraceSupplier(this::supplyTrace)
                 .setGroupIdSupplier(this::supplyGroupId)
                 .setGroupBudgetClaimer(groupBudgetManager::claim)
@@ -953,13 +947,6 @@ public class ElektronAgent implements Agent
         traceId++;
         traceId &= mask;
         return traceId;
-    }
-
-    private long supplyCorrelationId()
-    {
-        correlationId++;
-        correlationId &= mask;
-        return correlationId;
     }
 
     private Future<?> executeAndSignal(
