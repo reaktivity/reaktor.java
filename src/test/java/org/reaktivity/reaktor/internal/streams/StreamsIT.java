@@ -160,8 +160,6 @@ public class StreamsIT
         private StreamFactoryBuilder serverStreamFactory = mock(StreamFactoryBuilder.class);
         private StreamFactory streamFactory = mock(StreamFactory.class);
 
-        private ArgumentCaptor<LongSupplier> supplySourceCorrelationId = forClass(LongSupplier.class);
-        private ArgumentCaptor<LongSupplier> supplyTargetCorrelationIdRef = forClass(LongSupplier.class);
         private ArgumentCaptor<RouteManager> routerRef = forClass(RouteManager.class);
         private ArgumentCaptor<LongUnaryOperator> supplyInitialIdRef = forClass(LongUnaryOperator.class);
         private ArgumentCaptor<LongUnaryOperator> supplyReplyIdRef = forClass(LongUnaryOperator.class);
@@ -185,19 +183,13 @@ public class StreamsIT
 
         private long acceptRouteId;
         private long acceptInitialId;
-        private long acceptCorrelationId;
         private long acceptReplyId;
         private long connectRouteId;
         private long connectInitialId;
-        private long connectCorrelationId;
 
         @SuppressWarnings("unchecked")
         public TestNukleusFactorySpi()
         {
-            when(serverStreamFactory.setSourceCorrelationIdSupplier(supplySourceCorrelationId.capture()))
-                .thenReturn(serverStreamFactory);
-            when(serverStreamFactory.setTargetCorrelationIdSupplier(supplyTargetCorrelationIdRef.capture()))
-                .thenReturn(serverStreamFactory);
             when(serverStreamFactory.setInitialIdSupplier(supplyInitialIdRef.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setReplyIdSupplier(supplyReplyIdRef.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setTraceSupplier(any(LongSupplier.class))).thenReturn(serverStreamFactory);
@@ -245,21 +237,18 @@ public class StreamsIT
                 {
                     final LongUnaryOperator supplyInitialId = supplyInitialIdRef.getValue();
                     final LongUnaryOperator supplyReplyId = supplyReplyIdRef.getValue();
-                    final LongSupplier supplyTargetCorrelationId = supplyTargetCorrelationIdRef.getValue();
 
                     acceptRouteId = routeId;
                     acceptInitialId = begin.streamId();
-                    acceptCorrelationId = begin.correlationId();
                     acceptReplyId = supplyReplyId.applyAsLong(acceptInitialId);
 
                     connectRouteId = route.correlationId();
                     connectInitialId = supplyInitialId.applyAsLong(connectRouteId);
-                    connectCorrelationId = supplyTargetCorrelationId.getAsLong();
 
                     MessageConsumer connectInitial = router.supplyReceiver(connectInitialId);
 
                     doBegin(connectInitial, connectRouteId, connectInitialId,
-                            begin.authorization(), connectCorrelationId);
+                            begin.authorization());
                     router.setThrottle(connectInitialId, connectReply);
                 }
                 else
@@ -276,7 +265,7 @@ public class StreamsIT
             doAnswer(invocation ->
             {
                 final MessageConsumer acceptReply = acceptReplyRef.getValue();
-                doBegin(acceptReply, acceptRouteId, acceptReplyId, 0L, acceptCorrelationId);
+                doBegin(acceptReply, acceptRouteId, acceptReplyId, 0L);
                 return null;
             }
             ).when(connectReply).accept(eq(BeginFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
@@ -357,15 +346,13 @@ public class StreamsIT
             MessageConsumer receiver,
             long routeId,
             long streamId,
-            long authorization,
-            long correlationId)
+            long authorization)
         {
             final MutableDirectBuffer writeBuffer = writeBufferRef.getValue();
             final BeginFW begin = beginRW.wrap(writeBuffer,  0, writeBuffer.capacity())
                     .routeId(routeId)
                     .streamId(streamId)
                     .authorization(authorization)
-                    .correlationId(correlationId)
                     .build();
             receiver.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
         }
