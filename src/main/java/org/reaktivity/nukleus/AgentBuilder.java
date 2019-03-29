@@ -105,18 +105,6 @@ public interface AgentBuilder
         return this;
     }
 
-    default AgentBuilder setSourceCorrelationIdSupplier(
-        LongSupplier supplySourceCorrelationId)
-    {
-        return this;
-    }
-
-    default AgentBuilder setTargetCorrelationIdSupplier(
-        LongSupplier supplyTargetCorrelationId)
-    {
-        return this;
-    }
-
     default AgentBuilder setWriteBuffer(
         MutableDirectBuffer writeBuffer)
     {
