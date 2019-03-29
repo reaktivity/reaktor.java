@@ -33,7 +33,6 @@ public final class NukleusTypeSystem implements TypeSystemSpi
     public static final TypeInfo<Long> OPTION_GROUP = new TypeInfo<>("group", Long.class);
     public static final TypeInfo<Integer> OPTION_PADDING = new TypeInfo<>("padding", Integer.class);
     public static final TypeInfo<String> OPTION_UPDATE = new TypeInfo<>("update", String.class);
-    public static final TypeInfo<Long> OPTION_CORRELATION = new TypeInfo<>("correlation", Long.class);
     public static final TypeInfo<String> OPTION_TRANSMISSION = new TypeInfo<>("transmission", String.class);
     public static final TypeInfo<String> OPTION_THROTTLE = new TypeInfo<>("throttle", String.class);
     public static final TypeInfo<Long> OPTION_AUTHORIZATION = new TypeInfo<>("authorization", Long.class);
@@ -67,7 +66,6 @@ public final class NukleusTypeSystem implements TypeSystemSpi
         acceptOptions.add(OPTION_PADDING);
         acceptOptions.add(OPTION_UPDATE);
         acceptOptions.add(OPTION_AUTHORIZATION);
-        acceptOptions.add(OPTION_CORRELATION);
         acceptOptions.add(OPTION_THROTTLE);
         acceptOptions.add(OPTION_TRANSMISSION);
         acceptOptions.add(OPTION_BYTE_ORDER);
@@ -81,7 +79,6 @@ public final class NukleusTypeSystem implements TypeSystemSpi
         connectOptions.add(OPTION_PADDING);
         connectOptions.add(OPTION_UPDATE);
         connectOptions.add(OPTION_AUTHORIZATION);
-        connectOptions.add(OPTION_CORRELATION);
         connectOptions.add(OPTION_THROTTLE);
         connectOptions.add(OPTION_TRANSMISSION);
         connectOptions.add(OPTION_BYTE_ORDER);
