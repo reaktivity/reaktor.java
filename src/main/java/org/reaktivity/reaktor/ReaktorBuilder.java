@@ -40,7 +40,6 @@ import org.reaktivity.nukleus.ControllerFactory;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.NukleusFactory;
 import org.reaktivity.reaktor.internal.ControllerBuilderImpl;
-import org.reaktivity.reaktor.internal.ReaktorConfiguration;
 import org.reaktivity.reaktor.internal.agent.ControllerAgent;
 import org.reaktivity.reaktor.internal.agent.ElektronAgent;
 import org.reaktivity.reaktor.internal.agent.NukleusAgent;

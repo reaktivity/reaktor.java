@@ -19,12 +19,12 @@ import static java.lang.String.format;
 import static java.nio.file.FileVisitOption.FOLLOW_LINKS;
 import static java.nio.file.Files.exists;
 import static org.junit.runners.model.MultipleFailureException.assertEmpty;
-import static org.reaktivity.reaktor.internal.ReaktorConfiguration.REAKTOR_COMMAND_BUFFER_CAPACITY;
-import static org.reaktivity.reaktor.internal.ReaktorConfiguration.REAKTOR_COUNTERS_BUFFER_CAPACITY;
-import static org.reaktivity.reaktor.internal.ReaktorConfiguration.REAKTOR_DIRECTORY;
-import static org.reaktivity.reaktor.internal.ReaktorConfiguration.REAKTOR_DRAIN_ON_CLOSE;
-import static org.reaktivity.reaktor.internal.ReaktorConfiguration.REAKTOR_RESPONSE_BUFFER_CAPACITY;
-import static org.reaktivity.reaktor.internal.ReaktorConfiguration.REAKTOR_STREAMS_BUFFER_CAPACITY;
+import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_COMMAND_BUFFER_CAPACITY;
+import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_COUNTERS_BUFFER_CAPACITY;
+import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_DIRECTORY;
+import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_DRAIN_ON_CLOSE;
+import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_RESPONSE_BUFFER_CAPACITY;
+import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_STREAMS_BUFFER_CAPACITY;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -46,7 +46,7 @@ import org.reaktivity.nukleus.Controller;
 import org.reaktivity.nukleus.NukleusFactorySpi;
 import org.reaktivity.reaktor.Reaktor;
 import org.reaktivity.reaktor.ReaktorBuilder;
-import org.reaktivity.reaktor.internal.ReaktorConfiguration;
+import org.reaktivity.reaktor.ReaktorConfiguration;
 import org.reaktivity.reaktor.test.annotation.Configure;
 
 public final class ReaktorRule implements TestRule

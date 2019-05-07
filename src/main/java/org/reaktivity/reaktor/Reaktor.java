@@ -35,7 +35,6 @@ import org.agrona.concurrent.BackoffIdleStrategy;
 import org.agrona.concurrent.IdleStrategy;
 import org.reaktivity.nukleus.Configuration;
 import org.reaktivity.nukleus.Controller;
-import org.reaktivity.reaktor.internal.ReaktorConfiguration;
 import org.reaktivity.reaktor.internal.agent.ControllerAgent;
 import org.reaktivity.reaktor.internal.agent.ElektronAgent;
 

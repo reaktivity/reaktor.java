@@ -32,6 +32,7 @@ import org.reaktivity.nukleus.Controller;
 import org.reaktivity.nukleus.ControllerBuilder;
 import org.reaktivity.nukleus.ControllerSpi;
 import org.reaktivity.nukleus.function.MessageFunction;
+import org.reaktivity.reaktor.ReaktorConfiguration;
 import org.reaktivity.reaktor.internal.layouts.ControlLayout;
 import org.reaktivity.reaktor.internal.types.control.CommandFW;
 import org.reaktivity.reaktor.internal.types.control.ErrorFW;

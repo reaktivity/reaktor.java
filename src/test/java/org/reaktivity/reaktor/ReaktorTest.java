@@ -28,7 +28,6 @@ import org.jmock.lib.concurrent.Synchroniser;
 import org.junit.Rule;
 import org.junit.Test;
 import org.reaktivity.nukleus.Controller;
-import org.reaktivity.reaktor.internal.ReaktorConfiguration;
 import org.reaktivity.reaktor.internal.agent.ControllerAgent;
 
 public class ReaktorTest
@@ -72,7 +71,7 @@ public class ReaktorTest
         reaktor.close();
     }
 
-    @Test(expected = Exception.class)
+    @Test
     public void shouldReportControllerCloseError() throws Exception
     {
         final ReaktorConfiguration config = new ReaktorConfiguration();
@@ -86,6 +85,7 @@ public class ReaktorTest
 
                 oneOf(controller).kind(); will(returnValue(Controller.class));
                 oneOf(controller).close(); will(throwException(new Exception("controller close failed")));
+                oneOf(errorHandler).onError(with(aNonNull(Exception.class)));
             }
         });
 

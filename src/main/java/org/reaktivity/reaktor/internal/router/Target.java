@@ -30,7 +30,7 @@ import org.agrona.collections.Int2ObjectHashMap;
 import org.agrona.collections.Long2ObjectHashMap;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessagePredicate;
-import org.reaktivity.reaktor.internal.ReaktorConfiguration;
+import org.reaktivity.reaktor.ReaktorConfiguration;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
 import org.reaktivity.reaktor.internal.types.stream.AbortFW;
 import org.reaktivity.reaktor.internal.types.stream.BeginFW;
@@ -173,7 +173,7 @@ public final class Target implements AutoCloseable
                 break;
             case DataFW.TYPE_ID:
                 counters.frames.increment();
-                counters.bytes.add(buffer.getInt(index + DataFW.FIELD_OFFSET_LENGTH));
+                counters.bytes.getAndAdd(buffer.getInt(index + DataFW.FIELD_OFFSET_LENGTH));
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 break;
             case EndFW.TYPE_ID:
