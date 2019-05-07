@@ -36,9 +36,7 @@ import static org.agrona.concurrent.ringbuffer.RecordDescriptor.HEADER_LENGTH;
 import static org.agrona.concurrent.ringbuffer.RecordDescriptor.checkTypeId;
 import static org.agrona.concurrent.ringbuffer.RecordDescriptor.encodedMsgOffset;
 import static org.agrona.concurrent.ringbuffer.RecordDescriptor.lengthOffset;
-import static org.agrona.concurrent.ringbuffer.RecordDescriptor.makeHeader;
-import static org.agrona.concurrent.ringbuffer.RecordDescriptor.messageTypeId;
-import static org.agrona.concurrent.ringbuffer.RecordDescriptor.recordLength;
+import static org.agrona.concurrent.ringbuffer.RecordDescriptor.typeOffset;
 import static org.agrona.concurrent.ringbuffer.RingBufferDescriptor.CONSUMER_HEARTBEAT_OFFSET;
 import static org.agrona.concurrent.ringbuffer.RingBufferDescriptor.CORRELATION_COUNTER_OFFSET;
 import static org.agrona.concurrent.ringbuffer.RingBufferDescriptor.HEAD_CACHE_POSITION_OFFSET;
@@ -123,13 +121,13 @@ public class ManyToOneRingBuffer implements RingBuffer
 
         final AtomicBuffer buffer = this.buffer;
         final int recordLength = length + HEADER_LENGTH;
-        final int alignedRecordLength = align(recordLength, ALIGNMENT);
-        final int recordIndex = claimCapacity(buffer, alignedRecordLength, makeHeader(-recordLength, msgTypeId));
+        final int recordIndex = claimCapacity(buffer, recordLength);
 
         if (INSUFFICIENT_CAPACITY != recordIndex)
         {
             UnsafeAccess.UNSAFE.storeFence();
 
+            buffer.putInt(typeOffset(recordIndex), msgTypeId);
             buffer.putBytes(encodedMsgOffset(recordIndex), srcBuffer, srcIndex, length);
             buffer.putIntOrdered(lengthOffset(recordIndex), recordLength);
 
@@ -167,9 +165,7 @@ public class ManyToOneRingBuffer implements RingBuffer
             while ((bytesRead < maxBlockLength) && (messagesRead < messageCountLimit))
             {
                 final int recordIndex = headIndex + bytesRead;
-                final long header = buffer.getLongVolatile(recordIndex);
-
-                final int recordLength = recordLength(header);
+                final int recordLength = buffer.getIntVolatile(lengthOffset(recordIndex));
                 if (recordLength <= 0)
                 {
                     break;
@@ -177,7 +173,7 @@ public class ManyToOneRingBuffer implements RingBuffer
 
                 bytesRead += align(recordLength, ALIGNMENT);
 
-                final int messageTypeId = messageTypeId(header);
+                final int messageTypeId = buffer.getInt(typeOffset(recordIndex));
                 if (PADDING_MSG_TYPE_ID == messageTypeId)
                 {
                     continue;
@@ -294,7 +290,8 @@ public class ManyToOneRingBuffer implements RingBuffer
         int length = buffer.getIntVolatile(consumerIndex);
         if (length < 0)
         {
-            buffer.putLongOrdered(consumerIndex, makeHeader(-length, PADDING_MSG_TYPE_ID));
+            buffer.putInt(typeOffset(consumerIndex), PADDING_MSG_TYPE_ID);
+            buffer.putIntOrdered(lengthOffset(consumerIndex), -length);
             unblocked = true;
         }
         else if (0 == length)
@@ -311,7 +308,8 @@ public class ManyToOneRingBuffer implements RingBuffer
                 {
                     if (scanBackToConfirmStillZeroed(buffer, i, consumerIndex))
                     {
-                        buffer.putLongOrdered(consumerIndex, makeHeader(i - consumerIndex, PADDING_MSG_TYPE_ID));
+                        buffer.putInt(typeOffset(consumerIndex), PADDING_MSG_TYPE_ID);
+                        buffer.putIntOrdered(lengthOffset(consumerIndex), i - consumerIndex);
                         unblocked = true;
                     }
 
@@ -353,8 +351,9 @@ public class ManyToOneRingBuffer implements RingBuffer
         }
     }
 
-    private int claimCapacity(final AtomicBuffer buffer, final int alignedRecordLength, final long recordHeader)
+    private int claimCapacity(final AtomicBuffer buffer, final int recordLength)
     {
+        final int alignedRecordLength = align(recordLength, ALIGNMENT);
         final int capacity = this.capacity;
         final int tailPositionIndex = this.tailPositionIndex;
         final int headCachePositionIndex = this.headCachePositionIndex;
@@ -406,12 +405,13 @@ public class ManyToOneRingBuffer implements RingBuffer
                 padding = toBufferEndLength;
             }
         }
-        while (!buffer.compareAndSetLong(tailIndex, 0L, recordHeader));
+        while (!buffer.compareAndSetLong(tailIndex, 0L, -recordLength));
 
         if (0 != padding)
         {
-            buffer.putLong(0, recordHeader);
-            buffer.putLongOrdered(tailIndex, makeHeader(padding, PADDING_MSG_TYPE_ID));
+            buffer.putLong(0, -recordLength);
+            buffer.putInt(typeOffset(tailIndex), PADDING_MSG_TYPE_ID);
+            buffer.putIntOrdered(lengthOffset(tailIndex), padding);
             tailIndex = 0;
         }
 
