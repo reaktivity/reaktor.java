@@ -65,6 +65,7 @@ import org.reaktivity.nukleus.AgentBuilder;
 import org.reaktivity.nukleus.Elektron;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.buffer.BufferPool;
+import org.reaktivity.nukleus.buffer.CountingBufferPool;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessageFunction;
 import org.reaktivity.nukleus.function.MessagePredicate;
@@ -72,10 +73,9 @@ import org.reaktivity.nukleus.route.RouteKind;
 import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
+import org.reaktivity.reaktor.ReaktorConfiguration;
 import org.reaktivity.reaktor.internal.Counters;
 import org.reaktivity.reaktor.internal.LabelManager;
-import org.reaktivity.reaktor.internal.ReaktorConfiguration;
-import org.reaktivity.reaktor.internal.buffer.CountingBufferPool;
 import org.reaktivity.reaktor.internal.buffer.DefaultBufferPool;
 import org.reaktivity.reaktor.internal.layouts.MetricsLayout;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
@@ -544,7 +544,7 @@ public class ElektronAgent implements Agent
                     break;
                 case DataFW.TYPE_ID:
                     counters.frames.increment();
-                    counters.bytes.add(buffer.getInt(index + DataFW.FIELD_OFFSET_LENGTH));
+                    counters.bytes.getAndAdd(buffer.getInt(index + DataFW.FIELD_OFFSET_LENGTH));
                     handler.accept(msgTypeId, buffer, index, length);
                     break;
                 case EndFW.TYPE_ID:
@@ -783,7 +783,7 @@ public class ElektronAgent implements Agent
             final Function<String, AtomicCounter> newCounter = counters::counter;
             final Function<String, LongSupplier> supplyCounter =
                     name -> () -> countersByName.computeIfAbsent(name, newCounter).increment() + 1;
-            final Function<String, LongConsumer> supplyAccumulator = name -> inc -> counters.counter(name).add(inc);
+            final Function<String, LongConsumer> supplyAccumulator = name -> inc -> counters.counter(name).getAndAdd(inc);
             final AtomicCounter acquires = counters.counter(String.format("%s.acquires", nukleusName));
             final AtomicCounter releases = counters.counter(String.format("%s.releases", nukleusName));
             final BufferPool countingPool = new CountingBufferPool(bufferPool, acquires::increment, releases::increment);

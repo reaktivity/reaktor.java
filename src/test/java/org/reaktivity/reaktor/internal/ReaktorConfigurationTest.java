@@ -16,8 +16,8 @@
 package org.reaktivity.reaktor.internal;
 
 import static org.junit.Assert.assertEquals;
-import static org.reaktivity.reaktor.internal.ReaktorConfiguration.REAKTOR_BUFFER_POOL_CAPACITY;
-import static org.reaktivity.reaktor.internal.ReaktorConfiguration.REAKTOR_BUFFER_SLOT_CAPACITY;
+import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_BUFFER_POOL_CAPACITY;
+import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_BUFFER_SLOT_CAPACITY;
 import static org.reaktivity.reaktor.test.ReaktorRule.REAKTOR_BUFFER_POOL_CAPACITY_NAME;
 import static org.reaktivity.reaktor.test.ReaktorRule.REAKTOR_BUFFER_SLOT_CAPACITY_NAME;
 
