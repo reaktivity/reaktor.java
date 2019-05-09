@@ -125,8 +125,6 @@ public class ManyToOneRingBuffer implements RingBuffer
 
         if (INSUFFICIENT_CAPACITY != recordIndex)
         {
-            UnsafeAccess.UNSAFE.storeFence();
-
             buffer.putInt(typeOffset(recordIndex), msgTypeId);
             buffer.putBytes(encodedMsgOffset(recordIndex), srcBuffer, srcIndex, length);
             buffer.putIntOrdered(lengthOffset(recordIndex), recordLength);
@@ -405,17 +403,21 @@ public class ManyToOneRingBuffer implements RingBuffer
                 padding = toBufferEndLength;
             }
         }
-        while (!buffer.compareAndSetLong(tailIndex, 0L, -recordLength));
+        while (!buffer.compareAndSetInt(lengthOffset(tailIndex), 0, -recordLength));
+
+        UnsafeAccess.UNSAFE.storeFence();
 
         if (0 != padding)
         {
-            buffer.putLong(0, -recordLength);
+            buffer.putInt(lengthOffset(0), -recordLength);
+            UnsafeAccess.UNSAFE.storeFence();
+
             buffer.putInt(typeOffset(tailIndex), PADDING_MSG_TYPE_ID);
             buffer.putIntOrdered(lengthOffset(tailIndex), padding);
             tailIndex = 0;
         }
 
-        buffer.putLong(tailIndex + alignedRecordLength, 0L);
+        buffer.putInt(lengthOffset(tailIndex + alignedRecordLength), 0);
         buffer.putLongOrdered(tailPositionIndex, tail + alignedRecordLength + padding);
 
         return tailIndex;

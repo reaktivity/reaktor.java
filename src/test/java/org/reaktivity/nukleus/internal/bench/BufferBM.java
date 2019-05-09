@@ -18,11 +18,13 @@ package org.reaktivity.nukleus.internal.bench;
 import static java.nio.ByteBuffer.allocateDirect;
 import static java.nio.ByteOrder.nativeOrder;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.agrona.IoUtil.mapNewFile;
+import static org.agrona.IoUtil.createEmptyFile;
+import static org.agrona.IoUtil.mapExistingFile;
 import static org.agrona.IoUtil.unmap;
 import static org.agrona.concurrent.ringbuffer.RingBufferDescriptor.TRAILER_LENGTH;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Random;
 
 import org.agrona.MutableDirectBuffer;
@@ -64,14 +66,15 @@ public class BufferBM
     private MutableDirectBuffer writeBuffer;
 
     @Setup(Level.Trial)
-    public void init()
+    public void init() throws IOException
     {
         final int capacity = 1024 * 1024 * 64 + TRAILER_LENGTH;
         final int payload = 256;
 
         final File bufferFile = new File("target/benchmarks/baseline/buffer").getAbsoluteFile();
+        createEmptyFile(bufferFile, capacity).close();
 
-        this.buffer = new UnsafeBuffer(mapNewFile(bufferFile, capacity));
+        this.buffer = new UnsafeBuffer(mapExistingFile(bufferFile, "buffer"));
         this.source = new ManyToOneRingBuffer(buffer);
         this.target = new ManyToOneRingBuffer(buffer);
 
