@@ -19,7 +19,6 @@ import static java.lang.String.format;
 import static java.lang.ThreadLocal.withInitial;
 import static java.util.Objects.requireNonNull;
 import static org.agrona.CloseHelper.quietClose;
-import static org.agrona.LangUtil.rethrowUnchecked;
 import static org.reaktivity.reaktor.internal.router.RouteId.localId;
 import static org.reaktivity.reaktor.internal.router.RouteId.remoteId;
 import static org.reaktivity.reaktor.internal.router.StreamId.instanceId;
@@ -55,6 +54,7 @@ import org.agrona.collections.ArrayUtil;
 import org.agrona.collections.Int2ObjectHashMap;
 import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.concurrent.Agent;
+import org.agrona.concurrent.AgentTerminationException;
 import org.agrona.concurrent.MessageHandler;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.agrona.concurrent.ringbuffer.RingBuffer;
@@ -326,7 +326,7 @@ public class ElektronAgent implements Agent
         {
             ex.addSuppressed(new Exception(String.format("[%s]\t[0x%016x] %s",
                                                          elektronName, streamId, streamsLayout)));
-            rethrowUnchecked(ex);
+            throw new AgentTerminationException(ex);
         }
 
         return workDone;
