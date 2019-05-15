@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadFactory;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -45,16 +46,19 @@ public final class Reaktor implements AutoCloseable
     private final AgentRunner[] runners;
     private final ControllerAgent controllerAgent;
     private final List<ElektronAgent> elektronAgents;
+    private final ThreadFactory threadFactory;
 
     Reaktor(
         ReaktorConfiguration config,
         ErrorHandler errorHandler,
         Set<Configuration> configs,
         ExecutorService executor,
-        Agent[] agents)
+        Agent[] agents,
+        ThreadFactory threadFactory)
     {
         this.configs = configs;
         this.executor = executor;
+        this.threadFactory = threadFactory;
 
         AgentRunner[] runners = new AgentRunner[0];
         for (Agent agent : agents)
@@ -108,7 +112,7 @@ public final class Reaktor implements AutoCloseable
     {
         for (AgentRunner runner : runners)
         {
-            AgentRunner.startOnThread(runner);
+            AgentRunner.startOnThread(runner, threadFactory);
         }
 
         return this;

@@ -313,13 +313,13 @@ public class ElektronAgent implements Agent
     {
         int workDone = 0;
 
-        for (final Agent agent : agents)
-        {
-            workDone += agent.doWork();
-        }
-
         try
         {
+            for (final Agent agent : agents)
+            {
+                workDone += agent.doWork();
+            }
+
             workDone += streamsBuffer.read(readHandler, readLimit);
         }
         catch (Throwable ex)

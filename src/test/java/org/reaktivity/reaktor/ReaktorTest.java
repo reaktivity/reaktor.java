@@ -16,9 +16,14 @@
 package org.reaktivity.reaktor;
 
 import static java.util.Collections.emptySet;
+import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_DIRECTORY;
 
+import java.util.BitSet;
+import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.agrona.ErrorHandler;
 import org.agrona.concurrent.Agent;
@@ -27,11 +32,22 @@ import org.jmock.integration.junit4.JUnitRuleMockery;
 import org.jmock.lib.concurrent.Synchroniser;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.reaktivity.nukleus.Controller;
+import org.reaktivity.nukleus.Elektron;
+import org.reaktivity.nukleus.Nukleus;
+import org.reaktivity.nukleus.route.RouteKind;
 import org.reaktivity.reaktor.internal.agent.ControllerAgent;
+import org.reaktivity.reaktor.internal.agent.ElektronAgent;
+import org.reaktivity.reaktor.internal.agent.NukleusAgent;
+import org.reaktivity.reaktor.internal.router.RouteId;
+import org.reaktivity.reaktor.internal.types.control.Role;
 
 public class ReaktorTest
 {
+    @Rule
+    public final TemporaryFolder folder = new TemporaryFolder();
+
     @Rule
     public final JUnitRuleMockery context = new JUnitRuleMockery()
     {
@@ -41,9 +57,64 @@ public class ReaktorTest
     };
 
     @Test
+    public void shouldCloseOnElektronAgentError() throws Exception
+    {
+        final Properties properties = new Properties();
+        properties.setProperty(REAKTOR_DIRECTORY.name(), folder.getRoot().getAbsolutePath());
+
+        final ReaktorConfiguration config = new ReaktorConfiguration(properties);
+        final Nukleus nukleus = context.mock(Nukleus.class);
+        final Elektron elektron = context.mock(Elektron.class);
+        final Agent agent = context.mock(Agent.class);
+        final ErrorHandler errorHandler = context.mock(ErrorHandler.class);
+
+        context.checking(new Expectations()
+        {
+            {
+                allowing(nukleus).name(); will(returnValue("test"));
+                allowing(elektron).streamFactoryBuilder(with(any(RouteKind.class))); will(returnValue(null));
+
+                oneOf(nukleus).supplyElektron(); will(returnValue(elektron));
+                oneOf(elektron).agent(); will(returnValue(agent));
+                oneOf(agent).doWork(); will(throwException(new Exception("elektron agent failed")));
+                oneOf(errorHandler).onError(with(aNonNull(Exception.class)));
+                oneOf(agent).onClose();
+            }
+        });
+
+        final ExecutorService executor = Executors.newFixedThreadPool(1);
+        final NukleusAgent nukleusAgent = new NukleusAgent(config, null);
+        final BitSet allBitsSet = BitSet.valueOf(new long[] { -1L });
+        final ElektronAgent elektronAgent = nukleusAgent.supplyElektronAgent(0, 1, executor, a -> allBitsSet);
+        final Thread[] threadRef = new Thread[2];
+        final AtomicInteger threadCount = new AtomicInteger();
+        final ThreadFactory threadFactory = task -> (threadRef[threadCount.getAndIncrement()] = new Thread(task));
+        final int localId = nukleusAgent.labels().supplyLabelId("test");
+        nukleusAgent.assign(nukleus);
+        nukleusAgent.onRouteable(RouteId.routeId(localId, 1, Role.SERVER, 1), nukleus);
+        nukleusAgent.onRouted(nukleus, RouteKind.SERVER, RouteId.routeId(localId, 1, Role.SERVER, 1));
+
+
+        try (Reaktor reaktor = new Reaktor(
+            config,
+            errorHandler,
+            emptySet(),
+            executor,
+            new Agent[] { nukleusAgent, elektronAgent },
+            threadFactory))
+        {
+            reaktor.start();
+            threadRef[1].join();
+        }
+    }
+
+    @Test
     public void shouldCloseControllers() throws Exception
     {
-        final ReaktorConfiguration config = new ReaktorConfiguration();
+        final Properties properties = new Properties();
+        properties.setProperty(REAKTOR_DIRECTORY.name(), folder.getRoot().getAbsolutePath());
+
+        final ReaktorConfiguration config = new ReaktorConfiguration(properties);
         final Controller controller = context.mock(Controller.class);
         final ErrorHandler errorHandler = context.mock(ErrorHandler.class);
 
@@ -66,7 +137,8 @@ public class ReaktorTest
             errorHandler,
             emptySet(),
             executor,
-            new Agent[] { controllerAgent });
+            new Agent[] { controllerAgent },
+            Thread::new);
         reaktor.start();
         reaktor.close();
     }
@@ -74,7 +146,10 @@ public class ReaktorTest
     @Test
     public void shouldReportControllerCloseError() throws Exception
     {
-        final ReaktorConfiguration config = new ReaktorConfiguration();
+        final Properties properties = new Properties();
+        properties.setProperty(REAKTOR_DIRECTORY.name(), folder.getRoot().getAbsolutePath());
+
+        final ReaktorConfiguration config = new ReaktorConfiguration(properties);
         final Controller controller = context.mock(Controller.class);
         final ErrorHandler errorHandler = context.mock(ErrorHandler.class);
 
@@ -98,7 +173,8 @@ public class ReaktorTest
             errorHandler,
             emptySet(),
             executor,
-            new Agent[] { controllerAgent });
+            new Agent[] { controllerAgent },
+            Thread::new);
         reaktor.start();
         try
         {
