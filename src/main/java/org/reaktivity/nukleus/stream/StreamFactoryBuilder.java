@@ -25,7 +25,7 @@ import java.util.function.Supplier;
 
 import org.agrona.MutableDirectBuffer;
 import org.reaktivity.nukleus.buffer.BufferPool;
-import org.reaktivity.nukleus.function.SignalingExecutor;
+import org.reaktivity.nukleus.concurrent.SignalingExecutor;
 import org.reaktivity.nukleus.route.RouteManager;
 
 public interface StreamFactoryBuilder
