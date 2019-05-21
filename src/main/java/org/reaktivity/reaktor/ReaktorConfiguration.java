@@ -36,6 +36,7 @@ public class ReaktorConfiguration extends Configuration
     public static final IntPropertyDef REAKTOR_ROUTES_BUFFER_CAPACITY;
     public static final BooleanPropertyDef REAKTOR_TIMESTAMPS;
     public static final IntPropertyDef REAKTOR_MAXIMUM_MESSAGES_PER_READ;
+    public static final IntPropertyDef REAKTOR_MAXIMUM_EXPIRATIONS_PER_POLL;
     public static final IntPropertyDef REAKTOR_TASK_PARALLELISM;
     public static final LongPropertyDef REAKTOR_BACKOFF_MAX_SPINS;
     public static final LongPropertyDef REAKTOR_BACKOFF_MAX_YIELDS;
@@ -58,6 +59,7 @@ public class ReaktorConfiguration extends Configuration
         REAKTOR_ROUTES_BUFFER_CAPACITY = config.property("routes.buffer.capacity", 1024 * 1024);
         REAKTOR_TIMESTAMPS = config.property("timestamps", true);
         REAKTOR_MAXIMUM_MESSAGES_PER_READ = config.property("maximum.messages.per.read", Integer.MAX_VALUE);
+        REAKTOR_MAXIMUM_EXPIRATIONS_PER_POLL = config.property("maximum.expirations.per.poll", Integer.MAX_VALUE);
         REAKTOR_TASK_PARALLELISM = config.property("task.parallelism", 1);
         REAKTOR_BACKOFF_MAX_SPINS = config.property("backoff.idle.strategy.max.spins", 64L);
         REAKTOR_BACKOFF_MAX_YIELDS = config.property("backoff.idle.strategy.max.yields", 64L);
@@ -116,6 +118,11 @@ public class ReaktorConfiguration extends Configuration
     public int maximumMessagesPerRead()
     {
         return REAKTOR_MAXIMUM_MESSAGES_PER_READ.getAsInt(this);
+    }
+
+    public int maximumExpirationsPerPoll()
+    {
+        return REAKTOR_MAXIMUM_EXPIRATIONS_PER_POLL.getAsInt(this);
     }
 
     public int taskParallelism()

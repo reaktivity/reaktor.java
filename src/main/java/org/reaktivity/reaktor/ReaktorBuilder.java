@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -54,6 +55,7 @@ public class ReaktorBuilder
     private ErrorHandler errorHandler;
     private Supplier<NukleusFactory> supplyNukleusFactory;
     private Supplier<AgentBuilder> supplyAgentBuilder;
+    private ThreadFactory threadFactory;
 
     private int threads = 1;
     private BitSet affinityMaskDefaultBits;
@@ -66,6 +68,7 @@ public class ReaktorBuilder
         this.affinityMaskDefaultBits = BitSet.valueOf(new long[] { (1L << threads) - 1L });
         this.affinityMaskDefault = n -> affinityMaskDefaultBits;
         this.supplyNukleusFactory = NukleusFactory::instantiate;
+        this.threadFactory = Thread::new;
     }
 
     public ReaktorBuilder config(
@@ -212,6 +215,6 @@ public class ReaktorBuilder
             agents.add(controllerAgent);
         }
 
-        return new Reaktor(config, errorHandler, configs, executor, agents.toArray(new Agent[0]));
+        return new Reaktor(config, errorHandler, configs, executor, agents.toArray(new Agent[0]), threadFactory);
     }
 }

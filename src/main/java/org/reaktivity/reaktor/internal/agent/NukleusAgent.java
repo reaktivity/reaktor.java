@@ -167,14 +167,14 @@ public class NukleusAgent implements Agent
         return router;
     }
 
-    void onRouteable(
+    public void onRouteable(
         long routeId,
         Nukleus nukleus)
     {
         elektronAgents.forEach(a -> a.onRouteable(routeId, nukleus));
     }
 
-    void onRouted(
+    public void onRouted(
         Nukleus nukleus,
         RouteKind routeKind,
         long routeId)
