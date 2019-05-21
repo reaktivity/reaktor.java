@@ -13,12 +13,14 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.nukleus.function;
+package org.reaktivity.nukleus.concurrent;
 
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
-@FunctionalInterface
 public interface SignalingExecutor
 {
+    Future<?> schedule(long delay, TimeUnit unit, long routeId, long streamId, long signalId);
+
     Future<?> execute(Runnable task, long routeId, long streamId, long signalId);
 }
