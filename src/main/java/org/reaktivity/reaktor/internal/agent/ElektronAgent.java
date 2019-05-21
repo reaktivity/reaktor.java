@@ -16,8 +16,10 @@
 package org.reaktivity.reaktor.internal.agent;
 
 import static java.lang.String.format;
+import static java.lang.System.currentTimeMillis;
 import static java.lang.ThreadLocal.withInitial;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.agrona.CloseHelper.quietClose;
 import static org.reaktivity.reaktor.internal.router.RouteId.localId;
 import static org.reaktivity.reaktor.internal.router.RouteId.remoteId;
@@ -37,6 +39,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
@@ -48,6 +51,8 @@ import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.agrona.DeadlineTimerWheel;
+import org.agrona.DeadlineTimerWheel.TimerHandler;
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.ArrayUtil;
@@ -66,6 +71,7 @@ import org.reaktivity.nukleus.Elektron;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.buffer.CountingBufferPool;
+import org.reaktivity.nukleus.concurrent.SignalingExecutor;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessageFunction;
 import org.reaktivity.nukleus.function.MessagePredicate;
@@ -96,8 +102,6 @@ public class ElektronAgent implements Agent
 {
     private static final Pattern ADDRESS_PATTERN = Pattern.compile("^([^#]+)(:?#.*)$");
 
-    private final ThreadLocal<SignalFW.Builder> signalRW = withInitial(ElektronAgent::newSignalRW);
-
     private final FrameFW frameRO = new FrameFW();
     private final BeginFW beginRO = new BeginFW();
     private final AbortFW.Builder abortRW = new AbortFW.Builder();
@@ -106,7 +110,6 @@ public class ElektronAgent implements Agent
     private final int localIndex;
     private final ReaktorConfiguration config;
     private final LabelManager labels;
-    private final ExecutorService executor;
     private final Function<String, BitSet> affinityMask;
     private final String elektronName;
     private final Counters counters;
@@ -124,7 +127,9 @@ public class ElektronAgent implements Agent
     private final BufferPool bufferPool;
     private final long mask;
     private final MessageHandler readHandler;
+    private final TimerHandler expireHandler;
     private final int readLimit;
+    private final int expireLimit;
     private final GroupBudgetManager groupBudgetManager;
     private final LongFunction<? extends ReadCounters> newReadCounters;
     private final IntFunction<MessageConsumer> supplyWriter;
@@ -140,6 +145,10 @@ public class ElektronAgent implements Agent
     private final Long2ObjectHashMap<Affinity> affinityByRemoteId;
     private final Supplier<DirectBuffer> routesBufferRef;
 
+    private final DeadlineTimerWheel timerWheel;
+    private final Long2ObjectHashMap<Runnable> tasksByTimerId;
+    private final SignalingExecutor executor;
+
     private long streamId;
     private long traceId;
     private long groupId;
@@ -151,7 +160,7 @@ public class ElektronAgent implements Agent
         int count,
         ReaktorConfiguration config,
         LabelManager labels,
-        ExecutorService executor,
+        ExecutorService executorService,
         Function<String, BitSet> affinityMask,
         Supplier<DirectBuffer> routesBufferRef,
         Supplier<AgentBuilder> supplyAgentBuilder)
@@ -159,7 +168,6 @@ public class ElektronAgent implements Agent
         this.localIndex = index;
         this.config = config;
         this.labels = labels;
-        this.executor = executor;
         this.affinityMask = affinityMask;
         this.routesBufferRef = routesBufferRef;
 
@@ -171,10 +179,10 @@ public class ElektronAgent implements Agent
                 .build();
 
         final StreamsLayout streamsLayout = new StreamsLayout.Builder()
-            .path(config.directory().resolve(String.format("data%d", index)))
-            .streamsCapacity(config.streamsBufferCapacity())
-            .readonly(false)
-            .build();
+                .path(config.directory().resolve(String.format("data%d", index)))
+                .streamsCapacity(config.streamsBufferCapacity())
+                .readonly(false)
+                .build();
 
         this.elektronName = String.format("reaktor/data#%d", index);
         this.metricsLayout = metricsLayout;
@@ -187,6 +195,7 @@ public class ElektronAgent implements Agent
 
         this.timestamps = config.timestamps();
         this.readLimit = config.maximumMessagesPerRead();
+        this.expireLimit = config.maximumExpirationsPerPoll();
         this.streamsBuffer = streamsLayout.streamsBuffer();
         this.writeBuffer = new UnsafeBuffer(new byte[streamsBuffer.maxMsgLength()]);
         this.streams = initDispatcher();
@@ -194,6 +203,7 @@ public class ElektronAgent implements Agent
         this.countersByRouteId = new Long2ObjectHashMap<>();
         this.streamFactoriesByAddressId = new Int2ObjectHashMap<>();
         this.readHandler = this::handleRead;
+        this.expireHandler = this::handleExpire;
         this.newReadCounters = this::newReadCounters;
         this.supplyWriter = this::supplyWriter;
         this.newTarget = this::newTarget;
@@ -204,6 +214,10 @@ public class ElektronAgent implements Agent
         this.targetsByIndex = new Int2ObjectHashMap<>();
         this.writersByIndex = new Int2ObjectHashMap<>();
         this.agents = new Agent[0];
+
+        this.timerWheel = new DeadlineTimerWheel(MILLISECONDS, currentTimeMillis(), 512, 1024);
+        this.tasksByTimerId = new Long2ObjectHashMap<>();
+        this.executor = new ElektronExecutor(executorService);
 
         this.resolver = new ResolverRef(this::newResolver);
 
@@ -222,12 +236,13 @@ public class ElektronAgent implements Agent
         this.traceId = initial;
         this.groupId = initial;
 
+
         if (supplyAgentBuilder != null)
         {
             final AgentBuilder agentBuilder = supplyAgentBuilder.get();
             final Agent agent = agentBuilder
                     .setRouteManager(resolver)
-                    .setExecutor(this::executeAndSignal)
+                    .setExecutor(executor)
                     .setWriteBuffer(writeBuffer)
                     .setAddressIdSupplier(labels::supplyLabelId)
                     .setStreamFactorySupplier(this::supplyStreamFactory)
@@ -318,6 +333,11 @@ public class ElektronAgent implements Agent
             for (final Agent agent : agents)
             {
                 workDone += agent.doWork();
+            }
+
+            if (timerWheel.timerCount() != 0L)
+            {
+                workDone += timerWheel.poll(currentTimeMillis(), expireHandler, expireLimit);
             }
 
             workDone += streamsBuffer.read(readHandler, readLimit);
@@ -419,6 +439,19 @@ public class ElektronAgent implements Agent
         {
             elektronByName.computeIfPresent(nukleusName, (a, r) -> r.unassign(routeKind, localAddressId));
         }
+    }
+
+    private boolean handleExpire(
+        TimeUnit timeUnit,
+        long now,
+        long timerId)
+    {
+        final Runnable task = tasksByTimerId.remove(timerId);
+        if (task != null)
+        {
+            task.run();
+        }
+        return true;
     }
 
     private void handleRead(
@@ -880,7 +913,7 @@ public class ElektronAgent implements Agent
     {
         return streamFactoryBuilder
                 .setRouteManager(resolver)
-                .setExecutor(this::executeAndSignal)
+                .setExecutor(executor)
                 .setWriteBuffer(writeBuffer)
                 .setInitialIdSupplier(this::supplyInitialId)
                 .setReplyIdSupplier(this::supplyReplyId)
@@ -950,81 +983,6 @@ public class ElektronAgent implements Agent
         return traceId;
     }
 
-    private Future<?> executeAndSignal(
-        Runnable task,
-        long routeId,
-        long streamId,
-        long signalId)
-    {
-        if (executor != null)
-        {
-            return executor.submit(() -> invokeAndSignal(task, routeId, streamId, signalId));
-        }
-        else
-        {
-            invokeAndSignal(task, routeId, streamId, signalId);
-            return new Future<Void>()
-            {
-                @Override
-                public boolean cancel(
-                    boolean mayInterruptIfRunning)
-                {
-                    return false;
-                }
-
-                @Override
-                public boolean isCancelled()
-                {
-                    return false;
-                }
-
-                @Override
-                public boolean isDone()
-                {
-                    return true;
-                }
-
-                @Override
-                public Void get() throws InterruptedException, ExecutionException
-                {
-                    return null;
-                }
-
-                @Override
-                public Void get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException
-                {
-                    return null;
-                }
-            };
-        }
-    }
-
-    private void invokeAndSignal(
-        Runnable task,
-        long routeId,
-        long streamId,
-        long signalId)
-    {
-        try
-        {
-            task.run();
-        }
-        finally
-        {
-            final long timestamp = timestamps ? System.nanoTime() : 0L;
-
-            final SignalFW signal = signalRW.get()
-                                            .rewrap()
-                                            .routeId(routeId)
-                                            .streamId(streamId)
-                                            .timestamp(timestamp)
-                                            .signalId(signalId)
-                                            .build();
-
-            streamsBuffer.write(signal.typeId(), signal.buffer(), signal.offset(), signal.sizeof());
-        }
-    }
-
     private int resolveRemoteIndex(
         int remoteId)
     {
@@ -1089,6 +1047,130 @@ public class ElektronAgent implements Agent
             dispatcher[i] = new Int2ObjectHashMap<>();
         }
         return dispatcher;
+    }
+
+    private final class ElektronExecutor implements SignalingExecutor
+    {
+        private final ThreadLocal<SignalFW.Builder> signalRW = withInitial(ElektronAgent::newSignalRW);
+
+        private final ExecutorService executorService;
+
+        private ElektronExecutor(
+            ExecutorService executorService)
+        {
+            this.executorService = executorService;
+        }
+
+        @Override
+        public Future<?> schedule(
+            long delay,
+            TimeUnit unit,
+            long routeId,
+            long streamId,
+            long signalId)
+        {
+            final long timerId = timerWheel.scheduleTimer(currentTimeMillis() + unit.toMillis(delay));
+            final FutureTask<Object> task = new FutureTask<>(() -> signal(routeId, streamId, signalId), null)
+            {
+                @Override
+                protected void done()
+                {
+                    if (isCancelled())
+                    {
+                        tasksByTimerId.remove(timerId);
+                        timerWheel.cancelTimer(timerId);
+                    }
+                }
+            };
+
+            tasksByTimerId.put(timerId, task);
+            return task;
+        }
+
+        @Override
+        public Future<?> execute(
+            Runnable task,
+            long routeId,
+            long streamId,
+            long signalId)
+        {
+            if (executorService != null)
+            {
+                return executorService.submit(() -> invokeAndSignal(task, routeId, streamId, signalId));
+            }
+            else
+            {
+                invokeAndSignal(task, routeId, streamId, signalId);
+                return new Future<Void>()
+                {
+                    @Override
+                    public boolean cancel(
+                        boolean mayInterruptIfRunning)
+                    {
+                        return false;
+                    }
+
+                    @Override
+                    public boolean isCancelled()
+                    {
+                        return false;
+                    }
+
+                    @Override
+                    public boolean isDone()
+                    {
+                        return true;
+                    }
+
+                    @Override
+                    public Void get() throws InterruptedException, ExecutionException
+                    {
+                        return null;
+                    }
+
+                    @Override
+                    public Void get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException
+                    {
+                        return null;
+                    }
+                };
+            }
+        }
+
+        private void invokeAndSignal(
+            Runnable task,
+            long routeId,
+            long streamId,
+            long signalId)
+        {
+            try
+            {
+                task.run();
+            }
+            finally
+            {
+                signal(routeId, streamId, signalId);
+            }
+        }
+
+        private void signal(
+            long routeId,
+            long streamId,
+            long signalId)
+        {
+            final long timestamp = timestamps ? System.nanoTime() : 0L;
+
+            final SignalFW signal = signalRW.get()
+                                            .rewrap()
+                                            .routeId(routeId)
+                                            .streamId(streamId)
+                                            .timestamp(timestamp)
+                                            .trace(supplyTrace())
+                                            .signalId(signalId)
+                                            .build();
+
+            streamsBuffer.write(signal.typeId(), signal.buffer(), signal.offset(), signal.sizeof());
+        }
     }
 
     private static class Affinity
