@@ -915,6 +915,7 @@ public class ElektronAgent implements Agent
                 .setRouteManager(resolver)
                 .setExecutor(executor)
                 .setWriteBuffer(writeBuffer)
+                .setTypeIdSupplier(labels::supplyLabelId)
                 .setInitialIdSupplier(this::supplyInitialId)
                 .setReplyIdSupplier(this::supplyReplyId)
                 .setTraceSupplier(this::supplyTrace)
