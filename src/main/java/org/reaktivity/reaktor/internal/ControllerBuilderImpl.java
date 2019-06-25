@@ -41,9 +41,9 @@ import org.reaktivity.reaktor.internal.types.control.ResponseFW;
 import org.reaktivity.reaktor.internal.types.control.RouteFW;
 import org.reaktivity.reaktor.internal.types.control.RoutedFW;
 import org.reaktivity.reaktor.internal.types.control.UnrouteFW;
-import org.reaktivity.reaktor.internal.types.control.auth.ResolveFW;
-import org.reaktivity.reaktor.internal.types.control.auth.ResolvedFW;
-import org.reaktivity.reaktor.internal.types.control.auth.UnresolveFW;
+import org.reaktivity.reaktor.internal.types.control.ResolveFW;
+import org.reaktivity.reaktor.internal.types.control.ResolvedFW;
+import org.reaktivity.reaktor.internal.types.control.UnresolveFW;
 
 public final class ControllerBuilderImpl<T extends Controller> implements ControllerBuilder<T>
 {

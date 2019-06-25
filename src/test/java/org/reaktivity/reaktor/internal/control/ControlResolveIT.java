@@ -47,10 +47,10 @@ import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.NukleusFactorySpi;
 import org.reaktivity.nukleus.function.CommandHandler;
 import org.reaktivity.nukleus.function.MessageConsumer;
-import org.reaktivity.reaktor.internal.types.control.auth.ResolveFW;
-import org.reaktivity.reaktor.internal.types.control.auth.ResolvedFW;
-import org.reaktivity.reaktor.internal.types.control.auth.UnresolveFW;
-import org.reaktivity.reaktor.internal.types.control.auth.UnresolvedFW;
+import org.reaktivity.reaktor.internal.types.control.ResolveFW;
+import org.reaktivity.reaktor.internal.types.control.ResolvedFW;
+import org.reaktivity.reaktor.internal.types.control.UnresolveFW;
+import org.reaktivity.reaktor.internal.types.control.UnresolvedFW;
 import org.reaktivity.reaktor.test.ReaktorRule;
 
 public class ControlResolveIT
