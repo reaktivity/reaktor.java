@@ -47,6 +47,14 @@ public final class Functions
     }
 
     @Function
+    public static int id(
+        String nukleus)
+    {
+        final LabelManager labels = LABELS.get();
+        return labels.supplyLabelId(nukleus);
+    }
+
+    @Function
     public static long newRouteRef()
     {
         return nextLongNonZero();
