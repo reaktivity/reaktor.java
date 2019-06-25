@@ -22,6 +22,7 @@ import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.LongUnaryOperator;
 import java.util.function.Supplier;
+import java.util.function.ToIntFunction;
 
 import org.agrona.MutableDirectBuffer;
 import org.reaktivity.nukleus.buffer.BufferPool;
@@ -39,6 +40,12 @@ public interface StreamFactoryBuilder
         return this;
     }
 
+    default StreamFactoryBuilder setTypeIdSupplier(
+        ToIntFunction<String> supplyTypeId)
+    {
+        return this;
+    }
+
     StreamFactoryBuilder setInitialIdSupplier(
         LongUnaryOperator supplyInitialId);
 
@@ -52,7 +59,7 @@ public interface StreamFactoryBuilder
     }
 
     default StreamFactoryBuilder setTraceSupplier(
-        LongSupplier supplyTrace)
+        LongSupplier supplyTraceId)
     {
         return this;
     }
