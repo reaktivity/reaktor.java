@@ -185,7 +185,7 @@ public final class NukleusStreamFactory
                 else
                 {
                     final NukleusChannelConfig config = channel.getConfig();
-                    if (config.getUpdate() != NukleusUpdateMode.MESSAGE || config.getUpdate() != NukleusUpdateMode.NONE)
+                    if (config.getUpdate() == NukleusUpdateMode.MESSAGE || config.getUpdate() == NukleusUpdateMode.STREAM)
                     {
                         int padding = config.getPadding();
                         long group = config.getGroup();
