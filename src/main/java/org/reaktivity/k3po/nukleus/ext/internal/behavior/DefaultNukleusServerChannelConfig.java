@@ -17,7 +17,6 @@ package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusChannel.NATIVE_BUFFER_FACTORY;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusThrottleMode.NONE;
-import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusThrottleMode.STREAM;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusTransmission.SIMPLEX;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_BYTE_ORDER;
 import static org.reaktivity.k3po.nukleus.ext.internal.util.Conversions.convertToInt;
@@ -33,8 +32,8 @@ public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfi
     private int window;
     private long group;
     private int padding;
-    private NukleusThrottleMode throttle = STREAM;
-    private boolean update = true;
+    private NukleusThrottleMode throttle = NukleusThrottleMode.STREAM;
+    private NukleusUpdateMode update = NukleusUpdateMode.STREAM;
 
     public DefaultNukleusServerChannelConfig()
     {
@@ -93,13 +92,13 @@ public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfi
     }
 
     @Override
-    public void setUpdate(boolean update)
+    public void setUpdate(NukleusUpdateMode update)
     {
         this.update = update;
     }
 
     @Override
-    public boolean getUpdate()
+    public NukleusUpdateMode getUpdate()
     {
         return update;
     }
@@ -151,7 +150,7 @@ public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfi
         }
         else if ("update".equals(key))
         {
-            setUpdate(!"none".equals(value));
+            setUpdate(NukleusUpdateMode.decode(Objects.toString(value, null)));
         }
         else if ("throttle".equals(key))
         {
