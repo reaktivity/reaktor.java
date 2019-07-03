@@ -15,33 +15,32 @@
  */
 package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 
-import org.kaazing.k3po.driver.internal.netty.bootstrap.channel.ChannelConfig;
+import java.util.Objects;
 
-public interface NukleusChannelConfig extends ChannelConfig
+public enum NukleusUpdateMode
 {
-    void setTransmission(NukleusTransmission transmission);
+    STREAM,
+    HANDSHAKE,
+    MESSAGE,
+    NONE;
 
-    NukleusTransmission getTransmission();
+    public static NukleusUpdateMode decode(
+        String value)
+    {
+        Objects.requireNonNull(value);
 
-    void setWindow(int window);
-
-    int getWindow();
-
-    void setGroup(long group);
-
-    long getGroup();
-
-    void setPadding(int padding);
-
-    int getPadding();
-
-    void setUpdate(NukleusUpdateMode update);
-
-    NukleusUpdateMode getUpdate();
-
-    void setThrottle(NukleusThrottleMode throttle);
-
-    NukleusThrottleMode getThrottle();
-
-    boolean hasThrottle();
+        switch (value)
+        {
+        case "stream":
+            return STREAM;
+        case "handshake":
+            return HANDSHAKE;
+        case "message":
+            return MESSAGE;
+        case "none":
+            return NONE;
+        default:
+            throw new IllegalArgumentException(value);
+        }
+    }
 }

@@ -139,8 +139,11 @@ public final class NukleusStreamFactory
 
             channel.sourceId(streamId);
             channel.sourceAuth(begin.authorization());
-
-            sender.doWindow(channel, initialWindow, padding, group);
+            final NukleusChannelConfig config = channel.getConfig();
+            if (config.getUpdate() == NukleusUpdateMode.HANDSHAKE || config.getUpdate() == NukleusUpdateMode.STREAM)
+            {
+                sender.doWindow(channel, initialWindow, padding, group);
+            }
 
             channel.beginInputFuture().setSuccess();
 
@@ -182,7 +185,7 @@ public final class NukleusStreamFactory
                 else
                 {
                     final NukleusChannelConfig config = channel.getConfig();
-                    if (config.getUpdate())
+                    if (config.getUpdate() == NukleusUpdateMode.MESSAGE || config.getUpdate() == NukleusUpdateMode.STREAM)
                     {
                         int padding = config.getPadding();
                         long group = config.getGroup();
