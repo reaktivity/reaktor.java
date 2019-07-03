@@ -17,7 +17,7 @@
 connect "nukleus://streams/server#0"
         option nukleus:transmission "half-duplex"
         option nukleus:window 12
-        option nukleus:update "none"
+        option nukleus:update "handshake"
         option nukleus:alignment "message"
 connected
 
