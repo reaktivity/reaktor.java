@@ -41,4 +41,7 @@ public interface RouteManager
     void setThrottle(
         long streamId,
         MessageConsumer throttle);
+
+    void clearThrottle(
+        long streamId);
 }
