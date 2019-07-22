@@ -298,6 +298,16 @@ public class HalfDuplexIT
 
     @Test
     @Specification({
+        "client.sent.read.abort.before.reply/client",
+        "client.sent.read.abort.before.reply/server"
+    })
+    public void shouldReceiveClientSentReadAbortBeforeReply() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "client.sent.read.abort.server.replied.read.abort/client",
         "client.sent.read.abort.server.replied.read.abort/server"
     })

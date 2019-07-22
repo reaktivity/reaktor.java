@@ -201,6 +201,8 @@ final class NukleusPartition implements AutoCloseable
 
         fireChannelBound(childChannel, childChannel.getLocalAddress());
 
+        sender.doPrepareReply(childChannel, handshakeFuture);
+
         NukleusChannelConfig childConfig = childChannel.getConfig();
         if (childConfig.getTransmission() == DUPLEX)
         {
