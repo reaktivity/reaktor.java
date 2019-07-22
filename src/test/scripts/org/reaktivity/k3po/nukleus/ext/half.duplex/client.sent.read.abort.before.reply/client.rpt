@@ -15,7 +15,7 @@
 #
 
 connect "nukleus://streams/server#0"
-        option nukleus:transmission "duplex" # reply BEGIN before RESET
+        option nukleus:transmission "half-duplex"
         option nukleus:window 8192
 connected
 

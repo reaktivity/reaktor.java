@@ -135,6 +135,7 @@ final class NukleusTarget implements AutoCloseable
             final long routeId = clientChannel.routeId();
             final long initialId = clientChannel.targetId();
             final long replyId = initialId & 0xffff_ffff_ffff_fffeL;
+            clientChannel.sourceId(replyId);
             ChannelFuture handshakeFuture = succeededFuture(clientChannel);
 
             NukleusChannelConfig clientConfig = clientChannel.getConfig();
@@ -214,6 +215,14 @@ final class NukleusTarget implements AutoCloseable
         }
     }
 
+    public void doPrepareReply(
+        NukleusChannel channel,
+        ChannelFuture handshakeFuture)
+    {
+        final Throttle throttle = new Throttle(channel, handshakeFuture);
+        registerThrottle.accept(channel.targetId(), throttle::handleThrottle);
+    }
+
     public void doBeginReply(
         NukleusChannel channel,
         ChannelFuture handshakeFuture)
@@ -232,9 +241,6 @@ final class NukleusTarget implements AutoCloseable
                 .trace(supplyTrace.getAsLong())
                 .extension(p -> p.set(beginExtCopy))
                 .build();
-
-        final Throttle throttle = new Throttle(channel, handshakeFuture);
-        registerThrottle.accept(begin.streamId(), throttle::handleThrottle);
 
         streamsBuffer.write(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
 
@@ -571,9 +577,12 @@ final class NukleusTarget implements AutoCloseable
         {
             this.channel = channel;
             this.windowHandler = this::processWindow;
-            this.resetHandler = this::processResetBeforeHandshake;
             this.failureHandler = handshakeFuture::setFailure;
 
+            boolean isChildChannel = channel.getParent() != null;
+            boolean isHalfDuplex = channel.getConfig().getTransmission() == NukleusTransmission.HALF_DUPLEX;
+
+            this.resetHandler = isChildChannel && isHalfDuplex ? this::processReset : this::processResetBeforeHandshake;
             handshakeFuture.addListener(this::onHandshakeCompleted);
         }
 

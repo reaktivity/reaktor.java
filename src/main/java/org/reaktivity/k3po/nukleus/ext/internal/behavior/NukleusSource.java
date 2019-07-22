@@ -99,14 +99,16 @@ public final class NukleusSource implements AutoCloseable
         NukleusChannel channel,
         ChannelFuture abortFuture)
     {
-        ChannelFuture beginInputFuture = channel.beginInputFuture();
-        if (beginInputFuture.isSuccess())
+        boolean isClientChannel = channel.getParent() == null;
+        boolean isHalfDuplex = channel.getConfig().getTransmission() == NukleusTransmission.HALF_DUPLEX;
+        ChannelFuture beginFuture = isClientChannel && isHalfDuplex ? channel.beginOutputFuture() : channel.beginInputFuture();
+        if (beginFuture.isSuccess())
         {
-            doAbortInputAfterBeginReply(channel, abortFuture);
+            doAbortInputAfterBegin(channel, abortFuture);
         }
         else
         {
-            beginInputFuture.addListener(new ChannelFutureListener()
+            beginFuture.addListener(new ChannelFutureListener()
             {
                 @Override
                 public void operationComplete(
@@ -114,7 +116,7 @@ public final class NukleusSource implements AutoCloseable
                 {
                     if (future.isSuccess())
                     {
-                        doAbortInputAfterBeginReply(channel, abortFuture);
+                        doAbortInputAfterBegin(channel, abortFuture);
                     }
                     else
                     {
@@ -125,7 +127,7 @@ public final class NukleusSource implements AutoCloseable
         }
     }
 
-    private void doAbortInputAfterBeginReply(
+    private void doAbortInputAfterBegin(
         NukleusChannel channel,
         ChannelFuture abortFuture)
     {
