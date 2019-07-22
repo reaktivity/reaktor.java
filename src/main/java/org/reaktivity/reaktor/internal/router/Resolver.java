@@ -69,6 +69,13 @@ public final class Resolver implements RouteManager
     }
 
     @Override
+    public void clearThrottle(
+        long streamId)
+    {
+        throttles[throttleIndex(streamId)].remove(instanceId(streamId));
+    }
+
+    @Override
     public <R> R resolveExternal(
         long authorization,
         MessagePredicate filter,

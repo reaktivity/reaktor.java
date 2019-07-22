@@ -186,9 +186,6 @@ public final class Target implements AutoCloseable
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 throttles[throttleIndex(streamId)].remove(instanceId(streamId));
                 break;
-            case SignalFW.TYPE_ID:
-                handled = streamsBuffer.test(msgTypeId, buffer, index, length);
-                break;
             default:
                 handled = true;
                 break;
@@ -204,6 +201,9 @@ public final class Target implements AutoCloseable
             case ResetFW.TYPE_ID:
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 streams[streamIndex(streamId)].remove(instanceId(streamId));
+                break;
+            case SignalFW.TYPE_ID:
+                handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 break;
             default:
                 handled = true;
@@ -242,9 +242,6 @@ public final class Target implements AutoCloseable
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 throttles[throttleIndex(streamId)].remove(instanceId(streamId));
                 break;
-            case SignalFW.TYPE_ID:
-                handled = streamsBuffer.test(msgTypeId, buffer, index, length);
-                break;
             default:
                 handled = true;
                 break;
@@ -263,6 +260,9 @@ public final class Target implements AutoCloseable
                 counters.resets.increment();
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 streams[streamIndex(streamId)].remove(instanceId(streamId));
+                break;
+            case SignalFW.TYPE_ID:
+                handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 break;
             default:
                 handled = true;

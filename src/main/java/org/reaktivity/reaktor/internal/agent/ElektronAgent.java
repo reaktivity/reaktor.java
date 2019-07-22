@@ -310,6 +310,13 @@ public class ElektronAgent implements Agent
         {
             resolver.get().setThrottle(streamId, throttle);
         }
+
+        @Override
+        public void clearThrottle(
+            long streamId)
+        {
+            resolver.get().clearThrottle(streamId);
+        }
     }
 
     private Resolver newResolver()
@@ -506,9 +513,6 @@ public class ElektronAgent implements Agent
                     handler.accept(msgTypeId, buffer, index, length);
                     dispatcher.remove(instanceId);
                     break;
-                case SignalFW.TYPE_ID:
-                    handler.accept(msgTypeId, buffer, index, length);
-                    break;
                 default:
                     doReset(routeId, streamId);
                     break;
@@ -544,6 +548,9 @@ public class ElektronAgent implements Agent
                     counters.resets.increment();
                     throttle.accept(msgTypeId, buffer, index, length);
                     dispatcher.remove(instanceId);
+                    break;
+                case SignalFW.TYPE_ID:
+                    throttle.accept(msgTypeId, buffer, index, length);
                     break;
                 default:
                     break;
@@ -590,9 +597,6 @@ public class ElektronAgent implements Agent
                     handler.accept(msgTypeId, buffer, index, length);
                     dispatcher.remove(instanceId);
                     break;
-                case SignalFW.TYPE_ID:
-                    handler.accept(msgTypeId, buffer, index, length);
-                    break;
                 default:
                     doReset(routeId, streamId);
                     break;
@@ -627,6 +631,9 @@ public class ElektronAgent implements Agent
                 case ResetFW.TYPE_ID:
                     throttle.accept(msgTypeId, buffer, index, length);
                     dispatcher.remove(instanceId);
+                    break;
+                case SignalFW.TYPE_ID:
+                    throttle.accept(msgTypeId, buffer, index, length);
                     break;
                 default:
                     break;
