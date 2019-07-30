@@ -13,3 +13,4 @@ buildNumber.properties
 .checkstyle
 .idea/
 *.iml
+.DS_Store
