@@ -60,6 +60,7 @@ import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 import org.reaktivity.reaktor.internal.types.control.RouteFW;
 import org.reaktivity.reaktor.internal.types.stream.BeginFW;
 import org.reaktivity.reaktor.internal.types.stream.ResetFW;
+import org.reaktivity.reaktor.internal.types.stream.WindowFW;
 import org.reaktivity.reaktor.test.ReaktorRule;
 
 public class StreamsIT
@@ -178,15 +179,18 @@ public class StreamsIT
 
         private final RouteFW routeRO = new RouteFW();
         private final BeginFW beginRO = new BeginFW();
+        private final WindowFW windowRO = new WindowFW();
 
         private final BeginFW.Builder beginRW = new BeginFW.Builder();
         private final ResetFW.Builder resetRW = new ResetFW.Builder();
+        private final WindowFW.Builder windowRW = new WindowFW.Builder();
 
         private long acceptRouteId;
         private long acceptInitialId;
         private long acceptReplyId;
         private long connectRouteId;
         private long connectInitialId;
+        private long connectReplyId;
 
         @SuppressWarnings("unchecked")
         public TestNukleusFactorySpi()
@@ -246,6 +250,7 @@ public class StreamsIT
 
                     connectRouteId = route.correlationId();
                     connectInitialId = supplyInitialId.applyAsLong(connectRouteId);
+                    connectReplyId = supplyReplyId.applyAsLong(connectInitialId);
 
                     MessageConsumer connectInitial = router.supplyReceiver(connectInitialId);
 
@@ -266,8 +271,25 @@ public class StreamsIT
 
             doAnswer(invocation ->
             {
+                final DirectBuffer buffer = invocation.getArgument(1);
+                final int index = invocation.getArgument(2);
+                final int length = invocation.getArgument(3);
+                final WindowFW window = windowRO.wrap(buffer, index, index + length);
+                final MessageConsumer connectInitial = connectInitialRef.getValue();
+                final int credit = window.credit();
+                final int padding = window.padding();
+                final long groupId = window.groupId();
+                doWindow(connectInitial, connectRouteId, connectReplyId, credit, padding, groupId);
+                return null;
+            }
+            ).when(acceptInitial).accept(eq(WindowFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
+
+            doAnswer(invocation ->
+            {
                 final MessageConsumer acceptReply = acceptReplyRef.getValue();
+                final RouteManager router = routerRef.getValue();
                 doBegin(acceptReply, acceptRouteId, acceptReplyId, 0L);
+                router.setThrottle(acceptReplyId, acceptInitial);
                 return null;
             }
             ).when(connectReply).accept(eq(BeginFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
@@ -279,6 +301,21 @@ public class StreamsIT
                 return null;
             }
             ).when(connectReply).accept(eq(ResetFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
+
+            doAnswer(invocation ->
+            {
+                final DirectBuffer buffer = invocation.getArgument(1);
+                final int index = invocation.getArgument(2);
+                final int length = invocation.getArgument(3);
+                final WindowFW window = windowRO.wrap(buffer, index, index + length);
+                final MessageConsumer acceptReply = acceptReplyRef.getValue();
+                final int credit = window.credit();
+                final int padding = window.padding();
+                final long groupId = window.groupId();
+                doWindow(acceptReply, acceptRouteId, acceptInitialId, credit, padding, groupId);
+                return null;
+            }
+            ).when(connectReply).accept(eq(WindowFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
         }
 
         @Override
@@ -371,6 +408,25 @@ public class StreamsIT
                     .streamId(streamId)
                     .build();
             receiver.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
+        }
+
+        private void doWindow(
+            MessageConsumer receiver,
+            long routeId,
+            long streamId,
+            int credit,
+            int padding,
+            long groupId)
+        {
+            final MutableDirectBuffer writeBuffer = writeBufferRef.getValue();
+            final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                    .routeId(routeId)
+                    .streamId(streamId)
+                    .credit(credit)
+                    .padding(padding)
+                    .groupId(groupId)
+                    .build();
+            receiver.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
         }
     }
 }

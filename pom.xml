@@ -46,12 +46,12 @@
     <jacoco.missed.count>36</jacoco.missed.count>
 
     <nukleus.plugin.version>0.33</nukleus.plugin.version>
-    <nukleus.spec.version>0.37</nukleus.spec.version>
+    <nukleus.spec.version>0.38</nukleus.spec.version>
     <nukleus.version>0.37</nukleus.version>
     <jmock.version>2.6.0</jmock.version>
     <mockito.version>2.7.13</mockito.version>
-    <k3po.version>3.0.0-alpha-101</k3po.version>
-    <k3po.nukleus.ext.version>0.45</k3po.nukleus.ext.version>
+    <k3po.version>3.0.0-alpha-102</k3po.version>
+    <k3po.nukleus.ext.version>0.46</k3po.nukleus.ext.version>
   </properties>
 
   <dependencies>
