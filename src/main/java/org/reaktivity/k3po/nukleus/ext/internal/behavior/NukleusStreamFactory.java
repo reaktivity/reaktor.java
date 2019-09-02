@@ -60,26 +60,26 @@ public final class NukleusStreamFactory
     public MessageHandler newStream(
         NukleusChannel channel,
         NukleusTarget sender,
-        ChannelFuture handshakeFuture)
+        ChannelFuture beginFuture)
     {
-        return new Stream(channel, sender, handshakeFuture)::handleStream;
+        return new Stream(channel, sender, beginFuture)::handleStream;
     }
 
     private final class Stream
     {
         private final NukleusChannel channel;
         private final NukleusTarget sender;
-        private final ChannelFuture handshakeFuture;
+        private final ChannelFuture beginFuture;
         private int fragments;
 
         private Stream(
             NukleusChannel channel,
             NukleusTarget sender,
-            ChannelFuture handshakeFuture)
+            ChannelFuture beginFuture)
         {
             this.channel = channel;
             this.sender = sender;
-            this.handshakeFuture = handshakeFuture;
+            this.beginFuture = beginFuture;
         }
 
         private void handleStream(
@@ -147,7 +147,7 @@ public final class NukleusStreamFactory
 
             channel.beginInputFuture().setSuccess();
 
-            handshakeFuture.setSuccess();
+            beginFuture.setSuccess();
         }
 
         private void onData(

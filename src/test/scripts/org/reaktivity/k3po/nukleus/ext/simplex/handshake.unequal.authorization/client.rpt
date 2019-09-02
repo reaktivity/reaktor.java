@@ -17,5 +17,4 @@
 connect "nukleus://streams/server#0"
         option nukleus:authorization 0x0002_000000000000L
         option nukleus:window 8192
-connected
-write aborted
+connect aborted

@@ -17,15 +17,12 @@ package org.reaktivity.k3po.nukleus.ext;
 
 import static java.util.Arrays.asList;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasProperty;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.isA;
-import static org.junit.internal.matchers.ThrowableMessageMatcher.hasMessage;
 import static org.junit.rules.RuleChain.outerRule;
 
 import org.junit.ComparisonFailure;
@@ -92,7 +89,35 @@ public class DuplexIT
         k3po.finish();
     }
 
-    @Ignore("Test times out at robot server but still passes")
+    @Test
+    @Specification({
+        "handshake.abort/client"
+    })
+    public void shouldAbortHandshake() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "handshake.rejected/client",
+        "handshake.rejected/server"
+    })
+    public void shouldRejectHandshake() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "handshake.ext.rejected/client",
+        "handshake.ext.rejected/server"
+    })
+    public void shouldRejectHandshakeWithExtension() throws Exception
+    {
+        k3po.finish();
+    }
+
     @Test
     @Specification({
         "handshake.unequal.authorization/client",
@@ -100,7 +125,6 @@ public class DuplexIT
     })
     public void shouldFailHandshakeWithUnequalAuthorization() throws Exception
     {
-        thrown.expect(allOf(isA(ComparisonFailure.class), hasMessage(containsString("Handshake fail"))));
         k3po.finish();
     }
 

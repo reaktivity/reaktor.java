@@ -89,7 +89,35 @@ public class HalfDuplexIT
         k3po.finish();
     }
 
-    @Ignore("Test times out at robot server but still passes")
+    @Test
+    @Specification({
+        "handshake.abort/client"
+    })
+    public void shouldAbortHandshake() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "handshake.rejected/client",
+        "handshake.rejected/server"
+    })
+    public void shouldRejectHandshake() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "handshake.ext.rejected/client",
+        "handshake.ext.rejected/server"
+    })
+    public void shouldRejectHandshakeWithExtension() throws Exception
+    {
+        k3po.finish();
+    }
+
     @Test
     @Specification({
         "handshake.unequal.authorization/client",
