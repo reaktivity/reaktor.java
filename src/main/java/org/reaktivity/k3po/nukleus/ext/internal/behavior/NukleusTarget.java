@@ -15,13 +15,14 @@
  */
 package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 
-import static org.jboss.netty.channel.Channels.fireChannelBound;
+import static java.util.Arrays.asList;
 import static org.jboss.netty.channel.Channels.fireChannelClosed;
 import static org.jboss.netty.channel.Channels.fireChannelConnected;
 import static org.jboss.netty.channel.Channels.fireChannelDisconnected;
 import static org.jboss.netty.channel.Channels.fireChannelInterestChanged;
 import static org.jboss.netty.channel.Channels.fireChannelUnbound;
 import static org.jboss.netty.channel.Channels.fireWriteComplete;
+import static org.jboss.netty.channel.Channels.future;
 import static org.jboss.netty.channel.Channels.succeededFuture;
 import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireFlushed;
 import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireOutputAborted;
@@ -46,9 +47,9 @@ import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.channel.ChannelException;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
-import org.jboss.netty.channel.Channels;
 import org.jboss.netty.channel.DownstreamMessageEvent;
 import org.jboss.netty.channel.MessageEvent;
+import org.kaazing.k3po.driver.internal.netty.channel.CompositeChannelFuture;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.layout.Layout;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.layout.StreamsLayout;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.OctetsFW;
@@ -136,21 +137,27 @@ final class NukleusTarget implements AutoCloseable
             final long initialId = clientChannel.targetId();
             final long replyId = initialId & 0xffff_ffff_ffff_fffeL;
             clientChannel.sourceId(replyId);
-            ChannelFuture handshakeFuture = succeededFuture(clientChannel);
+
+            ChannelFuture windowFuture = future(clientChannel);
+            ChannelFuture replyFuture = succeededFuture(clientChannel);
 
             NukleusChannelConfig clientConfig = clientChannel.getConfig();
             switch (clientConfig.getTransmission())
             {
             case DUPLEX:
+            {
                 ChannelFuture correlatedFuture = clientChannel.beginInputFuture();
                 correlateNew.accept(replyId, new NukleusCorrelation(clientChannel, correlatedFuture));
-                handshakeFuture = correlatedFuture;
+                replyFuture = correlatedFuture;
                 break;
+            }
             case HALF_DUPLEX:
-                ChannelFuture replyFuture = clientChannel.beginInputFuture();
-                correlateNew.accept(replyId, new NukleusCorrelation(clientChannel, replyFuture));
-                replyFuture.addListener(f -> fireChannelInterestChanged(f.getChannel()));
+            {
+                ChannelFuture correlatedFuture = clientChannel.beginInputFuture();
+                correlateNew.accept(replyId, new NukleusCorrelation(clientChannel, correlatedFuture));
+                correlatedFuture.addListener(f -> fireChannelInterestChanged(f.getChannel()));
                 break;
+            }
             default:
                 break;
             }
@@ -170,15 +177,9 @@ final class NukleusTarget implements AutoCloseable
                    .extension(p -> p.set(beginExtCopy))
                    .build();
 
-            if (!clientChannel.isBound())
-            {
-                clientChannel.setLocalAddress(localAddress);
-                clientChannel.setBound();
-                fireChannelBound(clientChannel, localAddress);
-            }
-
             clientChannel.setRemoteAddress(remoteAddress);
 
+            ChannelFuture handshakeFuture = new CompositeChannelFuture<>(clientChannel, asList(windowFuture, replyFuture));
             handshakeFuture.addListener(new ChannelFutureListener()
             {
                 @Override
@@ -199,7 +200,7 @@ final class NukleusTarget implements AutoCloseable
                 }
             });
 
-            final Throttle throttle = new Throttle(clientChannel, handshakeFuture);
+            final Throttle throttle = new Throttle(clientChannel, windowFuture, handshakeFuture);
             registerThrottle.accept(begin.streamId(), throttle::handleThrottle);
 
             streamsBuffer.write(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
@@ -215,17 +216,33 @@ final class NukleusTarget implements AutoCloseable
         }
     }
 
+    public void doConnectAbort(
+        NukleusClientChannel clientChannel)
+    {
+        final long routeId = clientChannel.routeId();
+        final long initialId = clientChannel.targetId();
+
+        final AbortFW abort = abortRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                .routeId(routeId)
+                .streamId(initialId)
+                .timestamp(supplyTimestamp.getAsLong())
+                .trace(supplyTrace.getAsLong())
+                .build();
+
+        streamsBuffer.write(abort.typeId(), abort.buffer(), abort.offset(), abort.sizeof());
+    }
+
     public void doPrepareReply(
         NukleusChannel channel,
+        ChannelFuture windowFuture,
         ChannelFuture handshakeFuture)
     {
-        final Throttle throttle = new Throttle(channel, handshakeFuture);
+        final Throttle throttle = new Throttle(channel, windowFuture, handshakeFuture);
         registerThrottle.accept(channel.targetId(), throttle::handleThrottle);
     }
 
     public void doBeginReply(
-        NukleusChannel channel,
-        ChannelFuture handshakeFuture)
+        NukleusChannel channel)
     {
         final ChannelBuffer beginExt = channel.writeExtBuffer(BEGIN, true);
         final int writableExtBytes = beginExt.readableBytes();
@@ -398,8 +415,7 @@ final class NukleusTarget implements AutoCloseable
         if (doFlush)
         {
             // SERVER, HALF_DUPLEX
-            ChannelFuture handshakeFuture = Channels.succeededFuture(channel);
-            doBeginReply(channel, handshakeFuture);
+            doBeginReply(channel);
         }
 
         return doFlush;
@@ -566,18 +582,21 @@ final class NukleusTarget implements AutoCloseable
     private final class Throttle
     {
         private final NukleusChannel channel;
-        private final Consumer<Throwable> failureHandler;
+        private final ChannelFuture windowFuture;
+        private final ChannelFuture handshakeFuture;
 
         private Consumer<WindowFW> windowHandler;
         private Consumer<ResetFW> resetHandler;
 
         private Throttle(
             NukleusChannel channel,
+            ChannelFuture windowFuture,
             ChannelFuture handshakeFuture)
         {
             this.channel = channel;
-            this.windowHandler = this::processWindow;
-            this.failureHandler = handshakeFuture::setFailure;
+            this.windowHandler = this::processWindowBeforeWritable;
+            this.windowFuture = windowFuture;
+            this.handshakeFuture = handshakeFuture;
 
             boolean isChildChannel = channel.getParent() != null;
             boolean isHalfDuplex = channel.getConfig().getTransmission() == NukleusTransmission.HALF_DUPLEX;
@@ -639,10 +658,19 @@ final class NukleusTarget implements AutoCloseable
             }
         }
 
+        private void processWindowBeforeWritable(
+            WindowFW window)
+        {
+            this.windowHandler = this::processWindow;
+
+            windowFuture.setSuccess();
+            windowHandler.accept(window);
+        }
+
         private void processResetBeforeHandshake(
             ResetFW reset)
         {
-            failureHandler.accept(new ChannelException("Handshake failed"));
+            handshakeFuture.setFailure(new ChannelException("handshake failed"));
         }
 
         private void onHandshakeCompleted(

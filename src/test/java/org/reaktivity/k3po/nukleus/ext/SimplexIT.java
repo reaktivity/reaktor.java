@@ -77,6 +77,35 @@ public class SimplexIT
 
     @Test
     @Specification({
+        "handshake.rejected/client",
+        "handshake.rejected/server"
+    })
+    public void shouldRejectHandshake() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "handshake.ext.rejected/client",
+        "handshake.ext.rejected/server"
+    })
+    public void shouldRejectHandshakeWithExtension() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "handshake.abort/client"
+    })
+    public void shouldAbortHandshake() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "handshake.unequal.authorization/client",
         "handshake.unequal.authorization/server"
     })
@@ -208,7 +237,7 @@ public class SimplexIT
         k3po.finish();
     }
 
-    @Ignore ("Please see issue #22: https://github.com/reaktivity/k3po-nukleus-ext.java/issues/22")
+    @Ignore ("TODO: review test validity")
     @Test
     @Specification({
         "server.sent.throttle.initial.only.update.none/client",

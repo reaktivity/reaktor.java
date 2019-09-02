@@ -15,7 +15,9 @@
 #
 
 connect "nukleus://streams/server#0"
-        option nukleus:transmission "half-duplex"
-        option nukleus:authorization 0x0002_000000000000L
+        option nukleus:transmission "duplex"
         option nukleus:window 8192
+
+write nukleus:begin.ext [0x12 0x34] [0x0c] "Hello, world"
+
 connect aborted

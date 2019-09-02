@@ -29,6 +29,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.agrona.CloseHelper;
 import org.agrona.collections.ArrayUtil;
@@ -37,6 +38,7 @@ import org.agrona.concurrent.BackoffIdleStrategy;
 import org.agrona.concurrent.IdleStrategy;
 import org.jboss.netty.channel.ChannelException;
 import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.util.ExternalResourceReleasable;
 import org.reaktivity.k3po.nukleus.ext.internal.NukleusExtConfiguration;
@@ -59,6 +61,7 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
     private final AtomicBoolean shutdown = new AtomicBoolean();
 
     private NukleusScope[] scopes;
+    private final AtomicReference<Thread> thread;
 
     NukleusReaktor(
         NukleusExtConfiguration config)
@@ -70,6 +73,7 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
         this.traceIds = new AtomicLong(Long.MIN_VALUE); // negative
         this.scopes = new NukleusScope[0];
         this.labels = new LabelManager(config.directory());
+        this.thread = new AtomicReference<>();
     }
 
     public void bind(
@@ -77,20 +81,20 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
         NukleusChannelAddress localAddress,
         ChannelFuture bindFuture)
     {
-        submitTask(new BindServerTask(serverChannel, localAddress, bindFuture));
+        submitTask(new BindServerTask(serverChannel, localAddress, bindFuture), true);
     }
 
     public void unbind(
         NukleusServerChannel serverChannel,
         ChannelFuture unbindFuture)
     {
-        submitTask(new UnbindServerTask(serverChannel, unbindFuture));
+        submitTask(new UnbindServerTask(serverChannel, unbindFuture), true);
     }
 
     public void close(
         NukleusServerChannel serverChannel)
     {
-        submitTask(new CloseServerTask(serverChannel));
+        submitTask(new CloseServerTask(serverChannel), true);
     }
 
     public void connect(
@@ -146,6 +150,11 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
     public void run()
     {
         final IdleStrategy idleStrategy = new BackoffIdleStrategy(MAX_SPINS, MAX_YIELDS, MIN_PARK_NS, MAX_PARK_NS);
+
+        if (!thread.compareAndSet(null, Thread.currentThread()))
+        {
+            return;
+        }
 
         while (!shutdown.get())
         {
@@ -228,7 +237,21 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
     private void submitTask(
         Runnable task)
     {
-        taskQueue.offer(task);
+        submitTask(task, false);
+    }
+
+    private void submitTask(
+        Runnable task,
+        boolean immediateIfAligned)
+    {
+        if (immediateIfAligned && thread.get() == Thread.currentThread())
+        {
+            task.run();
+        }
+        else
+        {
+            taskQueue.offer(task);
+        }
     }
 
     private int lookupTargetIndex(
@@ -309,7 +332,6 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
                 String receiverAddress = localAddress.getReceiverAddress();
                 long authorization = localAddress.getAuthorization();
                 scope.doUnroute(receiverAddress, authorization, serverChannel);
-                scopeIndexByReceiverAddress.remove(receiverAddress, scopeIndex);
 
                 serverChannel.setLocalAddress(null);
                 fireChannelUnbound(serverChannel);
@@ -381,6 +403,16 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
         @Override
         public void run()
         {
+            final String replyAddress = remoteAddress.getSenderAddress();
+            final NukleusChannelAddress localAddress = remoteAddress.newReplyToAddress(replyAddress);
+
+            if (!clientChannel.isBound())
+            {
+                clientChannel.setLocalAddress(localAddress);
+                clientChannel.setBound();
+                fireChannelBound(clientChannel, localAddress);
+            }
+
             try
             {
                 NukleusReaktor reaktor = clientChannel.reaktor;
@@ -393,11 +425,48 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
                 }
 
                 NukleusScope scope = reaktor.scopesByIndex.computeIfAbsent(scopeIndex, reaktor::newScope);
-                scope.doConnect(clientChannel, remoteAddress, connectFuture);
+                scope.doConnect(clientChannel, localAddress, remoteAddress, connectFuture);
+
+                connectFuture.addListener(new ChannelFutureListener()
+                {
+                    @Override
+                    public void operationComplete(
+                        ChannelFuture future) throws Exception
+                    {
+                        if (future.isCancelled())
+                        {
+                            submitTask(new ConnectAbortTask(clientChannel, remoteAddress));
+                        }
+                    }
+                });
             }
             catch (Exception ex)
             {
                 connectFuture.setFailure(ex);
+            }
+        }
+
+        private final class ConnectAbortTask implements Runnable
+        {
+            private final NukleusClientChannel clientChannel;
+            private final NukleusChannelAddress remoteAddress;
+
+            private ConnectAbortTask(
+                NukleusClientChannel clientChannel,
+                NukleusChannelAddress remoteAddress)
+            {
+                this.clientChannel = clientChannel;
+                this.remoteAddress = remoteAddress;
+            }
+
+            @Override
+            public void run()
+            {
+                NukleusReaktor reaktor = clientChannel.reaktor;
+                int scopeIndex = clientChannel.getLocalScope();
+
+                NukleusScope scope = reaktor.scopesByIndex.computeIfAbsent(scopeIndex, reaktor::newScope);
+                scope.doConnectAbort(clientChannel, remoteAddress);
             }
         }
     }

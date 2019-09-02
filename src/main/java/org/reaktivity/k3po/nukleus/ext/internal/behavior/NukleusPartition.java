@@ -18,12 +18,13 @@ package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 import static org.jboss.netty.channel.Channels.fireChannelBound;
 import static org.jboss.netty.channel.Channels.fireChannelConnected;
 import static org.jboss.netty.channel.Channels.future;
-import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusTransmission.DUPLEX;
+import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind.BEGIN;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusTransmission.SIMPLEX;
 
 import java.nio.file.Path;
 import java.util.function.LongFunction;
 
+import org.agrona.DirectBuffer;
 import org.agrona.LangUtil;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.concurrent.MessageHandler;
@@ -32,7 +33,9 @@ import org.jboss.netty.channel.ChannelFactory;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
+import org.kaazing.k3po.driver.internal.behavior.handler.RejectedHandler;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.layout.StreamsLayout;
+import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.OctetsFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.BeginFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.FrameFW;
 import org.reaktivity.k3po.nukleus.ext.internal.util.function.LongLongFunction;
@@ -192,24 +195,61 @@ final class NukleusPartition implements AutoCloseable
         final long replyId = initialId & 0xffff_ffff_ffff_fffeL;
 
         final NukleusChildChannel childChannel = doAccept(serverChannel, routeId, initialId, replyId);
-        final NukleusTarget sender = supplySender.apply(childChannel.routeId(), initialId);
-        final ChannelFuture handshakeFuture = future(childChannel);
+        final NukleusTarget sender = supplySender.apply(routeId, initialId);
+        final ChannelPipeline pipeline = childChannel.getPipeline();
 
-        final MessageHandler newStream = streamFactory.newStream(childChannel, sender, handshakeFuture);
-        registerStream.accept(initialId, newStream);
-        newStream.onMessage(begin.typeId(), (MutableDirectBuffer) begin.buffer(), begin.offset(), begin.sizeof());
-
-        fireChannelBound(childChannel, childChannel.getLocalAddress());
-
-        sender.doPrepareReply(childChannel, handshakeFuture);
-
-        NukleusChannelConfig childConfig = childChannel.getConfig();
-        if (childConfig.getTransmission() == DUPLEX)
+        if (pipeline.get(RejectedHandler.class) != null)
         {
-            sender.doBeginReply(childChannel, handshakeFuture);
-        }
+            final OctetsFW beginExt = begin.extension();
+            int beginExtBytes = beginExt.sizeof();
+            if (beginExtBytes != 0)
+            {
+                final DirectBuffer buffer = beginExt.buffer();
+                final int offset = beginExt.offset();
 
-        fireChannelConnected(childChannel, childChannel.getRemoteAddress());
+                // TODO: avoid allocation
+                final byte[] beginExtCopy = new byte[beginExtBytes];
+                buffer.getBytes(offset, beginExtCopy);
+
+                childChannel.readExtBuffer(BEGIN).writeBytes(beginExtCopy);
+            }
+
+            childChannel.setWriteClosed();
+
+            fireChannelBound(childChannel, childChannel.getLocalAddress());
+
+            sender.doReset(routeId, initialId);
+
+            childChannel.setReadClosed();
+        }
+        else
+        {
+            final ChannelFuture beginFuture = future(childChannel);
+            final ChannelFuture windowFuture = future(childChannel);
+
+            final MessageHandler newStream = streamFactory.newStream(childChannel, sender, beginFuture);
+            registerStream.accept(initialId, newStream);
+            newStream.onMessage(begin.typeId(), (MutableDirectBuffer) begin.buffer(), begin.offset(), begin.sizeof());
+
+            fireChannelBound(childChannel, childChannel.getLocalAddress());
+
+            ChannelFuture handshakeFuture = beginFuture;
+
+            sender.doPrepareReply(childChannel, windowFuture, handshakeFuture);
+
+            NukleusChannelConfig childConfig = childChannel.getConfig();
+            switch (childConfig.getTransmission())
+            {
+            case DUPLEX:
+                sender.doBeginReply(childChannel);
+                break;
+            default:
+                windowFuture.setSuccess();
+                break;
+            }
+
+            fireChannelConnected(childChannel, childChannel.getRemoteAddress());
+        }
     }
 
     private void handleBeginReply(
@@ -222,10 +262,10 @@ final class NukleusPartition implements AutoCloseable
 
         if (correlation != null)
         {
-            final ChannelFuture handshakeFuture = correlation.correlatedFuture();
-            final NukleusClientChannel clientChannel = (NukleusClientChannel) handshakeFuture.getChannel();
+            final ChannelFuture beginFuture = correlation.correlatedFuture();
+            final NukleusClientChannel clientChannel = (NukleusClientChannel) beginFuture.getChannel();
 
-            final MessageHandler newStream = streamFactory.newStream(clientChannel, sender, handshakeFuture);
+            final MessageHandler newStream = streamFactory.newStream(clientChannel, sender, beginFuture);
             registerStream.accept(replyId, newStream);
 
             newStream.onMessage(begin.typeId(), (MutableDirectBuffer) begin.buffer(), begin.offset(), begin.sizeof());
@@ -256,7 +296,7 @@ final class NukleusPartition implements AutoCloseable
             ChannelFactory channelFactory = serverChannel.getFactory();
             NukleusChildChannelSink childSink = new NukleusChildChannelSink();
             NukleusChildChannel childChannel =
-                  new NukleusChildChannel(serverChannel, channelFactory, pipeline, childSink, initialId, replyId);
+                    new NukleusChildChannel(serverChannel, channelFactory, pipeline, childSink, initialId, replyId);
 
             NukleusChannelConfig childConfig = childChannel.getConfig();
             childConfig.setBufferFactory(serverConfig.getBufferFactory());

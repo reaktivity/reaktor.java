@@ -100,17 +100,27 @@ public final class NukleusScope implements AutoCloseable
 
     public void doConnect(
         NukleusClientChannel clientChannel,
+        NukleusChannelAddress localAddress,
         NukleusChannelAddress remoteAddress,
         ChannelFuture connectFuture)
     {
         final String receiverAddress = remoteAddress.getReceiverAddress();
         final int targetIndex = lookupTargetIndex.applyAsInt(receiverAddress);
         NukleusTarget target = supplyTarget(targetIndex);
-        final String replyAddress = remoteAddress.getSenderAddress();
-        final NukleusChannelAddress localAddress = remoteAddress.newReplyToAddress(replyAddress);
         clientChannel.setRemoteScope(targetIndex);
         clientChannel.routeId(routeId(remoteAddress));
         target.doConnect(clientChannel, localAddress, remoteAddress, connectFuture);
+    }
+
+
+    public void doConnectAbort(
+        NukleusClientChannel clientChannel,
+        NukleusChannelAddress remoteAddress)
+    {
+        final String receiverAddress = remoteAddress.getReceiverAddress();
+        final int targetIndex = lookupTargetIndex.applyAsInt(receiverAddress);
+        NukleusTarget target = supplyTarget(targetIndex);
+        target.doConnectAbort(clientChannel);
     }
 
     public void doAbortOutput(
