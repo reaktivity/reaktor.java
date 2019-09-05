@@ -44,4 +44,8 @@ public interface NukleusChannelConfig extends ChannelConfig
     NukleusThrottleMode getThrottle();
 
     boolean hasThrottle();
+
+    void setAffinity(long affinity);
+
+    long getAffinity();
 }

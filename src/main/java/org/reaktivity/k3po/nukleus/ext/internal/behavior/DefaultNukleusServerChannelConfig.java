@@ -34,6 +34,7 @@ public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfi
     private int padding;
     private NukleusThrottleMode throttle = NukleusThrottleMode.STREAM;
     private NukleusUpdateMode update = NukleusUpdateMode.STREAM;
+    private long affinity;
 
     public DefaultNukleusServerChannelConfig()
     {
@@ -120,6 +121,19 @@ public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfi
     public NukleusThrottleMode getThrottle()
     {
         return throttle;
+    }
+
+    @Override
+    public void setAffinity(
+        long affinity)
+    {
+        this.affinity = affinity;
+    }
+
+    @Override
+    public long getAffinity()
+    {
+        return affinity;
     }
 
     @Override
