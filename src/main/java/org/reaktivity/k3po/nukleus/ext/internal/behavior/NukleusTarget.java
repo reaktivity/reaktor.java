@@ -138,10 +138,10 @@ final class NukleusTarget implements AutoCloseable
             final long replyId = initialId & 0xffff_ffff_ffff_fffeL;
             clientChannel.sourceId(replyId);
 
-            ChannelFuture windowFuture = future(clientChannel);
+            final ChannelFuture windowFuture = future(clientChannel);
             ChannelFuture replyFuture = succeededFuture(clientChannel);
 
-            NukleusChannelConfig clientConfig = clientChannel.getConfig();
+            final NukleusChannelConfig clientConfig = clientChannel.getConfig();
             switch (clientConfig.getTransmission())
             {
             case DUPLEX:
@@ -161,8 +161,11 @@ final class NukleusTarget implements AutoCloseable
             default:
                 break;
             }
-            long authorization = remoteAddress.getAuthorization();
+
+            final long authorization = remoteAddress.getAuthorization();
             clientChannel.targetAuth(authorization);
+
+            final long affinity = clientConfig.getAffinity();
 
             ChannelBuffer beginExt = clientChannel.writeExtBuffer(BEGIN, true);
             final int writableExtBytes = beginExt.readableBytes();
@@ -174,6 +177,7 @@ final class NukleusTarget implements AutoCloseable
                    .timestamp(supplyTimestamp.getAsLong())
                    .trace(supplyTrace.getAsLong())
                    .authorization(authorization)
+                   .affinity(affinity)
                    .extension(p -> p.set(beginExtCopy))
                    .build();
 

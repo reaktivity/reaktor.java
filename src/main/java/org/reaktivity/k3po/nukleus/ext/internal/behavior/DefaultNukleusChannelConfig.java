@@ -18,6 +18,7 @@ package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusChannel.NATIVE_BUFFER_FACTORY;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusThrottleMode.NONE;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusTransmission.SIMPLEX;
+import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_AFFINITY;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_BYTE_ORDER;
 import static org.reaktivity.k3po.nukleus.ext.internal.util.Conversions.convertToInt;
 import static org.reaktivity.k3po.nukleus.ext.internal.util.Conversions.convertToLong;
@@ -34,6 +35,7 @@ public class DefaultNukleusChannelConfig extends DefaultChannelConfig implements
     private int padding;
     private NukleusThrottleMode throttle = NukleusThrottleMode.STREAM;
     private NukleusUpdateMode update = NukleusUpdateMode.STREAM;
+    private long affinity;
 
     public DefaultNukleusChannelConfig()
     {
@@ -123,6 +125,19 @@ public class DefaultNukleusChannelConfig extends DefaultChannelConfig implements
     }
 
     @Override
+    public void setAffinity(
+        long affinity)
+    {
+        this.affinity = affinity;
+    }
+
+    @Override
+    public long getAffinity()
+    {
+        return affinity;
+    }
+
+    @Override
     protected boolean setOption0(
         String key,
         Object value)
@@ -158,6 +173,10 @@ public class DefaultNukleusChannelConfig extends DefaultChannelConfig implements
         else if (OPTION_BYTE_ORDER.getName().equals(key))
         {
             setBufferFactory(NukleusByteOrder.decode(Objects.toString(value, "native")).toBufferFactory());
+        }
+        else if (OPTION_AFFINITY.getName().equals(key))
+        {
+            setAffinity(convertToLong(value));
         }
         else
         {
