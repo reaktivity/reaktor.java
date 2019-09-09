@@ -49,8 +49,8 @@
     <nukleus.spec.version>0.36</nukleus.spec.version>
     <nukleus.plugin.version>0.32</nukleus.plugin.version>
 
-    <jacoco.coverage.ratio>0.02</jacoco.coverage.ratio>
-    <jacoco.missed.count>128</jacoco.missed.count>
+    <jacoco.coverage.ratio>0.07</jacoco.coverage.ratio>
+    <jacoco.missed.count>64</jacoco.missed.count>
   </properties>
 
   <dependencies>
@@ -207,6 +207,9 @@
         <artifactId>jacoco-maven-plugin</artifactId>
         <version>0.8.2</version>
         <configuration>
+          <excludes>
+            <exclude>org/reaktivity/k3po/nukleus/ext/internal/behavior/types/**/*.class</exclude>
+          </excludes>
           <rules>
             <rule>
               <element>BUNDLE</element>
