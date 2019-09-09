@@ -82,6 +82,7 @@ public final class Services
     {
         // utility class
     }
+
     private static final class DataHandler extends URLStreamHandler
     {
         @Override
