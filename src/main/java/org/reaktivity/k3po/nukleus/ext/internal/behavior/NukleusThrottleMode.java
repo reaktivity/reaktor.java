@@ -29,21 +29,19 @@ public enum NukleusThrottleMode
         Objects.requireNonNull(value);
 
         // backwards compatibility
-        String decodable;
         switch (value)
         {
         case "on":
-            decodable = "stream";
+            value = "stream";
             break;
         case "off":
-            decodable = "none";
+            value = "none";
             break;
         default:
-            decodable = value;
             break;
         }
 
-        switch (decodable)
+        switch (value)
         {
         case "stream":
             return STREAM;
