@@ -119,8 +119,6 @@
 
         <module name="OuterTypeFilename"/>
 
-        <module name="OverloadMethodsDeclarationOrder"/>
-
         <module name="PackageAnnotation"/>
 
         <module name="ParameterAssignment"/>
