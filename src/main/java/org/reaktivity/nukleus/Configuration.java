@@ -779,7 +779,7 @@ public class Configuration
     {
         StringBuilder sb = new StringBuilder();
         properties((s, o) -> sb.append(String.format("%s = %s (override)\n", s, o)),
-                   (s, o) -> sb.append(String.format("%s = %s (default)\n", s, o)));
+            (s, o) -> sb.append(String.format("%s = %s (default)\n", s, o)));
         return sb.toString();
     }
 
