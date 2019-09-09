@@ -159,7 +159,7 @@ public class ControlResolveIT
         @Override
         public String name()
         {
-           return "security";
+            return "security";
         }
 
         @Override

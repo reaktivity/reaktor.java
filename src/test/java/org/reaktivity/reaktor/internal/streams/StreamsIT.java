@@ -237,7 +237,7 @@ public class StreamsIT
                 final RouteManager router = routerRef.getValue();
                 MessagePredicate filter = (m, b, i, l) -> true;
                 RouteFW route = router.resolve(routeId, authorization, filter,
-                        (m, b, i, l) -> routeRO.wrap(b, i, i + l));
+                    (m, b, i, l) -> routeRO.wrap(b, i, i + l));
 
                 if (route != null)
                 {
@@ -321,7 +321,7 @@ public class StreamsIT
         @Override
         public String name()
         {
-           return "example";
+            return "example";
         }
 
         @Override

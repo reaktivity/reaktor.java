@@ -71,12 +71,21 @@ public class ReaktorTest
         context.checking(new Expectations()
         {
             {
-                allowing(nukleus).name(); will(returnValue("test"));
-                allowing(elektron).streamFactoryBuilder(with(any(RouteKind.class))); will(returnValue(null));
+                allowing(nukleus).name();
+                will(returnValue("test"));
 
-                oneOf(nukleus).supplyElektron(); will(returnValue(elektron));
-                oneOf(elektron).agent(); will(returnValue(agent));
-                oneOf(agent).doWork(); will(throwException(new Exception("elektron agent failed")));
+                allowing(elektron).streamFactoryBuilder(with(any(RouteKind.class)));
+                will(returnValue(null));
+
+                oneOf(nukleus).supplyElektron();
+                will(returnValue(elektron));
+
+                oneOf(elektron).agent();
+                will(returnValue(agent));
+
+                oneOf(agent).doWork();
+                will(throwException(new Exception("elektron agent failed")));
+
                 oneOf(errorHandler).onError(with(aNonNull(Exception.class)));
                 oneOf(agent).onClose();
             }
@@ -88,7 +97,7 @@ public class ReaktorTest
         final ElektronAgent elektronAgent = nukleusAgent.supplyElektronAgent(0, 1, executor, a -> allBitsSet);
         final Thread[] threadRef = new Thread[2];
         final AtomicInteger threadCount = new AtomicInteger();
-        final ThreadFactory threadFactory = task -> (threadRef[threadCount.getAndIncrement()] = new Thread(task));
+        final ThreadFactory threadFactory = task -> threadRef[threadCount.getAndIncrement()] = new Thread(task);
         final int localId = nukleusAgent.labels().supplyLabelId("test");
         nukleusAgent.assign(nukleus);
         nukleusAgent.onRouteable(RouteId.routeId(localId, 1, Role.SERVER, 1), nukleus);
@@ -121,9 +130,12 @@ public class ReaktorTest
         context.checking(new Expectations()
         {
             {
-                allowing(controller).process(); will(returnValue(0));
+                allowing(controller).process();
+                will(returnValue(0));
 
-                oneOf(controller).kind(); will(returnValue(Controller.class));
+                oneOf(controller).kind();
+                will(returnValue(Controller.class));
+
                 oneOf(controller).close();
             }
         });
@@ -156,10 +168,15 @@ public class ReaktorTest
         context.checking(new Expectations()
         {
             {
-                allowing(controller).process(); will(returnValue(0));
+                allowing(controller).process();
+                will(returnValue(0));
 
-                oneOf(controller).kind(); will(returnValue(Controller.class));
-                oneOf(controller).close(); will(throwException(new Exception("controller close failed")));
+                oneOf(controller).kind();
+                will(returnValue(Controller.class));
+
+                oneOf(controller).close();
+                will(throwException(new Exception("controller close failed")));
+
                 oneOf(errorHandler).onError(with(aNonNull(Exception.class)));
             }
         });
@@ -182,7 +199,7 @@ public class ReaktorTest
         }
         catch(Throwable t)
         {
-            assert(t.getSuppressed().length == 0);
+            assert t.getSuppressed().length == 0;
             throw t;
         }
     }

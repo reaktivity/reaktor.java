@@ -233,7 +233,7 @@ public class NukleusAgent implements Agent
         responseBuffer.transmit(frozen.typeId(), frozen.buffer(), frozen.offset(), frozen.sizeof());
     }
 
-     private void handleCommand(
+    private void handleCommand(
         int msgTypeId,
         MutableDirectBuffer buffer,
         int index,
@@ -277,12 +277,12 @@ public class NukleusAgent implements Agent
                 routeHandler = (t, b, i, l) -> true;
             }
 
-            route = router.generateRouteId(route);
+            final RouteFW newRoute = router.generateRouteId(route);
 
-            final long newRouteId = route.correlationId();
+            final long newRouteId = newRoute.correlationId();
             this.onRouteable(newRouteId, nukleus);
 
-            if (router.doRoute(route, routeHandler))
+            if (router.doRoute(newRoute, routeHandler))
             {
                 this.onRouted(nukleus, routeKind, newRouteId);
                 doRouted(correlationId, newRouteId);

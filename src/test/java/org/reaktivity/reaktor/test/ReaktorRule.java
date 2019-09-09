@@ -289,7 +289,7 @@ public final class ReaktorRule implements TestRule
                        .getDeclaredMethod(testMethod)
                        .getAnnotationsByType(Configure.class);
             Arrays.stream(configures).forEach(
-                    p -> properties.setProperty(p.name(), p.value()));
+                p -> properties.setProperty(p.name(), p.value()));
         }
         catch (Exception e)
         {
