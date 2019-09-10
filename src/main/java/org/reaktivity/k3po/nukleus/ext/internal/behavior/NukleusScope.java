@@ -180,7 +180,7 @@ public final class NukleusScope implements AutoCloseable
     {
         CloseHelper.quietClose(source);
 
-        for(NukleusTarget target : targetsByIndex.values())
+        for (NukleusTarget target : targetsByIndex.values())
         {
             CloseHelper.quietClose(target);
         }
