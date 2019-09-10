@@ -1,9 +1,9 @@
-dist: trusty
+dist: bionic
 language: java
 before_install:
   - rm ~/.m2/settings.xml
 jdk:
-  - oraclejdk9
+  - openjdk11
 install: mvn -v
 script: mvn -B -nsu verify
 cache:
