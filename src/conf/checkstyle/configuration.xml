@@ -167,7 +167,7 @@
         <module name="UpperEll"/>
 
         <module name="WhitespaceAfter">
-            <property name="tokens" value="COMMA, SEMI"/>
+            <property name="tokens" value="COMMA, SEMI, LITERAL_IF, LITERAL_WHILE, LITERAL_FOR"/>
         </module>
     </module>
 
