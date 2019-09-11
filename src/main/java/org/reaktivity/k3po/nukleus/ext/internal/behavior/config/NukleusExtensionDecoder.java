@@ -58,7 +58,7 @@ public final class NukleusExtensionDecoder implements ConfigDecoder
     public String toString()
     {
         StringBuilder sb = new StringBuilder();
-        sb.append("nukleus:").append(type.getName()).append(' ');
+        sb.append(type.getQualifiedName()).append(' ');
         for (MessageDecoder decoder : decoders)
         {
             sb.append(decoder).append(' ');

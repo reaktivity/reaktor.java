@@ -39,6 +39,7 @@ public final class NukleusTypeSystem implements TypeSystemSpi
     public static final TypeInfo<String> OPTION_BYTE_ORDER = new TypeInfo<>("byteorder", String.class);
     public static final TypeInfo<String> OPTION_ALIGNMENT = new TypeInfo<>("alignment", String.class);
     public static final TypeInfo<Long> OPTION_AFFINITY = new TypeInfo<>("affinity", Long.class);
+    public static final TypeInfo<Byte> OPTION_CAPABILITIES = new TypeInfo<>("capabilities", Byte.class);
 
     public static final StructuredTypeInfo CONFIG_BEGIN_EXT =
             new StructuredTypeInfo("nukleus", "begin.ext", emptyList(), MAX_VALUE);
@@ -50,6 +51,8 @@ public final class NukleusTypeSystem implements TypeSystemSpi
             new StructuredTypeInfo("nukleus", "data.null", emptyList(), 0);
     public static final StructuredTypeInfo CONFIG_END_EXT =
             new StructuredTypeInfo("nukleus", "end.ext", emptyList(), MAX_VALUE);
+    public static final StructuredTypeInfo CONFIG_CHALLENGE =
+            new StructuredTypeInfo("nukleus", "challenge", emptyList(), MAX_VALUE);
 
     private final Set<TypeInfo<?>> acceptOptions;
     private final Set<TypeInfo<?>> connectOptions;
@@ -71,6 +74,7 @@ public final class NukleusTypeSystem implements TypeSystemSpi
         acceptOptions.add(OPTION_TRANSMISSION);
         acceptOptions.add(OPTION_BYTE_ORDER);
         acceptOptions.add(OPTION_ALIGNMENT);
+        acceptOptions.add(OPTION_CAPABILITIES);
         this.acceptOptions = unmodifiableSet(acceptOptions);
 
         Set<TypeInfo<?>> connectOptions = new LinkedHashSet<>();
@@ -85,6 +89,7 @@ public final class NukleusTypeSystem implements TypeSystemSpi
         connectOptions.add(OPTION_BYTE_ORDER);
         connectOptions.add(OPTION_ALIGNMENT);
         connectOptions.add(OPTION_AFFINITY);
+        connectOptions.add(OPTION_CAPABILITIES);
         this.connectOptions = unmodifiableSet(connectOptions);
 
         Set<TypeInfo<?>> readOptions = new LinkedHashSet<>();
@@ -98,6 +103,7 @@ public final class NukleusTypeSystem implements TypeSystemSpi
         readConfigs.add(CONFIG_DATA_EXT);
         readConfigs.add(CONFIG_DATA_NULL);
         readConfigs.add(CONFIG_END_EXT);
+        readConfigs.add(CONFIG_CHALLENGE);
         this.readConfigs = readConfigs;
 
         Set<StructuredTypeInfo> writeConfigs = new LinkedHashSet<>();
@@ -105,6 +111,7 @@ public final class NukleusTypeSystem implements TypeSystemSpi
         writeConfigs.add(CONFIG_DATA_EXT);
         writeConfigs.add(CONFIG_DATA_EMPTY);
         writeConfigs.add(CONFIG_END_EXT);
+        writeConfigs.add(CONFIG_CHALLENGE);
         this.writeConfigs = writeConfigs;
     }
 

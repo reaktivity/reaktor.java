@@ -130,6 +130,16 @@ public class HalfDuplexIT
 
     @Test
     @Specification({
+        "client.sent.challenge/client",
+        "client.sent.challenge/server"
+    })
+    public void shouldReceiveClientSentChallenge() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "client.sent.data/client",
         "client.sent.data/server"
     })

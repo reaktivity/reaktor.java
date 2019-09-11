@@ -130,6 +130,16 @@ public class DuplexIT
 
     @Test
     @Specification({
+        "client.sent.challenge/client",
+        "client.sent.challenge/server"
+    })
+    public void shouldReceiveClientSentChallenge() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "byteorder.default/client",
         "byteorder.default/server"
     })

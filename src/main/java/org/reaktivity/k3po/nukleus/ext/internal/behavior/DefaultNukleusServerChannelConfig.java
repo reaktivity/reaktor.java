@@ -19,6 +19,8 @@ import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusChannel.N
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusThrottleMode.NONE;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusTransmission.SIMPLEX;
 import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_BYTE_ORDER;
+import static org.reaktivity.k3po.nukleus.ext.internal.types.NukleusTypeSystem.OPTION_CAPABILITIES;
+import static org.reaktivity.k3po.nukleus.ext.internal.util.Conversions.convertToByte;
 import static org.reaktivity.k3po.nukleus.ext.internal.util.Conversions.convertToInt;
 import static org.reaktivity.k3po.nukleus.ext.internal.util.Conversions.convertToLong;
 
@@ -35,6 +37,7 @@ public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfi
     private NukleusThrottleMode throttle = NukleusThrottleMode.STREAM;
     private NukleusUpdateMode update = NukleusUpdateMode.STREAM;
     private long affinity;
+    private byte capabilities;
 
     public DefaultNukleusServerChannelConfig()
     {
@@ -137,6 +140,19 @@ public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfi
     }
 
     @Override
+    public void setCapabilities(
+        byte capabilities)
+    {
+        this.capabilities = capabilities;
+    }
+
+    @Override
+    public byte getCapabilities()
+    {
+        return capabilities;
+    }
+
+    @Override
     protected boolean setOption0(
         String key,
         Object value)
@@ -173,6 +189,10 @@ public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfi
         else if (OPTION_BYTE_ORDER.getName().equals(key))
         {
             setBufferFactory(NukleusByteOrder.decode(Objects.toString(value, "native")).toBufferFactory());
+        }
+        else if (OPTION_CAPABILITIES.getName().equals(key))
+        {
+            setCapabilities(convertToByte(value));
         }
         else
         {

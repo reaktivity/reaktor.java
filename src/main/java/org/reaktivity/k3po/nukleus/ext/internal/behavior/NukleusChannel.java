@@ -31,6 +31,7 @@ import org.jboss.netty.channel.Channels;
 import org.jboss.netty.channel.MessageEvent;
 import org.kaazing.k3po.driver.internal.netty.bootstrap.channel.AbstractChannel;
 import org.kaazing.k3po.driver.internal.netty.channel.ChannelAddress;
+import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.control.Capability;
 
 public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfig>
 {
@@ -65,6 +66,8 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
 
     private ChannelFuture beginOutputFuture;
     private ChannelFuture beginInputFuture;
+
+    private int capabilities;
 
     NukleusChannel(
         NukleusServerChannel parent,
@@ -312,6 +315,18 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
                 completeWriteRequestIfFullyWritten();
             }
         }
+    }
+
+    public void capabilities(
+        int capabilities)
+    {
+        this.capabilities = capabilities;
+    }
+
+    public boolean hasCapability(
+        Capability capability)
+    {
+        return (capabilities & (1 << capability.ordinal())) != 0;
     }
 
     public void targetWriteRequestProgressing()

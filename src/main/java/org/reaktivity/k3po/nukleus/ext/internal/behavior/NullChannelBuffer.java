@@ -28,8 +28,9 @@ import org.jboss.netty.buffer.ChannelBuffer;
 public final class NullChannelBuffer extends BigEndianHeapChannelBuffer
 {
     private static final byte[] BUFFER = new byte[0];
-    public static final NullChannelBuffer NULL_BUFFER = new NullChannelBuffer();
 
+    public static final NullChannelBuffer NULL_BUFFER = new NullChannelBuffer();
+    public static final NullChannelBuffer CHALLENGE_BUFFER = new NullChannelBuffer();
 
     private NullChannelBuffer()
     {

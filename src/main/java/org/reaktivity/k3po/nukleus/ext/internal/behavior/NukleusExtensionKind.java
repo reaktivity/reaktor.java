@@ -20,5 +20,6 @@ public enum NukleusExtensionKind
     BEGIN,
     DATA,
     ABORT,
-    END;
+    END,
+    CHALLENGE;
 }

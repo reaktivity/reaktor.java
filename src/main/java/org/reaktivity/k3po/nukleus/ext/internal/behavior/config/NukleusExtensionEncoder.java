@@ -55,7 +55,7 @@ public final class NukleusExtensionEncoder implements ConfigEncoder
     public String toString()
     {
         StringBuilder sb = new StringBuilder();
-        sb.append("nukleus:").append(type.getName()).append(' ');
+        sb.append(type.getQualifiedName()).append(' ');
         for (MessageEncoder encoder : encoders)
         {
             sb.append(encoder).append(' ');

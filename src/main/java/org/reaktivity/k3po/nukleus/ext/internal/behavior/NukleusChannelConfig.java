@@ -48,4 +48,8 @@ public interface NukleusChannelConfig extends ChannelConfig
     void setAffinity(long affinity);
 
     long getAffinity();
+
+    void setCapabilities(byte capabilities);
+
+    byte getCapabilities();
 }
