@@ -61,4 +61,16 @@ public final class Conversions
         }
     }
 
+    public static byte convertToByte(Object value)
+    {
+        if (value instanceof Number)
+        {
+            return ((Number) value).byteValue();
+        }
+        else
+        {
+            return Byte.parseByte(String.valueOf(value));
+        }
+    }
+
 }

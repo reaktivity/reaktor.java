@@ -21,6 +21,7 @@ import static org.jboss.netty.channel.Channels.fireChannelConnected;
 import static org.jboss.netty.channel.Channels.fireChannelDisconnected;
 import static org.jboss.netty.channel.Channels.fireChannelInterestChanged;
 import static org.jboss.netty.channel.Channels.fireChannelUnbound;
+import static org.jboss.netty.channel.Channels.fireMessageReceived;
 import static org.jboss.netty.channel.Channels.fireWriteComplete;
 import static org.jboss.netty.channel.Channels.future;
 import static org.jboss.netty.channel.Channels.succeededFuture;
@@ -28,8 +29,10 @@ import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireFlushe
 import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireOutputAborted;
 import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireOutputShutdown;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind.BEGIN;
+import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind.CHALLENGE;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind.DATA;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusExtensionKind.END;
+import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NullChannelBuffer.CHALLENGE_BUFFER;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NullChannelBuffer.NULL_BUFFER;
 
 import java.nio.file.Path;
@@ -53,8 +56,10 @@ import org.kaazing.k3po.driver.internal.netty.channel.CompositeChannelFuture;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.layout.Layout;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.layout.StreamsLayout;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.OctetsFW;
+import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.control.Capability;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.AbortFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.BeginFW;
+import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.ChallengeFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.DataFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.EndFW;
 import org.reaktivity.k3po.nukleus.ext.internal.behavior.types.stream.ResetFW;
@@ -70,11 +75,14 @@ final class NukleusTarget implements AutoCloseable
 
     private final WindowFW windowRO = new WindowFW();
     private final ResetFW resetRO = new ResetFW();
+    private final ChallengeFW challengeRO = new ChallengeFW();
+
     private final OctetsFW octetsRO = new OctetsFW();
 
     private final MutableDirectBuffer resetBuffer = new UnsafeBuffer(new byte[ResetFW.FIELD_OFFSET_EXTENSION]);
     private final ResetFW.Builder resetRW = new ResetFW.Builder();
     private final WindowFW.Builder windowRW = new WindowFW.Builder();
+    private final ChallengeFW.Builder challengeRW = new ChallengeFW.Builder();
 
     private final Path streamsPath;
     private final Layout layout;
@@ -429,97 +437,145 @@ final class NukleusTarget implements AutoCloseable
         NukleusChannel channel)
     {
         final Deque<MessageEvent> writeRequests = channel.writeRequests;
-        final long authorization = channel.targetAuth();
 
         loop:
         while (channel.writable() && !writeRequests.isEmpty())
         {
             MessageEvent writeRequest = writeRequests.peekFirst();
             ChannelBuffer writeBuf = (ChannelBuffer) writeRequest.getMessage();
-            ChannelBuffer writeExt = channel.writeExtBuffer(DATA, true);
 
-            if (writeBuf.readable() || writeExt.readable())
+            if (writeBuf == CHALLENGE_BUFFER)
             {
-                final boolean flushing = writeBuf == NULL_BUFFER;
-                final int writableBytes = channel.writableBytes(writeBuf.readableBytes());
-
-                // allow extension-only DATA frames to be flushed immediately
-                if (writableBytes > 0 || !writeBuf.readable())
-                {
-                    final int writeReaderIndex = writeBuf.readerIndex();
-
-                    if (writeReaderIndex == 0)
-                    {
-                        channel.targetWriteRequestProgressing();
-                    }
-
-                    final int writableExtBytes = writeExt.readableBytes();
-                    final byte[] writeExtCopy = writeExtCopy(writeExt);
-
-                    // extension-only DATA frames should have null payload (default)
-                    OctetsFW writeCopy = null;
-                    if (writeBuf != NULL_BUFFER)
-                    {
-                        // TODO: avoid allocation
-                        byte[] writeCopyBytes = new byte[writableBytes];
-                        writeBuf.getBytes(writeReaderIndex, writeCopyBytes);
-                        writeCopy = octetsRO.wrap(new UnsafeBuffer(writeCopyBytes), 0, writableBytes);
-                    }
-
-                    int flags = 0;
-
-                    if (writableBytes == writeBuf.readableBytes())
-                    {
-                        flags |= 0x01;  // FIN
-                    }
-
-                    if (writeReaderIndex == 0)
-                    {
-                        flags |= 0x02;  // INIT
-                    }
-
-                    final long streamId = channel.targetId();
-                    final long routeId = channel.routeId();
-
-                    final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                            .routeId(routeId)
-                            .streamId(streamId)
-                            .timestamp(supplyTimestamp.getAsLong())
-                            .trace(supplyTrace.getAsLong())
-                            .authorization(authorization)
-                            .flags(flags)
-                            .groupId(0)
-                            .padding(channel.writablePadding)
-                            .payload(writeCopy)
-                            .extension(p -> p.set(writeExtCopy))
-                            .build();
-
-                    streamsBuffer.write(data.typeId(), data.buffer(), data.offset(), data.sizeof());
-
-                    channel.writtenBytes(writableBytes);
-
-                    writeBuf.skipBytes(writableBytes);
-
-                    writeExt.skipBytes(writableExtBytes);
-                    writeExt.discardReadBytes();
-                }
-
-                if (flushing)
-                {
-                    fireFlushed(channel);
-                }
-                else
-                {
-                    fireWriteComplete(channel, writableBytes);
-                }
-
-                channel.targetWriteRequestProgress();
+                flushChallenge(channel, writeRequest);
             }
-            else if (channel.isTargetWriteRequestInProgress())
+            else
             {
-                break loop;
+                ChannelBuffer writeExt = channel.writeExtBuffer(DATA, true);
+                if (writeBuf.readable() || writeExt.readable())
+                {
+                    flushData(channel, writeBuf, writeExt);
+                }
+                else if (channel.isTargetWriteRequestInProgress())
+                {
+                    break loop;
+                }
             }
         }
+    }
+
+    private void flushChallenge(
+        NukleusChannel channel,
+        MessageEvent writeRequest)
+    {
+        final ChannelFuture challengeFuture = writeRequest.getFuture();
+
+        if (channel.hasCapability(Capability.CHALLENGE))
+        {
+            final ChannelBuffer challengeExt = channel.writeExtBuffer(CHALLENGE, true);
+            final byte[] challengeExtCopy = writeExtCopy(challengeExt);
+
+            final long streamId = channel.sourceId();
+            final long routeId = channel.routeId();
+
+            final ChallengeFW challenge = challengeRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                    .routeId(routeId)
+                    .streamId(streamId)
+                    .timestamp(supplyTimestamp.getAsLong())
+                    .trace(supplyTrace.getAsLong())
+                    .extension(p -> p.set(challengeExtCopy))
+                    .build();
+
+            streamsBuffer.write(challenge.typeId(), challenge.buffer(), challenge.offset(), challenge.sizeof());
+
+        }
+        else
+        {
+            challengeFuture.setFailure(new ChannelException("Missing capability: " + Capability.CHALLENGE));
+        }
+
+        channel.targetWriteRequestProgress();
+    }
+
+    private void flushData(
+        NukleusChannel channel,
+        ChannelBuffer writeBuf,
+        ChannelBuffer writeExt)
+    {
+        final long authorization = channel.targetAuth();
+        final boolean flushing = writeBuf == NULL_BUFFER;
+        final int writableBytes = channel.writableBytes(writeBuf.readableBytes());
+
+        // allow extension-only DATA frames to be flushed immediately
+        if (writableBytes > 0 || !writeBuf.readable())
+        {
+            final int writeReaderIndex = writeBuf.readerIndex();
+
+            if (writeReaderIndex == 0)
+            {
+                channel.targetWriteRequestProgressing();
+            }
+
+            final int writableExtBytes = writeExt.readableBytes();
+            final byte[] writeExtCopy = writeExtCopy(writeExt);
+
+            // extension-only DATA frames should have null payload (default)
+            OctetsFW writeCopy = null;
+            if (writeBuf != NULL_BUFFER)
+            {
+                // TODO: avoid allocation
+                byte[] writeCopyBytes = new byte[writableBytes];
+                writeBuf.getBytes(writeReaderIndex, writeCopyBytes);
+                writeCopy = octetsRO.wrap(new UnsafeBuffer(writeCopyBytes), 0, writableBytes);
+            }
+
+            int flags = 0;
+
+            if (writableBytes == writeBuf.readableBytes())
+            {
+                flags |= 0x01;  // FIN
+            }
+
+            if (writeReaderIndex == 0)
+            {
+                flags |= 0x02;  // INIT
+            }
+
+            final long streamId = channel.targetId();
+            final long routeId = channel.routeId();
+
+            final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                    .routeId(routeId)
+                    .streamId(streamId)
+                    .timestamp(supplyTimestamp.getAsLong())
+                    .trace(supplyTrace.getAsLong())
+                    .authorization(authorization)
+                    .flags(flags)
+                    .groupId(0)
+                    .padding(channel.writablePadding)
+                    .payload(writeCopy)
+                    .extension(p -> p.set(writeExtCopy))
+                    .build();
+
+            streamsBuffer.write(data.typeId(), data.buffer(), data.offset(), data.sizeof());
+
+            channel.writtenBytes(writableBytes);
+
+            writeBuf.skipBytes(writableBytes);
+
+            writeExt.skipBytes(writableExtBytes);
+            writeExt.discardReadBytes();
+        }
+
+        if (flushing)
+        {
+            fireFlushed(channel);
+        }
+        else
+        {
+            fireWriteComplete(channel, writableBytes);
+        }
+
+        channel.targetWriteRequestProgress();
     }
 
     private byte[] writeExtCopy(
@@ -544,6 +600,7 @@ final class NukleusTarget implements AutoCloseable
     {
         final long routeId = channel.routeId();
         final long streamId = channel.sourceId();
+        final byte capabilities = channel.getConfig().getCapabilities();
 
         channel.readableBytes(credit);
 
@@ -555,6 +612,7 @@ final class NukleusTarget implements AutoCloseable
                 .credit(credit)
                 .padding(padding)
                 .groupId(groupId)
+                .capabilities(capabilities)
                 .build();
 
         streamsBuffer.write(window.typeId(), window.buffer(), window.offset(), window.sizeof());
@@ -598,14 +656,14 @@ final class NukleusTarget implements AutoCloseable
             ChannelFuture handshakeFuture)
         {
             this.channel = channel;
-            this.windowHandler = this::processWindowBeforeWritable;
+            this.windowHandler = this::onWindowBeforeWritable;
             this.windowFuture = windowFuture;
             this.handshakeFuture = handshakeFuture;
 
             boolean isChildChannel = channel.getParent() != null;
             boolean isHalfDuplex = channel.getConfig().getTransmission() == NukleusTransmission.HALF_DUPLEX;
 
-            this.resetHandler = isChildChannel && isHalfDuplex ? this::processReset : this::processResetBeforeHandshake;
+            this.resetHandler = isChildChannel && isHalfDuplex ? this::onReset : this::onResetBeforeHandshake;
             handshakeFuture.addListener(this::onHandshakeCompleted);
         }
 
@@ -617,30 +675,58 @@ final class NukleusTarget implements AutoCloseable
         {
             switch (msgTypeId)
             {
+            case ResetFW.TYPE_ID:
+                final ResetFW reset = resetRO.wrap(buffer, index, index + length);
+                resetHandler.accept(reset);
+                break;
             case WindowFW.TYPE_ID:
                 final WindowFW window = windowRO.wrap(buffer, index, index + length);
                 windowHandler.accept(window);
                 break;
-            case ResetFW.TYPE_ID:
-                final ResetFW reset = resetRO.wrap(buffer, index, index + length);
-                resetHandler.accept(reset);
+            case ChallengeFW.TYPE_ID:
+                final ChallengeFW challenge = challengeRO.wrap(buffer, index, index + length);
+                onChallenge(challenge);
                 break;
             default:
                 throw new IllegalArgumentException("Unexpected message type: " + msgTypeId);
             }
         }
 
-        private void processWindow(
+        private void onChallenge(
+            ChallengeFW challenge)
+        {
+            final OctetsFW challengeExt = challenge.extension();
+
+            int challengeExtBytes = challengeExt.sizeof();
+            if (challengeExtBytes != 0)
+            {
+                final DirectBuffer buffer = challengeExt.buffer();
+                final int offset = challengeExt.offset();
+
+                // TODO: avoid allocation
+                final byte[] challengeExtCopy = new byte[challengeExtBytes];
+                buffer.getBytes(offset, challengeExtCopy);
+
+                channel.readExtBuffer(CHALLENGE).writeBytes(challengeExtCopy);
+            }
+
+            fireMessageReceived(channel, CHALLENGE_BUFFER);
+        }
+
+        private void onWindow(
             WindowFW window)
         {
             final int credit = window.credit();
             final int padding = window.padding();
+            final int capabilities = window.capabilities();
+
             channel.writableWindow(credit, padding);
+            channel.capabilities(capabilities);
 
             flushThrottledWrites(channel);
         }
 
-        private void processReset(
+        private void onReset(
             ResetFW reset)
         {
             final long streamId = reset.streamId();
@@ -662,16 +748,16 @@ final class NukleusTarget implements AutoCloseable
             }
         }
 
-        private void processWindowBeforeWritable(
+        private void onWindowBeforeWritable(
             WindowFW window)
         {
-            this.windowHandler = this::processWindow;
+            this.windowHandler = this::onWindow;
 
             windowFuture.setSuccess();
             windowHandler.accept(window);
         }
 
-        private void processResetBeforeHandshake(
+        private void onResetBeforeHandshake(
             ResetFW reset)
         {
             handshakeFuture.setFailure(new ChannelException("handshake failed"));
@@ -680,7 +766,7 @@ final class NukleusTarget implements AutoCloseable
         private void onHandshakeCompleted(
             ChannelFuture future)
         {
-            this.resetHandler = this::processReset;
+            this.resetHandler = this::onReset;
 
             if (!future.isSuccess())
             {
