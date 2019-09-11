@@ -206,7 +206,7 @@ public class ControlIT
         @Override
         public String name()
         {
-           return "example";
+            return "example";
         }
 
         @Override

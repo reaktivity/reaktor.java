@@ -15,9 +15,9 @@
  */
 package org.reaktivity.reaktor.internal.router;
 
-import org.agrona.collections.Long2LongHashMap;
-
 import java.util.function.IntUnaryOperator;
+
+import org.agrona.collections.Long2LongHashMap;
 
 public class GroupBudgetManager
 {
@@ -34,17 +34,13 @@ public class GroupBudgetManager
     public IntUnaryOperator claim(
         long groupId)
     {
-        return groupId == 0
-            ? NOOP_CLAIM :
-            bytes -> doClaim(groupId, bytes);
+        return groupId == 0 ? NOOP_CLAIM : bytes -> doClaim(groupId, bytes);
     }
 
     public IntUnaryOperator release(
         long groupId)
     {
-        return groupId == 0
-                ? NOOP_RELEASE :
-                bytes -> doRelease(groupId, bytes);
+        return groupId == 0 ? NOOP_RELEASE : bytes -> doRelease(groupId, bytes);
     }
 
     private int doClaim(

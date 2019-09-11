@@ -822,7 +822,7 @@ public class ElektronAgent implements Agent
             final Map<String, AtomicCounter> countersByName = new HashMap<>();
             final Function<String, AtomicCounter> newCounter = counters::counter;
             final Function<String, LongSupplier> supplyCounter =
-                    name -> () -> countersByName.computeIfAbsent(name, newCounter).increment() + 1;
+                name -> () -> countersByName.computeIfAbsent(name, newCounter).increment() + 1;
             final Function<String, LongConsumer> supplyAccumulator = name -> inc -> counters.counter(name).getAndAdd(inc);
             final AtomicCounter acquires = counters.counter(String.format("%s.acquires", nukleusName));
             final AtomicCounter releases = counters.counter(String.format("%s.releases", nukleusName));

@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.reaktivity</groupId>
   <artifactId>reaktor</artifactId>
-  <version>0.95</version>
+  <version>0.96</version>
   <name>Reaktor for Java Nuklei</name>
   <description>Reaktor for Java Nuklei</description>
   <url>https://github.com/reaktivity/reaktor.java</url>
@@ -43,15 +43,15 @@
     <checkstyle.config.location>src/conf/checkstyle/configuration.xml</checkstyle.config.location>
     <checkstyle.suppressions.location>src/conf/checkstyle/suppressions.xml</checkstyle.suppressions.location>
     <jacoco.coverage.ratio>0.71</jacoco.coverage.ratio>
-    <jacoco.missed.count>36</jacoco.missed.count>
+    <jacoco.missed.count>6</jacoco.missed.count>
 
-    <nukleus.plugin.version>0.33</nukleus.plugin.version>
-    <nukleus.spec.version>0.38</nukleus.spec.version>
+    <nukleus.plugin.version>0.40</nukleus.plugin.version>
+    <nukleus.spec.version>0.39</nukleus.spec.version>
     <nukleus.version>0.37</nukleus.version>
     <jmock.version>2.6.0</jmock.version>
-    <mockito.version>2.7.13</mockito.version>
+    <mockito.version>2.23.4</mockito.version>
     <k3po.version>3.0.0-alpha-102</k3po.version>
-    <k3po.nukleus.ext.version>0.46</k3po.nukleus.ext.version>
+    <k3po.nukleus.ext.version>0.48</k3po.nukleus.ext.version>
   </properties>
 
   <dependencies>
@@ -143,7 +143,7 @@
       </plugin>
       <plugin>
         <artifactId>maven-checkstyle-plugin</artifactId>
-        <version>3.0.0</version>
+        <version>3.1.0</version>
         <configuration>
           <sourceDirectories>
             <sourceDirectory>${project.build.sourceDirectory}</sourceDirectory>
@@ -162,7 +162,7 @@
           <dependency>
             <groupId>com.puppycrawl.tools</groupId>
             <artifactId>checkstyle</artifactId>
-            <version>8.18</version>
+            <version>8.23</version>
           </dependency>
         </dependencies>
       </plugin>
