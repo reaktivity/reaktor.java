@@ -34,16 +34,16 @@ import org.reaktivity.nukleus.ControllerSpi;
 import org.reaktivity.nukleus.function.MessageFunction;
 import org.reaktivity.reaktor.ReaktorConfiguration;
 import org.reaktivity.reaktor.internal.layouts.ControlLayout;
-import org.reaktivity.specification.nukleus.internal.types.control.CommandFW;
-import org.reaktivity.specification.nukleus.internal.types.control.ErrorFW;
-import org.reaktivity.specification.nukleus.internal.types.control.FreezeFW;
-import org.reaktivity.specification.nukleus.internal.types.control.ResolveFW;
-import org.reaktivity.specification.nukleus.internal.types.control.ResolvedFW;
-import org.reaktivity.specification.nukleus.internal.types.control.ResponseFW;
-import org.reaktivity.specification.nukleus.internal.types.control.RouteFW;
-import org.reaktivity.specification.nukleus.internal.types.control.RoutedFW;
-import org.reaktivity.specification.nukleus.internal.types.control.UnresolveFW;
-import org.reaktivity.specification.nukleus.internal.types.control.UnrouteFW;
+import org.reaktivity.reaktor.internal.types.control.CommandFW;
+import org.reaktivity.reaktor.internal.types.control.ErrorFW;
+import org.reaktivity.reaktor.internal.types.control.FreezeFW;
+import org.reaktivity.reaktor.internal.types.control.ResolveFW;
+import org.reaktivity.reaktor.internal.types.control.ResolvedFW;
+import org.reaktivity.reaktor.internal.types.control.ResponseFW;
+import org.reaktivity.reaktor.internal.types.control.RouteFW;
+import org.reaktivity.reaktor.internal.types.control.RoutedFW;
+import org.reaktivity.reaktor.internal.types.control.UnresolveFW;
+import org.reaktivity.reaktor.internal.types.control.UnrouteFW;
 
 public final class ControllerBuilderImpl<T extends Controller> implements ControllerBuilder<T>
 {
