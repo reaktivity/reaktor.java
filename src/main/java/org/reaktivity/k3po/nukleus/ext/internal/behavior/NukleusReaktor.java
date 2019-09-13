@@ -21,6 +21,7 @@ import static org.jboss.netty.channel.Channels.fireChannelBound;
 import static org.jboss.netty.channel.Channels.fireChannelUnbound;
 import static org.jboss.netty.channel.Channels.fireExceptionCaught;
 import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NukleusTransmission.SIMPLEX;
+import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NullChannelBuffer.CHALLENGE_BUFFER;
 
 import java.util.Deque;
 import java.util.Map;
@@ -554,7 +555,7 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
             try
             {
                 NukleusChannel channel = (NukleusChannel) writeRequest.getChannel();
-                if (!channel.isWriteClosed())
+                if (!channel.isWriteClosed() || writeRequest.getMessage() == CHALLENGE_BUFFER)
                 {
                     NukleusReaktor reaktor = channel.reaktor;
                     int scopeIndex = channel.getLocalScope();

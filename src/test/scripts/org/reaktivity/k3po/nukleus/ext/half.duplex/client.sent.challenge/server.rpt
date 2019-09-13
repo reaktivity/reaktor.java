@@ -21,4 +21,6 @@ accept "nukleus://streams/server#0"
 
 accepted
 connected
+read closed
+
 read nukleus:challenge
