@@ -15,6 +15,8 @@
  */
 package org.reaktivity.k3po.nukleus.ext.internal.behavior;
 
+import static org.reaktivity.k3po.nukleus.ext.internal.behavior.NullChannelBuffer.CHALLENGE_BUFFER;
+
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelStateEvent;
@@ -72,7 +74,7 @@ public class NukleusClientChannelSink extends AbstractChannelSink
         MessageEvent evt) throws Exception
     {
         NukleusChannel channel = (NukleusChannel) evt.getChannel();
-        if (!channel.isWriteClosed())
+        if (!channel.isWriteClosed() || evt.getMessage() == CHALLENGE_BUFFER)
         {
             channel.reaktor.write(evt);
         }

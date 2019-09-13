@@ -18,4 +18,5 @@ connect "nukleus://streams/server#0"
         option nukleus:transmission "duplex"
         option nukleus:window 8192
 connected
+write close
 write nukleus:challenge
