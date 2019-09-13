@@ -34,6 +34,7 @@ import org.reaktivity.reaktor.ReaktorConfiguration;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
 import org.reaktivity.reaktor.internal.types.stream.AbortFW;
 import org.reaktivity.reaktor.internal.types.stream.BeginFW;
+import org.reaktivity.reaktor.internal.types.stream.ChallengeFW;
 import org.reaktivity.reaktor.internal.types.stream.DataFW;
 import org.reaktivity.reaktor.internal.types.stream.EndFW;
 import org.reaktivity.reaktor.internal.types.stream.FrameFW;
@@ -205,6 +206,9 @@ public final class Target implements AutoCloseable
             case SignalFW.TYPE_ID:
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 break;
+            case ChallengeFW.TYPE_ID:
+                handled = streamsBuffer.test(msgTypeId, buffer, index, length);
+                break;
             default:
                 handled = true;
                 break;
@@ -262,6 +266,9 @@ public final class Target implements AutoCloseable
                 streams[streamIndex(streamId)].remove(instanceId(streamId));
                 break;
             case SignalFW.TYPE_ID:
+                handled = streamsBuffer.test(msgTypeId, buffer, index, length);
+                break;
+            case ChallengeFW.TYPE_ID:
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 break;
             default:
