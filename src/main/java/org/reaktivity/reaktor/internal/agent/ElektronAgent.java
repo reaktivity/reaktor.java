@@ -91,6 +91,7 @@ import org.reaktivity.reaktor.internal.router.Target;
 import org.reaktivity.reaktor.internal.router.WriteCounters;
 import org.reaktivity.reaktor.internal.types.stream.AbortFW;
 import org.reaktivity.reaktor.internal.types.stream.BeginFW;
+import org.reaktivity.reaktor.internal.types.stream.ChallengeFW;
 import org.reaktivity.reaktor.internal.types.stream.DataFW;
 import org.reaktivity.reaktor.internal.types.stream.EndFW;
 import org.reaktivity.reaktor.internal.types.stream.FrameFW;
@@ -552,6 +553,9 @@ public class ElektronAgent implements Agent
                 case SignalFW.TYPE_ID:
                     throttle.accept(msgTypeId, buffer, index, length);
                     break;
+                case ChallengeFW.TYPE_ID:
+                    throttle.accept(msgTypeId, buffer, index, length);
+                    break;
                 default:
                     break;
                 }
@@ -633,6 +637,9 @@ public class ElektronAgent implements Agent
                     dispatcher.remove(instanceId);
                     break;
                 case SignalFW.TYPE_ID:
+                    throttle.accept(msgTypeId, buffer, index, length);
+                    break;
+                case ChallengeFW.TYPE_ID:
                     throttle.accept(msgTypeId, buffer, index, length);
                     break;
                 default:
