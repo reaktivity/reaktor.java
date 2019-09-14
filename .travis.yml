@@ -5,10 +5,12 @@ before_install:
 jdk:
   - openjdk11
 install: mvn -v
-script: mvn -B -nsu verify
+script: mvn -B -nsu verify jacoco:report
 cache:
   directories:
     - $HOME/.m2
 branches:
   except:
   - /^release\/.*$/
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
