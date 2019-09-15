@@ -2,8 +2,19 @@
 
 [![Build Status][build-status-image]][build-status]
 
+#### Build
+```bash
+./mvnw clean install
+```
+#### Build on Windows
+```bash
+mvnw.cmd clean install
+```
+
 [build-status-image]: https://travis-ci.org/reaktivity/k3po-nukleus-ext.java.svg?branch=develop
 [build-status]: https://travis-ci.org/reaktivity/k3po-nukleus-ext.java
+[code-coverage-image]: https://codecov.io/gh/reaktivity/k3po-nukleus-ext.java/branch/develop/graph/badge.svg
+[code-coverage]: https://codecov.io/gh/reaktivity/k3po-nukleus-ext.java
 
 ## Nukleus `streams` Transport
 Flow control with `WINDOW` update frames are managed inside the transport.
