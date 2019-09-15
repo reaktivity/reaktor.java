@@ -1,6 +1,7 @@
 # K3PO Nukleus Extension
 
 [![Build Status][build-status-image]][build-status]
+[![Code Coverage][code-coverage-image]][code-coverage]
 
 #### Build
 ```bash
