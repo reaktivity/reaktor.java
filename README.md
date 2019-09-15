@@ -22,3 +22,12 @@ $ git commit
 $ git push origin develop
 ```
 Verify the Travis CI build success, then further protect the `develop` branch by requiring the `continuous-integration/travis-ci` status check.
+
+Slack Travis CI application configuration gives token string of the form `reaktivity:XXXXXXXXXXXXXXXXXXXXXXXX`.
+```bash
+$ travis encrypt "reaktivity:XXXXXXXXXXXXXXXXXXXXXXXX" --add notifications.slack
+$ git add .travis.yml
+$ git commit -m "Notify build results via Slack"
+$ git push origin develop
+```
+Verify the Travis CI build notification is delivered via Slack.
