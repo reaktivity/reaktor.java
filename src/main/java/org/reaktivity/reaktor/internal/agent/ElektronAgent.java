@@ -381,7 +381,7 @@ public class ElektronAgent implements Agent
             agent.onClose();
         }
 
-        for (int senderIndex=0; senderIndex < streams.length; senderIndex++)
+        for (int senderIndex = 0; senderIndex < streams.length; senderIndex++)
         {
             final int senderIndex0 = senderIndex;
             streams[senderIndex].forEach((id, handler) -> doSyntheticAbort(streamId(localIndex, senderIndex0, id), handler));
@@ -1057,7 +1057,7 @@ public class ElektronAgent implements Agent
     {
         @SuppressWarnings("unchecked")
         Int2ObjectHashMap<MessageConsumer>[] dispatcher = new Int2ObjectHashMap[64];
-        for (int i=0; i < dispatcher.length; i++)
+        for (int i = 0; i < dispatcher.length; i++)
         {
             dispatcher[i] = new Int2ObjectHashMap<>();
         }

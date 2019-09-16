@@ -190,7 +190,7 @@ public class ReaktorBuilder
         {
             final BiFunction<String, BitSet, BitSet> remapper = (k, v) -> v != null ? v : affinityMaskDefault.apply(k);
             final Function<String, BitSet> affinityMask = n -> affinityMasks.compute(n, remapper);
-            for (int index=0; index < count; index++)
+            for (int index = 0; index < count; index++)
             {
                 elektronAgents[index] = nukleusAgent.supplyElektronAgent(index, count, executor, affinityMask);
             }

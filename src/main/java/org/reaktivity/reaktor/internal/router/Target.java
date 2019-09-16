@@ -100,7 +100,7 @@ public final class Target implements AutoCloseable
     @Override
     public void close() throws Exception
     {
-        for (int remoteIndex=0; remoteIndex < throttles.length; remoteIndex++)
+        for (int remoteIndex = 0; remoteIndex < throttles.length; remoteIndex++)
         {
             final int remoteIndex0 = remoteIndex;
             throttles[remoteIndex].forEach((id, handler) -> doSyntheticReset(throttleId(localIndex, remoteIndex0, id), handler));
