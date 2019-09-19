@@ -45,7 +45,7 @@
     <jacoco.coverage.ratio>0.71</jacoco.coverage.ratio>
     <jacoco.missed.count>6</jacoco.missed.count>
 
-    <nukleus.plugin.version>develop-SNAPSHOT</nukleus.plugin.version>
+    <nukleus.plugin.version>0.41</nukleus.plugin.version>
     <nukleus.spec.version>develop-SNAPSHOT</nukleus.spec.version>
     <nukleus.version>0.37</nukleus.version>
     <jmock.version>2.6.0</jmock.version>
