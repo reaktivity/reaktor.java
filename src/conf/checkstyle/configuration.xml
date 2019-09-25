@@ -169,6 +169,10 @@
         <module name="WhitespaceAfter">
             <property name="tokens" value="COMMA, SEMI, LITERAL_IF, LITERAL_WHILE, LITERAL_FOR"/>
         </module>
+
+        <module name="WhitespaceAround">
+            <property name="allowEmptyLambdas" value="true"/>
+        </module>
     </module>
 
     <module name="BeforeExecutionExclusionFileFilter">

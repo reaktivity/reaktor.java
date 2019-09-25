@@ -182,7 +182,7 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
             {
                 shutdownLatch.await();
 
-                for (int i=0; i < scopes.length; i++)
+                for (int i = 0; i < scopes.length; i++)
                 {
                     CloseHelper.quietClose(scopes[i]);
                 }
@@ -218,7 +218,7 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
     {
         int workCount = 0;
 
-        for (int i=0; i < scopes.length; i++)
+        for (int i = 0; i < scopes.length; i++)
         {
             workCount += scopes[i].process();
         }
