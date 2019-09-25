@@ -197,7 +197,7 @@ public class ReaktorTest
         {
             reaktor.close();
         }
-        catch(Throwable t)
+        catch (Throwable t)
         {
             assert t.getSuppressed().length == 0;
             throw t;

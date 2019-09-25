@@ -109,7 +109,7 @@ public class SlabTest
         DefaultBufferPool slab = new DefaultBufferPool(16 * 1024, 1024);
         int slot = 0;
         int i;
-        for (i=0; i < 16; i++)
+        for (i = 0; i < 16; i++)
         {
             int streamId = 111 + i;
             slot = slab.acquire(streamId);
