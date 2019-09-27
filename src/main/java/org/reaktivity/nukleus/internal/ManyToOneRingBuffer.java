@@ -185,7 +185,6 @@ public class ManyToOneRingBuffer implements RingBuffer
         {
             if (bytesRead != 0)
             {
-//                buffer.setMemory(headIndex, bytesRead, (byte)0);
                 buffer.putLongOrdered(headPositionIndex, head + bytesRead);
             }
         }

@@ -62,10 +62,11 @@ public final class NukleusFactory
         return factorySpi;
     }
 
-    private static NukleusFactory instantiate(ServiceLoader<NukleusFactorySpi> factories)
+    private static NukleusFactory instantiate(
+        ServiceLoader<NukleusFactorySpi> factories)
     {
         Map<String, NukleusFactorySpi> factorySpisByName = new HashMap<>();
-        factories.forEach((factorySpi) -> factorySpisByName.put(factorySpi.name(), factorySpi));
+        factories.forEach(factorySpi -> factorySpisByName.put(factorySpi.name(), factorySpi));
 
         return new NukleusFactory(unmodifiableMap(factorySpisByName));
     }

@@ -16,9 +16,7 @@
 package org.reaktivity.nukleus.stream;
 
 import java.util.function.Function;
-import java.util.function.IntUnaryOperator;
 import java.util.function.LongConsumer;
-import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.LongUnaryOperator;
 import java.util.function.Supplier;
@@ -63,25 +61,6 @@ public interface StreamFactoryBuilder
     {
         return this;
     }
-
-    /*
-     * Use the given object to claim group budget for a groupId.
-     * For e.g.:
-     *
-     * int claimed = claimGroupBudget.apply(groupId).applyAsInt(claim);
-     */
-    StreamFactoryBuilder setGroupBudgetClaimer(
-        LongFunction<IntUnaryOperator> claimGroupBudget);
-
-    /*
-     * Use the given object to release group budget for a groupId.
-     *
-     * For e.g.:
-     *
-     * int remaining = releaseGroupBudget.apply(groupId).applyAsInt(claimed);
-     */
-    StreamFactoryBuilder setGroupBudgetReleaser(
-        LongFunction<IntUnaryOperator> releaseGroupBudget);
 
     StreamFactoryBuilder setWriteBuffer(
         MutableDirectBuffer writeBuffer);

@@ -16,7 +16,6 @@
 package org.reaktivity.nukleus;
 
 import java.util.function.IntFunction;
-import java.util.function.IntUnaryOperator;
 import java.util.function.LongConsumer;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
@@ -89,18 +88,6 @@ public interface AgentBuilder
 
     default AgentBuilder setTraceIdSupplier(
         LongSupplier supplyTraceId)
-    {
-        return this;
-    }
-
-    default AgentBuilder setGroupBudgetClaimer(
-        LongFunction<IntUnaryOperator> claimGroupBudget)
-    {
-        return this;
-    }
-
-    default AgentBuilder setGroupBudgetReleaser(
-        LongFunction<IntUnaryOperator> releaseGroupBudget)
     {
         return this;
     }
