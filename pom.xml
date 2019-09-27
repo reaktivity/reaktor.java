@@ -74,31 +74,31 @@
       <groupId>org.jmock</groupId>
       <artifactId>jmock-junit4</artifactId>
       <version>${jmock.version}</version>
-      <!--scope>test</scope-->
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
       <version>${mockito.version}</version>
-      <!--scope>test</scope-->
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.kaazing</groupId>
       <artifactId>k3po.driver</artifactId>
       <version>${k3po.version}</version>
-      <!--scope>test</scope-->
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.kaazing</groupId>
       <artifactId>k3po.lang</artifactId>
       <version>${k3po.version}</version>
-      <!--scope>test</scope-->
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.kaazing</groupId>
       <artifactId>k3po.junit</artifactId>
       <version>${k3po.version}</version>
-      <!--scope>test</scope-->
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.hamcrest</groupId>
@@ -125,11 +125,13 @@
         <configuration>
           <scopeNames>core</scopeNames>
           <packageName>org.reaktivity.reaktor.internal.types</packageName>
+          <testPackageName>org.reaktivity.reaktor.test.internal.k3po.ext.types</testPackageName>
         </configuration>
         <executions>
           <execution>
             <goals>
               <goal>generate</goal>
+              <goal>test-generate</goal>
             </goals>
           </execution>
         </executions>
@@ -220,6 +222,7 @@
         <configuration>
           <excludes>
             <exclude>org/reaktivity/reaktor/internal/types/**/*.class</exclude>
+            <exclude>org/reaktivity/reaktor/test/internal/k3po/ext/types/**/*.class</exclude>
           </excludes>
           <rules>
             <rule>
@@ -274,9 +277,11 @@
             </goals>
             <configuration>
               <includes>
+                <include>META-INF/**/*</include>
                 <include>org/reaktivity/reaktor/test/ReaktorRule*.class</include>
                 <include>org/reaktivity/reaktor/test/NukleusClassLoader*.class</include>
                 <include>org/reaktivity/reaktor/test/annotation/Configure*.class</include>
+                <include>org/reaktivity/reaktor/test/internal/k3po/ext/**/*.class</include>
               </includes>
               <excludes>
                 <exclude>**/*IT.class</exclude>
