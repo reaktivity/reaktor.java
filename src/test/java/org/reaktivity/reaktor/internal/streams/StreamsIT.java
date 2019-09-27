@@ -57,11 +57,11 @@ import org.reaktivity.nukleus.route.RouteKind;
 import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
-import org.reaktivity.reaktor.internal.types.control.RouteFW;
-import org.reaktivity.reaktor.internal.types.stream.BeginFW;
-import org.reaktivity.reaktor.internal.types.stream.ResetFW;
-import org.reaktivity.reaktor.internal.types.stream.WindowFW;
 import org.reaktivity.reaktor.test.ReaktorRule;
+import org.reaktivity.reaktor.test.internal.k3po.ext.types.control.RouteFW;
+import org.reaktivity.reaktor.test.internal.k3po.ext.types.stream.BeginFW;
+import org.reaktivity.reaktor.test.internal.k3po.ext.types.stream.ResetFW;
+import org.reaktivity.reaktor.test.internal.k3po.ext.types.stream.WindowFW;
 
 public class StreamsIT
 {

@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.reaktivity</groupId>
   <artifactId>reaktor</artifactId>
-  <version>0.100</version>
+  <version>0.101</version>
   <name>Reaktor for Java Nuklei</name>
   <description>Reaktor for Java Nuklei</description>
   <url>https://github.com/reaktivity/reaktor.java</url>
@@ -51,7 +51,6 @@
     <jmock.version>2.6.0</jmock.version>
     <mockito.version>2.23.4</mockito.version>
     <k3po.version>3.0.0-alpha-103</k3po.version>
-    <k3po.nukleus.ext.version>0.50</k3po.nukleus.ext.version>
   </properties>
 
   <dependencies>
@@ -85,7 +84,7 @@
     </dependency>
     <dependency>
       <groupId>org.kaazing</groupId>
-      <artifactId>k3po.junit</artifactId>
+      <artifactId>k3po.driver</artifactId>
       <version>${k3po.version}</version>
       <scope>test</scope>
     </dependency>
@@ -95,9 +94,34 @@
       <version>${k3po.version}</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.kaazing</groupId>
+      <artifactId>k3po.junit</artifactId>
+      <version>${k3po.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.hamcrest</groupId>
+      <artifactId>hamcrest-library</artifactId>
+      <version>1.3</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+      </resource>
+    </resources>
+    <testResources>
+      <testResource>
+        <directory>src/test/resources</directory>
+      </testResource>
+      <testResource>
+        <directory>src/test/scripts</directory>
+      </testResource>
+    </testResources>
     <plugins>
       <plugin>
         <groupId>org.reaktivity</groupId>
@@ -106,11 +130,13 @@
         <configuration>
           <scopeNames>core</scopeNames>
           <packageName>org.reaktivity.reaktor.internal.types</packageName>
+          <testPackageName>org.reaktivity.reaktor.test.internal.k3po.ext.types</testPackageName>
         </configuration>
         <executions>
           <execution>
             <goals>
               <goal>generate</goal>
+              <goal>test-generate</goal>
             </goals>
           </execution>
         </executions>
@@ -130,6 +156,9 @@
           <excludes>
             <exclude>src/conf/**</exclude>
           </excludes>
+          <mapping>
+            <rpt>SCRIPT_STYLE</rpt>
+          </mapping>
           <failIfUnknown>true</failIfUnknown>
         </configuration>
         <executions>
@@ -167,6 +196,26 @@
         </dependencies>
       </plugin>
       <plugin>
+        <groupId>org.kaazing</groupId>
+        <artifactId>k3po-maven-plugin</artifactId>
+        <version>${k3po.version}</version>
+        <dependencies>
+          <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>${project.artifactId}</artifactId>
+            <version>${project.version}</version>
+          </dependency>
+        </dependencies>
+        <executions>
+          <execution>
+            <goals>
+              <goal>start</goal>
+              <goal>stop</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.8.0</version>
@@ -178,6 +227,7 @@
         <configuration>
           <excludes>
             <exclude>org/reaktivity/reaktor/internal/types/**/*.class</exclude>
+            <exclude>org/reaktivity/reaktor/test/internal/k3po/ext/types/**/*.class</exclude>
           </excludes>
           <rules>
             <rule>
@@ -232,9 +282,11 @@
             </goals>
             <configuration>
               <includes>
+                <include>META-INF/**/*</include>
                 <include>org/reaktivity/reaktor/test/ReaktorRule*.class</include>
                 <include>org/reaktivity/reaktor/test/NukleusClassLoader*.class</include>
                 <include>org/reaktivity/reaktor/test/annotation/Configure*.class</include>
+                <include>org/reaktivity/reaktor/test/internal/k3po/ext/**/*.class</include>
               </includes>
               <excludes>
                 <exclude>**/*IT.class</exclude>
@@ -243,26 +295,6 @@
             </configuration>
           </execution>
         </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.kaazing</groupId>
-        <artifactId>k3po-maven-plugin</artifactId>
-        <version>${k3po.version}</version>
-        <executions>
-          <execution>
-            <goals>
-              <goal>start</goal>
-              <goal>stop</goal>
-            </goals>
-          </execution>
-        </executions>
-        <dependencies>
-          <dependency>
-            <groupId>org.reaktivity</groupId>
-            <artifactId>k3po-nukleus-ext</artifactId>
-            <version>${k3po.nukleus.ext.version}</version>
-          </dependency>
-        </dependencies>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
