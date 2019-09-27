@@ -28,8 +28,6 @@ import static org.mockito.Mockito.when;
 import static org.reaktivity.reaktor.test.ReaktorRule.EXTERNAL_AFFINITY_MASK;
 
 import java.util.function.Function;
-import java.util.function.IntUnaryOperator;
-import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.LongUnaryOperator;
 import java.util.function.Supplier;
@@ -166,10 +164,6 @@ public class StreamsIT
         private ArgumentCaptor<LongUnaryOperator> supplyInitialIdRef = forClass(LongUnaryOperator.class);
         private ArgumentCaptor<LongUnaryOperator> supplyReplyIdRef = forClass(LongUnaryOperator.class);
         private ArgumentCaptor<LongSupplier> supplyGroupId = forClass(LongSupplier.class);
-        @SuppressWarnings("unchecked")
-        private ArgumentCaptor<LongFunction<IntUnaryOperator>> groupBudgetClaimer = forClass(LongFunction.class);
-        @SuppressWarnings("unchecked")
-        private ArgumentCaptor<LongFunction<IntUnaryOperator>> groupBudgetReleaser = forClass(LongFunction.class);
         private ArgumentCaptor<MutableDirectBuffer> writeBufferRef = forClass(MutableDirectBuffer.class);
 
         private MessageConsumer acceptInitial = mock(MessageConsumer.class);
@@ -200,8 +194,6 @@ public class StreamsIT
             when(serverStreamFactory.setTraceSupplier(any(LongSupplier.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setTypeIdSupplier(any(ToIntFunction.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setGroupIdSupplier(supplyGroupId.capture())).thenReturn(serverStreamFactory);
-            when(serverStreamFactory.setGroupBudgetClaimer(groupBudgetClaimer.capture())).thenReturn(serverStreamFactory);
-            when(serverStreamFactory.setGroupBudgetReleaser(groupBudgetReleaser.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setRouteManager(routerRef.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setExecutor(any(SignalingExecutor.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setWriteBuffer(writeBufferRef.capture())).thenReturn(serverStreamFactory);

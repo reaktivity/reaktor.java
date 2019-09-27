@@ -85,7 +85,6 @@ import org.reaktivity.reaktor.internal.LabelManager;
 import org.reaktivity.reaktor.internal.buffer.DefaultBufferPool;
 import org.reaktivity.reaktor.internal.layouts.MetricsLayout;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
-import org.reaktivity.reaktor.internal.router.GroupBudgetManager;
 import org.reaktivity.reaktor.internal.router.Resolver;
 import org.reaktivity.reaktor.internal.router.Target;
 import org.reaktivity.reaktor.internal.router.WriteCounters;
@@ -131,7 +130,6 @@ public class ElektronAgent implements Agent
     private final TimerHandler expireHandler;
     private final int readLimit;
     private final int expireLimit;
-    private final GroupBudgetManager groupBudgetManager;
     private final LongFunction<? extends ReadCounters> newReadCounters;
     private final IntFunction<MessageConsumer> supplyWriter;
     private final IntFunction<Target> newTarget;
@@ -188,7 +186,6 @@ public class ElektronAgent implements Agent
         this.elektronName = String.format("reaktor/data#%d", index);
         this.metricsLayout = metricsLayout;
         this.streamsLayout = streamsLayout;
-        this.groupBudgetManager = new GroupBudgetManager();
 
         final CountersManager countersManager =
                 new CountersManager(metricsLayout.labelsBuffer(), metricsLayout.valuesBuffer());
@@ -253,8 +250,6 @@ public class ElektronAgent implements Agent
                     .setReplyIdSupplier(this::supplyReplyId)
                     .setTraceIdSupplier(this::supplyTrace)
                     .setGroupIdSupplier(this::supplyGroupId)
-                    .setGroupBudgetClaimer(groupBudgetManager::claim)
-                    .setGroupBudgetReleaser(groupBudgetManager::release)
                     .setBufferPool(bufferPool)
                     .build();
             this.agents = ArrayUtil.add(agents, agent);
@@ -934,8 +929,6 @@ public class ElektronAgent implements Agent
                 .setReplyIdSupplier(this::supplyReplyId)
                 .setTraceSupplier(this::supplyTrace)
                 .setGroupIdSupplier(this::supplyGroupId)
-                .setGroupBudgetClaimer(groupBudgetManager::claim)
-                .setGroupBudgetReleaser(groupBudgetManager::release)
                 .setCounterSupplier(supplyCounter)
                 .setAccumulatorSupplier(supplyAccumulator)
                 .setBufferPoolSupplier(supplyCountingBufferPool)
