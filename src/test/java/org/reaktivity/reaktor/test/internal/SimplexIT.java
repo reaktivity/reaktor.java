@@ -13,7 +13,7 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.reaktor.test.internal.k3po.ext;
+package org.reaktivity.reaktor.test.internal;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.hamcrest.Matchers.anyOf;
@@ -36,7 +36,7 @@ import org.kaazing.k3po.junit.rules.K3poRule;
 public class SimplexIT
 {
     private final K3poRule k3po = new K3poRule()
-            .setScriptRoot("org/reaktivity/k3po/nukleus/ext/simplex");
+            .setScriptRoot("org/reaktivity/reaktor/test/k3po/ext/simplex");
 
     private final TestRule timeout = new DisableOnDebug(new Timeout(5, SECONDS));
 

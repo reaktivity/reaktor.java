@@ -113,10 +113,15 @@
       <resource>
         <directory>src/main/resources</directory>
       </resource>
-      <resource>
-        <directory>src/test/scripts</directory>
-      </resource>
     </resources>
+    <testResources>
+      <testResource>
+        <directory>src/test/resources</directory>
+      </testResource>
+      <testResource>
+        <directory>src/test/scripts</directory>
+      </testResource>
+    </testResources>
     <plugins>
       <plugin>
         <groupId>org.reaktivity</groupId>

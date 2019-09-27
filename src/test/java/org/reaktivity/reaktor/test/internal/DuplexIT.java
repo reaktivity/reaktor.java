@@ -13,7 +13,7 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.reaktor.test.internal.k3po.ext;
+package org.reaktivity.reaktor.test.internal;
 
 import static java.util.Arrays.asList;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -37,10 +37,10 @@ import org.junit.runners.model.TestTimedOutException;
 import org.kaazing.k3po.junit.annotation.Specification;
 import org.kaazing.k3po.junit.rules.K3poRule;
 
-public class HalfDuplexIT
+public class DuplexIT
 {
     private final K3poRule k3po = new K3poRule()
-            .setScriptRoot("org/reaktivity/k3po/nukleus/ext/half.duplex");
+            .setScriptRoot("org/reaktivity/reaktor/test/k3po/ext/duplex");
 
     private final TestRule timeout = new DisableOnDebug(new Timeout(5, SECONDS));
 
@@ -134,6 +134,36 @@ public class HalfDuplexIT
         "client.sent.challenge/server"
     })
     public void shouldReceiveClientSentChallenge() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "byteorder.default/client",
+        "byteorder.default/server"
+    })
+    public void shouldReadAndWriteIntegersInNativeByteOrderByDefault() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "byteorder.native/client",
+        "byteorder.native/server"
+    })
+    public void shouldReadAndWriteIntegersInNativeByteOrder() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "byteorder.network/client",
+        "byteorder.network/server"
+    })
+    public void shouldReadAndWriteIntegersInNetworkByteOrder() throws Exception
     {
         k3po.finish();
     }
@@ -306,10 +336,10 @@ public class HalfDuplexIT
 
     @Test
     @Specification({
-        "client.sent.write.abort.server.replied.write.abort/client",
-        "client.sent.write.abort.server.replied.write.abort/server"
+        "client.sent.read.and.write.abort/client",
+        "client.sent.read.and.write.abort/server"
     })
-    public void shouldReceiveClientSentWriteAbortAndReplyWriteAbort() throws Exception
+    public void shouldReceiveClientSentReadAndWriteAbort() throws Exception
     {
         k3po.finish();
     }
@@ -330,16 +360,6 @@ public class HalfDuplexIT
         "client.sent.read.abort/server"
     })
     public void shouldReceiveClientSentReadAbort() throws Exception
-    {
-        k3po.finish();
-    }
-
-    @Test
-    @Specification({
-        "client.sent.read.abort.before.reply/client",
-        "client.sent.read.abort.before.reply/server"
-    })
-    public void shouldReceiveClientSentReadAbortBeforeReply() throws Exception
     {
         k3po.finish();
     }
@@ -446,20 +466,20 @@ public class HalfDuplexIT
 
     @Test
     @Specification({
-        "client.sent.overflow/client",
-        "client.sent.overflow/server"
+            "server.sent.overflow.padding/client",
+            "server.sent.overflow.padding/server"
     })
-    public void shouldOverflowServerSentData() throws Exception
+    public void shouldOverflowClientSentDataPadding() throws Exception
     {
         k3po.finish();
     }
 
     @Test
     @Specification({
-        "client.flush.empty.data.with.ext/client",
-        "client.flush.empty.data.with.ext/server"
+        "client.sent.overflow/client",
+        "client.sent.overflow/server"
     })
-    public void shouldReceiveClientFlushedEmptyDataWithExtension() throws Exception
+    public void shouldOverflowServerSentData() throws Exception
     {
         k3po.finish();
     }
@@ -476,20 +496,53 @@ public class HalfDuplexIT
 
     @Test
     @Specification({
-        "server.flush.empty.data.with.ext/client",
-        "server.flush.empty.data.with.ext/server"
+        "server.flush.null.data.with.ext/client",
+        "server.flush.null.data.with.ext/server"
     })
-    public void shouldReceiveServerFlushedEmptyDataWithExtension() throws Exception
+    public void shouldReceiveServerFlushedNullDataWithExtension() throws Exception
     {
         k3po.finish();
     }
 
     @Test
     @Specification({
-        "server.flush.null.data.with.ext/client",
-        "server.flush.null.data.with.ext/server"
+        "client.receive.null.data.with.ext.and.expression/client",
+        "client.receive.null.data.with.ext.and.expression/server"
     })
-    public void shouldReceiveServerFlushedNullDataWithExtension() throws Exception
+    public void shouldReceiveServerFlushedNullDataWithExtensionUsingExpression() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Ignore("Test times out but still passes")
+    @Test
+    @Specification({
+        "server.flush.null.data.with.ext/client",
+        "server.flush.empty.data.with.ext/server"
+    })
+    public void shouldReportFailureFromReadNullDataWhenNullDataIsNotWritten() throws Exception
+    {
+        thrown.expect(anyOf(isA(ComparisonFailure.class),
+                hasProperty("failures", hasItem(isA(ComparisonFailure.class)))));
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "client.flush.null.data.with.ext/client",
+        "client.flush.null.data.with.ext/server"
+    })
+    public void shouldReceiveClientFlushedEmptyDataWithExtension() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "server.flush.empty.data.with.ext/client",
+        "server.flush.empty.data.with.ext/server"
+    })
+    public void shouldReceiveServerFlushedEmptyDataWithExtension() throws Exception
     {
         k3po.finish();
     }
