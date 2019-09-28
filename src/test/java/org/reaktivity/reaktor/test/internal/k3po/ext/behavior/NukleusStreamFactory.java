@@ -189,7 +189,7 @@ public final class NukleusStreamFactory
                     {
                         int padding = config.getPadding();
                         long group = config.getGroup();
-                        sender.doWindow(channel, readableBytes + data.padding(), padding, group);
+                        sender.doWindow(channel, data.reserved(), padding, group);
                     }
 
                     if ((flags & 0x01) != 0x00)
