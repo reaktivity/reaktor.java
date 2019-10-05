@@ -154,6 +154,8 @@ public class ElektronAgent implements Agent
 
     private volatile Agent[] agents;
 
+    private long lastReadStreamId;
+
     public ElektronAgent(
         int index,
         int count,
@@ -348,7 +350,7 @@ public class ElektronAgent implements Agent
         catch (Throwable ex)
         {
             ex.addSuppressed(new Exception(String.format("[%s]\t[0x%016x] %s",
-                                                         elektronName, streamId, streamsLayout)));
+                                                         elektronName, lastReadStreamId, streamsLayout)));
             throw new AgentTerminationException(ex);
         }
 
@@ -466,6 +468,8 @@ public class ElektronAgent implements Agent
         final FrameFW frame = frameRO.wrap(buffer, index, index + length);
         final long streamId = frame.streamId();
         final long routeId = frame.routeId();
+
+        this.lastReadStreamId = streamId;
 
         if (isInitial(streamId))
         {
