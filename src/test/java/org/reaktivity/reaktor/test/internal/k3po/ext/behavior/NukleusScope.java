@@ -46,7 +46,7 @@ public final class NukleusScope implements AutoCloseable
     private final Long2ObjectHashMap<NukleusCorrelation> correlations;
     private final ToIntFunction<String> lookupTargetIndex;
     private final LongSupplier supplyTimestamp;
-    private final LongSupplier supplyTrace;
+    private final LongSupplier supplyTraceId;
     private final NukleusSource source;
 
     private NukleusTarget[] targets = new NukleusTarget[0];
@@ -57,7 +57,7 @@ public final class NukleusScope implements AutoCloseable
         int scopeIndex,
         ToIntFunction<String> lookupTargetIndex,
         LongSupplier supplyTimestamp,
-        LongSupplier supplyTrace)
+        LongSupplier supplyTraceId)
     {
         this.config = config;
         this.labels = labels;
@@ -70,7 +70,7 @@ public final class NukleusScope implements AutoCloseable
         this.targetsByIndex = new Int2ObjectHashMap<>();
         this.lookupTargetIndex = lookupTargetIndex;
         this.supplyTimestamp = supplyTimestamp;
-        this.supplyTrace = supplyTrace;
+        this.supplyTraceId = supplyTraceId;
         this.source = new NukleusSource(config, labels, streamsPath, scopeIndex,
                 correlations::remove, this::supplySender,
                 streamsById, throttlesById);
@@ -219,7 +219,7 @@ public final class NukleusScope implements AutoCloseable
 
         final NukleusTarget target = new NukleusTarget(targetPath, layout, writeBuffer, throttlesById::put,
                 throttlesById::remove, correlations::put,
-                supplyTimestamp, supplyTrace);
+                supplyTimestamp, supplyTraceId);
 
         this.targets = ArrayUtil.add(this.targets, target);
 

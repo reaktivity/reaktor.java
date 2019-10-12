@@ -17,8 +17,8 @@ package org.reaktivity.reaktor.test.internal.k3po.ext.behavior;
 
 import static java.util.Arrays.asList;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.types.NukleusTypeSystem.OPTION_AUTHORIZATION;
+import static org.reaktivity.reaktor.test.internal.k3po.ext.types.NukleusTypeSystem.OPTION_BUDGET_ID;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.types.NukleusTypeSystem.OPTION_BYTE_ORDER;
-import static org.reaktivity.reaktor.test.internal.k3po.ext.types.NukleusTypeSystem.OPTION_GROUP;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.types.NukleusTypeSystem.OPTION_PADDING;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.types.NukleusTypeSystem.OPTION_REPLY_TO;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.types.NukleusTypeSystem.OPTION_THROTTLE;
@@ -71,7 +71,7 @@ public class NukleusChannelAddressFactory extends ChannelAddressFactorySpi
             }
         }
 
-        Collection<TypeInfo<?>> allOptionTypes = asList(OPTION_REPLY_TO, OPTION_WINDOW, OPTION_GROUP,
+        Collection<TypeInfo<?>> allOptionTypes = asList(OPTION_REPLY_TO, OPTION_WINDOW, OPTION_BUDGET_ID,
                 OPTION_PADDING, OPTION_UPDATE, OPTION_AUTHORIZATION, OPTION_THROTTLE,
                 OPTION_TRANSMISSION, OPTION_BYTE_ORDER);
         for (TypeInfo<?> optionType : allOptionTypes)

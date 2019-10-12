@@ -48,6 +48,7 @@ import org.reaktivity.nukleus.Configuration;
 import org.reaktivity.nukleus.Elektron;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.NukleusFactorySpi;
+import org.reaktivity.nukleus.concurrent.Signaler;
 import org.reaktivity.nukleus.concurrent.SignalingExecutor;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessagePredicate;
@@ -152,11 +153,12 @@ public class MultipleStreamsIT
         {
             when(serverStreamFactory.setInitialIdSupplier(supplyInitialIdRef.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setReplyIdSupplier(supplyReplyIdRef.capture())).thenReturn(serverStreamFactory);
-            when(serverStreamFactory.setTraceSupplier(any(LongSupplier.class))).thenReturn(serverStreamFactory);
+            when(serverStreamFactory.setTraceIdSupplier(any(LongSupplier.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setTypeIdSupplier(any(ToIntFunction.class))).thenReturn(serverStreamFactory);
-            when(serverStreamFactory.setGroupIdSupplier(supplyGroupId.capture())).thenReturn(serverStreamFactory);
+            when(serverStreamFactory.setBudgetIdSupplier(supplyGroupId.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setRouteManager(routerRef.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setExecutor(any(SignalingExecutor.class))).thenReturn(serverStreamFactory);
+            when(serverStreamFactory.setSignaler(any(Signaler.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setWriteBuffer(writeBufferRef.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setCounterSupplier(any(Function.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setAccumulatorSupplier(any(Function.class))).thenReturn(serverStreamFactory);
@@ -252,11 +254,11 @@ public class MultipleStreamsIT
                 final int length = invocation.getArgument(3);
 
                 final WindowFW window = windowRO.wrap(buffer, index, index + length);
+                final long budgetId = window.budgetId();
                 final int credit = window.credit();
                 final int padding = window.padding();
-                final long groupId = window.groupId();
 
-                doWindow(acceptReply1, acceptRouteId1, acceptInitialId1, credit, padding, groupId);
+                doWindow(acceptReply1, acceptRouteId1, acceptInitialId1, budgetId, credit, padding);
                 return null;
             }
             ).when(connectReply1).accept(eq(WindowFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
@@ -284,11 +286,11 @@ public class MultipleStreamsIT
                 final int length = invocation.getArgument(3);
 
                 final WindowFW window = windowRO.wrap(buffer, index, index + length);
+                final long budgetId = window.budgetId();
                 final int credit = window.credit();
                 final int padding = window.padding();
-                final long groupId = window.groupId();
 
-                doWindow(connectInitial1, connectRouteId1, connectReplyId1, credit, padding, groupId);
+                doWindow(connectInitial1, connectRouteId1, connectReplyId1, budgetId, credit, padding);
                 return null;
             }
             ).when(acceptInitial1).accept(eq(WindowFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
@@ -346,11 +348,11 @@ public class MultipleStreamsIT
                 final int length = invocation.getArgument(3);
 
                 final WindowFW window = windowRO.wrap(buffer, index, index + length);
+                final long budgetId = window.budgetId();
                 final int credit = window.credit();
                 final int padding = window.padding();
-                final long groupId = window.groupId();
 
-                doWindow(acceptReply2, acceptRouteId2, acceptInitialId2, credit, padding, groupId);
+                doWindow(acceptReply2, acceptRouteId2, acceptInitialId2, budgetId, credit, padding);
                 return null;
             }
             ).when(connectReply2).accept(eq(WindowFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
@@ -377,11 +379,11 @@ public class MultipleStreamsIT
                 final int length = invocation.getArgument(3);
 
                 final WindowFW window = windowRO.wrap(buffer, index, index + length);
+                final long budgetId = window.budgetId();
                 final int credit = window.credit();
                 final int padding = window.padding();
-                final long groupId = window.groupId();
 
-                doWindow(connectInitial2, connectRouteId2, connectReplyId2, credit, padding, groupId);
+                doWindow(connectInitial2, connectRouteId2, connectReplyId2, budgetId, credit, padding);
                 return null;
             }
             ).when(acceptInitial2).accept(eq(WindowFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
@@ -468,6 +470,7 @@ public class MultipleStreamsIT
                     .routeId(routeId)
                     .streamId(streamId)
                     .authorization(authorization)
+                    .affinity(0L)
                     .build();
             receiver.accept(begin.typeId(), begin.buffer(), begin.offset(), begin.sizeof());
         }
@@ -489,17 +492,17 @@ public class MultipleStreamsIT
             MessageConsumer receiver,
             long routeId,
             long streamId,
+            long budgetId,
             int credit,
-            int padding,
-            long groupId)
+            int padding)
         {
             final MutableDirectBuffer writeBuffer = writeBufferRef.getValue();
             final WindowFW window = windowRW.wrap(writeBuffer,  0, writeBuffer.capacity())
                     .routeId(routeId)
                     .streamId(streamId)
+                    .budgetId(budgetId)
                     .credit(credit)
                     .padding(padding)
-                    .groupId(groupId)
                     .build();
             receiver.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
         }

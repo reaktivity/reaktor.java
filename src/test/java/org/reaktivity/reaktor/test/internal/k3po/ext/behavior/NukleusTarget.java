@@ -92,7 +92,7 @@ final class NukleusTarget implements AutoCloseable
     private final MutableDirectBuffer writeBuffer;
     private final LongObjectBiConsumer<NukleusCorrelation> correlateNew;
     private final LongSupplier supplyTimestamp;
-    private final LongSupplier supplyTrace;
+    private final LongSupplier supplyTraceId;
 
     NukleusTarget(
         Path streamsPath,
@@ -102,7 +102,7 @@ final class NukleusTarget implements AutoCloseable
         LongConsumer unregisterThrottle,
         LongObjectBiConsumer<NukleusCorrelation> correlateNew,
         LongSupplier supplyTimestamp,
-        LongSupplier supplyTrace)
+        LongSupplier supplyTraceId)
     {
         this.streamsPath = streamsPath;
         this.layout = layout;
@@ -113,7 +113,7 @@ final class NukleusTarget implements AutoCloseable
         this.unregisterThrottle = unregisterThrottle;
         this.correlateNew = correlateNew;
         this.supplyTimestamp = supplyTimestamp;
-        this.supplyTrace = supplyTrace;
+        this.supplyTraceId = supplyTraceId;
     }
 
     @Override
@@ -183,7 +183,7 @@ final class NukleusTarget implements AutoCloseable
                    .routeId(routeId)
                    .streamId(initialId)
                    .timestamp(supplyTimestamp.getAsLong())
-                   .trace(supplyTrace.getAsLong())
+                   .traceId(supplyTraceId.getAsLong())
                    .authorization(authorization)
                    .affinity(affinity)
                    .extension(p -> p.set(beginExtCopy))
@@ -238,7 +238,7 @@ final class NukleusTarget implements AutoCloseable
                 .routeId(routeId)
                 .streamId(initialId)
                 .timestamp(supplyTimestamp.getAsLong())
-                .trace(supplyTrace.getAsLong())
+                .traceId(supplyTraceId.getAsLong())
                 .build();
 
         streamsBuffer.write(abort.typeId(), abort.buffer(), abort.offset(), abort.sizeof());
@@ -262,12 +262,14 @@ final class NukleusTarget implements AutoCloseable
 
         final long routeId = channel.routeId();
         final long replyId = channel.targetId();
+        final long affinity = channel.getConfig().getAffinity();
 
         final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(replyId)
                 .timestamp(supplyTimestamp.getAsLong())
-                .trace(supplyTrace.getAsLong())
+                .traceId(supplyTraceId.getAsLong())
+                .affinity(affinity)
                 .extension(p -> p.set(beginExtCopy))
                 .build();
 
@@ -326,7 +328,7 @@ final class NukleusTarget implements AutoCloseable
                 .routeId(routeId)
                 .streamId(streamId)
                 .timestamp(supplyTimestamp.getAsLong())
-                .trace(supplyTrace.getAsLong())
+                .traceId(supplyTraceId.getAsLong())
                 .authorization(authorization)
                 .build();
 
@@ -362,7 +364,7 @@ final class NukleusTarget implements AutoCloseable
                 .routeId(routeId)
                 .streamId(streamId)
                 .timestamp(supplyTimestamp.getAsLong())
-                .trace(supplyTrace.getAsLong())
+                .traceId(supplyTraceId.getAsLong())
                 .authorization(authorization)
                 .extension(p -> p.set(endExtCopy))
                 .build();
@@ -399,7 +401,7 @@ final class NukleusTarget implements AutoCloseable
                 .routeId(routeId)
                 .streamId(streamId)
                 .timestamp(supplyTimestamp.getAsLong())
-                .trace(supplyTrace.getAsLong())
+                .traceId(supplyTraceId.getAsLong())
                 .authorization(channel.targetAuth())
                 .extension(p -> p.set(endExtCopy))
                 .build();
@@ -481,7 +483,7 @@ final class NukleusTarget implements AutoCloseable
                     .routeId(routeId)
                     .streamId(streamId)
                     .timestamp(supplyTimestamp.getAsLong())
-                    .trace(supplyTrace.getAsLong())
+                    .traceId(supplyTraceId.getAsLong())
                     .extension(p -> p.set(challengeExtCopy))
                     .build();
 
@@ -547,10 +549,10 @@ final class NukleusTarget implements AutoCloseable
                     .routeId(routeId)
                     .streamId(streamId)
                     .timestamp(supplyTimestamp.getAsLong())
-                    .trace(supplyTrace.getAsLong())
+                    .traceId(supplyTraceId.getAsLong())
                     .authorization(authorization)
                     .flags(flags)
-                    .groupId(0)
+                    .budgetId(0)
                     .reserved(writableBytes + channel.writablePadding)
                     .payload(writeCopy)
                     .extension(p -> p.set(writeExtCopy))
@@ -594,9 +596,9 @@ final class NukleusTarget implements AutoCloseable
 
     void doWindow(
         final NukleusChannel channel,
+        final long budgetId,
         final int credit,
-        final int padding,
-        final long groupId)
+        final int padding)
     {
         final long routeId = channel.routeId();
         final long streamId = channel.sourceId();
@@ -608,10 +610,10 @@ final class NukleusTarget implements AutoCloseable
                 .routeId(routeId)
                 .streamId(streamId)
                 .timestamp(supplyTimestamp.getAsLong())
-                .trace(supplyTrace.getAsLong())
+                .traceId(supplyTraceId.getAsLong())
+                .budgetId(budgetId)
                 .credit(credit)
                 .padding(padding)
-                .groupId(groupId)
                 .capabilities(capabilities)
                 .build();
 
@@ -635,7 +637,7 @@ final class NukleusTarget implements AutoCloseable
                 .routeId(routeId)
                 .streamId(streamId)
                 .timestamp(supplyTimestamp.getAsLong())
-                .trace(supplyTrace.getAsLong())
+                .traceId(supplyTraceId.getAsLong())
                 .build();
 
         streamsBuffer.write(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
@@ -777,7 +779,7 @@ final class NukleusTarget implements AutoCloseable
                         .routeId(routeId)
                         .streamId(streamId)
                         .timestamp(supplyTimestamp.getAsLong())
-                        .trace(supplyTrace.getAsLong())
+                        .traceId(supplyTraceId.getAsLong())
                         .build();
 
                 resetHandler.accept(reset);

@@ -121,7 +121,7 @@ public final class NukleusStreamFactory
 
             final NukleusChannelConfig channelConfig = channel.getConfig();
             final int initialWindow = channelConfig.getWindow();
-            final long group = channelConfig.getGroup();
+            final long budgetId = channelConfig.getBudgetId();
             final int padding = channelConfig.getPadding();
 
             int beginExtBytes = beginExt.sizeof();
@@ -142,7 +142,7 @@ public final class NukleusStreamFactory
             final NukleusChannelConfig config = channel.getConfig();
             if (config.getUpdate() == NukleusUpdateMode.HANDSHAKE || config.getUpdate() == NukleusUpdateMode.STREAM)
             {
-                sender.doWindow(channel, initialWindow, padding, group);
+                sender.doWindow(channel, budgetId, initialWindow, padding);
             }
 
             channel.beginInputFuture().setSuccess();
@@ -187,9 +187,9 @@ public final class NukleusStreamFactory
                     final NukleusChannelConfig config = channel.getConfig();
                     if (config.getUpdate() == NukleusUpdateMode.MESSAGE || config.getUpdate() == NukleusUpdateMode.STREAM)
                     {
+                        long budgetId = config.getBudgetId();
                         int padding = config.getPadding();
-                        long group = config.getGroup();
-                        sender.doWindow(channel, data.reserved(), padding, group);
+                        sender.doWindow(channel, budgetId, data.reserved(), padding);
                     }
 
                     if ((flags & 0x01) != 0x00)
