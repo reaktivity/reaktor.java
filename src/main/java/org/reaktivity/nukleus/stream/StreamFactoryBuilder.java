@@ -24,16 +24,26 @@ import java.util.function.ToIntFunction;
 
 import org.agrona.MutableDirectBuffer;
 import org.reaktivity.nukleus.buffer.BufferPool;
+import org.reaktivity.nukleus.concurrent.Signaler;
 import org.reaktivity.nukleus.concurrent.SignalingExecutor;
 import org.reaktivity.nukleus.route.RouteManager;
 
 public interface StreamFactoryBuilder
 {
-    StreamFactoryBuilder setRouteManager(
-        RouteManager router);
+    default StreamFactoryBuilder setRouteManager(
+        RouteManager router)
+    {
+        return this;
+    }
 
     default StreamFactoryBuilder setExecutor(
         SignalingExecutor executor)
+    {
+        return this;
+    }
+
+    default StreamFactoryBuilder setSignaler(
+        Signaler signaler)
     {
         return this;
     }
@@ -44,29 +54,41 @@ public interface StreamFactoryBuilder
         return this;
     }
 
-    StreamFactoryBuilder setInitialIdSupplier(
-        LongUnaryOperator supplyInitialId);
-
-    StreamFactoryBuilder setReplyIdSupplier(
-        LongUnaryOperator supplyReplyId);
-
-    default StreamFactoryBuilder setGroupIdSupplier(
-        LongSupplier supplyGroupId)
+    default StreamFactoryBuilder setInitialIdSupplier(
+        LongUnaryOperator supplyInitialId)
     {
         return this;
     }
 
-    default StreamFactoryBuilder setTraceSupplier(
+    default StreamFactoryBuilder setReplyIdSupplier(
+        LongUnaryOperator supplyReplyId)
+    {
+        return this;
+    }
+
+    default StreamFactoryBuilder setBudgetIdSupplier(
+        LongSupplier supplyBudgetId)
+    {
+        return this;
+    }
+
+    default StreamFactoryBuilder setTraceIdSupplier(
         LongSupplier supplyTraceId)
     {
         return this;
     }
 
-    StreamFactoryBuilder setWriteBuffer(
-        MutableDirectBuffer writeBuffer);
+    default StreamFactoryBuilder setWriteBuffer(
+        MutableDirectBuffer writeBuffer)
+    {
+        return this;
+    }
 
-    StreamFactoryBuilder setBufferPoolSupplier(
-        Supplier<BufferPool> supplyBufferPool);
+    default StreamFactoryBuilder setBufferPoolSupplier(
+        Supplier<BufferPool> supplyBufferPool)
+    {
+        return this;
+    }
 
     default StreamFactoryBuilder setCounterSupplier(
         Function<String, LongSupplier> supplyCounter)
@@ -81,5 +103,4 @@ public interface StreamFactoryBuilder
     }
 
     StreamFactory build();
-
 }
