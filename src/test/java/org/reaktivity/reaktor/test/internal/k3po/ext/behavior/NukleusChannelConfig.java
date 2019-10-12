@@ -27,9 +27,9 @@ public interface NukleusChannelConfig extends ChannelConfig
 
     int getWindow();
 
-    void setGroup(long group);
+    void setBudgetId(long budgetId);
 
-    long getGroup();
+    long getBudgetId();
 
     void setPadding(int padding);
 

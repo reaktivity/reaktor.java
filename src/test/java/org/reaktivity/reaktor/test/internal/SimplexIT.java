@@ -116,10 +116,10 @@ public class SimplexIT
 
     @Test
     @Specification({
-        "handshake.group/client",
-        "handshake.group/server"
+        "handshake.budget.id/client",
+        "handshake.budget.id/server"
     })
-    public void shouldHandshakeWithGroup() throws Exception
+    public void shouldHandshakeWithBudgetId() throws Exception
     {
         k3po.finish();
     }

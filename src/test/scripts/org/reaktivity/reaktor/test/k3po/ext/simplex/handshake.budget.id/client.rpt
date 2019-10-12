@@ -14,10 +14,7 @@
 # under the License.
 #
 
-accept "nukleus://streams/server#0"
-       option nukleus:transmission "half-duplex"
-       option nukleus:window 8192
-       option nukleus:group 1024
-
-accepted
+connect "nukleus://streams/server#0"
+        option nukleus:window 8192
+        option nukleus:budgetId 1024
 connected

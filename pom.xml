@@ -42,12 +42,12 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <checkstyle.config.location>src/conf/checkstyle/configuration.xml</checkstyle.config.location>
     <checkstyle.suppressions.location>src/conf/checkstyle/suppressions.xml</checkstyle.suppressions.location>
-    <jacoco.coverage.ratio>0.71</jacoco.coverage.ratio>
-    <jacoco.missed.count>6</jacoco.missed.count>
+    <jacoco.coverage.ratio>0.70</jacoco.coverage.ratio>
+    <jacoco.missed.count>7</jacoco.missed.count>
 
     <nukleus.plugin.version>0.42</nukleus.plugin.version>
-    <nukleus.spec.version>0.41</nukleus.spec.version>
-    <nukleus.version>0.38</nukleus.version>
+    <nukleus.spec.version>0.42</nukleus.spec.version>
+    <nukleus.version>0.39</nukleus.version>
     <jmock.version>2.6.0</jmock.version>
     <mockito.version>2.23.4</mockito.version>
     <k3po.version>3.0.0-alpha-103</k3po.version>

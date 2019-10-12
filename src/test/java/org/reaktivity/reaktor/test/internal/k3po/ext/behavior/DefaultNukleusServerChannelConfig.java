@@ -18,8 +18,14 @@ package org.reaktivity.reaktor.test.internal.k3po.ext.behavior;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusChannel.NATIVE_BUFFER_FACTORY;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusThrottleMode.NONE;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusTransmission.SIMPLEX;
+import static org.reaktivity.reaktor.test.internal.k3po.ext.types.NukleusTypeSystem.OPTION_BUDGET_ID;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.types.NukleusTypeSystem.OPTION_BYTE_ORDER;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.types.NukleusTypeSystem.OPTION_CAPABILITIES;
+import static org.reaktivity.reaktor.test.internal.k3po.ext.types.NukleusTypeSystem.OPTION_PADDING;
+import static org.reaktivity.reaktor.test.internal.k3po.ext.types.NukleusTypeSystem.OPTION_THROTTLE;
+import static org.reaktivity.reaktor.test.internal.k3po.ext.types.NukleusTypeSystem.OPTION_TRANSMISSION;
+import static org.reaktivity.reaktor.test.internal.k3po.ext.types.NukleusTypeSystem.OPTION_UPDATE;
+import static org.reaktivity.reaktor.test.internal.k3po.ext.types.NukleusTypeSystem.OPTION_WINDOW;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.util.Conversions.convertToByte;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.util.Conversions.convertToInt;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.util.Conversions.convertToLong;
@@ -32,7 +38,7 @@ public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfi
 {
     private NukleusTransmission transmission = SIMPLEX;
     private int window;
-    private long group;
+    private long budgetId;
     private int padding;
     private NukleusThrottleMode throttle = NukleusThrottleMode.STREAM;
     private NukleusUpdateMode update = NukleusUpdateMode.STREAM;
@@ -71,20 +77,21 @@ public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfi
     }
 
     @Override
-    public void setGroup(
-        long group)
+    public void setBudgetId(
+        long budgetId)
     {
-        this.group = group;
+        this.budgetId = budgetId;
     }
 
     @Override
-    public long getGroup()
+    public long getBudgetId()
     {
-        return group;
+        return budgetId;
     }
 
     @Override
-    public void setPadding(int padding)
+    public void setPadding(
+        int padding)
     {
         this.padding = padding;
     }
@@ -96,7 +103,8 @@ public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfi
     }
 
     @Override
-    public void setUpdate(NukleusUpdateMode update)
+    public void setUpdate(
+        NukleusUpdateMode update)
     {
         this.update = update;
     }
@@ -162,27 +170,27 @@ public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfi
             return true;
         }
 
-        if ("transmission".equals(key))
+        if (OPTION_TRANSMISSION.getName().equals(key))
         {
             setTransmission(NukleusTransmission.decode(Objects.toString(value, "simplex")));
         }
-        else if ("window".equals(key))
+        else if (OPTION_WINDOW.getName().equals(key))
         {
             setWindow(convertToInt(value));
         }
-        else if ("group".equals(key))
+        else if (OPTION_BUDGET_ID.getName().equals(key))
         {
-            setGroup(convertToLong(value));
+            setBudgetId(convertToLong(value));
         }
-        else if ("padding".equals(key))
+        else if (OPTION_PADDING.getName().equals(key))
         {
             setPadding(convertToInt(value));
         }
-        else if ("update".equals(key))
+        else if (OPTION_UPDATE.getName().equals(key))
         {
             setUpdate(NukleusUpdateMode.decode(Objects.toString(value, null)));
         }
-        else if ("throttle".equals(key))
+        else if (OPTION_THROTTLE.getName().equals(key))
         {
             setThrottle(NukleusThrottleMode.decode(Objects.toString(value, "stream")));
         }
