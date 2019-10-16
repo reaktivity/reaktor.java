@@ -23,6 +23,7 @@ import java.io.File;
 import java.nio.MappedByteBuffer;
 import java.nio.file.Path;
 
+import org.agrona.CloseHelper;
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.agrona.concurrent.ringbuffer.RingBuffer;
@@ -98,7 +99,7 @@ public final class StreamsLayout extends Layout
 
             if (!readonly)
             {
-                createEmptyFile(layoutFile, streamsCapacity + RingBufferDescriptor.TRAILER_LENGTH);
+                CloseHelper.close(createEmptyFile(layoutFile, streamsCapacity + RingBufferDescriptor.TRAILER_LENGTH));
             }
 
             final MappedByteBuffer mappedStreams = mapExistingFile(layoutFile, "streams");

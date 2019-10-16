@@ -23,6 +23,7 @@ import java.io.File;
 import java.nio.MappedByteBuffer;
 import java.nio.file.Path;
 
+import org.agrona.CloseHelper;
 import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.reaktor.internal.buffer.DefaultBufferPool;
 
@@ -89,8 +90,13 @@ public final class BufferPoolLayout extends Layout
 
             if (!readonly)
             {
-                final int trailerLength = slotCount * Long.BYTES;
-                createEmptyFile(layoutFile, slotCapacity * slotCount + trailerLength);
+                final int slotCountIndex = (slotCapacity + Long.BYTES) * slotCount;
+                final int totalLength = slotCountIndex + Integer.BYTES;
+                CloseHelper.close(createEmptyFile(layoutFile, totalLength));
+
+                MappedByteBuffer metadata = mapExistingFile(layoutFile, "slotCount", totalLength - Integer.BYTES, Integer.BYTES);
+                metadata.putInt(0, slotCount);
+                unmap(metadata);
             }
 
             final MappedByteBuffer mapped = mapExistingFile(layoutFile, "bufferPool");
