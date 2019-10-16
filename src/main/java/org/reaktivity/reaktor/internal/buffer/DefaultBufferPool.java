@@ -39,6 +39,7 @@ public class DefaultBufferPool implements BufferPool
     private final MutableDirectBuffer slotBuffer = new UnsafeBuffer(new byte[0]);
 
     private final int slotCapacity;
+    private final int slotCount;
     private final MutableDirectBuffer poolBuffer;
     private final ByteBuffer slotByteBuffer;
 
@@ -48,12 +49,13 @@ public class DefaultBufferPool implements BufferPool
     private final MutableInteger availableSlots;
     private final int usedIndex;
 
+
     public DefaultBufferPool(
-        int totalCapacity,
+        int poolCapacity,
         int slotCapacity)
     {
-        this(slotCapacity, totalCapacity / slotCapacity,
-                ByteBuffer.allocate((slotCapacity + Long.BYTES) * totalCapacity / slotCapacity));
+        this(slotCapacity, poolCapacity / slotCapacity,
+                ByteBuffer.allocate((slotCapacity + Long.BYTES) * poolCapacity / slotCapacity + Integer.BYTES));
     }
 
     public DefaultBufferPool(
@@ -70,13 +72,14 @@ public class DefaultBufferPool implements BufferPool
             throw new IllegalArgumentException("slotCount is not a power of 2");
         }
         final int capacity = slotCapacity * slotCount;
-        final int trailerLength = Long.BYTES * slotCount;
+        final int trailerLength = Long.BYTES * slotCount + Integer.BYTES;
         final int totalCapacity = capacity + trailerLength;
         if (poolByteBuffer.capacity() != totalCapacity)
         {
             throw new IllegalArgumentException(String.format("poolBuffer capacity not equal to %x", totalCapacity));
         }
         this.slotCapacity = slotCapacity;
+        this.slotCount = slotCount;
         this.bitsPerSlot = numberOfTrailingZeros(slotCapacity);
         this.hashMask = slotCount - 1;
         this.poolBuffer = new UnsafeBuffer(poolByteBuffer);
@@ -90,6 +93,11 @@ public class DefaultBufferPool implements BufferPool
     public int acquiredSlots()
     {
         return used.cardinality();
+    }
+
+    public int slotCount()
+    {
+        return slotCount;
     }
 
     @Override
@@ -183,6 +191,7 @@ public class DefaultBufferPool implements BufferPool
         this.hashMask = that.hashMask;
         this.poolBuffer = that.poolBuffer;
         this.slotCapacity = that.slotCapacity;
+        this.slotCount = that.slotCount;
         this.used = that.used;
         this.usedIndex = that.usedIndex;
         this.slotByteBuffer = that.slotByteBuffer.duplicate();
