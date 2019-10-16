@@ -15,19 +15,22 @@
  */
 package org.reaktivity.reaktor.internal.buffer;
 
+import static java.lang.Integer.numberOfTrailingZeros;
 import static org.agrona.BitUtil.isPowerOfTwo;
 
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 
+import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Hashing;
+import org.agrona.collections.MutableInteger;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.reaktivity.nukleus.buffer.BufferPool;
 
 /**
  * A chunk of shared memory for temporary storage of data. This is logically segmented into a set of
- * slots of equal size. Methods are provided for acquiring a slot, getting a slabBuffer that can be used
+ * slots of equal size. Methods are provided for acquiring a slot, getting a poolBuffer that can be used
  * to store data in it, and releasing the slot once it is no longer needed.
  * <b>Each instance of this class is assumed to be used by one and only one thread.</b>
  */
@@ -36,35 +39,52 @@ public class DefaultBufferPool implements BufferPool
     private final MutableDirectBuffer slotBuffer = new UnsafeBuffer(new byte[0]);
 
     private final int slotCapacity;
-    private final int bitsPerSlot;
-    private final int mask;
-    private final MutableDirectBuffer slabBuffer;
+    private final MutableDirectBuffer poolBuffer;
     private final ByteBuffer slotByteBuffer;
-    private final BitSet used;
-    private final int[] availableSlots;
 
-    public DefaultBufferPool(int totalCapacity, int slotCapacity)
+    private final int bitsPerSlot;
+    private final int hashMask;
+    private final BitSet used;
+    private final MutableInteger availableSlots;
+    private final int usedIndex;
+
+    public DefaultBufferPool(
+        int totalCapacity,
+        int slotCapacity)
     {
-        if (!isZeroOrPowerOfTwo(totalCapacity))
-        {
-            throw new IllegalArgumentException("totalCapacity is not a power of 2");
-        }
+        this(slotCapacity, totalCapacity / slotCapacity,
+                ByteBuffer.allocate((slotCapacity + Long.BYTES) * totalCapacity / slotCapacity));
+    }
+
+    public DefaultBufferPool(
+        int slotCapacity,
+        int slotCount,
+        ByteBuffer poolByteBuffer)
+    {
         if (!isZeroOrPowerOfTwo(slotCapacity))
         {
             throw new IllegalArgumentException("slotCapacity is not a power of 2");
         }
-        if (slotCapacity > totalCapacity)
+        if (!isZeroOrPowerOfTwo(slotCount))
         {
-            throw new IllegalArgumentException("slotCapacity exceeds totalCapacity");
+            throw new IllegalArgumentException("slotCount is not a power of 2");
+        }
+        final int capacity = slotCapacity * slotCount;
+        final int trailerLength = Long.BYTES * slotCount;
+        final int totalCapacity = capacity + trailerLength;
+        if (poolByteBuffer.capacity() != totalCapacity)
+        {
+            throw new IllegalArgumentException(String.format("poolBuffer capacity not equal to %x", totalCapacity));
         }
         this.slotCapacity = slotCapacity;
-        this.bitsPerSlot = Integer.numberOfTrailingZeros(slotCapacity);
-        int totalSlots = slotCapacity != 0 ? totalCapacity / slotCapacity : 0;
-        this.mask = totalSlots - 1;
-        this.slabBuffer = new UnsafeBuffer(ByteBuffer.allocate(totalCapacity));
-        this.slotByteBuffer = slabBuffer.byteBuffer().duplicate();
-        this.used = new BitSet(totalSlots);
-        this.availableSlots = new int[] { totalSlots };
+        this.bitsPerSlot = numberOfTrailingZeros(slotCapacity);
+        this.hashMask = slotCount - 1;
+        this.poolBuffer = new UnsafeBuffer(poolByteBuffer);
+        this.slotByteBuffer = poolByteBuffer.duplicate();
+
+        this.used = new BitSet(slotCount);
+        this.availableSlots = new MutableInteger(slotCount);
+        this.usedIndex = capacity;
     }
 
     public int acquiredSlots()
@@ -79,33 +99,37 @@ public class DefaultBufferPool implements BufferPool
     }
 
     @Override
-    public int acquire(long streamId)
+    public int acquire(
+        long streamId)
     {
-        if (availableSlots[0] == 0)
+        if (availableSlots.value == 0)
         {
             return NO_SLOT;
         }
-        int slot = Hashing.hash(streamId, mask);
+        int slot = Hashing.hash(streamId, hashMask);
         while (used.get(slot))
         {
-            slot = ++slot & mask;
+            slot = ++slot & hashMask;
         }
         used.set(slot);
-        availableSlots[0]--;
+        availableSlots.value--;
+        poolBuffer.putLong(usedIndex + (slot << 3), streamId);
 
         return slot;
     }
 
     @Override
-    public MutableDirectBuffer buffer(int slot)
+    public MutableDirectBuffer buffer(
+        int slot)
     {
         assert used.get(slot);
-        slotBuffer.wrap(slabBuffer, slot << bitsPerSlot, slotCapacity);
+        slotBuffer.wrap(poolBuffer, slot << bitsPerSlot, slotCapacity);
         return slotBuffer;
     }
 
     @Override
-    public ByteBuffer byteBuffer(int slot)
+    public ByteBuffer byteBuffer(
+        int slot)
     {
         assert used.get(slot);
         final int slotOffset = slot << bitsPerSlot;
@@ -116,10 +140,12 @@ public class DefaultBufferPool implements BufferPool
     }
 
     @Override
-    public MutableDirectBuffer buffer(int slot, int offset)
+    public MutableDirectBuffer buffer(
+        int slot,
+        int offset)
     {
         assert used.get(slot);
-        final long slotAddressOffset = slabBuffer.addressOffset() + (slot << bitsPerSlot);
+        final long slotAddressOffset = poolBuffer.addressOffset() + (slot << bitsPerSlot);
         slotBuffer.wrap(slotAddressOffset + offset, slotCapacity);
         return slotBuffer;
     }
@@ -129,11 +155,13 @@ public class DefaultBufferPool implements BufferPool
      * @param slot - Id of a previously acquired slot
      */
     @Override
-    public void release(int slot)
+    public void release(
+        int slot)
     {
         assert used.get(slot);
         used.clear(slot);
-        availableSlots[0]++;
+        availableSlots.value++;
+        poolBuffer.putLong(usedIndex + (slot << 3), 0L);
     }
 
     @Override
@@ -142,15 +170,21 @@ public class DefaultBufferPool implements BufferPool
         return new DefaultBufferPool(this);
     }
 
+    public DirectBuffer poolBuffer()
+    {
+        return poolBuffer;
+    }
+
     private DefaultBufferPool(
         DefaultBufferPool that)
     {
         this.availableSlots = that.availableSlots;
         this.bitsPerSlot = that.bitsPerSlot;
-        this.mask = that.mask;
-        this.slabBuffer = that.slabBuffer;
+        this.hashMask = that.hashMask;
+        this.poolBuffer = that.poolBuffer;
         this.slotCapacity = that.slotCapacity;
         this.used = that.used;
+        this.usedIndex = that.usedIndex;
         this.slotByteBuffer = that.slotByteBuffer.duplicate();
     }
 
