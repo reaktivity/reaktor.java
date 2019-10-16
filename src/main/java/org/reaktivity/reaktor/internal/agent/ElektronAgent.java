@@ -84,7 +84,7 @@ import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 import org.reaktivity.reaktor.ReaktorConfiguration;
 import org.reaktivity.reaktor.internal.Counters;
 import org.reaktivity.reaktor.internal.LabelManager;
-import org.reaktivity.reaktor.internal.buffer.DefaultBufferPool;
+import org.reaktivity.reaktor.internal.layouts.BufferPoolLayout;
 import org.reaktivity.reaktor.internal.layouts.MetricsLayout;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
 import org.reaktivity.reaktor.internal.router.Resolver;
@@ -119,6 +119,7 @@ public class ElektronAgent implements Agent
     private final boolean timestamps;
     private final MetricsLayout metricsLayout;
     private final StreamsLayout streamsLayout;
+    private final BufferPoolLayout bufferPoolLayout;
     private final RingBuffer streamsBuffer;
     private final MutableDirectBuffer writeBuffer;
     private final Int2ObjectHashMap<MessageConsumer>[] streams;
@@ -190,9 +191,17 @@ public class ElektronAgent implements Agent
                 .readonly(false)
                 .build();
 
+        final BufferPoolLayout bufferPoolLayout = new BufferPoolLayout.Builder()
+                .path(config.directory().resolve(String.format("buffers%d", index)))
+                .slotCapacity(config.bufferSlotCapacity())
+                .slotCount(config.bufferPoolCapacity() / config.bufferSlotCapacity())
+                .readonly(false)
+                .build();
+
         this.elektronName = String.format("reaktor/data#%d", index);
         this.metricsLayout = metricsLayout;
         this.streamsLayout = streamsLayout;
+        this.bufferPoolLayout = bufferPoolLayout;
 
         final CountersManager countersManager =
                 new CountersManager(metricsLayout.labelsBuffer(), metricsLayout.valuesBuffer());
@@ -228,9 +237,7 @@ public class ElektronAgent implements Agent
 
         this.resolver = new ResolverRef(this::newResolver);
 
-        final int bufferPoolCapacity = config.bufferPoolCapacity();
-        final int bufferSlotCapacity = config.bufferSlotCapacity();
-        final BufferPool bufferPool = new DefaultBufferPool(bufferPoolCapacity, bufferSlotCapacity);
+        final BufferPool bufferPool = bufferPoolLayout.bufferPool();
 
         final int reserved = Byte.SIZE;
         final int bits = Long.SIZE - reserved;
@@ -394,10 +401,13 @@ public class ElektronAgent implements Agent
         targetsByIndex.forEach((k, v) -> v.detach());
         targetsByIndex.forEach((k, v) -> quietClose(v));
 
+        final int acquiredSlots = bufferPool.acquiredSlots();
+
         quietClose(streamsLayout);
         quietClose(metricsLayout);
+        quietClose(bufferPoolLayout);
 
-        if (bufferPool.acquiredSlots() != 0)
+        if (acquiredSlots != 0)
         {
             throw new IllegalStateException("Buffer pool has unreleased slots: " + bufferPool.acquiredSlots());
         }
