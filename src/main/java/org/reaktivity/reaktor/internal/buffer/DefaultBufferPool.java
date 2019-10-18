@@ -25,6 +25,7 @@ import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Hashing;
 import org.agrona.collections.MutableInteger;
+import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.reaktivity.nukleus.buffer.BufferPool;
 
@@ -40,7 +41,7 @@ public class DefaultBufferPool implements BufferPool
 
     private final int slotCapacity;
     private final int slotCount;
-    private final MutableDirectBuffer poolBuffer;
+    private final AtomicBuffer poolBuffer;
     private final ByteBuffer slotByteBuffer;
 
     private final int bitsPerSlot;
@@ -121,7 +122,7 @@ public class DefaultBufferPool implements BufferPool
         }
         used.set(slot);
         availableSlots.value--;
-        poolBuffer.putLong(usedIndex + (slot << 3), streamId);
+        poolBuffer.putLongOrdered(usedIndex + (slot << 3), streamId);
 
         return slot;
     }
@@ -169,7 +170,7 @@ public class DefaultBufferPool implements BufferPool
         assert used.get(slot);
         used.clear(slot);
         availableSlots.value++;
-        poolBuffer.putLong(usedIndex + (slot << 3), 0L);
+        poolBuffer.putLongOrdered(usedIndex + (slot << 3), 0L);
     }
 
     @Override
