@@ -25,6 +25,7 @@ import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_DIRECTORY;
 import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_DRAIN_ON_CLOSE;
 import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_RESPONSE_BUFFER_CAPACITY;
 import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_STREAMS_BUFFER_CAPACITY;
+import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_SYNTHETIC_ABORT;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -73,6 +74,7 @@ public final class ReaktorRule implements TestRule
         this.properties = new Properties();
 
         configure(REAKTOR_DRAIN_ON_CLOSE, true);
+        configure(REAKTOR_SYNTHETIC_ABORT, true);
     }
 
     public ReaktorRule directory(String directory)
