@@ -392,16 +392,21 @@ public class ElektronAgent implements Agent
             agent.onClose();
         }
 
-        for (int senderIndex = 0; senderIndex < streams.length; senderIndex++)
+        int acquiredSlots = 0;
+
+        if (config.syntheticAbort())
         {
-            final int senderIndex0 = senderIndex;
-            streams[senderIndex].forEach((id, handler) -> doSyntheticAbort(streamId(localIndex, senderIndex0, id), handler));
+            for (int senderIndex = 0; senderIndex < streams.length; senderIndex++)
+            {
+                final int senderIndex0 = senderIndex;
+                streams[senderIndex].forEach((id, handler) -> doSyntheticAbort(streamId(localIndex, senderIndex0, id), handler));
+            }
+
+            acquiredSlots = bufferPool.acquiredSlots();
         }
 
         targetsByIndex.forEach((k, v) -> v.detach());
         targetsByIndex.forEach((k, v) -> quietClose(v));
-
-        final int acquiredSlots = bufferPool.acquiredSlots();
 
         quietClose(streamsLayout);
         quietClose(metricsLayout);
@@ -409,7 +414,7 @@ public class ElektronAgent implements Agent
 
         if (acquiredSlots != 0)
         {
-            throw new IllegalStateException("Buffer pool has unreleased slots: " + bufferPool.acquiredSlots());
+            throw new IllegalStateException("Buffer pool has unreleased slots after cleanup: " + acquiredSlots);
         }
     }
 
