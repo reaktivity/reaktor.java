@@ -23,6 +23,7 @@ import java.util.LinkedList;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBufferFactory;
 import org.jboss.netty.buffer.ChannelBuffers;
+import org.jboss.netty.channel.ChannelException;
 import org.jboss.netty.channel.ChannelFactory;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelPipeline;
@@ -31,6 +32,8 @@ import org.jboss.netty.channel.Channels;
 import org.jboss.netty.channel.MessageEvent;
 import org.kaazing.k3po.driver.internal.netty.bootstrap.channel.AbstractChannel;
 import org.kaazing.k3po.driver.internal.netty.channel.ChannelAddress;
+import org.reaktivity.nukleus.budget.BudgetCreditor;
+import org.reaktivity.reaktor.internal.budget.DefaultBudgetDebitor;
 import org.reaktivity.reaktor.test.internal.k3po.ext.types.control.Capability;
 
 public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfig>
@@ -68,6 +71,14 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
     private ChannelFuture beginInputFuture;
 
     private int capabilities;
+
+    private DefaultBudgetDebitor debitor;
+    private long debitorIndex = -1L;
+
+    private BudgetCreditor creditor;
+    private long creditorIndex = -1L;
+
+    private long creditorId;
 
     NukleusChannel(
         NukleusServerChannel parent,
@@ -270,6 +281,59 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
         return beginInputFuture;
     }
 
+    public void setCreditor(
+        BudgetCreditor creditor,
+        long creditorId)
+    {
+        assert this.creditor == null;
+        this.creditor = creditor;
+        this.creditorId = creditorId;
+        this.creditorIndex = creditor.acquire(creditorId);
+        if (this.creditorIndex == -1L)
+        {
+            getCloseFuture().setFailure(new ChannelException("Unable to acquire creditor"));
+        }
+        else
+        {
+            assert this.creditorIndex != -1L;
+            getCloseFuture().addListener(this::cleanupCreditor);
+        }
+    }
+
+    public void setDebitor(
+        DefaultBudgetDebitor debitor,
+        long debitorId)
+    {
+        assert this.debitor == null;
+        this.debitor = debitor;
+        this.debitorIndex = debitor.acquire(debitorId, targetId, this::flush);
+        if (this.debitorIndex == -1L)
+        {
+            getCloseFuture().setFailure(new ChannelException("Unable to acquire debitor"));
+        }
+        else
+        {
+            assert this.debitorIndex != -1L;
+            getCloseFuture().addListener(this::cleanupDebitor);
+        }
+    }
+
+    public boolean hasDebitor()
+    {
+        return debitor != null;
+    }
+
+    public long creditorId()
+    {
+        return creditorId;
+    }
+
+    private void flush(
+        long budgetId)
+    {
+        System.out.println("TODO: flush!!");
+    }
+
     public int writableBytes()
     {
         return Math.max(writableBudget - writablePadding, 0);
@@ -277,13 +341,34 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
 
     public boolean writable()
     {
+        int writableBudget = this.writableBudget;
+
+        if (debitor != null && debitorIndex != -1L)
+        {
+            writableBudget = Math.min(writableBudget, (int) debitor.available(debitorIndex));
+        }
+
         return writableBudget > writablePadding || !getConfig().hasThrottle();
     }
 
     public int writableBytes(
         int writableBytes)
     {
-        return getConfig().hasThrottle() ? Math.min(writableBytes(), writableBytes) : writableBytes;
+        final boolean hasThrottle = getConfig().hasThrottle();
+        if (!hasThrottle)
+        {
+            return writableBytes;
+        }
+
+        writableBytes = Math.min(writableBytes(), writableBytes);
+
+        if (writableBytes > 0 && debitor != null && debitorIndex != -1L)
+        {
+            final int requiredBytes = writableBytes + writablePadding;
+            writableBytes = Math.max(debitor.claim(debitorIndex, targetId, requiredBytes, requiredBytes) - writablePadding, 0);
+        }
+
+        return writableBytes;
     }
 
     public void writtenBytes(
@@ -291,12 +376,13 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
     {
         this.writtenBytes += writtenBytes;
         writableBudget -= writtenBytes + writablePadding;
-        assert writablePadding >= 0 && writableBudget >= 0;
+        assert writablePadding >= 0 && (writableBudget >= 0 || !getConfig().hasThrottle());
     }
 
     public void writableWindow(
         int credit,
-        int padding)
+        int padding,
+        long traceId)
     {
         writableBudget += credit;
         writablePadding = padding;
@@ -306,6 +392,11 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
         if (writtenBytes > 0)
         {
             acknowledgedBytes += credit;
+        }
+
+        if (creditor != null && creditorIndex != -1L)
+        {
+            creditor.credit(traceId, creditorIndex, credit);
         }
 
         if (getConfig().getThrottle() == MESSAGE && targetWriteRequestInProgress)
@@ -405,6 +496,22 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
     public boolean isTargetWriteRequestInProgress()
     {
         return targetWriteRequestInProgress;
+    }
+
+    private void cleanupCreditor(
+        ChannelFuture future) throws Exception
+    {
+        assert creditorIndex != -1L;
+        creditor.release(creditorIndex);
+        creditorIndex = -1L;
+    }
+
+    private void cleanupDebitor(
+        ChannelFuture future) throws Exception
+    {
+        assert debitorIndex != -1L;
+        debitor.release(debitorIndex, targetId);
+        debitorIndex = -1L;
     }
 
     private void completeWriteRequestIfFullyWritten()

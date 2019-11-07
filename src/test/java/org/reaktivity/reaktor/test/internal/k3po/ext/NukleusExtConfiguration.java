@@ -27,6 +27,7 @@ import org.reaktivity.nukleus.Configuration;
 public final class NukleusExtConfiguration extends Configuration
 {
     public static final PropertyDef<String> NUKLEUS_EXT_DIRECTORY;
+    public static final IntPropertyDef NUKLEUS_EXT_BUDGETS_BUFFER_CAPACITY;
     public static final IntPropertyDef NUKLEUS_EXT_STREAMS_BUFFER_CAPACITY;
     public static final IntPropertyDef NUKLEUS_EXT_COMMAND_BUFFER_CAPACITY;
     public static final IntPropertyDef NUKLEUS_EXT_RESPONSE_BUFFER_CAPACITY;
@@ -43,6 +44,7 @@ public final class NukleusExtConfiguration extends Configuration
     {
         final ConfigurationDef config = new ConfigurationDef("k3po.nukleus.ext");
         NUKLEUS_EXT_DIRECTORY = config.property("directory", "target/nukleus-itests");
+        NUKLEUS_EXT_BUDGETS_BUFFER_CAPACITY = config.property("budgets.buffer.capacity", 1024 * 1024);
         NUKLEUS_EXT_STREAMS_BUFFER_CAPACITY = config.property("streams.buffer.capacity", 1024 * 1024);
         NUKLEUS_EXT_COMMAND_BUFFER_CAPACITY = config.property("command.buffer.capacity", 1024 * 1024);
         NUKLEUS_EXT_RESPONSE_BUFFER_CAPACITY = config.property("response.buffer.capacity", 1024 * 1024);
@@ -89,6 +91,11 @@ public final class NukleusExtConfiguration extends Configuration
     public int maximumMessagesPerRead()
     {
         return NUKLEUS_EXT_MAXIMUM_MESSAGES_PER_READ.getAsInt(this);
+    }
+
+    public int budgetsBufferCapacity()
+    {
+        return NUKLEUS_EXT_BUDGETS_BUFFER_CAPACITY.getAsInt(this);
     }
 
     public int streamsBufferCapacity()

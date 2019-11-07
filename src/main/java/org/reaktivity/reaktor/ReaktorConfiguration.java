@@ -26,7 +26,10 @@ import org.reaktivity.nukleus.Configuration;
 
 public class ReaktorConfiguration extends Configuration
 {
+    public static final boolean DEBUG_BUDGETS = Boolean.getBoolean("reaktor.debug.budgets");
+
     public static final PropertyDef<String> REAKTOR_DIRECTORY;
+    public static final IntPropertyDef REAKTOR_BUDGETS_BUFFER_CAPACITY;
     public static final IntPropertyDef REAKTOR_STREAMS_BUFFER_CAPACITY;
     public static final IntPropertyDef REAKTOR_COMMAND_BUFFER_CAPACITY;
     public static final IntPropertyDef REAKTOR_RESPONSE_BUFFER_CAPACITY;
@@ -51,6 +54,7 @@ public class ReaktorConfiguration extends Configuration
     {
         final ConfigurationDef config = new ConfigurationDef("reaktor");
         REAKTOR_DIRECTORY = config.property("directory", ".");
+        REAKTOR_BUDGETS_BUFFER_CAPACITY = config.property("budgets.buffer.capacity", 1024 * 1024);
         REAKTOR_STREAMS_BUFFER_CAPACITY = config.property("streams.buffer.capacity", 1024 * 1024);
         REAKTOR_COMMAND_BUFFER_CAPACITY = config.property("command.buffer.capacity", 1024 * 1024);
         REAKTOR_RESPONSE_BUFFER_CAPACITY = config.property("response.buffer.capacity", 1024 * 1024);
@@ -130,6 +134,11 @@ public class ReaktorConfiguration extends Configuration
     public int taskParallelism()
     {
         return REAKTOR_TASK_PARALLELISM.getAsInt(this);
+    }
+
+    public int budgetsBufferCapacity()
+    {
+        return REAKTOR_BUDGETS_BUFFER_CAPACITY.getAsInt(this);
     }
 
     public int streamsBufferCapacity()

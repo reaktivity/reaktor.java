@@ -28,6 +28,7 @@ import static org.mockito.Mockito.when;
 import static org.reaktivity.reaktor.test.ReaktorRule.EXTERNAL_AFFINITY_MASK;
 
 import java.util.function.Function;
+import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.LongUnaryOperator;
 import java.util.function.Supplier;
@@ -48,6 +49,7 @@ import org.reaktivity.nukleus.Configuration;
 import org.reaktivity.nukleus.Elektron;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.NukleusFactorySpi;
+import org.reaktivity.nukleus.budget.BudgetCreditor;
 import org.reaktivity.nukleus.concurrent.Signaler;
 import org.reaktivity.nukleus.concurrent.SignalingExecutor;
 import org.reaktivity.nukleus.function.MessageConsumer;
@@ -195,6 +197,8 @@ public class StreamsIT
             when(serverStreamFactory.setTraceIdSupplier(any(LongSupplier.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setTypeIdSupplier(any(ToIntFunction.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setBudgetIdSupplier(supplyGroupId.capture())).thenReturn(serverStreamFactory);
+            when(serverStreamFactory.setBudgetCreditor(any(BudgetCreditor.class))).thenReturn(serverStreamFactory);
+            when(serverStreamFactory.setBudgetDebitorSupplier(any(LongFunction.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setRouteManager(routerRef.capture())).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setExecutor(any(SignalingExecutor.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setSignaler(any(Signaler.class))).thenReturn(serverStreamFactory);

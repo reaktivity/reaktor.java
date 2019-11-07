@@ -18,6 +18,7 @@ package org.reaktivity.reaktor.test.internal.k3po.ext.behavior;
 import static org.jboss.netty.channel.Channels.fireChannelBound;
 import static org.jboss.netty.channel.Channels.fireChannelConnected;
 import static org.jboss.netty.channel.Channels.future;
+import static org.reaktivity.reaktor.internal.router.BudgetId.budgetMask;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusExtensionKind.BEGIN;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusTransmission.SIMPLEX;
 
@@ -34,6 +35,7 @@ import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.kaazing.k3po.driver.internal.behavior.handler.RejectedHandler;
+import org.reaktivity.nukleus.budget.BudgetCreditor;
 import org.reaktivity.reaktor.test.internal.k3po.ext.behavior.layout.StreamsLayout;
 import org.reaktivity.reaktor.test.internal.k3po.ext.types.OctetsFW;
 import org.reaktivity.reaktor.test.internal.k3po.ext.types.stream.BeginFW;
@@ -104,6 +106,11 @@ final class NukleusPartition implements AutoCloseable
     public String toString()
     {
         return String.format("%s [%s]", getClass().getSimpleName(), streamsPath);
+    }
+
+    int scopeIndex()
+    {
+        return scopeIndex;
     }
 
     private void handleStream(
@@ -316,6 +323,15 @@ final class NukleusPartition implements AutoCloseable
             childChannel.routeId(routeId);
             childChannel.setLocalAddress(serverAddress);
             childChannel.setRemoteAddress(remoteAddress);
+
+            final long budgetId = childConfig.getBudgetId();
+            if (budgetId != 0L)
+            {
+                final long creditorId = budgetId | budgetMask(scopeIndex);
+
+                BudgetCreditor creditor = serverChannel.reaktor.supplyCreditor(childChannel);
+                childChannel.setCreditor(creditor, creditorId);
+            }
 
             return childChannel;
         }

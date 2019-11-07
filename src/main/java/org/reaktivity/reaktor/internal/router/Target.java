@@ -37,6 +37,7 @@ import org.reaktivity.reaktor.internal.types.stream.BeginFW;
 import org.reaktivity.reaktor.internal.types.stream.ChallengeFW;
 import org.reaktivity.reaktor.internal.types.stream.DataFW;
 import org.reaktivity.reaktor.internal.types.stream.EndFW;
+import org.reaktivity.reaktor.internal.types.stream.FlushFW;
 import org.reaktivity.reaktor.internal.types.stream.FrameFW;
 import org.reaktivity.reaktor.internal.types.stream.ResetFW;
 import org.reaktivity.reaktor.internal.types.stream.SignalFW;
@@ -137,7 +138,11 @@ public final class Target implements AutoCloseable
         final long streamId = frame.streamId();
         final long routeId = frame.routeId();
 
-        if (isInitial(streamId))
+        if (streamId == 0L)
+        {
+            handled = handleWriteSystem(streamId, routeId, msgTypeId, buffer, index, length);
+        }
+        else if (isInitial(streamId))
         {
             handled = handleWriteInitial(streamId, routeId, msgTypeId, buffer, index, length);
         }
@@ -150,6 +155,26 @@ public final class Target implements AutoCloseable
         {
             throw new IllegalStateException("Unable to write to streams buffer");
         }
+    }
+
+    private boolean handleWriteSystem(
+        long streamId,
+        long routeId,
+        int msgTypeId,
+        DirectBuffer buffer,
+        int index,
+        int length)
+    {
+        boolean handled = false;
+
+        switch (msgTypeId)
+        {
+        case FlushFW.TYPE_ID:
+            handled = streamsBuffer.test(msgTypeId, buffer, index, length);
+            break;
+        }
+
+        return handled;
     }
 
     private boolean handleWriteInitial(

@@ -22,6 +22,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.agrona.CloseHelper.quietClose;
 import static org.reaktivity.nukleus.concurrent.Signaler.NO_CANCEL_ID;
+import static org.reaktivity.reaktor.internal.router.BudgetId.ownerIndex;
 import static org.reaktivity.reaktor.internal.router.RouteId.localId;
 import static org.reaktivity.reaktor.internal.router.RouteId.remoteId;
 import static org.reaktivity.reaktor.internal.router.StreamId.instanceId;
@@ -70,6 +71,7 @@ import org.agrona.hints.ThreadHints;
 import org.reaktivity.nukleus.AgentBuilder;
 import org.reaktivity.nukleus.Elektron;
 import org.reaktivity.nukleus.Nukleus;
+import org.reaktivity.nukleus.budget.BudgetDebitor;
 import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.buffer.CountingBufferPool;
 import org.reaktivity.nukleus.concurrent.Signaler;
@@ -84,6 +86,9 @@ import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 import org.reaktivity.reaktor.ReaktorConfiguration;
 import org.reaktivity.reaktor.internal.Counters;
 import org.reaktivity.reaktor.internal.LabelManager;
+import org.reaktivity.reaktor.internal.budget.DefaultBudgetCreditor;
+import org.reaktivity.reaktor.internal.budget.DefaultBudgetDebitor;
+import org.reaktivity.reaktor.internal.layouts.BudgetsLayout;
 import org.reaktivity.reaktor.internal.layouts.BufferPoolLayout;
 import org.reaktivity.reaktor.internal.layouts.MetricsLayout;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
@@ -95,6 +100,7 @@ import org.reaktivity.reaktor.internal.types.stream.BeginFW;
 import org.reaktivity.reaktor.internal.types.stream.ChallengeFW;
 import org.reaktivity.reaktor.internal.types.stream.DataFW;
 import org.reaktivity.reaktor.internal.types.stream.EndFW;
+import org.reaktivity.reaktor.internal.types.stream.FlushFW;
 import org.reaktivity.reaktor.internal.types.stream.FrameFW;
 import org.reaktivity.reaktor.internal.types.stream.ResetFW;
 import org.reaktivity.reaktor.internal.types.stream.SignalFW;
@@ -106,9 +112,14 @@ public class ElektronAgent implements Agent
 
     private final FrameFW frameRO = new FrameFW();
     private final BeginFW beginRO = new BeginFW();
+    private final DataFW dataRO = new DataFW();
+    private final WindowFW windowRO = new WindowFW();
     private final SignalFW signalRO = new SignalFW();
+    private final FlushFW flushRO = new FlushFW();
     private final AbortFW.Builder abortRW = new AbortFW.Builder();
     private final ResetFW.Builder resetRW = new ResetFW.Builder();
+    private final WindowFW.Builder windowRW = new WindowFW.Builder();
+    private final FlushFW.Builder flushRW = new FlushFW.Builder();
 
     private final int localIndex;
     private final ReaktorConfiguration config;
@@ -129,6 +140,7 @@ public class ElektronAgent implements Agent
     private final Int2ObjectHashMap<Target> targetsByIndex;
     private final Map<String, ElektronRef> elektronByName;
     private final BufferPool bufferPool;
+    private final int shift;
     private final long mask;
     private final MessageHandler readHandler;
     private final TimerHandler expireHandler;
@@ -141,6 +153,9 @@ public class ElektronAgent implements Agent
     private final LongFunction<Affinity> resolveAffinity;
 
     private final RouteManager resolver;
+
+    private final DefaultBudgetCreditor creditor;
+    private final Int2ObjectHashMap<DefaultBudgetDebitor> debitorsByIndex;
 
     // TODO: copy-on-write
     private final Int2ObjectHashMap<StreamFactory> streamFactoriesByAddressId;
@@ -240,16 +255,25 @@ public class ElektronAgent implements Agent
         final BufferPool bufferPool = bufferPoolLayout.bufferPool();
 
         final int reserved = Byte.SIZE;
-        final int bits = Long.SIZE - reserved;
-        final long initial = ((long) index) << bits;
+        final int shift = Long.SIZE - reserved;
+        final long initial = ((long) index) << shift;
         final long mask = initial | (-1L >>> reserved);
 
+        this.shift = shift;
         this.mask = mask;
         this.bufferPool = bufferPool;
         this.streamId = initial;
         this.traceId = initial;
         this.budgetId = initial;
 
+        final BudgetsLayout budgetsLayout = new BudgetsLayout.Builder()
+                .path(config.directory().resolve(String.format("budgets%d", index)))
+                .capacity(config.budgetsBufferCapacity())
+                .owner(true)
+                .build();
+
+        this.creditor = new DefaultBudgetCreditor(index, budgetsLayout, this::doSystemFlush);
+        this.debitorsByIndex = new Int2ObjectHashMap<DefaultBudgetDebitor>();
 
         if (supplyAgentBuilder != null)
         {
@@ -270,6 +294,95 @@ public class ElektronAgent implements Agent
                     .build();
             this.agents = ArrayUtil.add(agents, agent);
         }
+    }
+
+    private void onSystemMessage(
+        int msgTypeId,
+        DirectBuffer buffer,
+        int index,
+        int length)
+    {
+        switch (msgTypeId)
+        {
+        case WindowFW.TYPE_ID:
+            final WindowFW window = windowRO.wrap(buffer, index, index + length);
+            onSystemWindow(window);
+            break;
+        case FlushFW.TYPE_ID:
+            final FlushFW flush = flushRO.wrap(buffer, index, index + length);
+            onSystemFlush(flush);
+            break;
+        }
+    }
+
+    private void onSystemWindow(
+        WindowFW window)
+    {
+        final long traceId = window.traceId();
+        final long budgetId = window.budgetId();
+        final int credit = window.credit();
+
+        creditor.creditById(traceId, budgetId, credit);
+    }
+
+    private void onSystemFlush(
+        FlushFW flush)
+    {
+        final long traceId = flush.traceId();
+        final long budgetId = flush.budgetId();
+
+        final int ownerIndex = ownerIndex(budgetId);
+        final DefaultBudgetDebitor debitor = debitorsByIndex.get(ownerIndex);
+
+        System.out.format("[%d] [0x%016x] [0x%016x] FLUSH %08x %s\n",
+                System.nanoTime(), traceId, budgetId, ownerIndex, debitor);
+
+        if (debitor != null)
+        {
+            debitor.flush(traceId, budgetId);
+        }
+    }
+
+    private void doSystemFlush(
+        long traceId,
+        long budgetId,
+        long watchers)
+    {
+        for (int watcherIndex = 0; watcherIndex < Long.SIZE; watcherIndex++)
+        {
+            if ((watchers & (1L << watcherIndex)) != 0L)
+            {
+                System.out.format("[%d] [0x%016x] [0x%016x] flush %d\n",
+                        System.nanoTime(), traceId, budgetId, watcherIndex);
+
+                final MessageConsumer writer = supplyWriter(watcherIndex);
+                final FlushFW flush = flushRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                        .routeId(0L)
+                        .streamId(0L)
+                        .traceId(traceId)
+                        .budgetId(budgetId)
+                        .build();
+
+                writer.accept(flush.typeId(), flush.buffer(), flush.offset(), flush.sizeof());
+            }
+        }
+    }
+
+    private void doSystemWindow(
+        long traceId,
+        long budgetId,
+        int credit)
+    {
+        final int targetIndex = ownerIndex(budgetId);
+        final Target target = supplyTarget(targetIndex);
+        final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                                        .streamId(0L)
+                                        .traceId(traceId)
+                                        .budgetId(budgetId)
+                                        .credit(credit)
+                                        .padding(0)
+                                        .build();
+        target.writeHandler().accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
     }
 
     private static class ResolverRef implements RouteManager
@@ -392,7 +505,9 @@ public class ElektronAgent implements Agent
             agent.onClose();
         }
 
-        int acquiredSlots = 0;
+        int acquiredBuffers = 0;
+        int acquiredCreditors = 0;
+        long acquiredDebitors = 0L;
 
         if (config.syntheticAbort())
         {
@@ -402,7 +517,12 @@ public class ElektronAgent implements Agent
                 streams[senderIndex].forEach((id, handler) -> doSyntheticAbort(streamId(localIndex, senderIndex0, id), handler));
             }
 
-            acquiredSlots = bufferPool.acquiredSlots();
+            acquiredBuffers = bufferPool.acquiredSlots();
+            acquiredCreditors = creditor.acquired();
+            acquiredDebitors = debitorsByIndex.values()
+                                              .stream()
+                                              .mapToInt(DefaultBudgetDebitor::acquired)
+                                              .sum();
         }
 
         targetsByIndex.forEach((k, v) -> v.detach());
@@ -412,9 +532,14 @@ public class ElektronAgent implements Agent
         quietClose(metricsLayout);
         quietClose(bufferPoolLayout);
 
-        if (acquiredSlots != 0)
+        debitorsByIndex.forEach((k, v) -> quietClose(v));
+        quietClose(creditor);
+
+        if (acquiredBuffers != 0 || acquiredCreditors != 0 || acquiredDebitors != 0L)
         {
-            throw new IllegalStateException("Buffer pool has unreleased slots after cleanup: " + acquiredSlots);
+            throw new IllegalStateException(
+                    String.format("Some resources not released: %d buffers, %d creditors, %d debitors",
+                                  acquiredBuffers, acquiredCreditors, acquiredDebitors));
         }
     }
 
@@ -493,7 +618,11 @@ public class ElektronAgent implements Agent
 
         this.lastReadStreamId = streamId;
 
-        if (isInitial(streamId))
+        if (streamId == 0L)
+        {
+            onSystemMessage(msgTypeId, buffer, index, length);
+        }
+        else if (isInitial(streamId))
         {
             handleReadInitial(routeId, streamId, msgTypeId, buffer, index, length);
         }
@@ -540,17 +669,9 @@ public class ElektronAgent implements Agent
                     break;
                 }
             }
-            else if (msgTypeId == BeginFW.TYPE_ID)
+            else
             {
-                final MessageConsumer newHandler = handleBeginInitial(msgTypeId, buffer, index, length);
-                if (newHandler != null)
-                {
-                    newHandler.accept(msgTypeId, buffer, index, length);
-                }
-                else
-                {
-                    doReset(routeId, streamId);
-                }
+                handleDefaultReadInitial(msgTypeId, buffer, index, length);
             }
         }
         else
@@ -587,6 +708,43 @@ public class ElektronAgent implements Agent
                     break;
                 }
             }
+        }
+    }
+
+    private void handleDefaultReadInitial(
+        int msgTypeId,
+        MutableDirectBuffer buffer,
+        int index,
+        int length)
+    {
+        switch (msgTypeId)
+        {
+        case BeginFW.TYPE_ID:
+            final MessageConsumer newHandler = handleBeginInitial(msgTypeId, buffer, index, length);
+            if (newHandler != null)
+            {
+                newHandler.accept(msgTypeId, buffer, index, length);
+            }
+            else
+            {
+                final FrameFW frame = frameRO.wrap(buffer, index, index + length);
+                final long streamId = frame.streamId();
+                final long routeId = frame.routeId();
+
+                doReset(routeId, streamId);
+            }
+            break;
+        case DataFW.TYPE_ID:
+            final DataFW data = dataRO.wrap(buffer, index, index + length);
+            final long traceId = data.traceId();
+            final long budgetId = data.budgetId();
+            if (budgetId != 0L)
+            {
+                final int reserved = data.reserved();
+
+                doSystemWindow(traceId, budgetId, reserved);
+            }
+            break;
         }
     }
 
@@ -968,6 +1126,8 @@ public class ElektronAgent implements Agent
                 .setReplyIdSupplier(this::supplyReplyId)
                 .setTraceIdSupplier(this::supplyTraceId)
                 .setBudgetIdSupplier(this::supplyBudgetId)
+                .setBudgetCreditor(creditor)
+                .setBudgetDebitorSupplier(this::supplyBudgetDebitor)
                 .setCounterSupplier(supplyCounter)
                 .setAccumulatorSupplier(supplyAccumulator)
                 .setBufferPoolSupplier(supplyCountingBufferPool)
@@ -1021,6 +1181,24 @@ public class ElektronAgent implements Agent
         budgetId++;
         budgetId &= mask;
         return budgetId;
+    }
+
+    private BudgetDebitor supplyBudgetDebitor(
+        long budgetId)
+    {
+        final int ownerIndex = (int) ((budgetId >> shift) & 0xFFFF_FFFF);
+        return debitorsByIndex.computeIfAbsent(ownerIndex, this::newBudgetDebitor);
+    }
+
+    private DefaultBudgetDebitor newBudgetDebitor(
+        int ownerIndex)
+    {
+        final BudgetsLayout layout = new BudgetsLayout.Builder()
+                .path(config.directory().resolve(String.format("budgets%d", ownerIndex)))
+                .owner(false)
+                .build();
+
+        return new DefaultBudgetDebitor(localIndex, ownerIndex, layout);
     }
 
     private long supplyTraceId()

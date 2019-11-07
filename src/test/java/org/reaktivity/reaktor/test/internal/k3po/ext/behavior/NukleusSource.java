@@ -22,10 +22,14 @@ import static org.jboss.netty.channel.Channels.fireChannelUnbound;
 import java.nio.file.Path;
 import java.util.function.LongFunction;
 
+import org.agrona.CloseHelper;
 import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.concurrent.MessageHandler;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
+import org.reaktivity.reaktor.internal.budget.DefaultBudgetCreditor;
+import org.reaktivity.reaktor.internal.budget.DefaultBudgetCreditor.BudgetFlusher;
+import org.reaktivity.reaktor.internal.layouts.BudgetsLayout;
 import org.reaktivity.reaktor.test.internal.k3po.ext.NukleusExtConfiguration;
 import org.reaktivity.reaktor.test.internal.k3po.ext.behavior.layout.StreamsLayout;
 import org.reaktivity.reaktor.test.internal.k3po.ext.util.function.LongLongFunction;
@@ -38,33 +42,41 @@ public final class NukleusSource implements AutoCloseable
     private final LongLongFunction<NukleusTarget> supplySender;
     private final NukleusPartition partition;
     private final Long2ObjectHashMap<Long2ObjectHashMap<NukleusServerChannel>> routesByIdAndAuth;
+    private final DefaultBudgetCreditor creditor;
 
     public NukleusSource(
         NukleusExtConfiguration config,
         LabelManager labels,
-        Path streamsPath,
         int scopeIndex,
         LongFunction<NukleusCorrelation> correlateEstablished,
         LongLongFunction<NukleusTarget> supplySender,
+        BudgetFlusher flushWatchers,
         Long2ObjectHashMap<MessageHandler> streamsById,
         Long2ObjectHashMap<MessageHandler> throttlesById)
     {
         this.labels = labels;
-        this.streamsPath = streamsPath;
+        this.streamsPath = config.directory().resolve(String.format("data%d", scopeIndex));
         this.streamFactory = new NukleusStreamFactory(streamsById::remove);
         this.supplySender = supplySender;
         this.routesByIdAndAuth = new Long2ObjectHashMap<>();
 
-        StreamsLayout layout = new StreamsLayout.Builder()
+        BudgetsLayout budgets = new BudgetsLayout.Builder()
+                .path(config.directory().resolve(String.format("budgets%d", scopeIndex)))
+                .capacity(config.budgetsBufferCapacity())
+                .owner(true)
+                .build();
+
+        StreamsLayout streams = new StreamsLayout.Builder()
                 .path(streamsPath)
                 .streamsCapacity(config.streamsBufferCapacity())
                 .readonly(false)
                 .build();
 
-        this.partition = new NukleusPartition(labels, streamsPath, scopeIndex, layout,
+        this.partition = new NukleusPartition(labels, streamsPath, scopeIndex, streams,
                 this::lookupRoute,
                 streamsById::get, streamsById::put, throttlesById::get,
                 streamFactory, correlateEstablished, supplySender);
+        this.creditor = new DefaultBudgetCreditor(scopeIndex, budgets, flushWatchers);
     }
 
     @Override
@@ -156,7 +168,24 @@ public final class NukleusSource implements AutoCloseable
     @Override
     public void close()
     {
+        CloseHelper.quietClose(creditor);
+
         partition.close();
+    }
+
+    Path streamsPath()
+    {
+        return streamsPath;
+    }
+
+    int scopeIndex()
+    {
+        return partition.scopeIndex();
+    }
+
+    DefaultBudgetCreditor creditor()
+    {
+        return creditor;
     }
 
     private NukleusServerChannel lookupRoute(
