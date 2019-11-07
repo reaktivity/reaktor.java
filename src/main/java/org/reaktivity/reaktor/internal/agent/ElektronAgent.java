@@ -334,8 +334,11 @@ public class ElektronAgent implements Agent
         final int ownerIndex = ownerIndex(budgetId);
         final DefaultBudgetDebitor debitor = debitorsByIndex.get(ownerIndex);
 
-        System.out.format("[%d] [0x%016x] [0x%016x] FLUSH %08x %s\n",
-                System.nanoTime(), traceId, budgetId, ownerIndex, debitor);
+        if (ReaktorConfiguration.DEBUG_BUDGETS)
+        {
+            System.out.format("[%d] [0x%016x] [0x%016x] FLUSH %08x %s\n",
+                    System.nanoTime(), traceId, budgetId, ownerIndex, debitor);
+        }
 
         if (debitor != null)
         {
@@ -352,8 +355,11 @@ public class ElektronAgent implements Agent
         {
             if ((watchers & (1L << watcherIndex)) != 0L)
             {
-                System.out.format("[%d] [0x%016x] [0x%016x] flush %d\n",
-                        System.nanoTime(), traceId, budgetId, watcherIndex);
+                if (ReaktorConfiguration.DEBUG_BUDGETS)
+                {
+                    System.out.format("[%d] [0x%016x] [0x%016x] flush %d\n",
+                            System.nanoTime(), traceId, budgetId, watcherIndex);
+                }
 
                 final MessageConsumer writer = supplyWriter(watcherIndex);
                 final FlushFW flush = flushRW.wrap(writeBuffer, 0, writeBuffer.capacity())
