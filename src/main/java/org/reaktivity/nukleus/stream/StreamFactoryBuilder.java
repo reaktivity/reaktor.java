@@ -17,12 +17,15 @@ package org.reaktivity.nukleus.stream;
 
 import java.util.function.Function;
 import java.util.function.LongConsumer;
+import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
 import java.util.function.LongUnaryOperator;
 import java.util.function.Supplier;
 import java.util.function.ToIntFunction;
 
 import org.agrona.MutableDirectBuffer;
+import org.reaktivity.nukleus.budget.BudgetCreditor;
+import org.reaktivity.nukleus.budget.BudgetDebitor;
 import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.concurrent.Signaler;
 import org.reaktivity.nukleus.concurrent.SignalingExecutor;
@@ -68,6 +71,18 @@ public interface StreamFactoryBuilder
 
     default StreamFactoryBuilder setBudgetIdSupplier(
         LongSupplier supplyBudgetId)
+    {
+        return this;
+    }
+
+    default StreamFactoryBuilder setBudgetCreditor(
+        BudgetCreditor creditor)
+    {
+        return this;
+    }
+
+    default StreamFactoryBuilder setBudgetDebitorSupplier(
+        LongFunction<BudgetDebitor> supplyDebitor)
     {
         return this;
     }
