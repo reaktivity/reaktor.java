@@ -28,6 +28,7 @@ import static org.jboss.netty.channel.Channels.succeededFuture;
 import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireFlushed;
 import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireOutputAborted;
 import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireOutputShutdown;
+import static org.reaktivity.reaktor.internal.router.BudgetId.budgetMask;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusExtensionKind.BEGIN;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusExtensionKind.CHALLENGE;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusExtensionKind.DATA;
@@ -53,6 +54,9 @@ import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.DownstreamMessageEvent;
 import org.jboss.netty.channel.MessageEvent;
 import org.kaazing.k3po.driver.internal.netty.channel.CompositeChannelFuture;
+import org.reaktivity.nukleus.budget.BudgetCreditor;
+import org.reaktivity.reaktor.internal.budget.DefaultBudgetDebitor;
+import org.reaktivity.reaktor.internal.types.stream.FlushFW;
 import org.reaktivity.reaktor.test.internal.k3po.ext.behavior.layout.Layout;
 import org.reaktivity.reaktor.test.internal.k3po.ext.behavior.layout.StreamsLayout;
 import org.reaktivity.reaktor.test.internal.k3po.ext.types.OctetsFW;
@@ -83,7 +87,9 @@ final class NukleusTarget implements AutoCloseable
     private final ResetFW.Builder resetRW = new ResetFW.Builder();
     private final WindowFW.Builder windowRW = new WindowFW.Builder();
     private final ChallengeFW.Builder challengeRW = new ChallengeFW.Builder();
+    private final FlushFW.Builder flushRW = new FlushFW.Builder();
 
+    private final int scopeIndex;
     private final Path streamsPath;
     private final Layout layout;
     private final RingBuffer streamsBuffer;
@@ -95,6 +101,7 @@ final class NukleusTarget implements AutoCloseable
     private final LongSupplier supplyTraceId;
 
     NukleusTarget(
+        int scopeIndex,
         Path streamsPath,
         StreamsLayout layout,
         MutableDirectBuffer writeBuffer,
@@ -104,6 +111,7 @@ final class NukleusTarget implements AutoCloseable
         LongSupplier supplyTimestamp,
         LongSupplier supplyTraceId)
     {
+        this.scopeIndex = scopeIndex;
         this.streamsPath = streamsPath;
         this.layout = layout;
         this.streamsBuffer = layout.streamsBuffer();
@@ -131,6 +139,20 @@ final class NukleusTarget implements AutoCloseable
     public RingBuffer streamsBuffer()
     {
         return streamsBuffer;
+    }
+
+    public void doSystemFlush(
+        long traceId,
+        long budgetId)
+    {
+        final FlushFW flush = flushRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                .routeId(0L)
+                .streamId(0L)
+                .traceId(traceId)
+                .budgetId(budgetId)
+                .build();
+
+        streamsBuffer.write(flush.typeId(), flush.buffer(), flush.offset(), flush.sizeof());
     }
 
     public void doConnect(
@@ -168,6 +190,15 @@ final class NukleusTarget implements AutoCloseable
             }
             default:
                 break;
+            }
+
+            final long budgetId = clientConfig.getBudgetId();
+            if (budgetId != 0L)
+            {
+                final long creditorId = budgetId | budgetMask(scopeIndex);
+
+                BudgetCreditor creditor = clientChannel.reaktor.supplyCreditor(clientChannel);
+                clientChannel.setCreditor(creditor, creditorId);
             }
 
             final long authorization = remoteAddress.getAuthorization();
@@ -441,7 +472,7 @@ final class NukleusTarget implements AutoCloseable
         final Deque<MessageEvent> writeRequests = channel.writeRequests;
 
         loop:
-        while (channel.writable() && !writeRequests.isEmpty())
+        while (!writeRequests.isEmpty())
         {
             MessageEvent writeRequest = writeRequests.peekFirst();
             ChannelBuffer writeBuf = (ChannelBuffer) writeRequest.getMessage();
@@ -455,7 +486,11 @@ final class NukleusTarget implements AutoCloseable
                 ChannelBuffer writeExt = channel.writeExtBuffer(DATA, true);
                 if (writeBuf.readable() || writeExt.readable())
                 {
-                    flushData(channel, writeBuf, writeExt);
+                    boolean flushed = flushData(channel, writeBuf, writeExt);
+                    if (!flushed)
+                    {
+                        break loop;
+                    }
                 }
                 else if (channel.isTargetWriteRequestInProgress())
                 {
@@ -498,7 +533,7 @@ final class NukleusTarget implements AutoCloseable
         channel.targetWriteRequestProgress();
     }
 
-    private void flushData(
+    private boolean flushData(
         NukleusChannel channel,
         ChannelBuffer writeBuf,
         ChannelBuffer writeExt)
@@ -508,7 +543,8 @@ final class NukleusTarget implements AutoCloseable
         final int writableBytes = channel.writableBytes(writeBuf.readableBytes());
 
         // allow extension-only DATA frames to be flushed immediately
-        if (writableBytes > 0 || !writeBuf.readable())
+        final boolean flushable = writableBytes > 0 || !writeBuf.readable();
+        if (flushable)
         {
             final int writeReaderIndex = writeBuf.readerIndex();
 
@@ -578,6 +614,8 @@ final class NukleusTarget implements AutoCloseable
         }
 
         channel.targetWriteRequestProgress();
+
+        return flushable;
     }
 
     private byte[] writeExtCopy(
@@ -718,11 +756,20 @@ final class NukleusTarget implements AutoCloseable
         private void onWindow(
             WindowFW window)
         {
+            final long traceId = window.traceId();
+            final long budgetId = window.budgetId();
             final int credit = window.credit();
             final int padding = window.padding();
             final int capabilities = window.capabilities();
 
-            channel.writableWindow(credit, padding);
+            if (budgetId != 0L && !channel.hasDebitor() &&
+                !channel.isWriteClosed() && !channel.getCloseFuture().isSuccess())
+            {
+                DefaultBudgetDebitor debitor = channel.reaktor.supplyDebitor(channel, budgetId);
+                channel.setDebitor(debitor, budgetId);
+            }
+
+            channel.writableWindow(credit, padding, traceId);
             channel.capabilities(capabilities);
 
             flushThrottledWrites(channel);

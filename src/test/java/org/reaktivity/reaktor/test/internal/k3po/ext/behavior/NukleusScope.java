@@ -16,12 +16,14 @@
 package org.reaktivity.reaktor.test.internal.k3po.ext.behavior;
 
 import static java.lang.System.identityHashCode;
+import static org.reaktivity.reaktor.internal.router.BudgetId.ownerIndex;
 
 import java.nio.file.Path;
 import java.util.function.LongSupplier;
 import java.util.function.ToIntFunction;
 
 import org.agrona.CloseHelper;
+import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.ArrayUtil;
 import org.agrona.collections.Int2ObjectHashMap;
@@ -30,16 +32,22 @@ import org.agrona.concurrent.MessageHandler;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.MessageEvent;
+import org.reaktivity.nukleus.budget.BudgetCreditor;
+import org.reaktivity.reaktor.internal.budget.DefaultBudgetDebitor;
+import org.reaktivity.reaktor.internal.layouts.BudgetsLayout;
+import org.reaktivity.reaktor.internal.types.stream.FlushFW;
 import org.reaktivity.reaktor.test.internal.k3po.ext.NukleusExtConfiguration;
 import org.reaktivity.reaktor.test.internal.k3po.ext.behavior.layout.StreamsLayout;
 
 public final class NukleusScope implements AutoCloseable
 {
+    private final FlushFW flushRO = new FlushFW();
+
     private final Int2ObjectHashMap<NukleusTarget> targetsByIndex;
+    private final Int2ObjectHashMap<DefaultBudgetDebitor> debitorsByIndex;
 
     private final NukleusExtConfiguration config;
     private final LabelManager labels;
-    private final Path streamsPath;
     private final MutableDirectBuffer writeBuffer;
     private final Long2ObjectHashMap<MessageHandler> streamsById;
     private final Long2ObjectHashMap<MessageHandler> throttlesById;
@@ -61,25 +69,27 @@ public final class NukleusScope implements AutoCloseable
     {
         this.config = config;
         this.labels = labels;
-        this.streamsPath = config.directory().resolve(String.format("data%d", scopeIndex));
 
         this.writeBuffer = new UnsafeBuffer(new byte[config.streamsBufferCapacity() / 8]);
         this.streamsById = new Long2ObjectHashMap<>();
         this.throttlesById = new Long2ObjectHashMap<>();
         this.correlations = new Long2ObjectHashMap<>();
         this.targetsByIndex = new Int2ObjectHashMap<>();
+        this.debitorsByIndex = new Int2ObjectHashMap<>();
         this.lookupTargetIndex = lookupTargetIndex;
         this.supplyTimestamp = supplyTimestamp;
         this.supplyTraceId = supplyTraceId;
-        this.source = new NukleusSource(config, labels, streamsPath, scopeIndex,
+        this.source = new NukleusSource(config, labels, scopeIndex,
                 correlations::remove, this::supplySender,
-                streamsById, throttlesById);
+                this::doSystemFlush, streamsById, throttlesById);
+
+        this.streamsById.put(0L, this::onSystemMessage);
     }
 
     @Override
     public String toString()
     {
-        return String.format("%s [%s]", getClass().getSimpleName(), streamsPath);
+        return String.format("%s [%s]", getClass().getSimpleName(), source.streamsPath());
     }
 
     public void doRoute(
@@ -111,7 +121,6 @@ public final class NukleusScope implements AutoCloseable
         clientChannel.routeId(routeId(remoteAddress));
         target.doConnect(clientChannel, localAddress, remoteAddress, connectFuture);
     }
-
 
     public void doConnectAbort(
         NukleusClientChannel clientChannel,
@@ -184,6 +193,11 @@ public final class NukleusScope implements AutoCloseable
         {
             CloseHelper.quietClose(target);
         }
+
+        for (DefaultBudgetDebitor debitor : debitorsByIndex.values())
+        {
+            CloseHelper.quietClose(debitor);
+        }
     }
 
     public NukleusTarget supplySender(
@@ -192,6 +206,75 @@ public final class NukleusScope implements AutoCloseable
     {
         final int targetIndex = replyToIndex(streamId);
         return supplyTarget(targetIndex);
+    }
+
+    public DefaultBudgetDebitor supplyDebitor(
+        long budgetId)
+    {
+        final int ownerIndex = ownerIndex(budgetId);
+        return debitorsByIndex.computeIfAbsent(ownerIndex, this::newDebitor);
+    }
+
+    public BudgetCreditor creditor()
+    {
+        return source.creditor();
+    }
+
+    private DefaultBudgetDebitor newDebitor(
+        int ownerIndex)
+    {
+        final int watcherIndex = source.scopeIndex();
+        final BudgetsLayout layout = new BudgetsLayout.Builder()
+                .path(config.directory().resolve(String.format("budgets%d", ownerIndex)))
+                .owner(false)
+                .build();
+
+        return new DefaultBudgetDebitor(watcherIndex, ownerIndex, layout);
+
+    }
+
+    private void onSystemMessage(
+        int msgTypeId,
+        DirectBuffer buffer,
+        int index,
+        int length)
+    {
+        switch (msgTypeId)
+        {
+        case FlushFW.TYPE_ID:
+            final FlushFW flush = flushRO.wrap(buffer, index, index + length);
+            onSystemFlush(flush);
+            break;
+        }
+    }
+
+    private void onSystemFlush(
+        FlushFW flush)
+    {
+        final long traceId = flush.traceId();
+        final long budgetId = flush.budgetId();
+
+        final int ownerIndex = ownerIndex(budgetId);
+        final DefaultBudgetDebitor debitor = debitorsByIndex.get(ownerIndex);
+        if (debitor != null)
+        {
+            debitor.flush(traceId, budgetId);
+        }
+    }
+
+    private void doSystemFlush(
+        long traceId,
+        long budgetId,
+        long watchers)
+    {
+        for (int watcherIndex = 0; watcherIndex < Long.SIZE; watcherIndex++)
+        {
+            if ((watchers & (1L << watcherIndex)) != 0L)
+            {
+                final NukleusTarget target = supplyTarget(watcherIndex);
+                target.doSystemFlush(traceId, budgetId);
+            }
+        }
     }
 
     private NukleusTarget supplyTarget(
@@ -217,8 +300,8 @@ public final class NukleusScope implements AutoCloseable
                 .readonly(true)
                 .build();
 
-        final NukleusTarget target = new NukleusTarget(targetPath, layout, writeBuffer, throttlesById::put,
-                throttlesById::remove, correlations::put,
+        final NukleusTarget target = new NukleusTarget(source.scopeIndex(), targetPath, layout, writeBuffer,
+                throttlesById::put, throttlesById::remove, correlations::put,
                 supplyTimestamp, supplyTraceId);
 
         this.targets = ArrayUtil.add(this.targets, target);
