@@ -32,15 +32,17 @@ import org.agrona.concurrent.MessageHandler;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.MessageEvent;
-import org.reaktivity.nukleus.budget.BudgetCreditor;
+import org.reaktivity.reaktor.internal.budget.DefaultBudgetCreditor;
 import org.reaktivity.reaktor.internal.budget.DefaultBudgetDebitor;
 import org.reaktivity.reaktor.internal.layouts.BudgetsLayout;
 import org.reaktivity.reaktor.internal.types.stream.FlushFW;
+import org.reaktivity.reaktor.internal.types.stream.WindowFW;
 import org.reaktivity.reaktor.test.internal.k3po.ext.NukleusExtConfiguration;
 import org.reaktivity.reaktor.test.internal.k3po.ext.behavior.layout.StreamsLayout;
 
 public final class NukleusScope implements AutoCloseable
 {
+    private final WindowFW windowRO = new WindowFW();
     private final FlushFW flushRO = new FlushFW();
 
     private final Int2ObjectHashMap<NukleusTarget> targetsByIndex;
@@ -215,7 +217,7 @@ public final class NukleusScope implements AutoCloseable
         return debitorsByIndex.computeIfAbsent(ownerIndex, this::newDebitor);
     }
 
-    public BudgetCreditor creditor()
+    public DefaultBudgetCreditor creditor()
     {
         return source.creditor();
     }
@@ -241,11 +243,25 @@ public final class NukleusScope implements AutoCloseable
     {
         switch (msgTypeId)
         {
+        case WindowFW.TYPE_ID:
+            final WindowFW window = windowRO.wrap(buffer, index, index + length);
+            onSystemWindow(window);
+            break;
         case FlushFW.TYPE_ID:
             final FlushFW flush = flushRO.wrap(buffer, index, index + length);
             onSystemFlush(flush);
             break;
         }
+    }
+
+    private void onSystemWindow(
+        WindowFW window)
+    {
+        final long traceId = window.traceId();
+        final long budgetId = window.budgetId();
+        final int credit = window.credit();
+
+        creditor().creditById(traceId, budgetId, credit);
     }
 
     private void onSystemFlush(
