@@ -122,17 +122,17 @@ public final class DefaultBudgetDebitor implements BudgetDebitor, AutoCloseable
         final int budgetRemainingOffset = budgetRemainingOffset(index);
 
         long claimed = maximum;
-        long previous = storage.addLongOrdered(budgetRemainingOffset, -claimed);
+        long previous = storage.getAndAddLong(budgetRemainingOffset, -claimed);
         if (previous - claimed < 0L)
         {
             if (previous >= minimum)
             {
-                storage.addLongOrdered(budgetRemainingOffset, claimed - previous);
+                storage.getAndAddLong(budgetRemainingOffset, claimed - previous);
                 claimed = previous;
             }
             else
             {
-                storage.addLongOrdered(budgetRemainingOffset, claimed);
+                storage.getAndAddLong(budgetRemainingOffset, claimed);
                 claimed = 0L;
             }
         }
