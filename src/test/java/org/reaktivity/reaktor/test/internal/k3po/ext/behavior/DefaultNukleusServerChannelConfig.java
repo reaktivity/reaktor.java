@@ -22,6 +22,7 @@ import static org.reaktivity.reaktor.test.internal.k3po.ext.types.NukleusTypeSys
 import static org.reaktivity.reaktor.test.internal.k3po.ext.types.NukleusTypeSystem.OPTION_BYTE_ORDER;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.types.NukleusTypeSystem.OPTION_CAPABILITIES;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.types.NukleusTypeSystem.OPTION_PADDING;
+import static org.reaktivity.reaktor.test.internal.k3po.ext.types.NukleusTypeSystem.OPTION_SHARED_WINDOW;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.types.NukleusTypeSystem.OPTION_THROTTLE;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.types.NukleusTypeSystem.OPTION_TRANSMISSION;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.types.NukleusTypeSystem.OPTION_UPDATE;
@@ -38,6 +39,7 @@ public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfi
 {
     private NukleusTransmission transmission = SIMPLEX;
     private int window;
+    private int sharedWindow;
     private long budgetId;
     private int padding;
     private NukleusThrottleMode throttle = NukleusThrottleMode.STREAM;
@@ -74,6 +76,18 @@ public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfi
     public int getWindow()
     {
         return window;
+    }
+
+    @Override
+    public void setSharedWindow(int sharedWindow)
+    {
+        this.sharedWindow = sharedWindow;
+    }
+
+    @Override
+    public int getSharedWindow()
+    {
+        return sharedWindow;
     }
 
     @Override
@@ -177,6 +191,10 @@ public class DefaultNukleusServerChannelConfig extends DefaultServerChannelConfi
         else if (OPTION_WINDOW.getName().equals(key))
         {
             setWindow(convertToInt(value));
+        }
+        else if (OPTION_SHARED_WINDOW.getName().equals(key))
+        {
+            setSharedWindow(convertToInt(value));
         }
         else if (OPTION_BUDGET_ID.getName().equals(key))
         {

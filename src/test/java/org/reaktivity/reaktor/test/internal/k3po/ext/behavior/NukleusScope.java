@@ -17,6 +17,7 @@ package org.reaktivity.reaktor.test.internal.k3po.ext.behavior;
 
 import static java.lang.System.identityHashCode;
 import static org.reaktivity.reaktor.internal.router.BudgetId.ownerIndex;
+import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusTransmission.HALF_DUPLEX;
 
 import java.nio.file.Path;
 import java.util.function.LongSupplier;
@@ -31,6 +32,7 @@ import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.concurrent.MessageHandler;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.Channels;
 import org.jboss.netty.channel.MessageEvent;
 import org.reaktivity.reaktor.internal.budget.DefaultBudgetCreditor;
 import org.reaktivity.reaktor.internal.budget.DefaultBudgetDebitor;
@@ -81,11 +83,11 @@ public final class NukleusScope implements AutoCloseable
         this.lookupTargetIndex = lookupTargetIndex;
         this.supplyTimestamp = supplyTimestamp;
         this.supplyTraceId = supplyTraceId;
-        this.source = new NukleusSource(config, labels, scopeIndex,
-                correlations::remove, this::supplySender,
+        this.source = new NukleusSource(config, labels, scopeIndex, supplyTraceId,
+                correlations::remove, this::supplySender, this::supplyTarget,
                 this::doSystemFlush, streamsById, throttlesById);
 
-        this.streamsById.put(0L, this::onSystemMessage);
+        this.throttlesById.put(0L, this::onSystemMessage);
     }
 
     @Override
@@ -177,8 +179,17 @@ public final class NukleusScope implements AutoCloseable
         NukleusChannel channel,
         ChannelFuture handlerFuture)
     {
+        final boolean readClosed = channel.getCloseFuture().isDone() || channel.isReadClosed();
+
         NukleusTarget target = supplyTarget(channel);
         target.doClose(channel, handlerFuture);
+
+        if (!readClosed && channel.getConfig().getTransmission() == HALF_DUPLEX)
+        {
+            final ChannelFuture abortFuture = Channels.future(channel);
+            source.doAbortInput(channel, abortFuture);
+            assert abortFuture.isSuccess();
+        }
     }
 
     public int process()

@@ -382,6 +382,7 @@ public class ElektronAgent implements Agent
         final int targetIndex = ownerIndex(budgetId);
         final Target target = supplyTarget(targetIndex);
         final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                                        .routeId(0L)
                                         .streamId(0L)
                                         .traceId(traceId)
                                         .budgetId(budgetId)

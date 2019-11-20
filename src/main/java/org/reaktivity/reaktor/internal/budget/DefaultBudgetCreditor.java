@@ -102,7 +102,7 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
     {
         assert (budgetIndex & budgetMask) == budgetMask;
         final int index = (int) (budgetIndex & ~budgetMask);
-        final long previous = storage.addLongOrdered(budgetRemainingOffset(index), credit);
+        final long previous = storage.getAndAddLong(budgetRemainingOffset(index), credit);
 
         if (ReaktorConfiguration.DEBUG_BUDGETS && credit != 0L)
         {

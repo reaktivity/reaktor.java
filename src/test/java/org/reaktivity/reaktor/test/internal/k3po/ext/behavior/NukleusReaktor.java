@@ -42,7 +42,7 @@ import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.util.ExternalResourceReleasable;
-import org.reaktivity.nukleus.budget.BudgetCreditor;
+import org.reaktivity.reaktor.internal.budget.DefaultBudgetCreditor;
 import org.reaktivity.reaktor.internal.budget.DefaultBudgetDebitor;
 import org.reaktivity.reaktor.test.internal.k3po.ext.NukleusExtConfiguration;
 
@@ -202,7 +202,7 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
         shutdown();
     }
 
-    BudgetCreditor supplyCreditor(
+    DefaultBudgetCreditor supplyCreditor(
         NukleusChannel channel)
     {
         int scopeIndex = channel.getLocalScope();

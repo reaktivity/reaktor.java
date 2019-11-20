@@ -54,7 +54,7 @@ import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.DownstreamMessageEvent;
 import org.jboss.netty.channel.MessageEvent;
 import org.kaazing.k3po.driver.internal.netty.channel.CompositeChannelFuture;
-import org.reaktivity.nukleus.budget.BudgetCreditor;
+import org.reaktivity.reaktor.internal.budget.DefaultBudgetCreditor;
 import org.reaktivity.reaktor.internal.budget.DefaultBudgetDebitor;
 import org.reaktivity.reaktor.internal.types.stream.FlushFW;
 import org.reaktivity.reaktor.test.internal.k3po.ext.behavior.layout.Layout;
@@ -141,6 +141,23 @@ final class NukleusTarget implements AutoCloseable
         return streamsBuffer;
     }
 
+    public void doSystemWindow(
+        long traceId,
+        long budgetId,
+        int credit)
+    {
+        final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                .routeId(0L)
+                .streamId(0L)
+                .traceId(traceId)
+                .budgetId(budgetId)
+                .credit(credit)
+                .padding(0)
+                .build();
+
+        streamsBuffer.write(window.typeId(), window.buffer(), window.offset(), window.sizeof());
+    }
+
     public void doSystemFlush(
         long traceId,
         long budgetId)
@@ -197,8 +214,23 @@ final class NukleusTarget implements AutoCloseable
             {
                 final long creditorId = budgetId | budgetMask(scopeIndex);
 
-                BudgetCreditor creditor = clientChannel.reaktor.supplyCreditor(clientChannel);
+                DefaultBudgetCreditor creditor = clientChannel.reaktor.supplyCreditor(clientChannel);
                 clientChannel.setCreditor(creditor, creditorId);
+
+                final int sharedWindow = clientConfig.getSharedWindow();
+                if (sharedWindow != 0L)
+                {
+                    final long creditorIndex = creditor.acquire(creditorId);
+                    if (creditorIndex == -1L)
+                    {
+                        clientChannel.getCloseFuture().setFailure(new ChannelException("Unable to acquire creditor"));
+                    }
+                    else
+                    {
+                        clientChannel.setCreditorIndex(creditorIndex);
+                        creditor.credit(0L, creditorIndex, sharedWindow);
+                    }
+                }
             }
 
             final long authorization = remoteAddress.getAuthorization();
@@ -273,6 +305,8 @@ final class NukleusTarget implements AutoCloseable
                 .build();
 
         streamsBuffer.write(abort.typeId(), abort.buffer(), abort.offset(), abort.sizeof());
+
+        unregisterThrottle.accept(initialId);
     }
 
     public void doPrepareReply(
@@ -365,6 +399,8 @@ final class NukleusTarget implements AutoCloseable
 
         streamsBuffer.write(abort.typeId(), abort.buffer(), abort.offset(), abort.sizeof());
 
+        unregisterThrottle.accept(streamId);
+
         abortFuture.setSuccess();
 
         if (channel.setWriteAborted())
@@ -405,6 +441,8 @@ final class NukleusTarget implements AutoCloseable
         endExt.skipBytes(writableExtBytes);
         endExt.discardReadBytes();
 
+        unregisterThrottle.accept(streamId);
+
         fireOutputShutdown(channel);
         handlerFuture.setSuccess();
 
@@ -441,6 +479,8 @@ final class NukleusTarget implements AutoCloseable
 
         endExt.skipBytes(writableExtBytes);
         endExt.discardReadBytes();
+
+        unregisterThrottle.accept(streamId);
 
         handlerFuture.setSuccess();
 
@@ -659,23 +699,25 @@ final class NukleusTarget implements AutoCloseable
     }
 
     void doReset(
-        final NukleusChannel channel)
+        final NukleusChannel channel,
+        final long traceId)
     {
         final long routeId = channel.routeId();
         final long streamId = channel.sourceId();
 
-        doReset(routeId, streamId);
+        doReset(routeId, streamId, traceId);
     }
 
     void doReset(
         final long routeId,
-        final long streamId)
+        final long streamId,
+        final long traceId)
     {
         final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
                 .timestamp(supplyTimestamp.getAsLong())
-                .traceId(supplyTraceId.getAsLong())
+                .traceId(traceId)
                 .build();
 
         streamsBuffer.write(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());

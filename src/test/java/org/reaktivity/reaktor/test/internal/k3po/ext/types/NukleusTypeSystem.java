@@ -30,6 +30,7 @@ public final class NukleusTypeSystem implements TypeSystemSpi
 {
     public static final TypeInfo<String> OPTION_REPLY_TO = new TypeInfo<>("replyTo", String.class);
     public static final TypeInfo<Integer> OPTION_WINDOW = new TypeInfo<>("window", Integer.class);
+    public static final TypeInfo<Integer> OPTION_SHARED_WINDOW = new TypeInfo<>("sharedWindow", Integer.class);
     public static final TypeInfo<Long> OPTION_BUDGET_ID = new TypeInfo<>("budgetId", Long.class);
     public static final TypeInfo<Integer> OPTION_PADDING = new TypeInfo<>("padding", Integer.class);
     public static final TypeInfo<String> OPTION_UPDATE = new TypeInfo<>("update", String.class);
@@ -66,6 +67,7 @@ public final class NukleusTypeSystem implements TypeSystemSpi
         Set<TypeInfo<?>> acceptOptions = new LinkedHashSet<>();
         acceptOptions.add(OPTION_REPLY_TO);
         acceptOptions.add(OPTION_WINDOW);
+        acceptOptions.add(OPTION_SHARED_WINDOW);
         acceptOptions.add(OPTION_BUDGET_ID);
         acceptOptions.add(OPTION_PADDING);
         acceptOptions.add(OPTION_UPDATE);
@@ -80,6 +82,7 @@ public final class NukleusTypeSystem implements TypeSystemSpi
         Set<TypeInfo<?>> connectOptions = new LinkedHashSet<>();
         connectOptions.add(OPTION_REPLY_TO);
         connectOptions.add(OPTION_WINDOW);
+        connectOptions.add(OPTION_SHARED_WINDOW);
         connectOptions.add(OPTION_BUDGET_ID);
         connectOptions.add(OPTION_PADDING);
         connectOptions.add(OPTION_UPDATE);
