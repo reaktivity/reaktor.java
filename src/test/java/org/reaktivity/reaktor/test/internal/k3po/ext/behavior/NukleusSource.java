@@ -20,7 +20,9 @@ import static org.jboss.netty.channel.Channels.fireChannelDisconnected;
 import static org.jboss.netty.channel.Channels.fireChannelUnbound;
 
 import java.nio.file.Path;
+import java.util.function.IntFunction;
 import java.util.function.LongFunction;
+import java.util.function.LongSupplier;
 
 import org.agrona.CloseHelper;
 import org.agrona.collections.Long2ObjectHashMap;
@@ -39,7 +41,7 @@ public final class NukleusSource implements AutoCloseable
     private final LabelManager labels;
     private final Path streamsPath;
     private final NukleusStreamFactory streamFactory;
-    private final LongLongFunction<NukleusTarget> supplySender;
+    private final LongSupplier supplyTraceId;
     private final NukleusPartition partition;
     private final Long2ObjectHashMap<Long2ObjectHashMap<NukleusServerChannel>> routesByIdAndAuth;
     private final DefaultBudgetCreditor creditor;
@@ -48,16 +50,17 @@ public final class NukleusSource implements AutoCloseable
         NukleusExtConfiguration config,
         LabelManager labels,
         int scopeIndex,
+        LongSupplier supplyTraceId,
         LongFunction<NukleusCorrelation> correlateEstablished,
         LongLongFunction<NukleusTarget> supplySender,
+        IntFunction<NukleusTarget> supplyTarget,
         BudgetFlusher flushWatchers,
         Long2ObjectHashMap<MessageHandler> streamsById,
         Long2ObjectHashMap<MessageHandler> throttlesById)
     {
         this.labels = labels;
         this.streamsPath = config.directory().resolve(String.format("data%d", scopeIndex));
-        this.streamFactory = new NukleusStreamFactory(streamsById::remove);
-        this.supplySender = supplySender;
+        this.streamFactory = new NukleusStreamFactory(supplySender, streamsById::remove);
         this.routesByIdAndAuth = new Long2ObjectHashMap<>();
 
         BudgetsLayout budgets = new BudgetsLayout.Builder()
@@ -72,10 +75,11 @@ public final class NukleusSource implements AutoCloseable
                 .readonly(false)
                 .build();
 
+        this.supplyTraceId = supplyTraceId;
         this.partition = new NukleusPartition(labels, streamsPath, scopeIndex, streams,
                 this::lookupRoute,
                 streamsById::get, streamsById::put, throttlesById::get,
-                streamFactory, correlateEstablished, supplySender);
+                streamFactory, correlateEstablished, supplySender, supplyTarget);
         this.creditor = new DefaultBudgetCreditor(scopeIndex, budgets, flushWatchers);
     }
 
@@ -143,11 +147,11 @@ public final class NukleusSource implements AutoCloseable
         NukleusChannel channel,
         ChannelFuture abortFuture)
     {
-        final long routeId = channel.routeId();
-        final long streamId = channel.sourceId();
-        final NukleusTarget sender = supplySender.apply(routeId, streamId);
+        final long traceId = supplyTraceId.getAsLong();
 
-        sender.doReset(channel);
+        streamFactory.doReset(channel, traceId);
+        partition.doSystemWindow(channel, traceId);
+
         abortFuture.setSuccess();
         if (channel.setReadAborted())
         {

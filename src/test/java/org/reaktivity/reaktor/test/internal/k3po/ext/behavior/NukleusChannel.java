@@ -32,7 +32,7 @@ import org.jboss.netty.channel.Channels;
 import org.jboss.netty.channel.MessageEvent;
 import org.kaazing.k3po.driver.internal.netty.bootstrap.channel.AbstractChannel;
 import org.kaazing.k3po.driver.internal.netty.channel.ChannelAddress;
-import org.reaktivity.nukleus.budget.BudgetCreditor;
+import org.reaktivity.reaktor.internal.budget.DefaultBudgetCreditor;
 import org.reaktivity.reaktor.internal.budget.DefaultBudgetDebitor;
 import org.reaktivity.reaktor.test.internal.k3po.ext.types.control.Capability;
 
@@ -75,10 +75,12 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
     private DefaultBudgetDebitor debitor;
     private long debitorIndex = -1L;
 
-    private BudgetCreditor creditor;
+    private DefaultBudgetCreditor creditor;
     private long creditorIndex = -1L;
 
     private long creditorId;
+
+    private int pendingSharedBudget;
 
     NukleusChannel(
         NukleusServerChannel parent,
@@ -282,21 +284,43 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
     }
 
     public void setCreditor(
-        BudgetCreditor creditor,
+        DefaultBudgetCreditor creditor,
         long creditorId)
     {
         assert this.creditor == null;
         this.creditor = creditor;
         this.creditorId = creditorId;
-        this.creditorIndex = creditor.acquire(creditorId);
-        if (this.creditorIndex == -1L)
+    }
+
+    public void setCreditorIndex(
+        long creditorIndex)
+    {
+        assert creditorIndex != -1L;
+        this.creditorIndex = creditorIndex;
+        getCloseFuture().addListener(this::cleanupCreditor);
+    }
+
+    public void doSharedCredit(
+        long traceId,
+        int credit)
+    {
+        if (creditor != null && creditorId != 0L)
         {
-            getCloseFuture().setFailure(new ChannelException("Unable to acquire creditor"));
+            creditor.creditById(traceId, creditorId, credit);
         }
-        else
+    }
+
+    public int pendingSharedBudget()
+    {
+        return pendingSharedBudget;
+    }
+
+    public void pendingSharedCredit(
+        int pendingSharedCredit)
+    {
+        if (creditorId != 0L)
         {
-            assert this.creditorIndex != -1L;
-            getCloseFuture().addListener(this::cleanupCreditor);
+            pendingSharedBudget += pendingSharedCredit;
         }
     }
 
@@ -392,11 +416,6 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
         if (writtenBytes > 0)
         {
             acknowledgedBytes += credit;
-        }
-
-        if (creditor != null && creditorIndex != -1L)
-        {
-            creditor.credit(traceId, creditorIndex, credit);
         }
 
         if (getConfig().getThrottle() == MESSAGE && targetWriteRequestInProgress)

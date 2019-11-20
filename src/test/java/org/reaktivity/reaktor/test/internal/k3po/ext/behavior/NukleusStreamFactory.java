@@ -40,6 +40,7 @@ import org.reaktivity.reaktor.test.internal.k3po.ext.types.stream.BeginFW;
 import org.reaktivity.reaktor.test.internal.k3po.ext.types.stream.DataFW;
 import org.reaktivity.reaktor.test.internal.k3po.ext.types.stream.EndFW;
 import org.reaktivity.reaktor.test.internal.k3po.ext.types.stream.FrameFW;
+import org.reaktivity.reaktor.test.internal.k3po.ext.util.function.LongLongFunction;
 
 public final class NukleusStreamFactory
 {
@@ -49,12 +50,27 @@ public final class NukleusStreamFactory
     private final EndFW endRO = new EndFW();
     private final AbortFW abortRO = new AbortFW();
 
+    private final LongLongFunction<NukleusTarget> supplySender;
     private final LongConsumer unregisterStream;
 
     public NukleusStreamFactory(
+        LongLongFunction<NukleusTarget> supplySender,
         LongConsumer unregisterStream)
     {
+        this.supplySender = supplySender;
         this.unregisterStream = unregisterStream;
+    }
+
+    public void doReset(
+        NukleusChannel channel,
+        long traceId)
+    {
+        final long routeId = channel.routeId();
+        final long streamId = channel.sourceId();
+        final NukleusTarget sender = supplySender.apply(routeId, streamId);
+
+        sender.doReset(channel, traceId);
+        unregisterStream.accept(streamId);
     }
 
     public MessageHandler newStream(
@@ -152,6 +168,7 @@ public final class NukleusStreamFactory
         private void onData(
             DataFW data)
         {
+            final long traceId = data.traceId();
             final int flags = data.flags();
             final OctetsFW payload = data.payload();
             final ChannelBuffer message = payload == null ? NULL_BUFFER : payload.get(this::readBuffer);
@@ -179,16 +196,23 @@ public final class NukleusStreamFactory
                 {
                     // INIT flag set on non-initial message fragment
                     fireExceptionCaught(channel, new IllegalStateException("invalid message boundary"));
-                    sender.doReset(channel);
+                    sender.doReset(channel, traceId);
                 }
                 else
                 {
+                    int credit = data.reserved();
+
                     final NukleusChannelConfig config = channel.getConfig();
                     if (config.getUpdate() == NukleusUpdateMode.MESSAGE || config.getUpdate() == NukleusUpdateMode.STREAM)
                     {
                         long creditorId = channel.creditorId();
                         int padding = config.getPadding();
-                        sender.doWindow(channel, creditorId, data.reserved(), padding);
+                        channel.doSharedCredit(traceId, credit);
+                        sender.doWindow(channel, creditorId, credit, padding);
+                    }
+                    else
+                    {
+                        channel.pendingSharedCredit(credit);
                     }
 
                     if ((flags & 0x01) != 0x00)
@@ -206,7 +230,7 @@ public final class NukleusStreamFactory
             }
             else
             {
-                sender.doReset(channel);
+                sender.doReset(channel, traceId);
 
                 if (channel.setReadAborted())
                 {
@@ -229,10 +253,11 @@ public final class NukleusStreamFactory
             EndFW end)
         {
             final long streamId = end.streamId();
+            final long traceId = end.traceId();
 
             if (end.authorization() != channel.sourceAuth())
             {
-                sender.doReset(channel);
+                sender.doReset(channel, traceId);
             }
             unregisterStream.accept(streamId);
 
@@ -268,10 +293,11 @@ public final class NukleusStreamFactory
             AbortFW abort)
         {
             final long streamId = abort.streamId();
+            final long traceId = abort.traceId();
 
             if (abort.authorization() != channel.sourceAuth())
             {
-                sender.doReset(channel);
+                sender.doReset(channel, traceId);
             }
             unregisterStream.accept(streamId);
 

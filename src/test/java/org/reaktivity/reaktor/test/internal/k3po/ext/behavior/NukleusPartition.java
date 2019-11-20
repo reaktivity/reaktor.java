@@ -19,10 +19,12 @@ import static org.jboss.netty.channel.Channels.fireChannelBound;
 import static org.jboss.netty.channel.Channels.fireChannelConnected;
 import static org.jboss.netty.channel.Channels.future;
 import static org.reaktivity.reaktor.internal.router.BudgetId.budgetMask;
+import static org.reaktivity.reaktor.internal.router.BudgetId.ownerIndex;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusExtensionKind.BEGIN;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusTransmission.SIMPLEX;
 
 import java.nio.file.Path;
+import java.util.function.IntFunction;
 import java.util.function.LongFunction;
 
 import org.agrona.DirectBuffer;
@@ -35,7 +37,8 @@ import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.kaazing.k3po.driver.internal.behavior.handler.RejectedHandler;
-import org.reaktivity.nukleus.budget.BudgetCreditor;
+import org.reaktivity.reaktor.internal.budget.DefaultBudgetCreditor;
+import org.reaktivity.reaktor.internal.types.stream.DataFW;
 import org.reaktivity.reaktor.test.internal.k3po.ext.behavior.layout.StreamsLayout;
 import org.reaktivity.reaktor.test.internal.k3po.ext.types.OctetsFW;
 import org.reaktivity.reaktor.test.internal.k3po.ext.types.stream.BeginFW;
@@ -47,6 +50,7 @@ final class NukleusPartition implements AutoCloseable
 {
     private final FrameFW frameRO = new FrameFW();
     private final BeginFW beginRO = new BeginFW();
+    private final DataFW dataRO = new DataFW();
 
     private final LabelManager labels;
     private final Path streamsPath;
@@ -61,6 +65,7 @@ final class NukleusPartition implements AutoCloseable
     private final NukleusStreamFactory streamFactory;
     private final LongFunction<NukleusCorrelation> correlateEstablished;
     private final LongLongFunction<NukleusTarget> supplySender;
+    private final IntFunction<NukleusTarget> supplyTarget;
 
     NukleusPartition(
         LabelManager labels,
@@ -73,7 +78,8 @@ final class NukleusPartition implements AutoCloseable
         LongFunction<MessageHandler> lookupThrottle,
         NukleusStreamFactory streamFactory,
         LongFunction<NukleusCorrelation> correlateEstablished,
-        LongLongFunction<NukleusTarget> supplySender)
+        LongLongFunction<NukleusTarget> supplySender,
+        IntFunction<NukleusTarget> supplyTarget)
     {
         this.labels = labels;
         this.streamsPath = streamsPath;
@@ -89,6 +95,7 @@ final class NukleusPartition implements AutoCloseable
         this.streamFactory = streamFactory;
         this.correlateEstablished = correlateEstablished;
         this.supplySender = supplySender;
+        this.supplyTarget = supplyTarget;
     }
 
     public int process()
@@ -106,6 +113,24 @@ final class NukleusPartition implements AutoCloseable
     public String toString()
     {
         return String.format("%s [%s]", getClass().getSimpleName(), streamsPath);
+    }
+
+    void doSystemWindow(
+        NukleusChannel channel,
+        long traceId)
+    {
+        final int pendingSharedBudget = channel.pendingSharedBudget();
+
+        if (pendingSharedBudget != 0)
+        {
+            final long budgetId = channel.creditorId();
+            assert budgetId != 0L;
+
+            final int ownerIndex = ownerIndex(budgetId);
+            final NukleusTarget target = supplyTarget.apply(ownerIndex);
+
+            target.doSystemWindow(traceId, budgetId, pendingSharedBudget);
+        }
     }
 
     int scopeIndex()
@@ -152,19 +177,25 @@ final class NukleusPartition implements AutoCloseable
         int index,
         int length)
     {
-        if (msgTypeId == BeginFW.TYPE_ID)
+        switch (msgTypeId)
         {
+        case BeginFW.TYPE_ID:
             final BeginFW begin = beginRO.wrap(buffer, index, index + length);
             handleBegin(begin);
-        }
-        else
-        {
-            final FrameFW frame = frameRO.wrap(buffer, index, index + length);
+            break;
+        case DataFW.TYPE_ID:
+            final DataFW data = dataRO.wrap(buffer, index, index + length);
+            final long traceId = data.traceId();
+            final long budgetId = data.budgetId();
+            if (budgetId != 0L)
+            {
+                final int reserved = data.reserved();
+                final int ownerIndex = ownerIndex(budgetId);
+                final NukleusTarget target = supplyTarget.apply(ownerIndex);
 
-            final long routeId = frame.routeId();
-            final long streamId = frame.streamId();
-
-            supplySender.apply(routeId, streamId).doReset(routeId, streamId);
+                target.doSystemWindow(traceId, budgetId, reserved);
+            }
+            break;
         }
     }
 
@@ -173,6 +204,7 @@ final class NukleusPartition implements AutoCloseable
     {
         final long routeId = begin.routeId();
         final long streamId = begin.streamId();
+        final long traceId = begin.traceId();
         final long authorization = begin.authorization();
 
         if ((streamId & 0x0000_0000_0000_0001L) != 0L)
@@ -184,7 +216,7 @@ final class NukleusPartition implements AutoCloseable
             }
             else
             {
-                supplySender.apply(routeId, streamId).doReset(routeId, streamId);
+                supplySender.apply(routeId, streamId).doReset(routeId, streamId, traceId);
             }
         }
         else
@@ -199,6 +231,7 @@ final class NukleusPartition implements AutoCloseable
     {
         final long routeId = begin.routeId();
         final long initialId = begin.streamId();
+        final long traceId = begin.traceId();
         final long replyId = initialId & 0xffff_ffff_ffff_fffeL;
 
         final NukleusChildChannel childChannel = doAccept(serverChannel, routeId, initialId, replyId);
@@ -225,7 +258,7 @@ final class NukleusPartition implements AutoCloseable
 
             fireChannelBound(childChannel, childChannel.getLocalAddress());
 
-            sender.doReset(routeId, initialId);
+            sender.doReset(routeId, initialId, traceId);
 
             childChannel.setReadClosed();
         }
@@ -264,6 +297,7 @@ final class NukleusPartition implements AutoCloseable
     {
         final long routeId = begin.routeId();
         final long replyId = begin.streamId();
+        final long traceId = begin.traceId();
         final NukleusCorrelation correlation = correlateEstablished.apply(replyId);
         final NukleusTarget sender = supplySender.apply(routeId, replyId);
 
@@ -279,7 +313,7 @@ final class NukleusPartition implements AutoCloseable
         }
         else
         {
-            sender.doReset(routeId, replyId);
+            sender.doReset(routeId, replyId, traceId);
         }
     }
 
@@ -329,8 +363,11 @@ final class NukleusPartition implements AutoCloseable
             {
                 final long creditorId = budgetId | budgetMask(scopeIndex);
 
-                BudgetCreditor creditor = serverChannel.reaktor.supplyCreditor(childChannel);
+                DefaultBudgetCreditor creditor = serverChannel.reaktor.supplyCreditor(childChannel);
                 childChannel.setCreditor(creditor, creditorId);
+
+                final int sharedWindow = childConfig.getSharedWindow();
+                creditor.creditById(0L, budgetId, sharedWindow);
             }
 
             return childChannel;
