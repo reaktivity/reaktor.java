@@ -583,7 +583,7 @@ final class NukleusTarget implements AutoCloseable
         final int writableBytes = Math.min(channel.writableBytes(writeBuf.readableBytes()), writeBuffer.capacity() >> 1);
 
         // allow extension-only DATA frames to be flushed immediately
-        final boolean flushable = writableBytes > 0 || !writeBuf.readable();
+        boolean flushable = writableBytes > 0 || !writeBuf.readable();
         if (flushable)
         {
             final int writeReaderIndex = writeBuf.readerIndex();
@@ -634,21 +634,24 @@ final class NukleusTarget implements AutoCloseable
                     .extension(p -> p.set(writeExtCopy))
                     .build();
 
-            streamsBuffer.write(data.typeId(), data.buffer(), data.offset(), data.sizeof());
+            flushable = streamsBuffer.write(data.typeId(), data.buffer(), data.offset(), data.sizeof());
 
-            channel.writtenBytes(writableBytes);
+            if (flushable)
+            {
+                channel.writtenBytes(writableBytes);
 
-            writeBuf.skipBytes(writableBytes);
+                writeBuf.skipBytes(writableBytes);
 
-            writeExt.skipBytes(writableExtBytes);
-            writeExt.discardReadBytes();
+                writeExt.skipBytes(writableExtBytes);
+                writeExt.discardReadBytes();
+            }
         }
 
         if (flushing)
         {
             fireFlushed(channel);
         }
-        else
+        else if (flushable)
         {
             fireWriteComplete(channel, writableBytes);
         }
