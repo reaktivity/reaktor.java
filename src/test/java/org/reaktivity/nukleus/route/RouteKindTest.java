@@ -51,9 +51,21 @@ public final class RouteKindTest
         assertEquals(RouteKind.CLIENT_REVERSE, RouteKind.valueOf(4));
     }
 
+    @Test
+    public void shouldReturnCacheServerFromValueOf() throws Exception
+    {
+        assertEquals(RouteKind.CACHE_SERVER, RouteKind.valueOf(5));
+    }
+
+    @Test
+    public void shouldReturnCacheClientFromValueOf() throws Exception
+    {
+        assertEquals(RouteKind.CACHE_CLIENT, RouteKind.valueOf(6));
+    }
+
     @Test(expected = IllegalArgumentException.class)
     public void shouldThrowExceptionFromValueOfWithInvalidOrdinal() throws Exception
     {
-        assertEquals(RouteKind.SERVER, RouteKind.valueOf(5));
+        assertEquals(RouteKind.SERVER, RouteKind.valueOf(-1));
     }
 }

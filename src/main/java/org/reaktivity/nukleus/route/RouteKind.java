@@ -21,7 +21,9 @@ public enum RouteKind
     CLIENT,
     PROXY,
     SERVER_REVERSE,
-    CLIENT_REVERSE;
+    CLIENT_REVERSE,
+    CACHE_SERVER,
+    CACHE_CLIENT;
 
     public static RouteKind valueOf(
         int ordinal)
@@ -38,6 +40,10 @@ public enum RouteKind
             return SERVER_REVERSE;
         case 4:
             return CLIENT_REVERSE;
+        case 5:
+            return CACHE_SERVER;
+        case 6:
+            return CACHE_CLIENT;
         default:
             throw new IllegalArgumentException(String.format("Unrecognized value: %d", ordinal));
         }
