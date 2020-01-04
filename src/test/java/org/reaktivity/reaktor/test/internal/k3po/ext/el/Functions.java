@@ -84,6 +84,14 @@ public final class Functions
     }
 
     @Function
+    public static Long newProxyRouteId(
+        String senderAddress,
+        String receiverAddress)
+    {
+        return newRouteId(Role.PROXY, receiverAddress, senderAddress);
+    }
+
+    @Function
     public static Long newClientReverseRouteId(
         String senderAddress,
         String receiverAddress)
@@ -100,11 +108,19 @@ public final class Functions
     }
 
     @Function
-    public static Long newProxyRouteId(
+    public static Long newCacheServerRouteId(
         String senderAddress,
         String receiverAddress)
     {
-        return newRouteId(Role.PROXY, receiverAddress, senderAddress);
+        return newRouteId(Role.CACHE_SERVER, receiverAddress, senderAddress);
+    }
+
+    @Function
+    public static Long newCacheClientRouteId(
+        String senderAddress,
+        String receiverAddress)
+    {
+        return newRouteId(Role.CACHE_CLIENT, receiverAddress, senderAddress);
     }
 
     private static long nextLongNonZero()
