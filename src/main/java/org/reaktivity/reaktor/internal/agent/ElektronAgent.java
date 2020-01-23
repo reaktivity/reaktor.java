@@ -45,6 +45,7 @@ import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
+import java.util.function.IntConsumer;
 import java.util.function.IntFunction;
 import java.util.function.LongConsumer;
 import java.util.function.LongFunction;
@@ -1293,6 +1294,19 @@ public class ElektronAgent implements Agent
             ExecutorService executorService)
         {
             this.executorService = executorService;
+        }
+
+        @Override
+        public long signalAt(
+            long timeMillis,
+            int signalId,
+            IntConsumer handler)
+        {
+            final long timerId = timerWheel.scheduleTimer(timeMillis);
+            final Runnable task = () -> handler.accept(signalId);
+            tasksByTimerId.put(timerId, task);
+            assert timerId >= 0L;
+            return timerId;
         }
 
         @Override
