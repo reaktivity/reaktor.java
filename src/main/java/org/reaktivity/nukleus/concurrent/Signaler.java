@@ -15,9 +15,13 @@
  */
 package org.reaktivity.nukleus.concurrent;
 
+import java.util.function.IntConsumer;
+
 public interface Signaler
 {
     long NO_CANCEL_ID = 0xffff_ffff_ffff_ffffL;
+
+    long signalAt(long timeMillis, int signalId, IntConsumer handler);
 
     void signalNow(long routeId, long streamId, int signalId);
 
