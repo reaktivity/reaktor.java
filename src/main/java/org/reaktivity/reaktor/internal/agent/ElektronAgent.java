@@ -672,6 +672,9 @@ public class ElektronAgent implements Agent
                     handler.accept(msgTypeId, buffer, index, length);
                     dispatcher.remove(instanceId);
                     break;
+                case FlushFW.TYPE_ID:
+                    handler.accept(msgTypeId, buffer, index, length);
+                    break;
                 default:
                     doReset(routeId, streamId);
                     break;
@@ -793,6 +796,9 @@ public class ElektronAgent implements Agent
                     counters.aborts.increment();
                     handler.accept(msgTypeId, buffer, index, length);
                     dispatcher.remove(instanceId);
+                    break;
+                case FlushFW.TYPE_ID:
+                    handler.accept(msgTypeId, buffer, index, length);
                     break;
                 default:
                     doReset(routeId, streamId);
