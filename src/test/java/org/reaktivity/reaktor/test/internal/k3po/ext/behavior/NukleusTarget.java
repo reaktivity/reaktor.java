@@ -264,6 +264,7 @@ final class NukleusTarget implements AutoCloseable
                     if (future.isSuccess())
                     {
                         clientChannel.setConnected();
+                        clientChannel.setFlushable();
 
                         connectFuture.setSuccess();
                         fireChannelConnected(clientChannel, clientChannel.getRemoteAddress());
@@ -512,7 +513,7 @@ final class NukleusTarget implements AutoCloseable
         final Deque<MessageEvent> writeRequests = channel.writeRequests;
 
         loop:
-        while (!writeRequests.isEmpty())
+        while (channel.isFlushable() && !writeRequests.isEmpty())
         {
             MessageEvent writeRequest = writeRequests.peekFirst();
             ChannelBuffer writeBuf = (ChannelBuffer) writeRequest.getMessage();
@@ -846,6 +847,8 @@ final class NukleusTarget implements AutoCloseable
             WindowFW window)
         {
             this.windowHandler = this::onWindow;
+
+            channel.setFlushable();
 
             windowFuture.setSuccess();
             windowHandler.accept(window);

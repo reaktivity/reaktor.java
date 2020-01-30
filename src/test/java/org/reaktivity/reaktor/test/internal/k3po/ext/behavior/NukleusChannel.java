@@ -71,6 +71,7 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
     private ChannelFuture beginInputFuture;
 
     private int capabilities;
+    private boolean flushable;
 
     private DefaultBudgetDebitor debitor;
     private long debitorIndex = -1L;
@@ -515,6 +516,16 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
     public boolean isTargetWriteRequestInProgress()
     {
         return targetWriteRequestInProgress;
+    }
+
+    public void setFlushable()
+    {
+        flushable = true;
+    }
+
+    public boolean isFlushable()
+    {
+        return flushable;
     }
 
     private void cleanupCreditor(
