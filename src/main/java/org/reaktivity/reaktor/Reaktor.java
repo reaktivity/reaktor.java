@@ -36,8 +36,10 @@ import org.agrona.concurrent.BackoffIdleStrategy;
 import org.agrona.concurrent.IdleStrategy;
 import org.reaktivity.nukleus.Configuration;
 import org.reaktivity.nukleus.Controller;
+import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.reaktor.internal.agent.ControllerAgent;
 import org.reaktivity.reaktor.internal.agent.ElektronAgent;
+import org.reaktivity.reaktor.internal.agent.NukleusAgent;
 
 public final class Reaktor implements AutoCloseable
 {
@@ -45,6 +47,7 @@ public final class Reaktor implements AutoCloseable
     private final ExecutorService executor;
     private final AgentRunner[] runners;
     private final ControllerAgent controllerAgent;
+    private final NukleusAgent nukleusAgent;
     private final List<ElektronAgent> elektronAgents;
     private final ThreadFactory threadFactory;
 
@@ -78,6 +81,12 @@ public final class Reaktor implements AutoCloseable
             .findFirst()
             .orElse(null);
 
+        this.nukleusAgent = Arrays.stream(agents)
+                .filter(agent -> agent instanceof NukleusAgent)
+                .map(NukleusAgent.class::cast)
+                .findFirst()
+                .orElse(null);
+
         this.elektronAgents = Arrays.stream(agents)
                 .filter(agent -> agent instanceof ElektronAgent)
                 .map(ElektronAgent.class::cast)
@@ -100,6 +109,12 @@ public final class Reaktor implements AutoCloseable
     public Stream<Controller> controllers()
     {
         return controllerAgent != null ? controllerAgent.controllers() : null;
+    }
+
+    public <T extends Nukleus> T nukleus(
+        Class<T> kind)
+    {
+        return nukleusAgent != null ? nukleusAgent.nukleus(kind) : null;
     }
 
     public long counter(
