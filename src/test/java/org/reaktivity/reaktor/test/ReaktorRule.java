@@ -18,6 +18,7 @@ package org.reaktivity.reaktor.test;
 import static java.lang.String.format;
 import static java.nio.file.FileVisitOption.FOLLOW_LINKS;
 import static java.nio.file.Files.exists;
+import static java.util.Objects.requireNonNull;
 import static org.junit.runners.model.MultipleFailureException.assertEmpty;
 import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_COMMAND_BUFFER_CAPACITY;
 import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_COUNTERS_BUFFER_CAPACITY;
@@ -44,6 +45,7 @@ import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
 import org.reaktivity.nukleus.Configuration.PropertyDef;
 import org.reaktivity.nukleus.Controller;
+import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.NukleusFactorySpi;
 import org.reaktivity.reaktor.Reaktor;
 import org.reaktivity.reaktor.ReaktorBuilder;
@@ -163,18 +165,17 @@ public final class ReaktorRule implements TestRule
     public <T extends Controller> T controller(
         Class<T> kind)
     {
-        if (reaktor == null)
-        {
-            throw new IllegalStateException("Reaktor not started");
-        }
+        ensureReaktorStarted();
 
-        T controller = reaktor.controller(kind);
-        if (controller == null)
-        {
-            throw new IllegalStateException("controller not found: " + kind.getName());
-        }
+        return requireNonNull(reaktor.controller(kind));
+    }
 
-        return controller;
+    public <T extends Nukleus> T nukleus(
+        Class<T> kind)
+    {
+        ensureReaktorStarted();
+
+        return requireNonNull(reaktor.nukleus(kind));
     }
 
     public long opensRead(
@@ -264,10 +265,7 @@ public final class ReaktorRule implements TestRule
     public long counter(
         String name)
     {
-        if (reaktor == null)
-        {
-            throw new IllegalStateException("Reaktor not started");
-        }
+        ensureReaktorStarted();
 
         return reaktor.counter(name);
     }
@@ -279,6 +277,14 @@ public final class ReaktorRule implements TestRule
             configuration = new ReaktorConfiguration(properties);
         }
         return configuration;
+    }
+
+    private void ensureReaktorStarted()
+    {
+        if (reaktor == null)
+        {
+            throw new IllegalStateException("Reaktor not started");
+        }
     }
 
     @Override

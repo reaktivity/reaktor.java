@@ -128,6 +128,17 @@ public class NukleusAgent implements Agent
         return nukleiByName.get(name);
     }
 
+    public <T extends Nukleus> T nukleus(
+        Class<T> kind)
+    {
+        return nukleiByName.values()
+            .stream()
+            .filter(kind::isInstance)
+            .map(kind::cast)
+            .findFirst()
+            .orElse(null);
+    }
+
     public LabelManager labels()
     {
         return labels;
