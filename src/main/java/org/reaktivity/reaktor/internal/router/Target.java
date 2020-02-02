@@ -212,6 +212,9 @@ public final class Target implements AutoCloseable
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 throttles[throttleIndex(streamId)].remove(instanceId(streamId));
                 break;
+            case FlushFW.TYPE_ID:
+                handled = streamsBuffer.test(msgTypeId, buffer, index, length);
+                break;
             default:
                 handled = true;
                 break;
@@ -270,6 +273,9 @@ public final class Target implements AutoCloseable
             case AbortFW.TYPE_ID:
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 throttles[throttleIndex(streamId)].remove(instanceId(streamId));
+                break;
+            case FlushFW.TYPE_ID:
+                handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 break;
             default:
                 handled = true;
