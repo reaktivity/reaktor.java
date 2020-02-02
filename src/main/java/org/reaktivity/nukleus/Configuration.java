@@ -243,6 +243,30 @@ public class Configuration
             return property;
         }
 
+        public <T> PropertyDef<T> property(
+            Class<T> kind,
+            String name,
+            BiFunction<Configuration, String, T> decodeValue,
+            Function<Configuration, T> defaultValue)
+        {
+            String qualifiedName = qualifiedName(name);
+            PropertyDef<T> property = new ObjectPropertyDef<T>(kind, qualifiedName, decodeValue, defaultValue);
+            properties.put(qualifiedName, property);
+            return property;
+        }
+
+        public <T> PropertyDef<T> property(
+            Class<T> kind,
+            String name,
+            BiFunction<Configuration, String, T> decodeValue,
+            String defaultValue)
+        {
+            String qualifiedName = qualifiedName(name);
+            PropertyDef<T> property = new ObjectPropertyDef<T>(kind, qualifiedName, decodeValue, defaultValue);
+            properties.put(qualifiedName, property);
+            return property;
+        }
+
         private String qualifiedName(
             String name)
         {
@@ -645,7 +669,7 @@ public class Configuration
 
     private static final class ObjectPropertyDef<T> extends PropertyDef<T>
     {
-        private final Function<String, T> decodeValue;
+        private final BiFunction<Configuration, String, T> decodeValue;
         private final Function<Configuration, T> defaultValue;
 
         private ObjectPropertyDef(
@@ -664,8 +688,30 @@ public class Configuration
             Function<Configuration, T> defaultValue)
         {
             super(kind, name);
+            this.decodeValue = (c, v) -> decodeValue.apply(v);
+            this.defaultValue = defaultValue;
+        }
+
+        private ObjectPropertyDef(
+            Class<T> kind,
+            String name,
+            BiFunction<Configuration, String, T> decodeValue,
+            Function<Configuration, T> defaultValue)
+        {
+            super(kind, name);
             this.decodeValue = decodeValue;
             this.defaultValue = defaultValue;
+        }
+
+        private ObjectPropertyDef(
+            Class<T> kind,
+            String name,
+            BiFunction<Configuration, String, T> decodeValue,
+            String defaultValue)
+        {
+            super(kind, name);
+            this.decodeValue = decodeValue;
+            this.defaultValue = c -> decodeValue.apply(c, defaultValue);
         }
 
         @Override
@@ -673,7 +719,7 @@ public class Configuration
             Configuration config)
         {
             String value = config.getProperty.apply(name, null);
-            return value != null ? decodeValue.apply(value) : null;
+            return value != null ? decodeValue.apply(config, value) : null;
         }
 
         @Override
@@ -681,7 +727,7 @@ public class Configuration
             Configuration config)
         {
             String value = config.getPropertyDefault.apply(name, null);
-            return value != null ? decodeValue.apply(value) : defaultValue.apply(config);
+            return value != null ? decodeValue.apply(config, value) : defaultValue.apply(config);
         }
     }
 

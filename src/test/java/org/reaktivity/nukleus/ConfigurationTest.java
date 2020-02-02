@@ -33,6 +33,7 @@ import org.reaktivity.nukleus.Configuration.DoublePropertyDef;
 import org.reaktivity.nukleus.Configuration.FloatPropertyDef;
 import org.reaktivity.nukleus.Configuration.IntPropertyDef;
 import org.reaktivity.nukleus.Configuration.LongPropertyDef;
+import org.reaktivity.nukleus.Configuration.PropertyDef;
 import org.reaktivity.nukleus.Configuration.ShortPropertyDef;
 import org.reaktivity.nukleus.Configuration.ToByteFunction;
 import org.reaktivity.nukleus.Configuration.ToCharFunction;
@@ -113,6 +114,39 @@ public final class ConfigurationTest
         Configuration wrapped = new Configuration(config);
 
         assertEquals("/path/to/reaktivity", wrapped.getProperty("reaktivity.test", "default"));
+    }
+
+    @Test
+    public void shouldGetProperty()
+    {
+        Properties properties = new Properties();
+        properties.setProperty("scope.property.name", "value");
+
+        ConfigurationDef configDef = new ConfigurationDef("scope");
+        PropertyDef<String> propertyDef = configDef.property("property.name", "default");
+        Configuration config = new Configuration(properties);
+
+        assertEquals("value", propertyDef.get(config));
+    }
+
+    @Test
+    public void shouldDefaultGetProperty()
+    {
+        ConfigurationDef configDef = new ConfigurationDef("scope");
+        PropertyDef<String> propertyDef = configDef.property("property.name", "default");
+        Configuration config = new Configuration();
+
+        assertEquals("default", propertyDef.get(config));
+    }
+
+    @Test
+    public void shouldSupplyDefaultGetProperty()
+    {
+        ConfigurationDef configDef = new ConfigurationDef("scope");
+        PropertyDef<String> propertyDef = configDef.property(String.class, "property.name", (c, v) -> v.toUpperCase(), "default");
+        Configuration config = new Configuration();
+
+        assertEquals("DEFAULT", propertyDef.get(config));
     }
 
     @Test
