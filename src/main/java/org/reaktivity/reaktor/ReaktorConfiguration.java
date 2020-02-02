@@ -29,6 +29,7 @@ public class ReaktorConfiguration extends Configuration
     public static final boolean DEBUG_BUDGETS = Boolean.getBoolean("reaktor.debug.budgets");
 
     public static final PropertyDef<String> REAKTOR_DIRECTORY;
+    public static final PropertyDef<Path> REAKTOR_CACHE_DIRECTORY;
     public static final IntPropertyDef REAKTOR_BUDGETS_BUFFER_CAPACITY;
     public static final IntPropertyDef REAKTOR_STREAMS_BUFFER_CAPACITY;
     public static final IntPropertyDef REAKTOR_COMMAND_BUFFER_CAPACITY;
@@ -54,6 +55,7 @@ public class ReaktorConfiguration extends Configuration
     {
         final ConfigurationDef config = new ConfigurationDef("reaktor");
         REAKTOR_DIRECTORY = config.property("directory", ".");
+        REAKTOR_CACHE_DIRECTORY = config.property(Path.class, "cache.directory", (c, v) -> cacheDirectory(c, v), "cache");
         REAKTOR_BUDGETS_BUFFER_CAPACITY = config.property("budgets.buffer.capacity", 1024 * 1024);
         REAKTOR_STREAMS_BUFFER_CAPACITY = config.property("streams.buffer.capacity", 1024 * 1024);
         REAKTOR_COMMAND_BUFFER_CAPACITY = config.property("command.buffer.capacity", 1024 * 1024);
@@ -104,6 +106,11 @@ public class ReaktorConfiguration extends Configuration
     public final Path directory()
     {
         return Paths.get(REAKTOR_DIRECTORY.get(this));
+    }
+
+    public final Path cacheDirectory()
+    {
+        return REAKTOR_CACHE_DIRECTORY.get(this);
     }
 
     public int bufferPoolCapacity()
@@ -210,5 +217,12 @@ public class ReaktorConfiguration extends Configuration
         Configuration config)
     {
         return REAKTOR_BUFFER_SLOT_CAPACITY.get(config) * 64;
+    }
+
+    private static Path cacheDirectory(
+        Configuration config,
+        String cacheDirectory)
+    {
+        return Paths.get(REAKTOR_DIRECTORY.get(config)).resolve(cacheDirectory);
     }
 }
