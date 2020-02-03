@@ -148,7 +148,7 @@
         <configuration>
           <header>COPYRIGHT</header>
           <properties>
-            <copyrightYears>2016-2019</copyrightYears>
+            <copyrightYears>2016-2020</copyrightYears>
           </properties>
           <includes>
             <include>src/**</include>
@@ -191,7 +191,7 @@
           <dependency>
             <groupId>com.puppycrawl.tools</groupId>
             <artifactId>checkstyle</artifactId>
-            <version>8.23</version>
+            <version>8.29</version>
           </dependency>
         </dependencies>
       </plugin>
