@@ -54,7 +54,7 @@
         <configuration>
           <header>COPYRIGHT</header>
           <properties>
-            <copyrightYears>2016-2019</copyrightYears>
+            <copyrightYears>2016-2020</copyrightYears>
           </properties>
           <includes>
             <include>src/**</include>
