@@ -1,5 +1,5 @@
 /**
- * Copyright 2016-2019 The Reaktivity Project
+ * Copyright 2016-2020 The Reaktivity Project
  *
  * The Reaktivity Project licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -16,12 +16,19 @@
 package org.reaktivity.nukleus;
 
 import org.agrona.concurrent.Agent;
+import org.reaktivity.nukleus.route.AddressFactoryBuilder;
 import org.reaktivity.nukleus.route.RouteKind;
 import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 
 public interface Elektron
 {
     default StreamFactoryBuilder streamFactoryBuilder(
+        RouteKind kind)
+    {
+        return null;
+    }
+
+    default AddressFactoryBuilder addressFactoryBuilder(
         RouteKind kind)
     {
         return null;

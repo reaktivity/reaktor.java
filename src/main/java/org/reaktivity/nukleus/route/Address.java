@@ -13,21 +13,22 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.nukleus.concurrent;
+package org.reaktivity.nukleus.route;
 
-import java.util.function.IntConsumer;
+import org.reaktivity.nukleus.function.MessageConsumer;
 
-public interface Signaler
+public interface Address extends AutoCloseable
 {
-    long NO_CANCEL_ID = 0xffff_ffff_ffff_ffffL;
+    String name();
 
-    long signalAt(long timeMillis, int signalId, IntConsumer handler);
+    String nukleus();
 
-    void signalNow(long routeId, long streamId, int signalId);
+    default void close()
+    {
+    }
 
-    long signalAt(long timeMillis, long routeId, long streamId, int signalId);
-
-    long signalTask(Runnable task, long routeId, long streamId, int signalId);
-
-    boolean cancel(long cancelId);
+    default MessageConsumer routeHandler()
+    {
+        return (t, b, i, l) -> {};
+    }
 }

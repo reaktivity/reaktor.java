@@ -13,21 +13,10 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.nukleus.concurrent;
+package org.reaktivity.nukleus.route;
 
-import java.util.function.IntConsumer;
-
-public interface Signaler
+public interface AddressFactory
 {
-    long NO_CANCEL_ID = 0xffff_ffff_ffff_ffffL;
-
-    long signalAt(long timeMillis, int signalId, IntConsumer handler);
-
-    void signalNow(long routeId, long streamId, int signalId);
-
-    long signalAt(long timeMillis, long routeId, long streamId, int signalId);
-
-    long signalTask(Runnable task, long routeId, long streamId, int signalId);
-
-    boolean cancel(long cancelId);
+    Address newAddress(
+        String localName);
 }
