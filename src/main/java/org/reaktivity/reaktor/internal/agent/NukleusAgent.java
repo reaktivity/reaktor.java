@@ -1,5 +1,5 @@
 /**
- * Copyright 2016-2019 The Reaktivity Project
+ * Copyright 2016-2020 The Reaktivity Project
  *
  * The Reaktivity Project licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -45,6 +45,7 @@ import org.reaktivity.reaktor.ReaktorConfiguration;
 import org.reaktivity.reaktor.internal.LabelManager;
 import org.reaktivity.reaktor.internal.layouts.ControlLayout;
 import org.reaktivity.reaktor.internal.router.Router;
+import org.reaktivity.reaktor.internal.types.OctetsFW;
 import org.reaktivity.reaktor.internal.types.control.CommandFW;
 import org.reaktivity.reaktor.internal.types.control.ErrorFW;
 import org.reaktivity.reaktor.internal.types.control.FreezeFW;
@@ -188,9 +189,10 @@ public class NukleusAgent implements Agent
     public void onRouted(
         Nukleus nukleus,
         RouteKind routeKind,
-        long routeId)
+        long routeId,
+        OctetsFW extension)
     {
-        elektronAgents.forEach(a -> a.onRouted(nukleus, routeKind, routeId));
+        elektronAgents.forEach(a -> a.onRouted(nukleus, routeKind, routeId, extension));
     }
 
     void onUnrouted(
@@ -295,7 +297,7 @@ public class NukleusAgent implements Agent
 
             if (router.doRoute(newRoute, routeHandler))
             {
-                this.onRouted(nukleus, routeKind, newRouteId);
+                this.onRouted(nukleus, routeKind, newRouteId, route.extension());
                 doRouted(correlationId, newRouteId);
             }
             else

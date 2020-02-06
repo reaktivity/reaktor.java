@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright 2016-2020 The Reaktivity Project
  *
  * The Reaktivity Project licenses this file to you under the Apache License,
@@ -13,16 +13,14 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.reaktor.test.internal.k3po.ext.behavior.layout;
-
-
-public abstract class Layout implements AutoCloseable
+scope internal
 {
-    @Override
-    public abstract void close();
-
-    public abstract static class Builder<T extends Layout>
+    scope stream
     {
-        public abstract T build();
+        union ReaktorSignalEx switch (uint8) extends core::stream::Extension
+        {
+            case 1: core::control::Route route;
+            case 2: core::control::Unroute unroute;
+        }
     }
 }

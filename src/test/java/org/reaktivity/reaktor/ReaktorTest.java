@@ -1,5 +1,5 @@
 /**
- * Copyright 2016-2019 The Reaktivity Project
+ * Copyright 2016-2020 The Reaktivity Project
  *
  * The Reaktivity Project licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.agrona.ErrorHandler;
 import org.agrona.concurrent.Agent;
+import org.agrona.concurrent.UnsafeBuffer;
 import org.jmock.Expectations;
 import org.jmock.integration.junit4.JUnitRuleMockery;
 import org.jmock.lib.concurrent.Synchroniser;
@@ -41,10 +42,13 @@ import org.reaktivity.reaktor.internal.agent.ControllerAgent;
 import org.reaktivity.reaktor.internal.agent.ElektronAgent;
 import org.reaktivity.reaktor.internal.agent.NukleusAgent;
 import org.reaktivity.reaktor.internal.router.RouteId;
+import org.reaktivity.reaktor.internal.types.OctetsFW;
 import org.reaktivity.reaktor.internal.types.control.Role;
 
 public class ReaktorTest
 {
+    private static final OctetsFW EMPTY_OCTETS = new OctetsFW().wrap(new UnsafeBuffer(new byte[0]), 0, 0);
+
     @Rule
     public final TemporaryFolder folder = new TemporaryFolder();
 
@@ -77,6 +81,9 @@ public class ReaktorTest
                 allowing(elektron).streamFactoryBuilder(with(any(RouteKind.class)));
                 will(returnValue(null));
 
+                allowing(elektron).addressFactoryBuilder(with(any(RouteKind.class)));
+                will(returnValue(null));
+
                 oneOf(nukleus).supplyElektron();
                 will(returnValue(elektron));
 
@@ -99,9 +106,10 @@ public class ReaktorTest
         final AtomicInteger threadCount = new AtomicInteger();
         final ThreadFactory threadFactory = task -> threadRef[threadCount.getAndIncrement()] = new Thread(task);
         final int localId = nukleusAgent.labels().supplyLabelId("test");
+        final long routeId = RouteId.routeId(localId, 1, Role.SERVER, 1);
         nukleusAgent.assign(nukleus);
-        nukleusAgent.onRouteable(RouteId.routeId(localId, 1, Role.SERVER, 1), nukleus);
-        nukleusAgent.onRouted(nukleus, RouteKind.SERVER, RouteId.routeId(localId, 1, Role.SERVER, 1));
+        nukleusAgent.onRouteable(routeId, nukleus);
+        nukleusAgent.onRouted(nukleus, RouteKind.SERVER, routeId, EMPTY_OCTETS);
 
 
         try (Reaktor reaktor = new Reaktor(

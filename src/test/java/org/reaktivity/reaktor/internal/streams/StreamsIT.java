@@ -1,5 +1,5 @@
 /**
- * Copyright 2016-2019 The Reaktivity Project
+ * Copyright 2016-2020 The Reaktivity Project
  *
  * The Reaktivity Project licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -66,7 +66,7 @@ import org.reaktivity.reaktor.test.internal.k3po.ext.types.stream.WindowFW;
 
 public class StreamsIT
 {
-    private static final long SERVER_ROUTE_ID = 0x0002000100000001L;
+    private static final long SERVER_ROUTE_ID = 0x0003000200000001L;
 
     private final K3poRule k3po = new K3poRule()
             .addScriptRoot("route", "org/reaktivity/specification/nukleus/control/route")
