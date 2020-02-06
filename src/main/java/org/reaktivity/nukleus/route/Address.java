@@ -13,29 +13,22 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.nukleus;
+package org.reaktivity.nukleus.route;
 
-import org.agrona.concurrent.Agent;
-import org.reaktivity.nukleus.route.AddressFactoryBuilder;
-import org.reaktivity.nukleus.route.RouteKind;
-import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
+import org.reaktivity.nukleus.function.MessageConsumer;
 
-public interface Elektron
+public interface Address extends AutoCloseable
 {
-    default StreamFactoryBuilder streamFactoryBuilder(
-        RouteKind kind)
+    String name();
+
+    String nukleus();
+
+    default void close()
     {
-        return null;
     }
 
-    default AddressFactoryBuilder addressFactoryBuilder(
-        RouteKind kind)
+    default MessageConsumer routeHandler()
     {
-        return null;
-    }
-
-    default Agent agent()
-    {
-        return null;
+        return (t, b, i, l) -> {};
     }
 }

@@ -13,29 +13,10 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.nukleus;
+package org.reaktivity.nukleus.route;
 
-import org.agrona.concurrent.Agent;
-import org.reaktivity.nukleus.route.AddressFactoryBuilder;
-import org.reaktivity.nukleus.route.RouteKind;
-import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
-
-public interface Elektron
+public interface AddressFactory
 {
-    default StreamFactoryBuilder streamFactoryBuilder(
-        RouteKind kind)
-    {
-        return null;
-    }
-
-    default AddressFactoryBuilder addressFactoryBuilder(
-        RouteKind kind)
-    {
-        return null;
-    }
-
-    default Agent agent()
-    {
-        return null;
-    }
+    Address newAddress(
+        String localName);
 }
