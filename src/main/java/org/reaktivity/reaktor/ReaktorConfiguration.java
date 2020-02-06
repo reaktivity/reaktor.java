@@ -28,6 +28,7 @@ public class ReaktorConfiguration extends Configuration
 {
     public static final boolean DEBUG_BUDGETS = Boolean.getBoolean("reaktor.debug.budgets");
 
+    public static final PropertyDef<String> REAKTOR_NAME;
     public static final PropertyDef<String> REAKTOR_DIRECTORY;
     public static final PropertyDef<Path> REAKTOR_CACHE_DIRECTORY;
     public static final IntPropertyDef REAKTOR_BUDGETS_BUFFER_CAPACITY;
@@ -54,6 +55,7 @@ public class ReaktorConfiguration extends Configuration
     static
     {
         final ConfigurationDef config = new ConfigurationDef("reaktor");
+        REAKTOR_NAME = config.property("name", "reaktor");
         REAKTOR_DIRECTORY = config.property("directory", ".");
         REAKTOR_CACHE_DIRECTORY = config.property(Path.class, "cache.directory", (c, v) -> cacheDirectory(c, v), "cache");
         REAKTOR_BUDGETS_BUFFER_CAPACITY = config.property("budgets.buffer.capacity", 1024 * 1024);
@@ -100,6 +102,11 @@ public class ReaktorConfiguration extends Configuration
     public ReaktorConfiguration()
     {
         super(REAKTOR_CONFIG, new Configuration());
+    }
+
+    public String name()
+    {
+        return REAKTOR_NAME.get(this);
     }
 
     @Override

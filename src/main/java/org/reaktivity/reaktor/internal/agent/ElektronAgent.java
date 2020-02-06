@@ -80,6 +80,9 @@ import org.reaktivity.nukleus.concurrent.SignalingExecutor;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.function.MessageFunction;
 import org.reaktivity.nukleus.function.MessagePredicate;
+import org.reaktivity.nukleus.route.Address;
+import org.reaktivity.nukleus.route.AddressFactory;
+import org.reaktivity.nukleus.route.AddressFactoryBuilder;
 import org.reaktivity.nukleus.route.RouteKind;
 import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
@@ -96,13 +99,20 @@ import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
 import org.reaktivity.reaktor.internal.router.Resolver;
 import org.reaktivity.reaktor.internal.router.Target;
 import org.reaktivity.reaktor.internal.router.WriteCounters;
+import org.reaktivity.reaktor.internal.types.Flyweight;
+import org.reaktivity.reaktor.internal.types.OctetsFW;
+import org.reaktivity.reaktor.internal.types.control.Role;
+import org.reaktivity.reaktor.internal.types.control.RouteFW;
+import org.reaktivity.reaktor.internal.types.control.UnrouteFW;
 import org.reaktivity.reaktor.internal.types.stream.AbortFW;
 import org.reaktivity.reaktor.internal.types.stream.BeginFW;
 import org.reaktivity.reaktor.internal.types.stream.ChallengeFW;
 import org.reaktivity.reaktor.internal.types.stream.DataFW;
 import org.reaktivity.reaktor.internal.types.stream.EndFW;
+import org.reaktivity.reaktor.internal.types.stream.ExtensionFW;
 import org.reaktivity.reaktor.internal.types.stream.FlushFW;
 import org.reaktivity.reaktor.internal.types.stream.FrameFW;
+import org.reaktivity.reaktor.internal.types.stream.ReaktorSignalExFW;
 import org.reaktivity.reaktor.internal.types.stream.ResetFW;
 import org.reaktivity.reaktor.internal.types.stream.SignalFW;
 import org.reaktivity.reaktor.internal.types.stream.WindowFW;
@@ -111,17 +121,25 @@ public class ElektronAgent implements Agent
 {
     private static final Pattern ADDRESS_PATTERN = Pattern.compile("^([^#]+)(:?#.*)$");
 
+    private static final int SYSTEM_SIGNAL_ROUTED = 1;
+    private static final int SYSTEM_SIGNAL_UNROUTED = 2;
+
     private final FrameFW frameRO = new FrameFW();
     private final BeginFW beginRO = new BeginFW();
     private final DataFW dataRO = new DataFW();
+    private final FlushFW flushRO = new FlushFW();
     private final WindowFW windowRO = new WindowFW();
     private final SignalFW signalRO = new SignalFW();
-    private final FlushFW flushRO = new FlushFW();
+    private final ExtensionFW extensionRO = new ExtensionFW();
+    private final ReaktorSignalExFW reaktorSignalExRO = new ReaktorSignalExFW();
     private final AbortFW.Builder abortRW = new AbortFW.Builder();
+    private final FlushFW.Builder flushRW = new FlushFW.Builder();
     private final ResetFW.Builder resetRW = new ResetFW.Builder();
     private final WindowFW.Builder windowRW = new WindowFW.Builder();
-    private final FlushFW.Builder flushRW = new FlushFW.Builder();
+    private final SignalFW.Builder signalRW = new SignalFW.Builder();
+    private final ReaktorSignalExFW.Builder reaktorSignalExRW = new ReaktorSignalExFW.Builder();
 
+    private final int reaktorTypeId;
     private final int localIndex;
     private final ReaktorConfiguration config;
     private final LabelManager labels;
@@ -134,6 +152,7 @@ public class ElektronAgent implements Agent
     private final BufferPoolLayout bufferPoolLayout;
     private final RingBuffer streamsBuffer;
     private final MutableDirectBuffer writeBuffer;
+    private final MutableDirectBuffer signalBuffer;
     private final Int2ObjectHashMap<MessageConsumer>[] streams;
     private final Int2ObjectHashMap<MessageConsumer>[] throttles;
     private final Long2ObjectHashMap<ReadCounters> countersByRouteId;
@@ -152,6 +171,7 @@ public class ElektronAgent implements Agent
     private final IntFunction<Target> newTarget;
     private final LongFunction<WriteCounters> newWriteCounters;
     private final LongFunction<Affinity> resolveAffinity;
+    private final Long2ObjectHashMap<Address> addressesByRouteId;
 
     private final RouteManager resolver;
 
@@ -188,6 +208,7 @@ public class ElektronAgent implements Agent
         Supplier<DirectBuffer> routesBufferRef,
         Supplier<AgentBuilder> supplyAgentBuilder)
     {
+        this.reaktorTypeId = labels.supplyLabelId(config.name());
         this.localIndex = index;
         this.config = config;
         this.labels = labels;
@@ -228,6 +249,7 @@ public class ElektronAgent implements Agent
         this.expireLimit = config.maximumExpirationsPerPoll();
         this.streamsBuffer = streamsLayout.streamsBuffer();
         this.writeBuffer = new UnsafeBuffer(new byte[streamsBuffer.maxMsgLength()]);
+        this.signalBuffer = new UnsafeBuffer(new byte[streamsBuffer.maxMsgLength()]);
         this.streams = initDispatcher();
         this.throttles = initDispatcher();
         this.countersByRouteId = new Long2ObjectHashMap<>();
@@ -239,6 +261,7 @@ public class ElektronAgent implements Agent
         this.newTarget = this::newTarget;
         this.newWriteCounters = this::newWriteCounters;
         this.resolveAffinity = this::resolveAffinity;
+        this.addressesByRouteId = new Long2ObjectHashMap<>();
         this.elektronByName = new ConcurrentHashMap<>();
         this.affinityByRemoteId = new Long2ObjectHashMap<>();
         this.targetsByIndex = new Int2ObjectHashMap<>();
@@ -305,25 +328,19 @@ public class ElektronAgent implements Agent
     {
         switch (msgTypeId)
         {
-        case WindowFW.TYPE_ID:
-            final WindowFW window = windowRO.wrap(buffer, index, index + length);
-            onSystemWindow(window);
-            break;
         case FlushFW.TYPE_ID:
             final FlushFW flush = flushRO.wrap(buffer, index, index + length);
             onSystemFlush(flush);
             break;
+        case WindowFW.TYPE_ID:
+            final WindowFW window = windowRO.wrap(buffer, index, index + length);
+            onSystemWindow(window);
+            break;
+        case SignalFW.TYPE_ID:
+            final SignalFW signal = signalRO.wrap(buffer, index, index + length);
+            onSystemSignal(signal);
+            break;
         }
-    }
-
-    private void onSystemWindow(
-        WindowFW window)
-    {
-        final long traceId = window.traceId();
-        final long budgetId = window.budgetId();
-        final int credit = window.credit();
-
-        creditor.creditById(traceId, budgetId, credit);
     }
 
     private void onSystemFlush(
@@ -344,6 +361,76 @@ public class ElektronAgent implements Agent
         if (debitor != null)
         {
             debitor.flush(traceId, budgetId);
+        }
+    }
+
+    private void onSystemWindow(
+        WindowFW window)
+    {
+        final long traceId = window.traceId();
+        final long budgetId = window.budgetId();
+        final int credit = window.credit();
+
+        creditor.creditById(traceId, budgetId, credit);
+    }
+
+    private void onSystemSignal(
+        SignalFW signal)
+    {
+        final int signalId = signal.signalId();
+        switch (signalId)
+        {
+        case SYSTEM_SIGNAL_ROUTED:
+            onSystemRoutedSignal(signal);
+            break;
+        case SYSTEM_SIGNAL_UNROUTED:
+            onSystemUnroutedSignal(signal);
+            break;
+        }
+    }
+
+    private void onSystemRoutedSignal(
+        SignalFW signal)
+    {
+        final long routeId = signal.routeId();
+        final OctetsFW extension = signal.extension();
+        final ExtensionFW signalEx = extension.get(extensionRO::wrap);
+        assert signalEx.typeId() == reaktorTypeId;
+        final ReaktorSignalExFW reaktorSignalEx = extension.get(reaktorSignalExRO::wrap);
+        assert reaktorSignalEx.kind() == ReaktorSignalExFW.KIND_ROUTE;
+        final RouteFW route = reaktorSignalEx.route();
+        final RouteKind routeKind = RouteKind.valueOf(route.role().get().ordinal());
+        final String nukleusName = route.nukleus().asString();
+        final String localName = route.localAddress().asString();
+        final ElektronRef elektronRef = elektronByName.get(nukleusName);
+        final AddressFactory addressFactory = elektronRef.addressFactories.get(routeKind);
+        if (addressFactory != null)
+        {
+            final Address newAddress = addressFactory.newAddress(localName);
+            assert nukleusName.equals(newAddress.nukleus());
+            addressesByRouteId.put(routeId, newAddress);
+            final MessageConsumer routeHandler = newAddress.routeHandler();
+            assert routeHandler != null;
+            routeHandler.accept(route.typeId(), route.buffer(), route.offset(), route.sizeof());
+        }
+    }
+
+    private void onSystemUnroutedSignal(
+        SignalFW signal)
+    {
+        final long routeId = signal.routeId();
+        final Address address = addressesByRouteId.remove(routeId);
+        if (address != null)
+        {
+            final OctetsFW extension = signal.extension();
+            final ExtensionFW signalEx = extension.get(extensionRO::wrap);
+            assert signalEx.typeId() == reaktorTypeId;
+            final ReaktorSignalExFW reaktorSignalEx = extension.get(reaktorSignalExRO::wrap);
+            assert reaktorSignalEx.kind() == ReaktorSignalExFW.KIND_UNROUTE;
+            final UnrouteFW unroute = reaktorSignalEx.unroute();
+            final MessageConsumer routeHandler = address.routeHandler();
+            assert routeHandler != null;
+            routeHandler.accept(unroute.typeId(), unroute.buffer(), unroute.offset(), unroute.sizeof());
         }
     }
 
@@ -574,15 +661,32 @@ public class ElektronAgent implements Agent
     public void onRouted(
         Nukleus nukleus,
         RouteKind routeKind,
-        long routeId)
+        long routeId,
+        OctetsFW extension)
     {
         String nukleusName = nukleus.name();
         int localAddressId = localId(routeId);
+        int remoteAddressId = remoteId(routeId);
         String localAddress = labels.lookupLabel(localAddressId);
+        String remoteAddress = labels.lookupLabel(remoteAddressId);
         BitSet affinity = affinityMask.apply(localAddress);
         if (affinity.get(localIndex))
         {
             elektronByName.computeIfPresent(nukleusName, (a, r) -> r.assign(routeKind, localAddressId));
+
+            final SignalFW signal = signalRW.wrap(signalBuffer, 0, signalBuffer.capacity())
+                                            .routeId(routeId)
+                                            .streamId(0L)
+                                            .cancelId(NO_CANCEL_ID)
+                                            .signalId(SYSTEM_SIGNAL_ROUTED)
+                                            .extension(m -> m.set(visitRoutedSignalEx(routeId,
+                                                                                      nukleusName,
+                                                                                      routeKind,
+                                                                                      localAddress,
+                                                                                      remoteAddress,
+                                                                                      extension)))
+                                            .build();
+            streamsBuffer.write(signal.typeId(), signal.buffer(), signal.offset(), signal.sizeof());
         }
     }
 
@@ -598,7 +702,49 @@ public class ElektronAgent implements Agent
         if (affinity.get(localIndex))
         {
             elektronByName.computeIfPresent(nukleusName, (a, r) -> r.unassign(routeKind, localAddressId));
+
+            final SignalFW signal = signalRW.wrap(signalBuffer, 0, signalBuffer.capacity())
+                                            .routeId(routeId)
+                                            .streamId(0L)
+                                            .cancelId(NO_CANCEL_ID)
+                                            .signalId(SYSTEM_SIGNAL_UNROUTED)
+                                            .extension(m -> m.set(visitUnroutedSignalEx(routeId, nukleusName)))
+                                            .build();
+            streamsBuffer.write(signal.typeId(), signal.buffer(), signal.offset(), signal.sizeof());
         }
+    }
+
+    private Flyweight.Builder.Visitor visitRoutedSignalEx(
+        long routeId,
+        String nukleusName,
+        RouteKind routeKind,
+        String localAddress,
+        String remoteAddress,
+        OctetsFW extension)
+    {
+        return (b, o, l) -> reaktorSignalExRW.wrap(b, o, l)
+                                             .typeId(reaktorTypeId)
+                                             .route(r -> r.correlationId(routeId)
+                                                          .nukleus(nukleusName)
+                                                          .role(m -> m.set(Role.valueOf(routeKind.ordinal())))
+                                                          .localAddress(localAddress)
+                                                          .remoteAddress(remoteAddress)
+                                                          .extension(extension))
+                                             .build()
+                                             .sizeof();
+    }
+
+    private Flyweight.Builder.Visitor visitUnroutedSignalEx(
+        long routeId,
+        String nukleusName)
+    {
+        return (b, o, l) -> reaktorSignalExRW.wrap(b, o, l)
+                                             .typeId(reaktorTypeId)
+                                             .unroute(u -> u.correlationId(routeId)
+                                                            .nukleus(nukleusName)
+                                                            .routeId(routeId))
+                                             .build()
+                                             .sizeof();
     }
 
     private boolean handleExpire(
@@ -1021,6 +1167,7 @@ public class ElektronAgent implements Agent
     {
         private final Elektron elektron;
         private final Map<RouteKind, StreamFactory> streamFactories;
+        private final Map<RouteKind, AddressFactory> addressFactories;
 
         private int count;
 
@@ -1031,6 +1178,7 @@ public class ElektronAgent implements Agent
             this.elektron = requireNonNull(elekron);
 
             final Map<RouteKind, StreamFactory> streamFactories = new EnumMap<>(RouteKind.class);
+            final Map<RouteKind, AddressFactory> addressFactories = new EnumMap<>(RouteKind.class);
             final Map<String, AtomicCounter> countersByName = new HashMap<>();
             final Function<String, AtomicCounter> newCounter = counters::counter;
             final Function<String, LongSupplier> supplyCounter =
@@ -1043,6 +1191,13 @@ public class ElektronAgent implements Agent
 
             for (RouteKind routeKind : EnumSet.allOf(RouteKind.class))
             {
+                final AddressFactoryBuilder addressFactoryBuilder = elektron.addressFactoryBuilder(routeKind);
+                if (addressFactoryBuilder != null)
+                {
+                    AddressFactory addressFactory = newAddressFactory(addressFactoryBuilder);
+                    addressFactories.put(routeKind, addressFactory);
+                }
+
                 final StreamFactoryBuilder streamFactoryBuilder = elektron.streamFactoryBuilder(routeKind);
                 if (streamFactoryBuilder != null)
                 {
@@ -1051,6 +1206,7 @@ public class ElektronAgent implements Agent
                     streamFactories.put(routeKind, streamFactory);
                 }
             }
+            this.addressFactories = addressFactories;
             this.streamFactories = streamFactories;
         }
 
@@ -1122,6 +1278,19 @@ public class ElektronAgent implements Agent
 
             return this;
         }
+    }
+
+    private AddressFactory newAddressFactory(
+        AddressFactoryBuilder addressFactoryBuilder)
+    {
+        return addressFactoryBuilder
+                .setRouter(resolver)
+                .setWriteBuffer(writeBuffer)
+                .setTypeIdSupplier(labels::supplyLabelId)
+                .setTraceIdSupplier(this::supplyTraceId)
+                .setInitialIdSupplier(this::supplyInitialId)
+                .setReplyIdSupplier(this::supplyReplyId)
+                .build();
     }
 
     private StreamFactory newStreamFactory(

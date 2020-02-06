@@ -45,9 +45,9 @@
     <jacoco.coverage.ratio>0.67</jacoco.coverage.ratio>
     <jacoco.missed.count>6</jacoco.missed.count>
 
-    <nukleus.plugin.version>0.42</nukleus.plugin.version>
-    <nukleus.spec.version>0.45</nukleus.spec.version>
-    <nukleus.version>0.44</nukleus.version>
+    <nukleus.plugin.version>0.45</nukleus.plugin.version>
+    <nukleus.spec.version>0.46</nukleus.spec.version>
+    <nukleus.version>0.45</nukleus.version>
     <jmock.version>2.6.0</jmock.version>
     <mockito.version>2.23.4</mockito.version>
     <k3po.version>3.0.0-alpha-104</k3po.version>
@@ -128,7 +128,7 @@
         <artifactId>nukleus-maven-plugin</artifactId>
         <version>${nukleus.plugin.version}</version>
         <configuration>
-          <scopeNames>core</scopeNames>
+          <scopeNames>core internal</scopeNames>
           <packageName>org.reaktivity.reaktor.internal.types</packageName>
           <testPackageName>org.reaktivity.reaktor.test.internal.k3po.ext.types</testPackageName>
         </configuration>
@@ -157,6 +157,7 @@
             <exclude>src/conf/**</exclude>
           </excludes>
           <mapping>
+            <idl>SLASHSTAR_STYLE</idl>
             <rpt>SCRIPT_STYLE</rpt>
           </mapping>
           <failIfUnknown>true</failIfUnknown>
