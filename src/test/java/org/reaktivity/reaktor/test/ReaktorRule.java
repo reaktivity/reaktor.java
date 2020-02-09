@@ -322,11 +322,19 @@ public final class ReaktorRule implements TestRule
             {
                 ReaktorConfiguration config = configuration();
                 Path directory = config.directory();
+                Path cacheDirectory = config.cacheDirectory();
 
                 if (clean && exists(directory))
                 {
                     Files.walk(directory, FOLLOW_LINKS)
                          .filter(this::shouldDeletePath)
+                         .map(Path::toFile)
+                         .forEach(File::delete);
+                }
+
+                if (clean && exists(cacheDirectory))
+                {
+                    Files.walk(cacheDirectory)
                          .map(Path::toFile)
                          .forEach(File::delete);
                 }
