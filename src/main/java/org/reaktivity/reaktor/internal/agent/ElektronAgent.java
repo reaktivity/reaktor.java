@@ -564,7 +564,15 @@ public class ElektronAgent implements Agent
 
             if (timerWheel.timerCount() != 0L)
             {
-                workDone += timerWheel.poll(currentTimeMillis(), expireHandler, expireLimit);
+                final long now = currentTimeMillis();
+                int expiredMax = expireLimit;
+                while (timerWheel.currentTickTime() <= now && expiredMax > 0)
+                {
+                    final int expired = timerWheel.poll(now, expireHandler, expiredMax);
+
+                    workDone += expired;
+                    expiredMax -= expired;
+                }
             }
 
             workDone += streamsBuffer.read(readHandler, readLimit);
@@ -1479,7 +1487,8 @@ public class ElektronAgent implements Agent
         {
             final long timerId = timerWheel.scheduleTimer(timeMillis);
             final Runnable task = () -> handler.accept(signalId);
-            tasksByTimerId.put(timerId, task);
+            final Runnable oldTask = tasksByTimerId.put(timerId, task);
+            assert oldTask == null;
             assert timerId >= 0L;
             return timerId;
         }
@@ -1493,7 +1502,8 @@ public class ElektronAgent implements Agent
         {
             final long timerId = timerWheel.scheduleTimer(timeMillis);
             final Runnable task = () -> signal(routeId, streamId, NO_CANCEL_ID, signalId);
-            tasksByTimerId.put(timerId, task);
+            final Runnable oldTask = tasksByTimerId.put(timerId, task);
+            assert oldTask == null;
             assert timerId >= 0L;
             return timerId;
         }
