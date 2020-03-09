@@ -19,11 +19,11 @@ import static java.util.Objects.requireNonNull;
 
 import java.util.ArrayList;
 import java.util.BitSet;
-import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -64,7 +64,7 @@ public class ReaktorBuilder
     {
         this.nukleusMatcher = n -> false;
         this.controllerMatcher = c -> false;
-        this.affinityMasks = new HashMap<>();
+        this.affinityMasks = new ConcurrentHashMap<>();
         this.affinityMaskDefaultBits = BitSet.valueOf(new long[] { (1L << threads) - 1L });
         this.affinityMaskDefault = n -> affinityMaskDefaultBits;
         this.supplyNukleusFactory = NukleusFactory::instantiate;
