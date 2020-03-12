@@ -25,6 +25,7 @@ import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_COUNTERS_BUFFE
 import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_DIRECTORY;
 import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_DRAIN_ON_CLOSE;
 import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_RESPONSE_BUFFER_CAPACITY;
+import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_ROUTED_DELAY_MILLIS;
 import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_STREAMS_BUFFER_CAPACITY;
 import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_SYNTHETIC_ABORT;
 
@@ -77,6 +78,7 @@ public final class ReaktorRule implements TestRule
 
         configure(REAKTOR_DRAIN_ON_CLOSE, true);
         configure(REAKTOR_SYNTHETIC_ABORT, true);
+        configure(REAKTOR_ROUTED_DELAY_MILLIS, 500L);
     }
 
     public ReaktorRule directory(String directory)
