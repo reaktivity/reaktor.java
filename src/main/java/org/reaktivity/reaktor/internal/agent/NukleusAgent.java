@@ -298,6 +298,7 @@ public class NukleusAgent implements Agent
             if (router.doRoute(newRoute, routeHandler))
             {
                 this.onRouted(nukleus, routeKind, newRouteId, route.extension());
+                Thread.sleep(config.routedDelayMillis());
                 doRouted(correlationId, newRouteId);
             }
             else

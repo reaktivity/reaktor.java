@@ -49,6 +49,7 @@ public class ReaktorConfiguration extends Configuration
     public static final LongPropertyDef REAKTOR_BACKOFF_MAX_PARK_NANOS;
     public static final BooleanPropertyDef REAKTOR_DRAIN_ON_CLOSE;
     public static final BooleanPropertyDef REAKTOR_SYNTHETIC_ABORT;
+    public static final LongPropertyDef REAKTOR_ROUTED_DELAY_MILLIS;
 
     private static final ConfigurationDef REAKTOR_CONFIG;
 
@@ -77,6 +78,7 @@ public class ReaktorConfiguration extends Configuration
         REAKTOR_BACKOFF_MAX_PARK_NANOS = config.property("backoff.idle.strategy.max.park.period", MILLISECONDS.toNanos(1L));
         REAKTOR_DRAIN_ON_CLOSE = config.property("drain.on.close", false);
         REAKTOR_SYNTHETIC_ABORT = config.property("synthetic.abort", false);
+        REAKTOR_ROUTED_DELAY_MILLIS = config.property("routed.delay.millis", 0L);
         REAKTOR_CONFIG = config;
     }
 
@@ -218,6 +220,11 @@ public class ReaktorConfiguration extends Configuration
     public boolean syntheticAbort()
     {
         return REAKTOR_SYNTHETIC_ABORT.getAsBoolean(this);
+    }
+
+    public long routedDelayMillis()
+    {
+        return REAKTOR_ROUTED_DELAY_MILLIS.getAsLong(this);
     }
 
     private static int defaultBufferPoolCapacity(
