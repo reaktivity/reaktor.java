@@ -248,8 +248,8 @@ public class ElektronAgent implements Agent
         this.readLimit = config.maximumMessagesPerRead();
         this.expireLimit = config.maximumExpirationsPerPoll();
         this.streamsBuffer = streamsLayout.streamsBuffer();
-        this.writeBuffer = new UnsafeBuffer(new byte[config.bufferSlotCapacity() + 128]);
-        this.signalBuffer = new UnsafeBuffer(new byte[config.bufferSlotCapacity() + 128]);
+        this.writeBuffer = new UnsafeBuffer(new byte[config.bufferSlotCapacity() + 1024]);
+        this.signalBuffer = new UnsafeBuffer(new byte[config.bufferSlotCapacity() + 1024]);
         this.streams = initDispatcher();
         this.throttles = initDispatcher();
         this.countersByRouteId = new Long2ObjectHashMap<>();
