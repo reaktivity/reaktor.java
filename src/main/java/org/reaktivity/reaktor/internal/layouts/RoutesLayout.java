@@ -20,10 +20,14 @@ import static org.agrona.IoUtil.mapExistingFile;
 import static org.agrona.IoUtil.unmap;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 
-import org.agrona.CloseHelper;
+import org.agrona.LangUtil;
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 
@@ -83,7 +87,20 @@ public final class RoutesLayout extends Layout
 
             if (!readonly)
             {
-                CloseHelper.close(createEmptyFile(routes, capacity));
+                try (FileChannel channel = createEmptyFile(routes, capacity))
+                {
+                    ByteBuffer empty = ByteBuffer.allocate(3 * Integer.BYTES).order(ByteOrder.nativeOrder());
+                    empty.putInt(0);
+                    empty.putInt(Integer.BYTES);
+                    empty.putInt(0);
+                    empty.flip();
+                    channel.position(0);
+                    channel.write(empty);
+                }
+                catch (IOException ex)
+                {
+                    LangUtil.rethrowUnchecked(ex);
+                }
             }
 
             final MappedByteBuffer mappedRoutes = mapExistingFile(routes, "routes");
