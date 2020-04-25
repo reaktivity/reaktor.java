@@ -254,27 +254,7 @@ final class NukleusTarget implements AutoCloseable
 
             clientChannel.setRemoteAddress(remoteAddress);
 
-            ChannelFuture handshakeFuture = new CompositeChannelFuture<>(clientChannel, asList(windowFuture, replyFuture));
-            handshakeFuture.addListener(new ChannelFutureListener()
-            {
-                @Override
-                public void operationComplete(
-                    ChannelFuture future) throws Exception
-                {
-                    if (future.isSuccess())
-                    {
-                        clientChannel.setConnected();
-                        clientChannel.setFlushable();
-
-                        connectFuture.setSuccess();
-                        fireChannelConnected(clientChannel, clientChannel.getRemoteAddress());
-                    }
-                    else
-                    {
-                        connectFuture.setFailure(future.getCause());
-                    }
-                }
-            });
+            ChannelFuture handshakeFuture = newHandshakeFuture(clientChannel, connectFuture, windowFuture, replyFuture);
 
             final Throttle throttle = new Throttle(clientChannel, windowFuture, handshakeFuture);
             registerThrottle.accept(begin.streamId(), throttle::handleThrottle);
@@ -284,12 +264,53 @@ final class NukleusTarget implements AutoCloseable
             beginExt.skipBytes(writableExtBytes);
             beginExt.discardReadBytes();
 
+            final NukleusChannelConfig config = clientChannel.getConfig();
+            if (config.getUpdate() == NukleusUpdateMode.PROACTIVE)
+            {
+                final NukleusChannelConfig channelConfig = clientChannel.getConfig();
+                final int initialWindow = channelConfig.getWindow();
+                final int padding = channelConfig.getPadding();
+                final long creditorId = clientChannel.creditorId();
+
+                doWindow(clientChannel, creditorId, initialWindow, padding);
+            }
+
             clientChannel.beginOutputFuture().setSuccess();
         }
         catch (Exception ex)
         {
             connectFuture.setFailure(ex);
         }
+    }
+
+    private ChannelFuture newHandshakeFuture(
+        NukleusClientChannel clientChannel,
+        ChannelFuture connectFuture,
+        ChannelFuture windowFuture,
+        ChannelFuture replyFuture)
+    {
+        ChannelFuture handshakeFuture = new CompositeChannelFuture<>(clientChannel, asList(windowFuture, replyFuture));
+        handshakeFuture.addListener(new ChannelFutureListener()
+        {
+            @Override
+            public void operationComplete(
+                ChannelFuture future) throws Exception
+            {
+                if (future.isSuccess())
+                {
+                    clientChannel.setConnected();
+                    clientChannel.setFlushable();
+
+                    connectFuture.setSuccess();
+                    fireChannelConnected(clientChannel, clientChannel.getRemoteAddress());
+                }
+                else
+                {
+                    connectFuture.setFailure(future.getCause());
+                }
+            }
+        });
+        return handshakeFuture;
     }
 
     public void doConnectAbort(

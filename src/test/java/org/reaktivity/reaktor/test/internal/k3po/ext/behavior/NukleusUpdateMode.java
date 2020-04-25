@@ -21,6 +21,7 @@ public enum NukleusUpdateMode
 {
     STREAM,
     HANDSHAKE,
+    PROACTIVE,
     MESSAGE,
     NONE;
 
@@ -35,6 +36,8 @@ public enum NukleusUpdateMode
             return STREAM;
         case "handshake":
             return HANDSHAKE;
+        case "proactive":
+            return PROACTIVE;
         case "message":
             return MESSAGE;
         case "none":

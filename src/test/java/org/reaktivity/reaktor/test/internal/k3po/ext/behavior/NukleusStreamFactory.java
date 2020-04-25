@@ -135,10 +135,6 @@ public final class NukleusStreamFactory
             final long streamId = begin.streamId();
             final OctetsFW beginExt = begin.extension();
 
-            final NukleusChannelConfig channelConfig = channel.getConfig();
-            final int initialWindow = channelConfig.getWindow();
-            final int padding = channelConfig.getPadding();
-
             int beginExtBytes = beginExt.sizeof();
             if (beginExtBytes != 0)
             {
@@ -154,10 +150,17 @@ public final class NukleusStreamFactory
 
             channel.sourceId(streamId);
             channel.sourceAuth(begin.authorization());
+
             final NukleusChannelConfig config = channel.getConfig();
-            if (config.getUpdate() == NukleusUpdateMode.HANDSHAKE || config.getUpdate() == NukleusUpdateMode.STREAM)
+            if (config.getUpdate() == NukleusUpdateMode.HANDSHAKE ||
+                config.getUpdate() == NukleusUpdateMode.STREAM)
             {
-                sender.doWindow(channel, channel.creditorId(), initialWindow, padding);
+                final NukleusChannelConfig channelConfig = channel.getConfig();
+                final int initialWindow = channelConfig.getWindow();
+                final int padding = channelConfig.getPadding();
+                final long creditorId = channel.creditorId();
+
+                sender.doWindow(channel, creditorId, initialWindow, padding);
             }
 
             channel.beginInputFuture().setSuccess();
@@ -203,7 +206,9 @@ public final class NukleusStreamFactory
                     int credit = data.reserved();
 
                     final NukleusChannelConfig config = channel.getConfig();
-                    if (config.getUpdate() == NukleusUpdateMode.MESSAGE || config.getUpdate() == NukleusUpdateMode.STREAM)
+                    if (config.getUpdate() == NukleusUpdateMode.MESSAGE ||
+                        config.getUpdate() == NukleusUpdateMode.STREAM ||
+                        config.getUpdate() == NukleusUpdateMode.PROACTIVE)
                     {
                         long creditorId = channel.creditorId();
                         int padding = config.getPadding();
