@@ -642,6 +642,7 @@ final class NukleusTarget implements AutoCloseable
 
             final long streamId = channel.targetId();
             final long routeId = channel.routeId();
+            final long budgetId = channel.debitorId();
 
             final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                     .routeId(routeId)
@@ -650,7 +651,7 @@ final class NukleusTarget implements AutoCloseable
                     .traceId(supplyTraceId.getAsLong())
                     .authorization(authorization)
                     .flags(flags)
-                    .budgetId(0)
+                    .budgetId(budgetId)
                     .reserved(writableBytes + channel.writablePadding)
                     .payload(writeCopy)
                     .extension(p -> p.set(writeExtCopy))
