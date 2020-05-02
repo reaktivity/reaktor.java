@@ -79,6 +79,7 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
     private DefaultBudgetCreditor creditor;
     private long creditorIndex = -1L;
 
+    private long debitorId;
     private long creditorId;
 
     private int pendingSharedBudget;
@@ -331,6 +332,7 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
     {
         assert this.debitor == null;
         this.debitor = debitor;
+        this.debitorId = debitorId;
         this.debitorIndex = debitor.acquire(debitorId, targetId, this::flush);
         if (this.debitorIndex == -1L)
         {
@@ -346,6 +348,11 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
     public boolean hasDebitor()
     {
         return debitor != null;
+    }
+
+    public long debitorId()
+    {
+        return debitorId;
     }
 
     public long creditorId()
@@ -542,6 +549,7 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
         assert debitorIndex != -1L;
         debitor.release(debitorIndex, targetId);
         debitorIndex = -1L;
+        debitorId = 0L;
     }
 
     private void completeWriteRequestIfFullyWritten()
