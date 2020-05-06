@@ -26,11 +26,19 @@ public interface BudgetDebitor
         long watcherId,
         LongConsumer flusher);
 
+    @Deprecated
     int claim(
         long budgetIndex,
         long watcherId,
         int minimum,
         int maximum);
+
+    int claim(
+        long budgetIndex,
+        long watcherId,
+        int minimum,
+        int maximum,
+        int deferred);
 
     void release(
         long budgetIndex,
