@@ -114,6 +114,17 @@ public final class DefaultBudgetDebitor implements BudgetDebitor, AutoCloseable
         int minimum,
         int maximum)
     {
+        return claim(budgetIndex, watcherId, minimum, maximum, 0);
+    }
+
+    @Override
+    public int claim(
+        long budgetIndex,
+        long watcherId,
+        int minimum,
+        int maximum,
+        int deferred)
+    {
         assert (budgetIndex & budgetMask) == budgetMask;
         assert 0 <= minimum;
         assert minimum <= maximum;
