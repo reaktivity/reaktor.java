@@ -603,12 +603,12 @@ final class NukleusTarget implements AutoCloseable
         final long authorization = channel.targetAuth();
         final boolean flushing = writeBuf == NULL_BUFFER;
         final int reservedBytes = channel.reservedBytes(Math.min(writeBuf.readableBytes(), writeBuffer.capacity() >> 1));
+        final int writableBytes = Math.max(Math.min(reservedBytes - channel.writablePadding, writeBuf.readableBytes()), 0);
 
         // allow extension-only DATA frames to be flushed immediately
-        boolean flushable = reservedBytes > channel.writablePadding || !writeBuf.readable();
+        boolean flushable = writableBytes > 0 || writeBuf.capacity() == 0;
         if (flushable)
         {
-            final int writableBytes = Math.max(Math.min(reservedBytes - channel.writablePadding, writeBuf.readableBytes()), 0);
             final int writeReaderIndex = writeBuf.readerIndex();
 
             if (writeReaderIndex == 0)
@@ -677,7 +677,7 @@ final class NukleusTarget implements AutoCloseable
         }
         else if (flushable)
         {
-            fireWriteComplete(channel, reservedBytes);
+            fireWriteComplete(channel, writableBytes);
         }
 
         channel.targetWriteRequestProgress();
