@@ -16,7 +16,6 @@
 package org.reaktivity.reaktor.internal.budget;
 
 import static java.lang.System.currentTimeMillis;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.reaktivity.reaktor.internal.layouts.BudgetsLayout.budgetIdOffset;
 import static org.reaktivity.reaktor.internal.layouts.BudgetsLayout.budgetRemainingOffset;
 import static org.reaktivity.reaktor.internal.layouts.BudgetsLayout.budgetWatchersOffset;
@@ -46,6 +45,7 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
     private final BudgetFlusher flusher;
     private final LongSupplier supplyBudgetId;
     private final Signaler signaler;
+    private final long childCleanupLinger;
     private final Long2LongHashMap budgetIndexById;
     private final Long2LongHashMap budgetParentChildRelation;
 
@@ -54,7 +54,8 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
         BudgetsLayout layout,
         BudgetFlusher flusher,
         LongSupplier supplyBudgetId,
-        Signaler signaler)
+        Signaler signaler,
+        long childCleanupLinger)
     {
         this.budgetMask = budgetMask(ownerIndex);
         this.layout = layout;
@@ -63,6 +64,7 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
         this.flusher = flusher;
         this.supplyBudgetId = supplyBudgetId;
         this.signaler = signaler;
+        this.childCleanupLinger = childCleanupLinger;
         this.budgetIndexById = new Long2LongHashMap(NO_CREDITOR_INDEX);
         this.budgetParentChildRelation = new Long2LongHashMap(NO_CREDITOR_INDEX);
     }
@@ -189,12 +191,15 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
         return budgetIndexById.size();
     }
 
+    public long parentBudget()
+    {
+        return budgetParentChildRelation.size();
+    }
+
     public long parentBudgetId(
         long childBudgetId)
     {
         long parentBudgetId = budgetParentChildRelation.get(childBudgetId);
-        System.out.format("[%d] parentBudgetId parentBudgetId=%d \n",
-            System.nanoTime(), parentBudgetId);
 
         if (parentBudgetId == NO_CREDITOR_INDEX)
         {
@@ -209,12 +214,13 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
     {
         if (ReaktorConfiguration.DEBUG_BUDGETS)
         {
-            System.out.format("[%d] cleanupChild childBudgetId=%d \n",
-                System.nanoTime(), childBudgetId);
+            System.out.format("[%d] cleanupChild childBudgetId=%d budgetParentChildRelation=%s \n",
+                System.nanoTime(), childBudgetId, budgetParentChildRelation.toString());
         }
-        signaler.executeTaskAt(currentTimeMillis() + SECONDS.toMillis(30000),
+        signaler.executeTaskAt(currentTimeMillis() + childCleanupLinger,
             () -> budgetParentChildRelation.remove(childBudgetId));
     }
+
 
     long available(
         long budgetIndex)

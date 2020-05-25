@@ -296,7 +296,8 @@ public class ElektronAgent implements Agent
                 .owner(true)
                 .build();
 
-        this.creditor = new DefaultBudgetCreditor(index, budgetsLayout, this::doSystemFlush, this::supplyBudgetId, signaler);
+        this.creditor = new DefaultBudgetCreditor(index, budgetsLayout, this::doSystemFlush, this::supplyBudgetId,
+            signaler, config.childCleanupLingerMillis());
         this.debitorsByIndex = new Int2ObjectHashMap<DefaultBudgetDebitor>();
 
         if (supplyAgentBuilder != null)
@@ -1514,21 +1515,19 @@ public class ElektronAgent implements Agent
         }
 
         @Override
-        public long executeTaskAt(
+        public void executeTaskAt(
             long timeMillis,
             Runnable task)
         {
             if (ReaktorConfiguration.DEBUG_BUDGETS)
             {
-                System.out.format("[%d] executeTaskAt timeMillis=%d \n",
-                    System.nanoTime(), timeMillis);
+                System.out.format("[%d] executeTaskAt timeMillis=%d \n", System.nanoTime(), timeMillis);
             }
 
             final long timerId = timerWheel.scheduleTimer(timeMillis);
             final Runnable oldTask = tasksByTimerId.put(timerId, task);
             assert oldTask == null;
             assert timerId >= 0L;
-            return timerId;
         }
 
         @Override
