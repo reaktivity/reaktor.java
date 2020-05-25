@@ -23,6 +23,8 @@ public interface Signaler
 
     long signalAt(long timeMillis, int signalId, IntConsumer handler);
 
+    void executeTaskAt(long timeMillis, Runnable task);
+
     void signalNow(long routeId, long streamId, int signalId);
 
     long signalAt(long timeMillis, long routeId, long streamId, int signalId);

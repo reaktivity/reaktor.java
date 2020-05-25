@@ -28,12 +28,14 @@ public interface BudgetDebitor
 
     @Deprecated
     int claim(
+        long traceId,
         long budgetIndex,
         long watcherId,
         int minimum,
         int maximum);
 
     int claim(
+        long traceId,
         long budgetIndex,
         long watcherId,
         int minimum,

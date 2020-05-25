@@ -29,4 +29,10 @@ public interface BudgetCreditor
 
     void release(
         long budgetIndex);
+
+    long supplyChild(
+        long parentBudgetId);
+
+    void cleanupChild(
+        long parentBudgetId);
 }
