@@ -109,13 +109,12 @@ public final class DefaultBudgetDebitor implements BudgetDebitor, AutoCloseable
 
     @Override
     public int claim(
-        long traceId,
         long budgetIndex,
         long watcherId,
         int minimum,
         int maximum)
     {
-        return claim(traceId, budgetIndex, watcherId, minimum, maximum, 0);
+        return claim(budgetIndex, watcherId, minimum, maximum, 0);
     }
 
     @Override

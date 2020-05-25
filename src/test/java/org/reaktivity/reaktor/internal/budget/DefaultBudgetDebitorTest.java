@@ -109,7 +109,7 @@ public class DefaultBudgetDebitorTest
             layout.buffer().putLongVolatile(budgetRemainingOffset(creditorLocalIndex), 4096L);
 
             final long debitorIndex = debitor.acquire(budgetId, watcherId, flusher);
-            final int claimed = debitor.claim(0L, debitorIndex, watcherId, 256, 1024);
+            final int claimed = debitor.claim(debitorIndex, watcherId, 256, 1024);
             final long available = debitor.available(debitorIndex);
             final long watchers = debitor.watchers(debitorIndex);
 
@@ -144,7 +144,7 @@ public class DefaultBudgetDebitorTest
             layout.buffer().putLongVolatile(budgetRemainingOffset(creditorLocalIndex), 1024L);
 
             final long debitorIndex = debitor.acquire(budgetId, watcherId, flusher);
-            final int claimed = debitor.claim(0L, debitorIndex, watcherId, 256, 1024);
+            final int claimed = debitor.claim(debitorIndex, watcherId, 256, 1024);
             final long available = debitor.available(debitorIndex);
             final long watchers = debitor.watchers(debitorIndex);
 
@@ -179,7 +179,7 @@ public class DefaultBudgetDebitorTest
             layout.buffer().putLongVolatile(budgetRemainingOffset(creditorLocalIndex), 256L);
 
             final long debitorIndex = debitor.acquire(budgetId, watcherId, flusher);
-            final int claimed = debitor.claim(0L, debitorIndex, watcherId, 256, 1024);
+            final int claimed = debitor.claim(debitorIndex, watcherId, 256, 1024);
             final long available = debitor.available(debitorIndex);
             final long watchers = debitor.watchers(debitorIndex);
 
@@ -215,7 +215,7 @@ public class DefaultBudgetDebitorTest
             layout.buffer().putLongVolatile(budgetRemainingOffset(creditorLocalIndex), 256L);
 
             final long debitorIndex = debitor.acquire(budgetId, watcherId, flusher);
-            final int claimed = debitor.claim(0L, debitorIndex, watcherId, 512, 1024);
+            final int claimed = debitor.claim(debitorIndex, watcherId, 512, 1024);
             final long available = debitor.available(debitorIndex);
             final long watchers = debitor.watchers(debitorIndex);
 
