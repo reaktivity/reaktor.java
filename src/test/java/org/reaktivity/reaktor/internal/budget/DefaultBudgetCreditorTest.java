@@ -40,7 +40,7 @@ public class DefaultBudgetCreditorTest
             .capacity(1024)
             .build();
 
-        try (DefaultBudgetCreditor creditor = new DefaultBudgetCreditor(0, layout, flusher))
+        try (DefaultBudgetCreditor creditor = new DefaultBudgetCreditor(0, layout, flusher, null, null))
         {
             final long budgetId = 1L;
             final long creditorIndex = creditor.acquire(budgetId);
@@ -63,7 +63,7 @@ public class DefaultBudgetCreditorTest
             .capacity(1024)
             .build();
 
-        try (DefaultBudgetCreditor creditor = new DefaultBudgetCreditor(0, layout, flusher))
+        try (DefaultBudgetCreditor creditor = new DefaultBudgetCreditor(0, layout, flusher, null, null))
         {
             final long budgetId = 1L;
             final long creditorIndex = creditor.acquire(budgetId);
@@ -86,7 +86,7 @@ public class DefaultBudgetCreditorTest
             .capacity(1024)
             .build();
 
-        try (DefaultBudgetCreditor creditor = new DefaultBudgetCreditor(0, layout, flusher))
+        try (DefaultBudgetCreditor creditor = new DefaultBudgetCreditor(0, layout, flusher, null, null))
         {
             final long budgetId = 1L;
             final long traceId = 1L;
@@ -109,7 +109,7 @@ public class DefaultBudgetCreditorTest
             .capacity(1024)
             .build();
 
-        try (DefaultBudgetCreditor creditor = new DefaultBudgetCreditor(0, layout, flusher))
+        try (DefaultBudgetCreditor creditor = new DefaultBudgetCreditor(0, layout, flusher, null, null))
         {
             final long budgetId = 1L;
             final long traceId = 1L;
@@ -135,7 +135,7 @@ public class DefaultBudgetCreditorTest
         final long budgetId = 1L;
         final long traceId = 1L;
 
-        try (DefaultBudgetCreditor creditor = new DefaultBudgetCreditor(0, layout, flusher))
+        try (DefaultBudgetCreditor creditor = new DefaultBudgetCreditor(0, layout, flusher, null, null))
         {
             final long creditorIndex = creditor.acquire(budgetId);
             creditor.watchers(creditorIndex, 0x01L);
@@ -161,7 +161,7 @@ public class DefaultBudgetCreditorTest
         final long budgetId = 1L;
         final long traceId = 1L;
 
-        try (DefaultBudgetCreditor creditor = new DefaultBudgetCreditor(0, layout, flusher))
+        try (DefaultBudgetCreditor creditor = new DefaultBudgetCreditor(0, layout, flusher, null, null))
         {
             final long creditorIndex = creditor.acquire(budgetId);
             creditor.watchers(creditorIndex, 0x01L);

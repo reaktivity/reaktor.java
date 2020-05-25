@@ -15,6 +15,8 @@
  */
 package org.reaktivity.reaktor.internal.budget;
 
+import static java.lang.System.currentTimeMillis;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.reaktivity.reaktor.internal.layouts.BudgetsLayout.budgetIdOffset;
 import static org.reaktivity.reaktor.internal.layouts.BudgetsLayout.budgetRemainingOffset;
 import static org.reaktivity.reaktor.internal.layouts.BudgetsLayout.budgetWatchersOffset;
@@ -26,6 +28,7 @@ import org.agrona.collections.Hashing;
 import org.agrona.collections.Long2LongHashMap;
 import org.agrona.concurrent.AtomicBuffer;
 import org.reaktivity.nukleus.budget.BudgetCreditor;
+import org.reaktivity.nukleus.concurrent.Signaler;
 import org.reaktivity.reaktor.ReaktorConfiguration;
 import org.reaktivity.reaktor.internal.layouts.BudgetsLayout;
 
@@ -41,16 +44,17 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
     private final AtomicBuffer storage;
     private final int entries;
     private final BudgetFlusher flusher;
-    private LongSupplier supplyBudgetId;
+    private final LongSupplier supplyBudgetId;
+    private final Signaler signaler;
     private final Long2LongHashMap budgetIndexById;
     private final Long2LongHashMap budgetParentChildRelation;
-
 
     public DefaultBudgetCreditor(
         int ownerIndex,
         BudgetsLayout layout,
         BudgetFlusher flusher,
-        LongSupplier supplyBudgetId)
+        LongSupplier supplyBudgetId,
+        Signaler signaler)
     {
         this.budgetMask = budgetMask(ownerIndex);
         this.layout = layout;
@@ -58,6 +62,7 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
         this.entries = layout.entries();
         this.flusher = flusher;
         this.supplyBudgetId = supplyBudgetId;
+        this.signaler = signaler;
         this.budgetIndexById = new Long2LongHashMap(NO_CREDITOR_INDEX);
         this.budgetParentChildRelation = new Long2LongHashMap(NO_CREDITOR_INDEX);
     }
@@ -136,7 +141,6 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
         if (ReaktorConfiguration.DEBUG_BUDGETS)
         {
             System.out.format("[%d] release creditor  budgetIndex=%d \n", System.nanoTime(), budgetIndex);
-            Thread.currentThread().getStackTrace();
         }
 
         assert (budgetIndex & budgetMask) == budgetMask;
@@ -188,7 +192,10 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
     public long parentBudgetId(
         long childBudgetId)
     {
-        long parentBudgetId = budgetParentChildRelation.remove(childBudgetId);
+        long parentBudgetId = budgetParentChildRelation.get(childBudgetId);
+        System.out.format("[%d] parentBudgetId parentBudgetId=%d \n",
+            System.nanoTime(), parentBudgetId);
+
         if (parentBudgetId == NO_CREDITOR_INDEX)
         {
             parentBudgetId = childBudgetId;
@@ -197,10 +204,16 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
     }
 
     @Override
-    public void cleanup(
+    public void cleanupChild(
         long childBudgetId)
     {
-        budgetParentChildRelation.remove(childBudgetId);
+        if (ReaktorConfiguration.DEBUG_BUDGETS)
+        {
+            System.out.format("[%d] cleanupChild childBudgetId=%d \n",
+                System.nanoTime(), childBudgetId);
+        }
+        signaler.executeTaskAt(currentTimeMillis() + SECONDS.toMillis(30000),
+            () -> budgetParentChildRelation.remove(childBudgetId));
     }
 
     long available(

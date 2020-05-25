@@ -44,7 +44,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntConsumer;
 import java.util.function.IntFunction;
@@ -297,7 +296,7 @@ public class ElektronAgent implements Agent
                 .owner(true)
                 .build();
 
-        this.creditor = new DefaultBudgetCreditor(index, budgetsLayout, this::doSystemFlush, this::supplyBudgetId);
+        this.creditor = new DefaultBudgetCreditor(index, budgetsLayout, this::doSystemFlush, this::supplyBudgetId, signaler);
         this.debitorsByIndex = new Int2ObjectHashMap<DefaultBudgetDebitor>();
 
         if (supplyAgentBuilder != null)
@@ -470,7 +469,8 @@ public class ElektronAgent implements Agent
     {
         if (ReaktorConfiguration.DEBUG_BUDGETS)
         {
-            System.out.format("[%d] [0x%016x] [0x%016x] doSystemWindow credit=%d \n", System.nanoTime(), traceId, budgetId, credit);
+            System.out.format("[%d] [0x%016x] [0x%016x] doSystemWindow credit=%d \n",
+                System.nanoTime(), traceId, budgetId, credit);
         }
 
         long parentBudgetId = creditor.parentBudgetId(budgetId);
@@ -481,7 +481,7 @@ public class ElektronAgent implements Agent
                                         .routeId(0L)
                                         .streamId(0L)
                                         .traceId(traceId)
-                                        .budgetId(budgetId)
+                                        .budgetId(parentBudgetId)
                                         .credit(credit)
                                         .padding(0)
                                         .build();
@@ -1511,6 +1511,24 @@ public class ElektronAgent implements Agent
             ExecutorService executorService)
         {
             this.executorService = executorService;
+        }
+
+        @Override
+        public long executeTaskAt(
+            long timeMillis,
+            Runnable task)
+        {
+            if (ReaktorConfiguration.DEBUG_BUDGETS)
+            {
+                System.out.format("[%d] executeTaskAt timeMillis=%d \n",
+                    System.nanoTime(), timeMillis);
+            }
+
+            final long timerId = timerWheel.scheduleTimer(timeMillis);
+            final Runnable oldTask = tasksByTimerId.put(timerId, task);
+            assert oldTask == null;
+            assert timerId >= 0L;
+            return timerId;
         }
 
         @Override
