@@ -31,7 +31,7 @@ public interface BudgetCreditor
         long budgetIndex);
 
     long supplyChild(
-        long parentBudgetId);
+        long budgetId);
 
     void cleanupChild(
         long parentBudgetId);
