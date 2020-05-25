@@ -47,7 +47,7 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
     private final Signaler signaler;
     private final long childCleanupLinger;
     private final Long2LongHashMap budgetIndexById;
-    private final Long2LongHashMap budgetParentChildRelation;
+    private final Long2LongHashMap parentBudgetIds;
 
     public DefaultBudgetCreditor(
         int ownerIndex,
@@ -66,7 +66,7 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
         this.signaler = signaler;
         this.childCleanupLinger = childCleanupLinger;
         this.budgetIndexById = new Long2LongHashMap(NO_CREDITOR_INDEX);
-        this.budgetParentChildRelation = new Long2LongHashMap(NO_CREDITOR_INDEX);
+        this.parentBudgetIds = new Long2LongHashMap(NO_CREDITOR_INDEX);
     }
 
     @Override
@@ -181,7 +181,7 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
         long parentBudgetId)
     {
         final long childBudgetId = supplyBudgetId.getAsLong();
-        budgetParentChildRelation.put(childBudgetId, parentBudgetId);
+        parentBudgetIds.put(childBudgetId, parentBudgetId);
 
         return childBudgetId;
     }
@@ -193,32 +193,32 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
 
     public long parentBudget()
     {
-        return budgetParentChildRelation.size();
+        return parentBudgetIds.size();
     }
 
     public long parentBudgetId(
-        long childBudgetId)
+        long budgetId)
     {
-        long parentBudgetId = budgetParentChildRelation.get(childBudgetId);
+        long parentBudgetId = parentBudgetIds.get(budgetId);
 
         if (parentBudgetId == NO_CREDITOR_INDEX)
         {
-            parentBudgetId = childBudgetId;
+            parentBudgetId = budgetId;
         }
         return parentBudgetId;
     }
 
     @Override
     public void cleanupChild(
-        long childBudgetId)
+        long budgetId)
     {
         if (ReaktorConfiguration.DEBUG_BUDGETS)
         {
             System.out.format("[%d] cleanupChild childBudgetId=%d budgetParentChildRelation=%s \n",
-                System.nanoTime(), childBudgetId, budgetParentChildRelation.toString());
+                System.nanoTime(), budgetId, parentBudgetIds.toString());
         }
         signaler.executeTaskAt(currentTimeMillis() + childCleanupLinger,
-            () -> budgetParentChildRelation.remove(childBudgetId));
+            () -> parentBudgetIds.remove(budgetId));
     }
 
 
