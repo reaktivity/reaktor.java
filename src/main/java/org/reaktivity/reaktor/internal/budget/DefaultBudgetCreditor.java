@@ -188,12 +188,19 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
     public long parentBudgetId(
         long childBudgetId)
     {
-        long parentBudgetId = budgetParentChildRelation.get(childBudgetId);
+        long parentBudgetId = budgetParentChildRelation.remove(childBudgetId);
         if (parentBudgetId == NO_CREDITOR_INDEX)
         {
             parentBudgetId = childBudgetId;
         }
         return parentBudgetId;
+    }
+
+    @Override
+    public void cleanup(
+        long childBudgetId)
+    {
+        budgetParentChildRelation.remove(childBudgetId);
     }
 
     long available(
