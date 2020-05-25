@@ -172,6 +172,14 @@ public final class Target implements AutoCloseable
         case FlushFW.TYPE_ID:
             handled = streamsBuffer.test(msgTypeId, buffer, index, length);
             break;
+        case WindowFW.TYPE_ID:
+            if (ReaktorConfiguration.DEBUG_BUDGETS)
+            {
+                System.out.format("[%d] Window ring buffer \n", System.nanoTime());
+            }
+
+            handled = streamsBuffer.test(msgTypeId, buffer, index, length);
+            break;
         }
 
         return handled;

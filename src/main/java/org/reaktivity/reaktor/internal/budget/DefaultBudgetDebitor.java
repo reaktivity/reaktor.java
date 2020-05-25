@@ -109,16 +109,18 @@ public final class DefaultBudgetDebitor implements BudgetDebitor, AutoCloseable
 
     @Override
     public int claim(
+        long traceId,
         long budgetIndex,
         long watcherId,
         int minimum,
         int maximum)
     {
-        return claim(budgetIndex, watcherId, minimum, maximum, 0);
+        return claim(traceId, budgetIndex, watcherId, minimum, maximum, 0);
     }
 
     @Override
     public int claim(
+        long traceId,
         long budgetIndex,
         long watcherId,
         int minimum,
@@ -151,8 +153,8 @@ public final class DefaultBudgetDebitor implements BudgetDebitor, AutoCloseable
         if (ReaktorConfiguration.DEBUG_BUDGETS)
         {
             final long budgetId = budgetIdByIndex.get(budgetIndex);
-            System.out.format("[%d] [0x%016x] [0x%016x] claimed %d / %d @ %d => %d\n",
-                    System.nanoTime(), watcherId, budgetId,
+            System.out.format("[%d] [0x%016x] [0x%016x] [0x%016x] claimed %d / %d @ %d => %d\n",
+                    System.nanoTime(), traceId, watcherId, budgetId,
                     claimed, maximum, previous, previous - claimed);
         }
 

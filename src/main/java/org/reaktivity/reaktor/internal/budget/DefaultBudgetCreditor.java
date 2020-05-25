@@ -20,6 +20,8 @@ import static org.reaktivity.reaktor.internal.layouts.BudgetsLayout.budgetRemain
 import static org.reaktivity.reaktor.internal.layouts.BudgetsLayout.budgetWatchersOffset;
 import static org.reaktivity.reaktor.internal.router.BudgetId.budgetMask;
 
+import java.util.function.LongSupplier;
+
 import org.agrona.collections.Hashing;
 import org.agrona.collections.Long2LongHashMap;
 import org.agrona.concurrent.AtomicBuffer;
@@ -39,19 +41,25 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
     private final AtomicBuffer storage;
     private final int entries;
     private final BudgetFlusher flusher;
+    private LongSupplier supplyBudgetId;
     private final Long2LongHashMap budgetIndexById;
+    private final Long2LongHashMap budgetParentChildRelation;
+
 
     public DefaultBudgetCreditor(
         int ownerIndex,
         BudgetsLayout layout,
-        BudgetFlusher flusher)
+        BudgetFlusher flusher,
+        LongSupplier supplyBudgetId)
     {
         this.budgetMask = budgetMask(ownerIndex);
         this.layout = layout;
         this.storage = layout.buffer();
         this.entries = layout.entries();
         this.flusher = flusher;
+        this.supplyBudgetId = supplyBudgetId;
         this.budgetIndexById = new Long2LongHashMap(NO_CREDITOR_INDEX);
+        this.budgetParentChildRelation = new Long2LongHashMap(NO_CREDITOR_INDEX);
     }
 
     @Override
@@ -125,6 +133,12 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
     public void release(
         long budgetIndex)
     {
+        if (ReaktorConfiguration.DEBUG_BUDGETS)
+        {
+            System.out.format("[%d] release creditor  budgetIndex=%d \n", System.nanoTime(), budgetIndex);
+            Thread.currentThread().getStackTrace();
+        }
+
         assert (budgetIndex & budgetMask) == budgetMask;
         final int index = (int) (budgetIndex & ~budgetMask);
 
@@ -143,15 +157,43 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
         long credit)
     {
         final long budgetIndex = budgetIndexById.get(budgetId);
+
+        if (ReaktorConfiguration.DEBUG_BUDGETS)
+        {
+            System.out.format("[%d] creditById credit=%d budgetId=%d budgetIndex=%d %s \n",
+                System.nanoTime(), credit, budgetId, budgetIndex, budgetIndexById.toString());
+        }
+
         if (budgetIndex != NO_CREDITOR_INDEX)
         {
             credit(traceId, budgetIndex, credit);
         }
     }
 
+    @Override
+    public long supplyChild(
+        long parentBudgetId)
+    {
+        final long childBudgetId = supplyBudgetId.getAsLong();
+        budgetParentChildRelation.put(childBudgetId, parentBudgetId);
+
+        return childBudgetId;
+    }
+
     public int acquired()
     {
         return budgetIndexById.size();
+    }
+
+    public long parentBudgetId(
+        long childBudgetId)
+    {
+        long parentBudgetId = budgetParentChildRelation.get(childBudgetId);
+        if (parentBudgetId == NO_CREDITOR_INDEX)
+        {
+            parentBudgetId = childBudgetId;
+        }
+        return parentBudgetId;
     }
 
     long available(

@@ -63,7 +63,7 @@
     <dependency>
       <groupId>org.reaktivity</groupId>
       <artifactId>nukleus</artifactId>
-      <version>${nukleus.version}</version>
+      <version>develop-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>commons-cli</groupId>
