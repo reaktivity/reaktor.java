@@ -15,8 +15,29 @@
  */
 package org.reaktivity.reaktor.internal.util.function;
 
+import java.util.Objects;
+import java.util.function.BiConsumer;
+
 @FunctionalInterface
-public interface TaskExecutor
+public interface LongObjectBiConsumer<T> extends BiConsumer<Long, T>
 {
-    void executeAt(long timeMillis, Runnable task);
+    @Override
+    default void accept(Long value, T t)
+    {
+        this.accept(value.longValue(), t);
+    }
+
+    default LongObjectBiConsumer<T> andThen(
+        LongObjectBiConsumer<? super T> after)
+    {
+        Objects.requireNonNull(after);
+
+        return (l, r) ->
+        {
+            accept(l, r);
+            after.accept(l, r);
+        };
+    }
+
+    void accept(long l, Object o);
 }

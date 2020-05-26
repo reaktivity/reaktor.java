@@ -297,7 +297,7 @@ public class ElektronAgent implements Agent
                 .build();
 
         this.creditor = new DefaultBudgetCreditor(index, budgetsLayout, this::doSystemFlush, this::supplyBudgetId,
-            signaler::executeTaskAt, config.childCleanupLingerMillis());
+            (timeMillis, task) -> signaler.executeTaskAt(timeMillis, (Runnable) task), config.childCleanupLingerMillis());
         this.debitorsByIndex = new Int2ObjectHashMap<DefaultBudgetDebitor>();
 
         if (supplyAgentBuilder != null)
@@ -924,9 +924,8 @@ public class ElektronAgent implements Agent
         long budgetId,
         int reserved)
     {
-        if (budgetId != 0L)
+        if (budgetId != 0L && reserved > 0)
         {
-            assert reserved > 0;
             doSystemWindow(traceId, budgetId, reserved);
         }
     }

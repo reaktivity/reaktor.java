@@ -29,7 +29,7 @@ import org.agrona.concurrent.AtomicBuffer;
 import org.reaktivity.nukleus.budget.BudgetCreditor;
 import org.reaktivity.reaktor.ReaktorConfiguration;
 import org.reaktivity.reaktor.internal.layouts.BudgetsLayout;
-import org.reaktivity.reaktor.internal.util.function.TaskExecutor;
+import org.reaktivity.reaktor.internal.util.function.   LongObjectBiConsumer;
 
 public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
 {
@@ -44,7 +44,7 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
     private final int entries;
     private final BudgetFlusher flusher;
     private final LongSupplier supplyBudgetId;
-    private final TaskExecutor executor;
+    private final LongObjectBiConsumer<Runnable> executor;
     private final long childCleanupLinger;
     private final Long2LongHashMap budgetIndexById;
     private final Long2LongHashMap parentBudgetIds;
@@ -62,7 +62,7 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
         BudgetsLayout layout,
         BudgetFlusher flusher,
         LongSupplier supplyBudgetId,
-        TaskExecutor executor,
+        LongObjectBiConsumer<Runnable> executor,
         long childCleanupLinger)
     {
         this.budgetMask = budgetMask(ownerIndex);
@@ -220,8 +220,7 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
             System.out.format("[%d] cleanupChild childBudgetId=%d budgetParentChildRelation=%s \n",
                 System.nanoTime(), budgetId, parentBudgetIds.toString());
         }
-        executor.executeAt(currentTimeMillis() + childCleanupLinger,
-            () -> parentBudgetIds.remove(budgetId));
+        executor.accept(currentTimeMillis() + childCleanupLinger, () -> parentBudgetIds.remove(budgetId));
     }
 
     long available(
