@@ -34,5 +34,5 @@ public interface BudgetCreditor
         long budgetId);
 
     void cleanupChild(
-        long parentBudgetId);
+        long budgetId);
 }
