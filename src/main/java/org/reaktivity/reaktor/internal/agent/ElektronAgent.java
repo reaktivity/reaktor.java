@@ -73,7 +73,6 @@ import org.agrona.hints.ThreadHints;
 import org.reaktivity.nukleus.AgentBuilder;
 import org.reaktivity.nukleus.Elektron;
 import org.reaktivity.nukleus.Nukleus;
-import org.reaktivity.nukleus.budget.BudgetCreditor;
 import org.reaktivity.nukleus.budget.BudgetDebitor;
 import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.buffer.CountingBufferPool;
@@ -118,7 +117,6 @@ import org.reaktivity.reaktor.internal.types.stream.ReaktorSignalExFW;
 import org.reaktivity.reaktor.internal.types.stream.ResetFW;
 import org.reaktivity.reaktor.internal.types.stream.SignalFW;
 import org.reaktivity.reaktor.internal.types.stream.WindowFW;
-import org.reaktivity.reaktor.internal.util.function.LongObjectBiConsumer;
 
 public class ElektronAgent implements Agent
 {
