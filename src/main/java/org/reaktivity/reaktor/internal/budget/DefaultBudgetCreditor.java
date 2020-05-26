@@ -27,9 +27,9 @@ import org.agrona.collections.Hashing;
 import org.agrona.collections.Long2LongHashMap;
 import org.agrona.concurrent.AtomicBuffer;
 import org.reaktivity.nukleus.budget.BudgetCreditor;
-import org.reaktivity.nukleus.concurrent.Signaler;
 import org.reaktivity.reaktor.ReaktorConfiguration;
 import org.reaktivity.reaktor.internal.layouts.BudgetsLayout;
+import org.reaktivity.reaktor.internal.util.function.TaskExecutor;
 
 public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
 {
@@ -44,7 +44,7 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
     private final int entries;
     private final BudgetFlusher flusher;
     private final LongSupplier supplyBudgetId;
-    private final Signaler signaler;
+    private final TaskExecutor executor;
     private final long childCleanupLinger;
     private final Long2LongHashMap budgetIndexById;
     private final Long2LongHashMap parentBudgetIds;
@@ -52,9 +52,17 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
     public DefaultBudgetCreditor(
         int ownerIndex,
         BudgetsLayout layout,
+        BudgetFlusher flusher)
+    {
+        this(ownerIndex, layout, flusher, null, null, 0L);
+    }
+
+    public DefaultBudgetCreditor(
+        int ownerIndex,
+        BudgetsLayout layout,
         BudgetFlusher flusher,
         LongSupplier supplyBudgetId,
-        Signaler signaler,
+        TaskExecutor executor,
         long childCleanupLinger)
     {
         this.budgetMask = budgetMask(ownerIndex);
@@ -63,7 +71,7 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
         this.entries = layout.entries();
         this.flusher = flusher;
         this.supplyBudgetId = supplyBudgetId;
-        this.signaler = signaler;
+        this.executor = executor;
         this.childCleanupLinger = childCleanupLinger;
         this.budgetIndexById = new Long2LongHashMap(NO_CREDITOR_INDEX);
         this.parentBudgetIds = new Long2LongHashMap(NO_CREDITOR_INDEX);
@@ -178,10 +186,10 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
 
     @Override
     public long supplyChild(
-        long parentBudgetId)
+        long budgetId)
     {
         final long childBudgetId = supplyBudgetId.getAsLong();
-        parentBudgetIds.put(childBudgetId, parentBudgetId);
+        parentBudgetIds.put(childBudgetId, budgetId);
 
         return childBudgetId;
     }
@@ -217,7 +225,7 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
             System.out.format("[%d] cleanupChild childBudgetId=%d budgetParentChildRelation=%s \n",
                 System.nanoTime(), budgetId, parentBudgetIds.toString());
         }
-        signaler.executeTaskAt(currentTimeMillis() + childCleanupLinger,
+        executor.executeAt(currentTimeMillis() + childCleanupLinger,
             () -> parentBudgetIds.remove(budgetId));
     }
 

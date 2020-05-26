@@ -173,11 +173,6 @@ public final class Target implements AutoCloseable
             handled = streamsBuffer.test(msgTypeId, buffer, index, length);
             break;
         case WindowFW.TYPE_ID:
-            if (ReaktorConfiguration.DEBUG_BUDGETS)
-            {
-                System.out.format("[%d] Window ring buffer \n", System.nanoTime());
-            }
-
             handled = streamsBuffer.test(msgTypeId, buffer, index, length);
             break;
         }

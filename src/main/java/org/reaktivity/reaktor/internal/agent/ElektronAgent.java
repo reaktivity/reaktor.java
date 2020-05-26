@@ -188,7 +188,7 @@ public class ElektronAgent implements Agent
     private final Long2ObjectHashMap<Runnable> tasksByTimerId;
     private final Long2ObjectHashMap<Future<?>> futuresById;
     private final SignalingExecutor executor;
-    private final Signaler signaler;
+    private final ElektronSignaler signaler;
 
     private long streamId;
     private long traceId;
@@ -297,7 +297,7 @@ public class ElektronAgent implements Agent
                 .build();
 
         this.creditor = new DefaultBudgetCreditor(index, budgetsLayout, this::doSystemFlush, this::supplyBudgetId,
-            signaler, config.childCleanupLingerMillis());
+            signaler::executeTaskAt, config.childCleanupLingerMillis());
         this.debitorsByIndex = new Int2ObjectHashMap<DefaultBudgetDebitor>();
 
         if (supplyAgentBuilder != null)
@@ -910,20 +910,23 @@ public class ElektronAgent implements Agent
             break;
         case DataFW.TYPE_ID:
             final DataFW data = dataRO.wrap(buffer, index, index + length);
-            handleDefaultData(data);
+            final long traceId = data.traceId();
+            final long budgetId = data.budgetId();
+            final int reserved = data.reserved();
+
+            doSystemWindowIfNecessary(traceId, budgetId, reserved);
             break;
         }
     }
 
-    private void handleDefaultData(
-        DataFW data)
+    private void doSystemWindowIfNecessary(
+        long traceId,
+        long budgetId,
+        int reserved)
     {
-        final long traceId = data.traceId();
-        final long budgetId = data.budgetId();
-        final int reserved = data.reserved();
-
         if (budgetId != 0L)
         {
+            assert reserved > 0;
             doSystemWindow(traceId, budgetId, reserved);
         }
     }
@@ -1039,7 +1042,11 @@ public class ElektronAgent implements Agent
         else if (msgTypeId == DataFW.TYPE_ID)
         {
             final DataFW data = dataRO.wrap(buffer, index, index + length);
-            handleDefaultData(data);
+            final long traceId = data.traceId();
+            final long budgetId = data.budgetId();
+            final int reserved = data.reserved();
+
+            doSystemWindowIfNecessary(traceId, budgetId, reserved);
         }
     }
 
@@ -1500,7 +1507,7 @@ public class ElektronAgent implements Agent
         return dispatcher;
     }
 
-    private final class ElektronSignaler implements Signaler
+    public final class ElektronSignaler implements Signaler
     {
         private final ThreadLocal<SignalFW.Builder> signalRW = withInitial(ElektronAgent::newSignalRW);
 
@@ -1514,7 +1521,6 @@ public class ElektronAgent implements Agent
             this.executorService = executorService;
         }
 
-        @Override
         public void executeTaskAt(
             long timeMillis,
             Runnable task)
