@@ -1507,7 +1507,7 @@ public class ElektronAgent implements Agent
         return dispatcher;
     }
 
-    public final class ElektronSignaler implements Signaler
+    private final class ElektronSignaler implements Signaler
     {
         private final ThreadLocal<SignalFW.Builder> signalRW = withInitial(ElektronAgent::newSignalRW);
 
