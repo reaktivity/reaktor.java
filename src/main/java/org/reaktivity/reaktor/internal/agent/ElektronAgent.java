@@ -297,9 +297,8 @@ public class ElektronAgent implements Agent
                 .owner(true)
                 .build();
 
-        final LongObjectBiConsumer<Runnable> executeTaskAt = signaler::executeTaskAt;
         this.creditor = new DefaultBudgetCreditor(index, budgetsLayout, this::doSystemFlush, this::supplyBudgetId,
-            executeTaskAt, config.childCleanupLingerMillis());
+            signaler::executeTaskAt, config.childCleanupLingerMillis());
         this.debitorsByIndex = new Int2ObjectHashMap<DefaultBudgetDebitor>();
 
         if (supplyAgentBuilder != null)
@@ -374,7 +373,9 @@ public class ElektronAgent implements Agent
         final long budgetId = window.budgetId();
         final int credit = window.credit();
 
-        creditor.creditById(traceId, budgetId, credit);
+        long parentBudgetId = creditor.parentBudgetId(budgetId);
+
+        creditor.creditById(traceId, parentBudgetId, credit);
     }
 
     private void onSystemSignal(
@@ -476,15 +477,13 @@ public class ElektronAgent implements Agent
                 System.nanoTime(), traceId, budgetId, credit);
         }
 
-        long parentBudgetId = creditor.parentBudgetId(budgetId);
-
-        final int targetIndex = ownerIndex(parentBudgetId);
+        final int targetIndex = ownerIndex(budgetId);
         final MessageConsumer writer = supplyWriter(targetIndex);
         final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                                         .routeId(0L)
                                         .streamId(0L)
                                         .traceId(traceId)
-                                        .budgetId(parentBudgetId)
+                                        .budgetId(budgetId)
                                         .credit(credit)
                                         .padding(0)
                                         .build();
