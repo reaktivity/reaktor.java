@@ -224,7 +224,6 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
             () -> parentBudgetIds.remove(budgetId));
     }
 
-
     long available(
         long budgetIndex)
     {
