@@ -397,8 +397,9 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
         if (writableBytes > 0 && debitor != null && debitorIndex != -1L)
         {
             final int requiredBytes = writableBytes + writablePadding;
-            writableBytes = Math.max(debitor.claim(debitorIndex, targetId, requiredBytes,
-                requiredBytes) - writablePadding, 0);
+            writableBytes = Math.max(
+                debitor.claim(debitorIndex, targetId, requiredBytes, requiredBytes) - writablePadding,
+                0);
         }
 
         return writableBytes;
