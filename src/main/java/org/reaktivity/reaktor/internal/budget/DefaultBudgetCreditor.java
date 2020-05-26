@@ -29,7 +29,7 @@ import org.agrona.concurrent.AtomicBuffer;
 import org.reaktivity.nukleus.budget.BudgetCreditor;
 import org.reaktivity.reaktor.ReaktorConfiguration;
 import org.reaktivity.reaktor.internal.layouts.BudgetsLayout;
-import org.reaktivity.reaktor.internal.util.function.   LongObjectBiConsumer;
+import org.reaktivity.reaktor.internal.util.function.LongObjectBiConsumer;
 
 public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
 {
