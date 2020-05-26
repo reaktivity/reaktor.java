@@ -17,6 +17,7 @@ package org.reaktivity.reaktor;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -50,15 +51,17 @@ public class ReaktorConfiguration extends Configuration
     public static final BooleanPropertyDef REAKTOR_DRAIN_ON_CLOSE;
     public static final BooleanPropertyDef REAKTOR_SYNTHETIC_ABORT;
     public static final LongPropertyDef REAKTOR_ROUTED_DELAY_MILLIS;
+    private static final LongPropertyDef REAKTOR_CREDITOR_CHILD_CLEANUP_LINGER_MILLIS;
 
     private static final ConfigurationDef REAKTOR_CONFIG;
+
 
     static
     {
         final ConfigurationDef config = new ConfigurationDef("reaktor");
         REAKTOR_NAME = config.property("name", "reaktor");
         REAKTOR_DIRECTORY = config.property("directory", ".");
-        REAKTOR_CACHE_DIRECTORY = config.property(Path.class, "cache.directory", (c, v) -> cacheDirectory(c, v), "cache");
+        REAKTOR_CACHE_DIRECTORY = config.property(Path.class, "cache.directory", ReaktorConfiguration::cacheDirectory, "cache");
         REAKTOR_BUDGETS_BUFFER_CAPACITY = config.property("budgets.buffer.capacity", 1024 * 1024);
         REAKTOR_STREAMS_BUFFER_CAPACITY = config.property("streams.buffer.capacity", 1024 * 1024);
         REAKTOR_COMMAND_BUFFER_CAPACITY = config.property("command.buffer.capacity", 1024 * 1024);
@@ -79,6 +82,7 @@ public class ReaktorConfiguration extends Configuration
         REAKTOR_DRAIN_ON_CLOSE = config.property("drain.on.close", false);
         REAKTOR_SYNTHETIC_ABORT = config.property("synthetic.abort", false);
         REAKTOR_ROUTED_DELAY_MILLIS = config.property("routed.delay.millis", 0L);
+        REAKTOR_CREDITOR_CHILD_CLEANUP_LINGER_MILLIS = config.property("child.cleanup.linger", SECONDS.toMillis(5L));
         REAKTOR_CONFIG = config;
     }
 
@@ -225,6 +229,11 @@ public class ReaktorConfiguration extends Configuration
     public long routedDelayMillis()
     {
         return REAKTOR_ROUTED_DELAY_MILLIS.getAsLong(this);
+    }
+
+    public long childCleanupLingerMillis()
+    {
+        return REAKTOR_CREDITOR_CHILD_CLEANUP_LINGER_MILLIS.getAsLong(this);
     }
 
     private static int defaultBufferPoolCapacity(
