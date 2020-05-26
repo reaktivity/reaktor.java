@@ -116,6 +116,7 @@ import org.reaktivity.reaktor.internal.types.stream.ReaktorSignalExFW;
 import org.reaktivity.reaktor.internal.types.stream.ResetFW;
 import org.reaktivity.reaktor.internal.types.stream.SignalFW;
 import org.reaktivity.reaktor.internal.types.stream.WindowFW;
+import org.reaktivity.reaktor.internal.util.function.LongObjectBiConsumer;
 
 public class ElektronAgent implements Agent
 {
@@ -296,8 +297,9 @@ public class ElektronAgent implements Agent
                 .owner(true)
                 .build();
 
+        final LongObjectBiConsumer<Runnable> executeTaskAt = signaler::executeTaskAt;
         this.creditor = new DefaultBudgetCreditor(index, budgetsLayout, this::doSystemFlush, this::supplyBudgetId,
-            (timeMillis, task) -> signaler.executeTaskAt(timeMillis, (Runnable) task), config.childCleanupLingerMillis());
+            executeTaskAt, config.childCleanupLingerMillis());
         this.debitorsByIndex = new Int2ObjectHashMap<DefaultBudgetDebitor>();
 
         if (supplyAgentBuilder != null)

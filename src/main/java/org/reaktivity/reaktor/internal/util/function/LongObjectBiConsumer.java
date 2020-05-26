@@ -34,10 +34,10 @@ public interface LongObjectBiConsumer<T> extends BiConsumer<Long, T>
 
         return (l, r) ->
         {
-            accept(l, r);
-            after.accept(l, r);
+            apply(l, r);
+            after.apply(l, r);
         };
     }
 
-    void accept(long l, Object o);
+    void apply(long l, T t);
 }
