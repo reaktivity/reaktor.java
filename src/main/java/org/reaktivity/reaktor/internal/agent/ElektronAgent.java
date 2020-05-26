@@ -21,6 +21,7 @@ import static java.lang.ThreadLocal.withInitial;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.agrona.CloseHelper.quietClose;
+import static org.reaktivity.nukleus.budget.BudgetCreditor.NO_BUDGET_ID;
 import static org.reaktivity.nukleus.concurrent.Signaler.NO_CANCEL_ID;
 import static org.reaktivity.reaktor.internal.router.BudgetId.ownerIndex;
 import static org.reaktivity.reaktor.internal.router.RouteId.localId;
@@ -72,6 +73,7 @@ import org.agrona.hints.ThreadHints;
 import org.reaktivity.nukleus.AgentBuilder;
 import org.reaktivity.nukleus.Elektron;
 import org.reaktivity.nukleus.Nukleus;
+import org.reaktivity.nukleus.budget.BudgetCreditor;
 import org.reaktivity.nukleus.budget.BudgetDebitor;
 import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.buffer.CountingBufferPool;
@@ -373,9 +375,13 @@ public class ElektronAgent implements Agent
         final long budgetId = window.budgetId();
         final int credit = window.credit();
 
-        long parentBudgetId = creditor.parentBudgetId(budgetId);
+        creditor.creditById(traceId, budgetId, credit);
 
-        creditor.creditById(traceId, parentBudgetId, credit);
+        long parentBudgetId = creditor.parentBudgetId(budgetId);
+        if (parentBudgetId != NO_BUDGET_ID)
+        {
+            doSystemWindowIfNecessary(traceId, budgetId, credit);
+        }
     }
 
     private void onSystemSignal(

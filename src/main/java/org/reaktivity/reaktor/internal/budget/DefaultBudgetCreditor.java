@@ -74,7 +74,7 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
         this.executor = executor;
         this.childCleanupLinger = childCleanupLinger;
         this.budgetIndexById = new Long2LongHashMap(NO_CREDITOR_INDEX);
-        this.parentBudgetIds = new Long2LongHashMap(NO_CREDITOR_INDEX);
+        this.parentBudgetIds = new Long2LongHashMap(NO_BUDGET_ID);
     }
 
     @Override
@@ -202,13 +202,7 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
     public long parentBudgetId(
         long budgetId)
     {
-        long parentBudgetId = parentBudgetIds.get(budgetId);
-
-        if (parentBudgetId == NO_CREDITOR_INDEX)
-        {
-            parentBudgetId = budgetId;
-        }
-        return parentBudgetId;
+        return parentBudgetIds.get(budgetId);
     }
 
     @Override
