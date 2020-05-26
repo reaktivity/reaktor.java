@@ -33,7 +33,16 @@ public interface BudgetDebitor
         int minimum,
         int maximum);
 
+    @Deprecated
     int claim(
+        long budgetIndex,
+        long watcherId,
+        int minimum,
+        int maximum,
+        int deferred);
+
+    int claim(
+        long traceId,
         long budgetIndex,
         long watcherId,
         int minimum,

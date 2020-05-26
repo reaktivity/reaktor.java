@@ -18,6 +18,7 @@ package org.reaktivity.nukleus.budget;
 public interface BudgetCreditor
 {
     long NO_CREDITOR_INDEX = -1L;
+    long NO_BUDGET_ID = 0;
 
     long acquire(
         long budgetId);
@@ -29,4 +30,10 @@ public interface BudgetCreditor
 
     void release(
         long budgetIndex);
+
+    long supplyChild(
+        long budgetId);
+
+    void cleanupChild(
+        long budgetId);
 }
