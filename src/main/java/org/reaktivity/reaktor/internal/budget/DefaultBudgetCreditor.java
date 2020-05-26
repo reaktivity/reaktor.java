@@ -199,11 +199,6 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
         return budgetIndexById.size();
     }
 
-    public long parentBudget()
-    {
-        return parentBudgetIds.size();
-    }
-
     public long parentBudgetId(
         long budgetId)
     {
