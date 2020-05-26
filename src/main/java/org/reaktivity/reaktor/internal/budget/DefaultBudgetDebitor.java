@@ -125,6 +125,18 @@ public final class DefaultBudgetDebitor implements BudgetDebitor, AutoCloseable
         int maximum,
         int deferred)
     {
+        return claim(0L, budgetIndex, watcherId, minimum, maximum, deferred);
+    }
+
+    @Override
+    public int claim(
+        long traceId,
+        long budgetIndex,
+        long watcherId,
+        int minimum,
+        int maximum,
+        int deferred)
+    {
         assert (budgetIndex & budgetMask) == budgetMask;
         assert 0 <= minimum;
         assert minimum <= maximum;
@@ -151,8 +163,8 @@ public final class DefaultBudgetDebitor implements BudgetDebitor, AutoCloseable
         if (ReaktorConfiguration.DEBUG_BUDGETS)
         {
             final long budgetId = budgetIdByIndex.get(budgetIndex);
-            System.out.format("[%d] [0x%016x] [0x%016x] claimed %d / %d @ %d => %d\n",
-                    System.nanoTime(), watcherId, budgetId,
+            System.out.format("[%d] [0x%016x] [0x%016x] [0x%016x] claimed %d / %d @ %d => %d\n",
+                    System.nanoTime(), traceId, watcherId, budgetId,
                     claimed, maximum, previous, previous - claimed);
         }
 
