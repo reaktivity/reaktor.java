@@ -1525,11 +1525,6 @@ public class ElektronAgent implements Agent
             long timeMillis,
             Runnable task)
         {
-            if (ReaktorConfiguration.DEBUG_BUDGETS)
-            {
-                System.out.format("[%d] executeTaskAt timeMillis=%d \n", System.nanoTime(), timeMillis);
-            }
-
             final long timerId = timerWheel.scheduleTimer(timeMillis);
             final Runnable oldTask = tasksByTimerId.put(timerId, task);
             assert oldTask == null;
