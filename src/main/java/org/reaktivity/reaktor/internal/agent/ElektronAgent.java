@@ -21,6 +21,7 @@ import static java.lang.ThreadLocal.withInitial;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.agrona.CloseHelper.quietClose;
+import static org.reaktivity.nukleus.budget.BudgetCreditor.NO_BUDGET_ID;
 import static org.reaktivity.nukleus.concurrent.Signaler.NO_CANCEL_ID;
 import static org.reaktivity.reaktor.internal.router.BudgetId.ownerIndex;
 import static org.reaktivity.reaktor.internal.router.RouteId.localId;
@@ -188,7 +189,7 @@ public class ElektronAgent implements Agent
     private final Long2ObjectHashMap<Runnable> tasksByTimerId;
     private final Long2ObjectHashMap<Future<?>> futuresById;
     private final SignalingExecutor executor;
-    private final Signaler signaler;
+    private final ElektronSignaler signaler;
 
     private long streamId;
     private long traceId;
@@ -296,7 +297,8 @@ public class ElektronAgent implements Agent
                 .owner(true)
                 .build();
 
-        this.creditor = new DefaultBudgetCreditor(index, budgetsLayout, this::doSystemFlush);
+        this.creditor = new DefaultBudgetCreditor(index, budgetsLayout, this::doSystemFlush, this::supplyBudgetId,
+            signaler::executeTaskAt, config.childCleanupLingerMillis());
         this.debitorsByIndex = new Int2ObjectHashMap<DefaultBudgetDebitor>();
 
         if (supplyAgentBuilder != null)
@@ -372,6 +374,12 @@ public class ElektronAgent implements Agent
         final int credit = window.credit();
 
         creditor.creditById(traceId, budgetId, credit);
+
+        long parentBudgetId = creditor.parentBudgetId(budgetId);
+        if (parentBudgetId != NO_BUDGET_ID)
+        {
+            doSystemWindowIfNecessary(traceId, budgetId, credit);
+        }
     }
 
     private void onSystemSignal(
@@ -467,8 +475,14 @@ public class ElektronAgent implements Agent
         long budgetId,
         int credit)
     {
+        if (ReaktorConfiguration.DEBUG_BUDGETS)
+        {
+            System.out.format("[%d] [0x%016x] [0x%016x] doSystemWindow credit=%d \n",
+                System.nanoTime(), traceId, budgetId, credit);
+        }
+
         final int targetIndex = ownerIndex(budgetId);
-        final Target target = supplyTarget(targetIndex);
+        final MessageConsumer writer = supplyWriter(targetIndex);
         final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                                         .routeId(0L)
                                         .streamId(0L)
@@ -477,7 +491,7 @@ public class ElektronAgent implements Agent
                                         .credit(credit)
                                         .padding(0)
                                         .build();
-        target.writeHandler().accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
+        writer.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
     }
 
     private static class ResolverRef implements RouteManager
@@ -903,13 +917,21 @@ public class ElektronAgent implements Agent
             final DataFW data = dataRO.wrap(buffer, index, index + length);
             final long traceId = data.traceId();
             final long budgetId = data.budgetId();
-            if (budgetId != 0L)
-            {
-                final int reserved = data.reserved();
+            final int reserved = data.reserved();
 
-                doSystemWindow(traceId, budgetId, reserved);
-            }
+            doSystemWindowIfNecessary(traceId, budgetId, reserved);
             break;
+        }
+    }
+
+    private void doSystemWindowIfNecessary(
+        long traceId,
+        long budgetId,
+        int reserved)
+    {
+        if (budgetId != 0L && reserved > 0)
+        {
+            doSystemWindow(traceId, budgetId, reserved);
         }
     }
 
@@ -959,19 +981,9 @@ public class ElektronAgent implements Agent
                     break;
                 }
             }
-            else if (msgTypeId == BeginFW.TYPE_ID)
+            else
             {
-                final MessageConsumer newHandler = handleBeginReply(msgTypeId, buffer, index, length);
-                if (newHandler != null)
-                {
-                    final ReadCounters counters = countersByRouteId.computeIfAbsent(routeId, newReadCounters);
-                    counters.opens.increment();
-                    newHandler.accept(msgTypeId, buffer, index, length);
-                }
-                else
-                {
-                    doReset(routeId, streamId);
-                }
+                handleDefaultReadReply(msgTypeId, buffer, index, length);
             }
         }
         else
@@ -1005,6 +1017,40 @@ public class ElektronAgent implements Agent
                     break;
                 }
             }
+        }
+    }
+
+    private void handleDefaultReadReply(
+        int msgTypeId,
+        MutableDirectBuffer buffer,
+        int index,
+        int length)
+    {
+        if (msgTypeId == BeginFW.TYPE_ID)
+        {
+            final FrameFW frame = frameRO.wrap(buffer, index, index + length);
+            final long routeId = frame.routeId();
+            final MessageConsumer newHandler = handleBeginReply(msgTypeId, buffer, index, length);
+            if (newHandler != null)
+            {
+
+                final ReadCounters counters = countersByRouteId.computeIfAbsent(routeId, newReadCounters);
+                counters.opens.increment();
+                newHandler.accept(msgTypeId, buffer, index, length);
+            }
+            else
+            {
+                doReset(routeId, streamId);
+            }
+        }
+        else if (msgTypeId == DataFW.TYPE_ID)
+        {
+            final DataFW data = dataRO.wrap(buffer, index, index + length);
+            final long traceId = data.traceId();
+            final long budgetId = data.budgetId();
+            final int reserved = data.reserved();
+
+            doSystemWindowIfNecessary(traceId, budgetId, reserved);
         }
     }
 
@@ -1477,6 +1523,16 @@ public class ElektronAgent implements Agent
             ExecutorService executorService)
         {
             this.executorService = executorService;
+        }
+
+        public void executeTaskAt(
+            long timeMillis,
+            Runnable task)
+        {
+            final long timerId = timerWheel.scheduleTimer(timeMillis);
+            final Runnable oldTask = tasksByTimerId.put(timerId, task);
+            assert oldTask == null;
+            assert timerId >= 0L;
         }
 
         @Override
