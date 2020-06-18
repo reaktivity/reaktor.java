@@ -21,10 +21,12 @@ import static org.reaktivity.reaktor.internal.layouts.BudgetsLayout.budgetRemain
 import static org.reaktivity.reaktor.internal.layouts.BudgetsLayout.budgetWatchersOffset;
 import static org.reaktivity.reaktor.internal.router.BudgetId.budgetMask;
 
+import java.util.function.LongConsumer;
 import java.util.function.LongSupplier;
 
 import org.agrona.collections.Hashing;
 import org.agrona.collections.Long2LongHashMap;
+import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.concurrent.AtomicBuffer;
 import org.reaktivity.nukleus.budget.BudgetCreditor;
 import org.reaktivity.reaktor.ReaktorConfiguration;
@@ -48,6 +50,7 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
     private final long childCleanupLinger;
     private final Long2LongHashMap budgetIndexById;
     private final Long2LongHashMap parentBudgetIds;
+    private final Long2ObjectHashMap<LongConsumer> flushersByBudgetIndex;
 
     public DefaultBudgetCreditor(
         int ownerIndex,
@@ -75,6 +78,7 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
         this.childCleanupLinger = childCleanupLinger;
         this.budgetIndexById = new Long2LongHashMap(NO_CREDITOR_INDEX);
         this.parentBudgetIds = new Long2LongHashMap(NO_BUDGET_ID);
+        this.flushersByBudgetIndex = new Long2ObjectHashMap<>();
     }
 
     @Override
@@ -86,6 +90,14 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
     @Override
     public long acquire(
         long budgetId)
+    {
+        return acquire(budgetId, n -> {});
+    }
+
+    @Override
+    public long acquire(
+        long budgetId,
+        LongConsumer flusher)
     {
         assert (budgetId & budgetMask) == budgetMask;
 
@@ -112,6 +124,7 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
         if (budgetIndex != NO_CREDITOR_INDEX)
         {
             budgetIndexById.put(budgetId, budgetIndex);
+            flushersByBudgetIndex.put(budgetIndex, flusher);
         }
 
         return budgetIndex;
@@ -163,6 +176,7 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
         assert budgetId != 0L;
 
         budgetIndexById.remove(budgetId, budgetIndex);
+        flushersByBudgetIndex.remove(budgetIndex);
     }
 
     public void creditById(
@@ -181,6 +195,8 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
         if (budgetIndex != NO_CREDITOR_INDEX)
         {
             credit(traceId, budgetIndex, credit);
+            LongConsumer flusher = flushersByBudgetIndex.get(budgetIndex);
+            flusher.accept(credit);
         }
     }
 
