@@ -378,7 +378,7 @@ public class ElektronAgent implements Agent
         long parentBudgetId = creditor.parentBudgetId(budgetId);
         if (parentBudgetId != NO_BUDGET_ID)
         {
-            doSystemWindowIfNecessary(traceId, budgetId, credit);
+            doSystemWindowIfNecessary(traceId, parentBudgetId, credit);
         }
     }
 
