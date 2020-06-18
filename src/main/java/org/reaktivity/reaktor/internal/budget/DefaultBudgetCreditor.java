@@ -35,6 +35,8 @@ import org.reaktivity.reaktor.internal.util.function.LongObjectBiConsumer;
 
 public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
 {
+    private final static LongConsumer NO_FLUSHER = c -> {};
+
     public interface BudgetFlusher
     {
         void flush(long traceId, long budgetId, long watchers);
@@ -91,7 +93,7 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
     public long acquire(
         long budgetId)
     {
-        return acquire(budgetId, n -> {});
+        return acquire(budgetId, NO_FLUSHER);
     }
 
     @Override
