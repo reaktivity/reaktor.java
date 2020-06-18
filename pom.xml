@@ -46,7 +46,7 @@
     <jacoco.missed.count>6</jacoco.missed.count>
 
     <nukleus.plugin.version>0.46</nukleus.plugin.version>
-    <nukleus.spec.version>0.47</nukleus.spec.version>
+    <nukleus.spec.version>0.48</nukleus.spec.version>
     <nukleus.version>0.47</nukleus.version>
     <jmock.version>2.6.0</jmock.version>
     <mockito.version>2.23.4</mockito.version>
@@ -263,6 +263,9 @@
         <version>2.22.1</version>
         <configuration>
           <argLine>@{argLine}</argLine>
+          <excludes>
+            <exclude/>
+          </excludes>
         </configuration>
       </plugin>
       <plugin>

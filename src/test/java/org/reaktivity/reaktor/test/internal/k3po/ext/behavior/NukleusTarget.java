@@ -602,10 +602,11 @@ final class NukleusTarget implements AutoCloseable
     {
         final long authorization = channel.targetAuth();
         final boolean flushing = writeBuf == NULL_BUFFER;
-        final int writableBytes = Math.min(channel.writableBytes(writeBuf.readableBytes()), writeBuffer.capacity() >> 1);
+        final int reservedBytes = channel.reservedBytes(Math.min(writeBuf.readableBytes(), writeBuffer.capacity() >> 1));
+        final int writableBytes = Math.max(Math.min(reservedBytes - channel.writablePadding, writeBuf.readableBytes()), 0);
 
         // allow extension-only DATA frames to be flushed immediately
-        boolean flushable = writableBytes > 0 || !writeBuf.readable();
+        boolean flushable = writableBytes > 0 || writeBuf.capacity() == 0;
         if (flushable)
         {
             final int writeReaderIndex = writeBuf.readerIndex();
@@ -652,7 +653,7 @@ final class NukleusTarget implements AutoCloseable
                     .authorization(authorization)
                     .flags(flags)
                     .budgetId(budgetId)
-                    .reserved(writableBytes + channel.writablePadding)
+                    .reserved(reservedBytes)
                     .payload(writeCopy)
                     .extension(p -> p.set(writeExtCopy))
                     .build();
@@ -661,7 +662,7 @@ final class NukleusTarget implements AutoCloseable
 
             if (flushable)
             {
-                channel.writtenBytes(writableBytes);
+                channel.writtenBytes(writableBytes, reservedBytes);
 
                 writeBuf.skipBytes(writableBytes);
 
@@ -828,6 +829,7 @@ final class NukleusTarget implements AutoCloseable
             final long budgetId = window.budgetId();
             final int credit = window.credit();
             final int padding = window.padding();
+            final int minimum = window.minimum();
             final int capabilities = window.capabilities();
 
             if (budgetId != 0L && !channel.hasDebitor() &&
@@ -837,7 +839,7 @@ final class NukleusTarget implements AutoCloseable
                 channel.setDebitor(debitor, budgetId);
             }
 
-            channel.writableWindow(credit, padding, traceId);
+            channel.writableWindow(credit, padding, minimum, traceId);
             channel.capabilities(capabilities);
 
             flushThrottledWrites(channel);
