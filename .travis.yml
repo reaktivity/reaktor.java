@@ -12,6 +12,7 @@ cache:
 branches:
   except:
   - "/^release\\/.*$/"
+  - "/^feature\\/.*$/"
 after_success:
 - bash <(curl -s https://codecov.io/bash)
 notifications:

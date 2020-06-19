@@ -45,6 +45,7 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
     private int readableBudget;
     private int writableBudget;
     int writablePadding;
+    private int writableMinimum;
 
     private int writtenBytes;
     private int acknowledgedBytes;
@@ -83,6 +84,7 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
     private long creditorId;
 
     private int pendingSharedBudget;
+
 
     NukleusChannel(
         NukleusServerChannel parent,
@@ -383,42 +385,44 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
         return writableBudget > writablePadding || !getConfig().hasThrottle();
     }
 
-    public int writableBytes(
+    public int reservedBytes(
         int writableBytes)
     {
+        int reservedBytes = writableBytes != 0 ? Math.max(writableBytes + writablePadding, writableMinimum) : 0;
+
         final boolean hasThrottle = getConfig().hasThrottle();
-        if (!hasThrottle)
+        if (hasThrottle)
         {
-            return writableBytes;
+            writableBytes = Math.min(writableBytes(), writableBytes);
+            reservedBytes = writableBytes != 0 ? Math.max(writableBytes + writablePadding, writableMinimum) : 0;
+
+            if (writableBytes > 0 && debitor != null && debitorIndex != -1L)
+            {
+                reservedBytes = debitor.claim(debitorIndex, targetId, reservedBytes, reservedBytes);
+            }
         }
 
-        writableBytes = Math.min(writableBytes(), writableBytes);
-
-        if (writableBytes > 0 && debitor != null && debitorIndex != -1L)
-        {
-            final int requiredBytes = writableBytes + writablePadding;
-            final int claimedBytes = debitor.claim(debitorIndex, targetId, requiredBytes, requiredBytes);
-            writableBytes = Math.max(claimedBytes - writablePadding, 0);
-        }
-
-        return writableBytes;
+        return reservedBytes;
     }
 
     public void writtenBytes(
-        int writtenBytes)
+        int writtenBytes,
+        int reservedBytes)
     {
         this.writtenBytes += writtenBytes;
-        writableBudget -= writtenBytes + writablePadding;
+        writableBudget -= reservedBytes;
         assert writablePadding >= 0 && (writableBudget >= 0 || !getConfig().hasThrottle());
     }
 
     public void writableWindow(
         int credit,
         int padding,
+        int minimum,
         long traceId)
     {
         writableBudget += credit;
         writablePadding = padding;
+        writableMinimum = minimum;
 
         // approximation for window acknowledgment
         // does not account for any change to total available window after initial window
