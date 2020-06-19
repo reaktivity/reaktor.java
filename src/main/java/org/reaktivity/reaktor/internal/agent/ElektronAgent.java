@@ -1030,6 +1030,7 @@ public class ElektronAgent implements Agent
         {
             final FrameFW frame = frameRO.wrap(buffer, index, index + length);
             final long routeId = frame.routeId();
+            final long streamId = frame.streamId();
             final MessageConsumer newHandler = handleBeginReply(msgTypeId, buffer, index, length);
             if (newHandler != null)
             {
