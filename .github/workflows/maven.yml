@@ -9,6 +9,7 @@ on:
 
 jobs:
   build:
+    name: Build
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -29,3 +30,21 @@ jobs:
         restore-keys: ${{ runner.os }}-m2
     - name: Build with Maven
       run: ./mvnw -B -nsu verify
+    - name: Notify via Slack
+      uses: 8398a7/action-slack@v3
+      with:
+        status: custom
+        fields: workflow,job,commit,repo,ref,author,took
+        custom_payload: |
+          {
+            username: 'GitHub Actions',
+            icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png',
+            attachments: [{
+              color: '${{ job.status }}' === 'success' ? 'good' : '${{ job.status }}' === 'failure' ? 'danger' : 'warning',
+              text: `${process.env.AS_WORKFLOW} JDK ${{ matrix.java }}\nBuild <https://github.com/${{github.repository}}/runs/${{github.run_id}}|${{github.run_id}}> (${process.env.AS_COMMIT}) of ${process.env.AS_REPO} by ${{github.actor}} ${{job.status}} in ${process.env.AS_TOOK}`,
+            }]
+          }
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      if: always()
