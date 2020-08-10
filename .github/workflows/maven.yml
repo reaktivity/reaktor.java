@@ -32,6 +32,6 @@ jobs:
     - name: Notify via Slack
       uses: bryannice/gitactions-slack-notification@master
       env:
-        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
         SLACK_TITLE: 'GitHub Actions'
         SLACK_MESSAGE: Build ${{ github.run_id }} (${{ github.ref }}) of ${{ github.repository }} by ${{ github.actor }}
