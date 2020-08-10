@@ -33,4 +33,8 @@ jobs:
       env:
         SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
       uses: cemkiy/action-slacker@master
+      with:
+        channel: '#activity'
+        username: GitHub Actions
+        icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
       if: always()
