@@ -37,5 +37,5 @@ jobs:
         channel: '#activity'
         username: GitHub Actions
         icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
-        text: ${{ github.workflow }} using JDK ${{ matrix.java }} - ${{ job.status }}
+        title: ${{ github.workflow }} using JDK ${{ matrix.java }} - ${{ job.status }}
       if: always()
