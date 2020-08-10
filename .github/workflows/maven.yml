@@ -41,7 +41,7 @@ jobs:
             icon_emoji: ':octocat:',
             attachments: [{
               color: '${{ job.status }}' === 'success' ? 'good' : '${{ job.status }}' === 'failure' ? 'danger' : 'warning',
-              text: `${process.env.AS_WORKFLOW}\nBuild <https://github.com/${{github.repository}}/runs/${{github.run_id}}|#${{github.run_id}}> (${process.env.AS_COMMIT}) of ${process.env.AS_REPO} by ${{github.actor}} ${{job.status}}`,
+              text: `${process.env.AS_WORKFLOW} JDK ${{ matrix.java }}\nBuild <https://github.com/${{github.repository}}/runs/${{github.run_id}}|${{github.run_id}}> (${process.env.AS_COMMIT}) of ${process.env.AS_REPO} by ${{github.actor}} ${{job.status}}`,
             }]
           }
       env:
