@@ -31,7 +31,7 @@ jobs:
       run: ./mvnw -B -nsu verify
     - name: Notify via Slack
       env:
-        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
       uses: cemkiy/action-slacker@master
       with:
         channel: '#activity'
