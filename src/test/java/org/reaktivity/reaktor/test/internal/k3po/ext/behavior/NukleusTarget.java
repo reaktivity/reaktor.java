@@ -396,6 +396,7 @@ final class NukleusTarget implements AutoCloseable
         }
         else
         {
+            flushThrottledWrites(channel);
             flushFuture.setSuccess();
             fireFlushed(channel);
         }

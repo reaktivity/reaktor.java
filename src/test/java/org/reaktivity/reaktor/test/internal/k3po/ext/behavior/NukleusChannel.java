@@ -365,7 +365,7 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
     private void flush(
         long budgetId)
     {
-        System.out.println("TODO: flush!!");
+        org.kaazing.k3po.driver.internal.netty.channel.Channels.flush(this);
     }
 
     public int writableBytes()

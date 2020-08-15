@@ -87,6 +87,7 @@ public final class NukleusScope implements AutoCloseable
                 correlations::remove, this::supplySender, this::supplyTarget,
                 this::doSystemFlush, streamsById, throttlesById);
 
+        this.streamsById.put(0L, this::onSystemMessage);
         this.throttlesById.put(0L, this::onSystemMessage);
     }
 
