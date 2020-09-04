@@ -83,6 +83,7 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
         layout.close();
     }
 
+    @Override
     public long acquire(
         long budgetId)
     {
