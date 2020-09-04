@@ -914,12 +914,12 @@ public class ElektronAgent implements Agent
             }
             break;
         case DataFW.TYPE_ID:
-            handleDropReadData(msgTypeId, buffer, index, length);
+            handleDroppedReadData(msgTypeId, buffer, index, length);
             break;
         }
     }
 
-    private void handleDropReadFrame(
+    private void handleDroppedReadFrame(
         int msgTypeId,
         DirectBuffer buffer,
         int index,
@@ -928,12 +928,12 @@ public class ElektronAgent implements Agent
         switch (msgTypeId)
         {
         case DataFW.TYPE_ID:
-            handleDropReadData(msgTypeId, buffer, index, length);
+            handleDroppedReadData(msgTypeId, buffer, index, length);
             break;
         }
     }
 
-    private void handleDropReadData(
+    private void handleDroppedReadData(
         int msgTypeId,
         DirectBuffer buffer,
         int index,
@@ -1071,7 +1071,7 @@ public class ElektronAgent implements Agent
         }
         else if (msgTypeId == DataFW.TYPE_ID)
         {
-            handleDropReadData(msgTypeId, buffer, index, length);
+            handleDroppedReadData(msgTypeId, buffer, index, length);
         }
     }
 
@@ -1389,7 +1389,7 @@ public class ElektronAgent implements Agent
                 .setCounterSupplier(supplyCounter)
                 .setAccumulatorSupplier(supplyAccumulator)
                 .setBufferPoolSupplier(supplyCountingBufferPool)
-                .setDroppedFrameConsumer(this::handleDropReadFrame)
+                .setDroppedFrameConsumer(this::handleDroppedReadFrame)
                 .build();
     }
 
