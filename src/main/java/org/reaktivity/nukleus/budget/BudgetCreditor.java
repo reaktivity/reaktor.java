@@ -23,7 +23,6 @@ public interface BudgetCreditor
     long acquire(
         long budgetId);
 
-
     long credit(
         long traceId,
         long budgetIndex,
