@@ -119,7 +119,7 @@ public interface StreamFactoryBuilder
     }
 
     default StreamFactoryBuilder setDroppedFrameConsumer(
-        MessageConsumer droppedFrameConsumer)
+        MessageConsumer dropFrame)
     {
         return this;
     }
