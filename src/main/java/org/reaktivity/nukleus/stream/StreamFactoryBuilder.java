@@ -29,6 +29,7 @@ import org.reaktivity.nukleus.budget.BudgetDebitor;
 import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.concurrent.Signaler;
 import org.reaktivity.nukleus.concurrent.SignalingExecutor;
+import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.route.RouteManager;
 
 public interface StreamFactoryBuilder
@@ -113,6 +114,12 @@ public interface StreamFactoryBuilder
 
     default StreamFactoryBuilder setAccumulatorSupplier(
         Function<String, LongConsumer> supplyAccumulator)
+    {
+        return this;
+    }
+
+    default StreamFactoryBuilder setDroppedFrameConsumer(
+        MessageConsumer droppedFrameConsumer)
     {
         return this;
     }

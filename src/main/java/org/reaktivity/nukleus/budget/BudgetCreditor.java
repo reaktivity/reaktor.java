@@ -15,20 +15,14 @@
  */
 package org.reaktivity.nukleus.budget;
 
-import java.util.function.LongConsumer;
-
 public interface BudgetCreditor
 {
     long NO_CREDITOR_INDEX = -1L;
     long NO_BUDGET_ID = 0;
 
-    @Deprecated
     long acquire(
         long budgetId);
 
-    long acquire(
-        long budgetId,
-        LongConsumer flusher);
 
     long credit(
         long traceId,
