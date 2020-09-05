@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.reaktivity</groupId>
   <artifactId>reaktor</artifactId>
-  <version>0.140</version>
+  <version>0.141</version>
   <name>Reaktor for Java Nuklei</name>
   <description>Reaktor for Java Nuklei</description>
   <url>https://github.com/reaktivity/reaktor.java</url>
@@ -47,7 +47,7 @@
 
     <nukleus.plugin.version>0.64</nukleus.plugin.version>
     <nukleus.spec.version>0.49</nukleus.spec.version>
-    <nukleus.version>0.48</nukleus.version>
+    <nukleus.version>0.49</nukleus.version>
     <jmock.version>2.6.0</jmock.version>
     <mockito.version>3.4.6</mockito.version>
     <k3po.version>3.0.0</k3po.version>
