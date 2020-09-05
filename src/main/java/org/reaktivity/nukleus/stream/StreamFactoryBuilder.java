@@ -40,6 +40,7 @@ public interface StreamFactoryBuilder
         return this;
     }
 
+    @Deprecated
     default StreamFactoryBuilder setExecutor(
         SignalingExecutor executor)
     {
