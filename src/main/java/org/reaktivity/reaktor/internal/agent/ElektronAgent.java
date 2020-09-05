@@ -914,14 +914,39 @@ public class ElektronAgent implements Agent
             }
             break;
         case DataFW.TYPE_ID:
-            final DataFW data = dataRO.wrap(buffer, index, index + length);
-            final long traceId = data.traceId();
-            final long budgetId = data.budgetId();
-            final int reserved = data.reserved();
-
-            doSystemWindowIfNecessary(traceId, budgetId, reserved);
+            handleDroppedReadData(msgTypeId, buffer, index, length);
             break;
         }
+    }
+
+    private void handleDroppedReadFrame(
+        int msgTypeId,
+        DirectBuffer buffer,
+        int index,
+        int length)
+    {
+        switch (msgTypeId)
+        {
+        case DataFW.TYPE_ID:
+            handleDroppedReadData(msgTypeId, buffer, index, length);
+            break;
+        }
+    }
+
+    private void handleDroppedReadData(
+        int msgTypeId,
+        DirectBuffer buffer,
+        int index,
+        int length)
+    {
+        assert msgTypeId == DataFW.TYPE_ID;
+
+        final DataFW data = dataRO.wrap(buffer, index, index + length);
+        final long traceId = data.traceId();
+        final long budgetId = data.budgetId();
+        final int reserved = data.reserved();
+
+        doSystemWindowIfNecessary(traceId, budgetId, reserved);
     }
 
     private void doSystemWindowIfNecessary(
@@ -1046,12 +1071,7 @@ public class ElektronAgent implements Agent
         }
         else if (msgTypeId == DataFW.TYPE_ID)
         {
-            final DataFW data = dataRO.wrap(buffer, index, index + length);
-            final long traceId = data.traceId();
-            final long budgetId = data.budgetId();
-            final int reserved = data.reserved();
-
-            doSystemWindowIfNecessary(traceId, budgetId, reserved);
+            handleDroppedReadData(msgTypeId, buffer, index, length);
         }
     }
 
@@ -1369,6 +1389,7 @@ public class ElektronAgent implements Agent
                 .setCounterSupplier(supplyCounter)
                 .setAccumulatorSupplier(supplyAccumulator)
                 .setBufferPoolSupplier(supplyCountingBufferPool)
+                .setDroppedFrameConsumer(this::handleDroppedReadFrame)
                 .build();
     }
 
