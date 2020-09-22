@@ -335,7 +335,7 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
         assert this.debitor == null;
         this.debitor = debitor;
         this.debitorId = debitorId;
-        this.debitorIndex = debitor.acquire(debitorId, targetId, this::flush);
+        this.debitorIndex = debitor.acquire(debitorId, targetId, this::systemFlush);
         if (this.debitorIndex == -1L)
         {
             getCloseFuture().setFailure(new ChannelException("Unable to acquire debitor"));
@@ -362,10 +362,11 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
         return creditorId;
     }
 
-    private void flush(
+    private void systemFlush(
         long budgetId)
     {
-        org.kaazing.k3po.driver.internal.netty.channel.Channels.flush(this);
+        ChannelFuture flushFuture = Channels.future(this);
+        reaktor.systemFlush(this, flushFuture);
     }
 
     public int writableBytes()

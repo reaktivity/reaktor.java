@@ -402,6 +402,17 @@ final class NukleusTarget implements AutoCloseable
         }
     }
 
+    public void doSystemFlush(
+        NukleusChannel channel,
+        ChannelFuture flushFuture)
+    {
+        if (channel.beginOutputFuture().isDone())
+        {
+            flushThrottledWrites(channel);
+        }
+        flushFuture.setSuccess();
+    }
+
     public void doAbortOutput(
         NukleusChannel channel,
         ChannelFuture abortFuture)

@@ -149,6 +149,13 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
         submitTask(new CloseTask(channel, handlerFuture));
     }
 
+    public void systemFlush(
+        NukleusChannel channel,
+        ChannelFuture handlerFuture)
+    {
+        submitTask(new SystemFlushTask(channel, handlerFuture));
+    }
+
     @Override
     public void run()
     {
@@ -697,6 +704,40 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
             catch (ChannelException ex)
             {
                 fireExceptionCaught(channel, ex);
+            }
+        }
+    }
+
+    private final class SystemFlushTask implements Runnable
+    {
+        private final NukleusChannel channel;
+        private final ChannelFuture flushFuture;
+
+        private SystemFlushTask(
+            NukleusChannel channel,
+            ChannelFuture future)
+        {
+            this.channel = channel;
+            this.flushFuture = future;
+        }
+
+        @Override
+        public void run()
+        {
+            try
+            {
+                if (!channel.isWriteClosed())
+                {
+                    NukleusReaktor reaktor = channel.reaktor;
+                    int scopeIndex = channel.getLocalScope();
+
+                    NukleusScope scope = reaktor.supplyScope(scopeIndex);
+                    scope.doSystemFlush(channel, flushFuture);
+                }
+            }
+            catch (Exception ex)
+            {
+                flushFuture.setFailure(ex);
             }
         }
     }
