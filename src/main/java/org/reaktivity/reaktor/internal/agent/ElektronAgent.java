@@ -887,6 +887,20 @@ public class ElektronAgent implements Agent
                     break;
                 }
             }
+            else
+            {
+                switch (msgTypeId)
+                {
+                case SignalFW.TYPE_ID:
+                    final SignalFW signal = signalRO.wrap(buffer, index, index + length);
+                    final long cancelId = signal.cancelId();
+                    if (cancelId != NO_CANCEL_ID)
+                    {
+                        futuresById.remove(cancelId);
+                    }
+                    break;
+                }
+            }
         }
     }
 
@@ -1039,6 +1053,20 @@ public class ElektronAgent implements Agent
                     throttle.accept(msgTypeId, buffer, index, length);
                     break;
                 default:
+                    break;
+                }
+            }
+            else
+            {
+                switch (msgTypeId)
+                {
+                case SignalFW.TYPE_ID:
+                    final SignalFW signal = signalRO.wrap(buffer, index, index + length);
+                    final long cancelId = signal.cancelId();
+                    if (cancelId != NO_CANCEL_ID)
+                    {
+                        futuresById.remove(cancelId);
+                    }
                     break;
                 }
             }
