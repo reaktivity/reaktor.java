@@ -47,4 +47,4 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ github.token }}
         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-      if: ${{ secrets.SLACK_WEBHOOK_URL != null }}
+      if: ${{ env.SLACK_WEBHOOK_URL != null }}
