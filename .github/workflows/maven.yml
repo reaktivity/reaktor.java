@@ -34,6 +34,7 @@ jobs:
       uses: 8398a7/action-slack@v3
       with:
         status: custom
+        job_name: Build
         fields: workflow,job,commit,repo,took
         custom_payload: |
           {
