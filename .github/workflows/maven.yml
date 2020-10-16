@@ -34,17 +34,19 @@ jobs:
       uses: 8398a7/action-slack@v3
       with:
         status: custom
-        fields: workflow,job,commit,repo,took
+        job_name: Build
+        fields: job,commit,repo,author,took
         custom_payload: |
           {
             username: 'GitHub Actions',
             icon_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png',
             attachments: [{
               color: '${{ job.status }}' === 'success' ? 'good' : '${{ job.status }}' === 'failure' ? 'danger' : 'warning',
-              text: `${process.env.AS_WORKFLOW} JDK ${{ matrix.java }}\nBuild <https://github.com/${{github.repository}}/runs/${{github.run_number}}|${{github.run_number}}> (${process.env.AS_COMMIT}) of ${process.env.AS_REPO} by ${{github.actor}} ${{job.status}} in ${process.env.AS_TOOK}`,
+              text: `${process.env.AS_JOB} (${process.env.AS_COMMIT}) of ${process.env.AS_REPO} by ${process.env.AS_AUTHOR.replace(/\<.*\>/, '')} passed in ${process.env.AS_TOOK}`,
             }]
           }
       env:
         GITHUB_TOKEN: ${{ github.token }}
         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        MATRIX_CONTEXT: ${{ toJson(matrix) }}
       if: ${{ env.SLACK_WEBHOOK_URL != null }}
