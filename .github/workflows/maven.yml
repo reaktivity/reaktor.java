@@ -35,14 +35,14 @@ jobs:
       with:
         status: custom
         job_name: Build
-        fields: job,commit,repo,author,took
+        fields: job,repo,author,took
         custom_payload: |
           {
             username: 'GitHub Actions',
             icon_url: 'https://github.githubassets.com/images/modules/logos_page/Octocat.png',
             attachments: [{
               color: '${{ job.status }}' === 'success' ? 'good' : '${{ job.status }}' === 'failure' ? 'danger' : 'warning',
-              text: `${process.env.AS_JOB} (${process.env.AS_COMMIT}) of ${process.env.AS_REPO} by ${process.env.AS_AUTHOR.replace(/\<.*\>/, '')} passed in ${process.env.AS_TOOK}`,
+              text: `${process.env.AS_JOB} of ${process.env.AS_REPO} by ${process.env.AS_AUTHOR.replace(/\<.*\>/, '')} completed in ${process.env.AS_TOOK}`,
             }]
           }
       env:
