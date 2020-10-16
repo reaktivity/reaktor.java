@@ -39,7 +39,7 @@ jobs:
         custom_payload: |
           {
             username: 'GitHub Actions',
-            icon_url: 'https://emojis.slackmojis.com/emojis/images/1598375767/10266/github-actions.png',
+            icon_url: 'https://avatars0.githubusercontent.com/u/44036562?s=50',
             attachments: [{
               color: '${{ job.status }}' === 'success' ? 'good' : '${{ job.status }}' === 'failure' ? 'danger' : 'warning',
               text: `${process.env.AS_JOB} (${process.env.AS_COMMIT}) of ${process.env.AS_REPO} by ${process.env.AS_AUTHOR.replace(/\<.*\>/, '')} passed in ${process.env.AS_TOOK}`,
