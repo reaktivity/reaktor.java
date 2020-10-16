@@ -38,7 +38,6 @@ jobs:
         fields: job,repo,author,took
         custom_payload: |
           {
-            username: 'GitHub Actions',
             attachments: [{
               color: '${{ job.status }}' === 'success' ? 'good' : '${{ job.status }}' === 'failure' ? 'danger' : 'warning',
               text: `${process.env.AS_JOB} of ${process.env.AS_REPO} by ${process.env.AS_AUTHOR.replace(/\<.*\>/, '')} completed in ${process.env.AS_TOOK}`,
