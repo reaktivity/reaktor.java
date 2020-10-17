@@ -199,6 +199,46 @@ public class SimplexIT
 
     @Test
     @Specification({
+        "client.sent.write.advise.flush/client",
+        "client.sent.write.advise.flush/server"
+    })
+    public void shouldReceiveClientSentWriteAdviseFlush() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "client.sent.write.advise.flush.ext/client",
+        "client.sent.write.advise.flush.ext/server"
+    })
+    public void shouldReceiveClientSentWriteAdviseFlushWithExtension() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "server.sent.read.advise.challenge/client",
+        "server.sent.read.advise.challenge/server"
+    })
+    public void shouldReceiveServerSentReadAdviseChallenge() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "server.sent.read.advise.challenge.ext/client",
+        "server.sent.read.advise.challenge.ext/server"
+    })
+    public void shouldReceiveServerSentReadAdviseChallengeWithExtension() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "server.sent.throttle/client",
         "server.sent.throttle/server"
     })

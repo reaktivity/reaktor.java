@@ -15,8 +15,6 @@
  */
 package org.reaktivity.reaktor.test.internal.k3po.ext.behavior;
 
-import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NullChannelBuffer.CHALLENGE_BUFFER;
-
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelStateEvent;
@@ -24,8 +22,10 @@ import org.jboss.netty.channel.MessageEvent;
 import org.kaazing.k3po.driver.internal.netty.bootstrap.channel.AbstractChannelSink;
 import org.kaazing.k3po.driver.internal.netty.channel.FlushEvent;
 import org.kaazing.k3po.driver.internal.netty.channel.ReadAbortEvent;
+import org.kaazing.k3po.driver.internal.netty.channel.ReadAdviseEvent;
 import org.kaazing.k3po.driver.internal.netty.channel.ShutdownOutputEvent;
 import org.kaazing.k3po.driver.internal.netty.channel.WriteAbortEvent;
+import org.kaazing.k3po.driver.internal.netty.channel.WriteAdviseEvent;
 
 public class NukleusClientChannelSink extends AbstractChannelSink
 {
@@ -38,6 +38,36 @@ public class NukleusClientChannelSink extends AbstractChannelSink
         NukleusChannelAddress remoteAddress = (NukleusChannelAddress) evt.getValue();
         ChannelFuture connectFuture = evt.getFuture();
         channel.reaktor.connect(channel, remoteAddress, connectFuture);
+    }
+
+    @Override
+    protected void adviseOutputRequested(
+        ChannelPipeline pipeline,
+        WriteAdviseEvent evt) throws Exception
+    {
+        NukleusChannel channel = (NukleusChannel) evt.getChannel();
+        ChannelFuture adviseFuture = evt.getFuture();
+        Object value = evt.getValue();
+
+        if (!channel.isWriteClosed())
+        {
+            channel.reaktor.adviseOutput(channel, adviseFuture, value);
+        }
+    }
+
+    @Override
+    protected void adviseInputRequested(
+        ChannelPipeline pipeline,
+        ReadAdviseEvent evt) throws Exception
+    {
+        NukleusChannel channel = (NukleusChannel) evt.getChannel();
+        ChannelFuture abortFuture = evt.getFuture();
+        Object value = evt.getValue();
+
+        if (!channel.isReadClosed())
+        {
+            channel.reaktor.adviseInput(channel, abortFuture, value);
+        }
     }
 
     @Override
@@ -74,7 +104,7 @@ public class NukleusClientChannelSink extends AbstractChannelSink
         MessageEvent evt) throws Exception
     {
         NukleusChannel channel = (NukleusChannel) evt.getChannel();
-        if (!channel.isWriteClosed() || evt.getMessage() == CHALLENGE_BUFFER)
+        if (!channel.isWriteClosed())
         {
             channel.reaktor.write(evt);
         }

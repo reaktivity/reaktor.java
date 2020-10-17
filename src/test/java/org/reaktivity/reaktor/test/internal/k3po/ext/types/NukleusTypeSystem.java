@@ -52,8 +52,12 @@ public final class NukleusTypeSystem implements TypeSystemSpi
             new StructuredTypeInfo("nukleus", "data.null", emptyList(), 0);
     public static final StructuredTypeInfo CONFIG_END_EXT =
             new StructuredTypeInfo("nukleus", "end.ext", emptyList(), MAX_VALUE);
-    public static final StructuredTypeInfo CONFIG_CHALLENGE =
+
+    public static final StructuredTypeInfo ADVISORY_FLUSH =
+            new StructuredTypeInfo("nukleus", "flush", emptyList(), MAX_VALUE);
+    public static final StructuredTypeInfo ADVISORY_CHALLENGE =
             new StructuredTypeInfo("nukleus", "challenge", emptyList(), MAX_VALUE);
+
 
     private final Set<TypeInfo<?>> acceptOptions;
     private final Set<TypeInfo<?>> connectOptions;
@@ -61,6 +65,8 @@ public final class NukleusTypeSystem implements TypeSystemSpi
     private final Set<TypeInfo<?>> writeOptions;
     private final Set<StructuredTypeInfo> readConfigs;
     private final Set<StructuredTypeInfo> writeConfigs;
+    private final Set<StructuredTypeInfo> readAdvisories;
+    private final Set<StructuredTypeInfo> writeAdvisories;
 
     public NukleusTypeSystem()
     {
@@ -106,7 +112,6 @@ public final class NukleusTypeSystem implements TypeSystemSpi
         readConfigs.add(CONFIG_DATA_EXT);
         readConfigs.add(CONFIG_DATA_NULL);
         readConfigs.add(CONFIG_END_EXT);
-        readConfigs.add(CONFIG_CHALLENGE);
         this.readConfigs = readConfigs;
 
         Set<StructuredTypeInfo> writeConfigs = new LinkedHashSet<>();
@@ -114,8 +119,15 @@ public final class NukleusTypeSystem implements TypeSystemSpi
         writeConfigs.add(CONFIG_DATA_EXT);
         writeConfigs.add(CONFIG_DATA_EMPTY);
         writeConfigs.add(CONFIG_END_EXT);
-        writeConfigs.add(CONFIG_CHALLENGE);
         this.writeConfigs = writeConfigs;
+
+        Set<StructuredTypeInfo> readAdvisories = new LinkedHashSet<>();
+        readAdvisories.add(ADVISORY_CHALLENGE);
+        this.readAdvisories = readAdvisories;
+
+        Set<StructuredTypeInfo> writeAdvisories = new LinkedHashSet<>();
+        writeAdvisories.add(ADVISORY_FLUSH);
+        this.writeAdvisories = writeAdvisories;
     }
 
     @Override
@@ -158,5 +170,17 @@ public final class NukleusTypeSystem implements TypeSystemSpi
     public Set<StructuredTypeInfo> writeConfigs()
     {
         return writeConfigs;
+    }
+
+    @Override
+    public Set<StructuredTypeInfo> readAdvisories()
+    {
+        return readAdvisories;
+    }
+
+    @Override
+    public Set<StructuredTypeInfo> writeAdvisories()
+    {
+        return writeAdvisories;
     }
 }

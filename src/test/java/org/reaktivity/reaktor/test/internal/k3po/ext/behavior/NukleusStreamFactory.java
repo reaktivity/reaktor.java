@@ -21,11 +21,15 @@ import static org.jboss.netty.channel.Channels.fireChannelUnbound;
 import static org.jboss.netty.channel.Channels.fireExceptionCaught;
 import static org.jboss.netty.channel.Channels.fireMessageReceived;
 import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireInputAborted;
+import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireInputAdvised;
 import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireInputShutdown;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusExtensionKind.BEGIN;
+import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusExtensionKind.CHALLENGE;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusExtensionKind.DATA;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusExtensionKind.END;
+import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusExtensionKind.FLUSH;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NullChannelBuffer.NULL_BUFFER;
+import static org.reaktivity.reaktor.test.internal.k3po.ext.types.NukleusTypeSystem.ADVISORY_FLUSH;
 
 import java.util.function.LongConsumer;
 
@@ -39,6 +43,7 @@ import org.reaktivity.reaktor.test.internal.k3po.ext.types.stream.AbortFW;
 import org.reaktivity.reaktor.test.internal.k3po.ext.types.stream.BeginFW;
 import org.reaktivity.reaktor.test.internal.k3po.ext.types.stream.DataFW;
 import org.reaktivity.reaktor.test.internal.k3po.ext.types.stream.EndFW;
+import org.reaktivity.reaktor.test.internal.k3po.ext.types.stream.FlushFW;
 import org.reaktivity.reaktor.test.internal.k3po.ext.types.stream.FrameFW;
 import org.reaktivity.reaktor.test.internal.k3po.ext.util.function.LongLongFunction;
 
@@ -49,6 +54,7 @@ public final class NukleusStreamFactory
     private final DataFW dataRO = new DataFW();
     private final EndFW endRO = new EndFW();
     private final AbortFW abortRO = new AbortFW();
+    private final FlushFW flushRO = new FlushFW();
 
     private final LongLongFunction<NukleusTarget> supplySender;
     private final LongConsumer unregisterStream;
@@ -71,6 +77,19 @@ public final class NukleusStreamFactory
 
         sender.doReset(channel, traceId);
         unregisterStream.accept(streamId);
+    }
+
+    public void doChallenge(
+        NukleusChannel channel,
+        long traceId)
+    {
+        final ChannelBuffer challengeExt = channel.writeExtBuffer(CHALLENGE, true);
+
+        final long routeId = channel.routeId();
+        final long streamId = channel.sourceId();
+
+        final NukleusTarget sender = supplySender.apply(routeId, streamId);
+        sender.doChallenge(routeId, streamId, traceId, challengeExt);
     }
 
     public MessageHandler newStream(
@@ -125,6 +144,10 @@ public final class NukleusStreamFactory
             case AbortFW.TYPE_ID:
                 AbortFW abort = abortRO.wrap(buffer, index, index + length);
                 onAbort(abort);
+                break;
+            case FlushFW.TYPE_ID:
+                FlushFW flush = flushRO.wrap(buffer, index, index + length);
+                onFlush(flush);
                 break;
             }
         }
@@ -320,6 +343,33 @@ public final class NukleusStreamFactory
                     fireInputAborted(channel);
                 }
             }
+        }
+
+        private void onFlush(
+            FlushFW flush)
+        {
+            if (flush.authorization() != channel.sourceAuth())
+            {
+                final long traceId = flush.traceId();
+                sender.doReset(channel, traceId);
+            }
+
+            final OctetsFW flushExt = flush.extension();
+
+            int flushExtBytes = flushExt.sizeof();
+            if (flushExtBytes != 0)
+            {
+                final DirectBuffer buffer = flushExt.buffer();
+                final int offset = flushExt.offset();
+
+                // TODO: avoid allocation
+                final byte[] flushExtCopy = new byte[flushExtBytes];
+                buffer.getBytes(offset, flushExtCopy);
+
+                channel.readExtBuffer(FLUSH).writeBytes(flushExtCopy);
+            }
+
+            fireInputAdvised(channel, ADVISORY_FLUSH);
         }
 
         private void verifyRouteId(

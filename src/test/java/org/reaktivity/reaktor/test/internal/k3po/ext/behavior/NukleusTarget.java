@@ -21,20 +21,22 @@ import static org.jboss.netty.channel.Channels.fireChannelConnected;
 import static org.jboss.netty.channel.Channels.fireChannelDisconnected;
 import static org.jboss.netty.channel.Channels.fireChannelInterestChanged;
 import static org.jboss.netty.channel.Channels.fireChannelUnbound;
-import static org.jboss.netty.channel.Channels.fireMessageReceived;
 import static org.jboss.netty.channel.Channels.fireWriteComplete;
 import static org.jboss.netty.channel.Channels.future;
 import static org.jboss.netty.channel.Channels.succeededFuture;
 import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireFlushed;
 import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireOutputAborted;
+import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireOutputAdvised;
 import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireOutputShutdown;
 import static org.reaktivity.reaktor.internal.router.BudgetId.budgetMask;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusExtensionKind.BEGIN;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusExtensionKind.CHALLENGE;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusExtensionKind.DATA;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusExtensionKind.END;
-import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NullChannelBuffer.CHALLENGE_BUFFER;
+import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusExtensionKind.FLUSH;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NullChannelBuffer.NULL_BUFFER;
+import static org.reaktivity.reaktor.test.internal.k3po.ext.types.NukleusTypeSystem.ADVISORY_CHALLENGE;
+import static org.reaktivity.reaktor.test.internal.k3po.ext.types.NukleusTypeSystem.ADVISORY_FLUSH;
 
 import java.nio.file.Path;
 import java.util.Deque;
@@ -60,7 +62,6 @@ import org.reaktivity.reaktor.internal.types.stream.FlushFW;
 import org.reaktivity.reaktor.test.internal.k3po.ext.behavior.layout.Layout;
 import org.reaktivity.reaktor.test.internal.k3po.ext.behavior.layout.StreamsLayout;
 import org.reaktivity.reaktor.test.internal.k3po.ext.types.OctetsFW;
-import org.reaktivity.reaktor.test.internal.k3po.ext.types.control.Capability;
 import org.reaktivity.reaktor.test.internal.k3po.ext.types.stream.AbortFW;
 import org.reaktivity.reaktor.test.internal.k3po.ext.types.stream.BeginFW;
 import org.reaktivity.reaktor.test.internal.k3po.ext.types.stream.ChallengeFW;
@@ -413,6 +414,48 @@ final class NukleusTarget implements AutoCloseable
         flushFuture.setSuccess();
     }
 
+    public void doAdviseOutput(
+        NukleusChannel channel,
+        ChannelFuture adviseFuture,
+        Object value)
+    {
+        if (value == ADVISORY_FLUSH)
+        {
+            doAdviseOutputFlush(channel, adviseFuture);
+        }
+        else
+        {
+            adviseFuture.setFailure(new ChannelException("unexpected: " + value));
+        }
+    }
+
+    private void doAdviseOutputFlush(
+        NukleusChannel channel,
+        ChannelFuture adviseFuture)
+    {
+        final long routeId = channel.routeId();
+        final long streamId = channel.targetId();
+        final long authorization = channel.targetAuth();
+        final long budgetId = channel.debitorId();
+
+        final ChannelBuffer writeExt = channel.writeExtBuffer(FLUSH, true);
+        final byte[] writeExtCopy = writeExtCopy(writeExt);
+
+        final FlushFW flush = flushRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                .routeId(routeId)
+                .streamId(streamId)
+                .timestamp(supplyTimestamp.getAsLong())
+                .traceId(supplyTraceId.getAsLong())
+                .authorization(authorization)
+                .budgetId(budgetId)
+                .extension(ex -> ex.set(writeExtCopy))
+                .build();
+
+        streamsBuffer.write(flush.typeId(), flush.buffer(), flush.offset(), flush.sizeof());
+
+        adviseFuture.setSuccess();
+    }
+
     public void doAbortOutput(
         NukleusChannel channel,
         ChannelFuture abortFuture)
@@ -551,60 +594,20 @@ final class NukleusTarget implements AutoCloseable
             MessageEvent writeRequest = writeRequests.peekFirst();
             ChannelBuffer writeBuf = (ChannelBuffer) writeRequest.getMessage();
 
-            if (writeBuf == CHALLENGE_BUFFER)
+            ChannelBuffer writeExt = channel.writeExtBuffer(DATA, true);
+            if (writeBuf.readable() || writeExt.readable())
             {
-                flushChallenge(channel, writeRequest);
-            }
-            else
-            {
-                ChannelBuffer writeExt = channel.writeExtBuffer(DATA, true);
-                if (writeBuf.readable() || writeExt.readable())
-                {
-                    boolean flushed = flushData(channel, writeBuf, writeExt);
-                    if (!flushed)
-                    {
-                        break loop;
-                    }
-                }
-                else if (channel.isTargetWriteRequestInProgress())
+                boolean flushed = flushData(channel, writeBuf, writeExt);
+                if (!flushed)
                 {
                     break loop;
                 }
             }
+            else if (channel.isTargetWriteRequestInProgress())
+            {
+                break loop;
+            }
         }
-    }
-
-    private void flushChallenge(
-        NukleusChannel channel,
-        MessageEvent writeRequest)
-    {
-        final ChannelFuture challengeFuture = writeRequest.getFuture();
-
-        if (channel.hasCapability(Capability.CHALLENGE))
-        {
-            final ChannelBuffer challengeExt = channel.writeExtBuffer(CHALLENGE, true);
-            final byte[] challengeExtCopy = writeExtCopy(challengeExt);
-
-            final long streamId = channel.sourceId();
-            final long routeId = channel.routeId();
-
-            final ChallengeFW challenge = challengeRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                    .routeId(routeId)
-                    .streamId(streamId)
-                    .timestamp(supplyTimestamp.getAsLong())
-                    .traceId(supplyTraceId.getAsLong())
-                    .extension(p -> p.set(challengeExtCopy))
-                    .build();
-
-            streamsBuffer.write(challenge.typeId(), challenge.buffer(), challenge.offset(), challenge.sizeof());
-
-        }
-        else
-        {
-            challengeFuture.setFailure(new ChannelException("Missing capability: " + Capability.CHALLENGE));
-        }
-
-        channel.targetWriteRequestProgress();
     }
 
     private boolean flushData(
@@ -762,6 +765,25 @@ final class NukleusTarget implements AutoCloseable
         streamsBuffer.write(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
     }
 
+    void doChallenge(
+        final long routeId,
+        final long streamId,
+        final long traceId,
+        final ChannelBuffer extension)
+    {
+        final byte[] extensionCopy = writeExtCopy(extension);
+
+        final ChallengeFW challenge = challengeRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                .routeId(routeId)
+                .streamId(streamId)
+                .timestamp(supplyTimestamp.getAsLong())
+                .traceId(traceId)
+                .extension(p -> p.set(extensionCopy))
+                .build();
+
+        streamsBuffer.write(challenge.typeId(), challenge.buffer(), challenge.offset(), challenge.sizeof());
+    }
+
     private final class Throttle
     {
         private final NukleusChannel channel;
@@ -831,7 +853,7 @@ final class NukleusTarget implements AutoCloseable
                 channel.readExtBuffer(CHALLENGE).writeBytes(challengeExtCopy);
             }
 
-            fireMessageReceived(channel, CHALLENGE_BUFFER);
+            fireOutputAdvised(channel, ADVISORY_CHALLENGE);
         }
 
         private void onWindow(
