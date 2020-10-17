@@ -37,10 +37,10 @@ import org.jboss.netty.channel.MessageEvent;
 import org.reaktivity.reaktor.internal.budget.DefaultBudgetCreditor;
 import org.reaktivity.reaktor.internal.budget.DefaultBudgetDebitor;
 import org.reaktivity.reaktor.internal.layouts.BudgetsLayout;
-import org.reaktivity.reaktor.internal.types.stream.FlushFW;
-import org.reaktivity.reaktor.internal.types.stream.WindowFW;
 import org.reaktivity.reaktor.test.internal.k3po.ext.NukleusExtConfiguration;
 import org.reaktivity.reaktor.test.internal.k3po.ext.behavior.layout.StreamsLayout;
+import org.reaktivity.reaktor.test.internal.k3po.ext.types.stream.FlushFW;
+import org.reaktivity.reaktor.test.internal.k3po.ext.types.stream.WindowFW;
 
 public final class NukleusScope implements AutoCloseable
 {
