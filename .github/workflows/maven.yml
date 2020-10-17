@@ -48,3 +48,8 @@ jobs:
         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         MATRIX_CONTEXT: ${{ toJson(matrix) }}
       if: ${{ env.SLACK_WEBHOOK_URL != null }}
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v1
+      with:
+        file: ./target/site/jacoco/jacoco.xml
+      if: ${{ env.SLACK_WEBHOOK_URL != null }}
