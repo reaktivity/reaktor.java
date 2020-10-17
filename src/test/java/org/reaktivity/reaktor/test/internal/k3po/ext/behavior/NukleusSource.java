@@ -18,6 +18,7 @@ package org.reaktivity.reaktor.test.internal.k3po.ext.behavior;
 import static org.jboss.netty.channel.Channels.fireChannelClosed;
 import static org.jboss.netty.channel.Channels.fireChannelDisconnected;
 import static org.jboss.netty.channel.Channels.fireChannelUnbound;
+import static org.reaktivity.reaktor.test.internal.k3po.ext.types.NukleusTypeSystem.ADVISORY_CHALLENGE;
 
 import java.nio.file.Path;
 import java.util.function.IntFunction;
@@ -27,6 +28,7 @@ import java.util.function.LongSupplier;
 import org.agrona.CloseHelper;
 import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.concurrent.MessageHandler;
+import org.jboss.netty.channel.ChannelException;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.reaktivity.reaktor.internal.budget.DefaultBudgetCreditor;
@@ -108,6 +110,25 @@ public final class NukleusSource implements AutoCloseable
         if (channels != null && channels.remove(authorization) != null && channels.isEmpty())
         {
             routesByIdAndAuth.remove(receiverId);
+        }
+    }
+
+    public void doAdviseInput(
+        NukleusChannel channel,
+        ChannelFuture adviseFuture,
+        Object value)
+    {
+        if (value == ADVISORY_CHALLENGE)
+        {
+            final long traceId = supplyTraceId.getAsLong();
+
+            streamFactory.doChallenge(channel, traceId);
+
+            adviseFuture.setSuccess();
+        }
+        else
+        {
+            adviseFuture.setFailure(new ChannelException("unexpected: " + value));
         }
     }
 

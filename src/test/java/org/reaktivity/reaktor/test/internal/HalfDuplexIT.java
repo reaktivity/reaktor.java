@@ -130,10 +130,40 @@ public class HalfDuplexIT
 
     @Test
     @Specification({
-        "client.sent.challenge/client",
-        "client.sent.challenge/server"
+        "client.sent.write.advise.flush/client",
+        "client.sent.write.advise.flush/server"
     })
-    public void shouldReceiveClientSentChallenge() throws Exception
+    public void shouldReceiveClientSentWriteAdviseFlush() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "client.sent.write.advise.flush.ext/client",
+        "client.sent.write.advise.flush.ext/server"
+    })
+    public void shouldReceiveClientSentWriteAdviseFlushWithExtension() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "client.sent.read.advise.challenge/client",
+        "client.sent.read.advise.challenge/server"
+    })
+    public void shouldReceiveClientSentReadAdviseChallenge() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "client.sent.read.advise.challenge.ext/client",
+        "client.sent.read.advise.challenge.ext/server"
+    })
+    public void shouldReceiveClientSentReadAdviseChallengeWithExtension() throws Exception
     {
         k3po.finish();
     }
@@ -168,6 +198,46 @@ public class HalfDuplexIT
     {
         thrown.expect(hasProperty("failures", contains(asList(instanceOf(ComparisonFailure.class),
                                                               instanceOf(TestTimedOutException.class)))));
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "server.sent.write.advise.flush/client",
+        "server.sent.write.advise.flush/server"
+    })
+    public void shouldReceiveServerSentWriteAdviseFlush() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "server.sent.write.advise.flush.ext/client",
+        "server.sent.write.advise.flush.ext/server"
+    })
+    public void shouldReceiveServerSentWriteAdviseFlushWithExtension() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "server.sent.read.advise.challenge/client",
+        "server.sent.read.advise.challenge/server"
+    })
+    public void shouldReceiveServerSentReadAdviseChallenge() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "server.sent.read.advise.challenge.ext/client",
+        "server.sent.read.advise.challenge.ext/server"
+    })
+    public void shouldReceiveServerSentReadAdviseChallengeWithExtension() throws Exception
+    {
         k3po.finish();
     }
 

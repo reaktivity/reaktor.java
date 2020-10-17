@@ -19,6 +19,7 @@ public enum NukleusExtensionKind
 {
     BEGIN,
     DATA,
+    FLUSH,
     ABORT,
     END,
     CHALLENGE;

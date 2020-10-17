@@ -21,7 +21,6 @@ import static org.jboss.netty.channel.Channels.fireChannelBound;
 import static org.jboss.netty.channel.Channels.fireChannelUnbound;
 import static org.jboss.netty.channel.Channels.fireExceptionCaught;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusTransmission.SIMPLEX;
-import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NullChannelBuffer.CHALLENGE_BUFFER;
 
 import java.util.Deque;
 import java.util.Map;
@@ -106,6 +105,22 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
         ChannelFuture connectFuture)
     {
         submitTask(new ConnectClientTask(channel, remoteAddress, connectFuture));
+    }
+
+    public void adviseOutput(
+        NukleusChannel channel,
+        ChannelFuture handlerFuture,
+        Object value)
+    {
+        submitTask(new AdviseOutputTask(channel, handlerFuture, value));
+    }
+
+    public void adviseInput(
+        NukleusChannel channel,
+        ChannelFuture handlerFuture,
+        Object value)
+    {
+        submitTask(new AdviseInputTask(channel, handlerFuture, value));
     }
 
     public void abortOutput(
@@ -504,6 +519,79 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
         }
     }
 
+    private final class AdviseOutputTask implements Runnable
+    {
+        private final NukleusChannel channel;
+        private final ChannelFuture handlerFuture;
+        private final Object value;
+
+        private AdviseOutputTask(
+            NukleusChannel channel,
+            ChannelFuture handlerFuture,
+            Object value)
+        {
+            this.channel = channel;
+            this.handlerFuture = handlerFuture;
+            this.value = value;
+        }
+
+        @Override
+        public void run()
+        {
+            try
+            {
+                if (!channel.isWriteClosed())
+                {
+                    NukleusReaktor reaktor = channel.reaktor;
+                    int scopeIndex = channel.getLocalScope();  // ??
+
+                    NukleusScope scope = reaktor.supplyScope(scopeIndex);
+                    scope.doAdviseOutput(channel, handlerFuture, value);
+                }
+            }
+            catch (Exception ex)
+            {
+                handlerFuture.setFailure(ex);
+            }
+        }
+    }
+
+    private final class AdviseInputTask implements Runnable
+    {
+        private final NukleusChannel channel;
+        private final ChannelFuture handlerFuture;
+        private final Object value;
+
+        private AdviseInputTask(
+            NukleusChannel channel,
+            ChannelFuture handlerFuture,
+            Object value)
+        {
+            this.channel = channel;
+            this.handlerFuture = handlerFuture;
+            this.value = value;
+        }
+
+        @Override
+        public void run()
+        {
+            try
+            {
+                if (!channel.isReadClosed())
+                {
+                    NukleusReaktor reaktor = channel.reaktor;
+                    int scopeIndex = channel.getLocalScope();
+                    NukleusScope scope = reaktor.supplyScope(scopeIndex);
+                    scope.doAdviseInput(channel, handlerFuture, value);
+                }
+            }
+            catch (Exception ex)
+            {
+                handlerFuture.setFailure(ex);
+            }
+        }
+    }
+
     private final class AbortOutputTask implements Runnable
     {
         private final NukleusChannel channel;
@@ -587,7 +675,7 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
             try
             {
                 NukleusChannel channel = (NukleusChannel) writeRequest.getChannel();
-                if (!channel.isWriteClosed() || writeRequest.getMessage() == CHALLENGE_BUFFER)
+                if (!channel.isWriteClosed())
                 {
                     NukleusReaktor reaktor = channel.reaktor;
                     int scopeIndex = channel.getLocalScope();

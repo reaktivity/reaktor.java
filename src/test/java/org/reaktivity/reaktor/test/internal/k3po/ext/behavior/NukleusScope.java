@@ -137,6 +137,23 @@ public final class NukleusScope implements AutoCloseable
         target.doConnectAbort(clientChannel);
     }
 
+    public void doAdviseOutput(
+        NukleusChannel channel,
+        ChannelFuture adviseFuture,
+        Object value)
+    {
+        NukleusTarget target = supplyTarget(channel);
+        target.doAdviseOutput(channel, adviseFuture, value);
+    }
+
+    public void doAdviseInput(
+        NukleusChannel channel,
+        ChannelFuture adviseFuture,
+        Object value)
+    {
+        source.doAdviseInput(channel, adviseFuture, value);
+    }
+
     public void doAbortOutput(
         NukleusChannel channel,
         ChannelFuture abortFuture)
