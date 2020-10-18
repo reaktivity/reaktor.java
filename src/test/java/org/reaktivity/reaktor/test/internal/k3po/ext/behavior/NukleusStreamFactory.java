@@ -87,9 +87,11 @@ public final class NukleusStreamFactory
 
         final long routeId = channel.routeId();
         final long streamId = channel.sourceId();
+        final long sequence = channel.sourceSeq();
+        final long acknowledge = channel.sourceAck();
 
         final NukleusTarget sender = supplySender.apply(routeId, streamId);
-        sender.doChallenge(routeId, streamId, traceId, challengeExt);
+        sender.doChallenge(routeId, streamId, sequence, acknowledge, traceId, challengeExt);
     }
 
     public MessageHandler newStream(
@@ -178,12 +180,7 @@ public final class NukleusStreamFactory
             if (config.getUpdate() == NukleusUpdateMode.HANDSHAKE ||
                 config.getUpdate() == NukleusUpdateMode.STREAM)
             {
-                final NukleusChannelConfig channelConfig = channel.getConfig();
-                final int initialWindow = channelConfig.getWindow();
-                final int padding = channelConfig.getPadding();
-                final long creditorId = channel.creditorId();
-
-                sender.doWindow(channel, creditorId, initialWindow, padding);
+                sender.doWindow(channel);
             }
 
             channel.beginInputFuture().setSuccess();
@@ -196,14 +193,15 @@ public final class NukleusStreamFactory
         {
             final long traceId = data.traceId();
             final int flags = data.flags();
+            final int reservedBytes = data.reserved();
             final OctetsFW payload = data.payload();
             final ChannelBuffer message = payload == null ? NULL_BUFFER : payload.get(this::readBuffer);
             final int readableBytes = message.readableBytes();
             final OctetsFW dataExt = data.extension();
 
-            if (channel.readableBytes() >= readableBytes)
+            if (channel.paddedBytes(readableBytes) <= reservedBytes && reservedBytes <= channel.readableBudget())
             {
-                channel.readableBytes(-readableBytes);
+                channel.readBytes(reservedBytes);
 
                 int dataExtBytes = dataExt.sizeof();
                 if (dataExtBytes != 0)
@@ -226,21 +224,18 @@ public final class NukleusStreamFactory
                 }
                 else
                 {
-                    int credit = data.reserved();
-
                     final NukleusChannelConfig config = channel.getConfig();
                     if (config.getUpdate() == NukleusUpdateMode.MESSAGE ||
                         config.getUpdate() == NukleusUpdateMode.STREAM ||
                         config.getUpdate() == NukleusUpdateMode.PROACTIVE)
                     {
-                        long creditorId = channel.creditorId();
-                        int padding = config.getPadding();
-                        channel.doSharedCredit(traceId, credit);
-                        sender.doWindow(channel, creditorId, credit, padding);
+                        channel.acknowledgeBytes(reservedBytes);
+                        channel.doSharedCredit(traceId, reservedBytes);
+                        sender.doWindow(channel);
                     }
                     else
                     {
-                        channel.pendingSharedCredit(credit);
+                        channel.pendingSharedCredit(reservedBytes);
                     }
 
                     if ((flags & 0x01) != 0x00)

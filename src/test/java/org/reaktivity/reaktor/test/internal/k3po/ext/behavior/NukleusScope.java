@@ -296,9 +296,9 @@ public final class NukleusScope implements AutoCloseable
     {
         final long traceId = window.traceId();
         final long budgetId = window.budgetId();
-        final int credit = window.credit();
+        final int reserved = window.maximum();
 
-        creditor().creditById(traceId, budgetId, credit);
+        creditor().creditById(traceId, budgetId, reserved);
     }
 
     private void onSystemFlush(

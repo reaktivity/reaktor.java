@@ -184,10 +184,18 @@ public class StreamsIT
 
         private long acceptRouteId;
         private long acceptInitialId;
+        private long acceptInitialSeq;
+        private long acceptInitialAck;
         private long acceptReplyId;
+        private long acceptReplySeq;
+        private long acceptReplyAck;
         private long connectRouteId;
         private long connectInitialId;
+        private long connectInitialSeq;
+        private long connectInitialAck;
         private long connectReplyId;
+        private long connectReplySeq;
+        private long connectReplyAck;
 
         @SuppressWarnings("unchecked")
         public TestNukleusFactorySpi()
@@ -253,7 +261,7 @@ public class StreamsIT
 
                     MessageConsumer connectInitial = router.supplyReceiver(connectInitialId);
 
-                    doBegin(connectInitial, connectRouteId, connectInitialId,
+                    doBegin(connectInitial, connectRouteId, connectInitialId, connectInitialSeq, connectInitialAck,
                             begin.authorization());
                     router.setThrottle(connectInitialId, connectReply);
                 }
@@ -262,7 +270,7 @@ public class StreamsIT
                     final long streamId = begin.streamId();
                     final MessageConsumer acceptReply = acceptReplyRef.getValue();
 
-                    doReset(acceptReply, routeId, streamId);
+                    doReset(acceptReply, routeId, streamId, connectInitialSeq, connectInitialAck);
                 }
                 return null;
             }
@@ -276,9 +284,10 @@ public class StreamsIT
                 final WindowFW window = windowRO.wrap(buffer, index, index + length);
                 final MessageConsumer connectInitial = connectInitialRef.getValue();
                 final long budgetId = window.budgetId();
-                final int credit = window.credit();
+                final int maximum = window.maximum();
                 final int padding = window.padding();
-                doWindow(connectInitial, connectRouteId, connectReplyId, budgetId, credit, padding);
+                doWindow(connectInitial, connectRouteId, connectReplyId, connectReplySeq, connectReplyAck,
+                        budgetId, maximum, padding);
                 return null;
             }
             ).when(acceptInitial).accept(eq(WindowFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
@@ -287,7 +296,7 @@ public class StreamsIT
             {
                 final MessageConsumer acceptReply = acceptReplyRef.getValue();
                 final RouteManager router = routerRef.getValue();
-                doBegin(acceptReply, acceptRouteId, acceptReplyId, 0L);
+                doBegin(acceptReply, acceptRouteId, acceptReplyId, acceptReplySeq, acceptReplyAck, 0L);
                 router.setThrottle(acceptReplyId, acceptInitial);
                 return null;
             }
@@ -296,7 +305,7 @@ public class StreamsIT
             doAnswer(invocation ->
             {
                 final MessageConsumer acceptReply = acceptReplyRef.getValue();
-                doReset(acceptReply, acceptRouteId, acceptInitialId);
+                doReset(acceptReply, acceptRouteId, acceptInitialId, acceptInitialSeq, acceptInitialAck);
                 return null;
             }
             ).when(connectReply).accept(eq(ResetFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
@@ -309,9 +318,10 @@ public class StreamsIT
                 final WindowFW window = windowRO.wrap(buffer, index, index + length);
                 final MessageConsumer acceptReply = acceptReplyRef.getValue();
                 final long budgetId = window.budgetId();
-                final int credit = window.credit();
+                final int maximum = window.maximum();
                 final int padding = window.padding();
-                doWindow(acceptReply, acceptRouteId, acceptInitialId, budgetId, credit, padding);
+                doWindow(acceptReply, acceptRouteId, acceptInitialId, acceptInitialSeq, acceptInitialAck,
+                        budgetId, maximum, padding);
                 return null;
             }
             ).when(connectReply).accept(eq(WindowFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
@@ -385,12 +395,16 @@ public class StreamsIT
             MessageConsumer receiver,
             long routeId,
             long streamId,
+            long sequence,
+            long acknowledge,
             long authorization)
         {
             final MutableDirectBuffer writeBuffer = writeBufferRef.getValue();
             final BeginFW begin = beginRW.wrap(writeBuffer,  0, writeBuffer.capacity())
                     .routeId(routeId)
                     .streamId(streamId)
+                    .sequence(sequence)
+                    .acknowledge(acknowledge)
                     .authorization(authorization)
                     .affinity(0L)
                     .build();
@@ -400,12 +414,16 @@ public class StreamsIT
         private void doReset(
             MessageConsumer receiver,
             long routeId,
-            long streamId)
+            long streamId,
+            long sequence,
+            long acknowledge)
         {
             final MutableDirectBuffer writeBuffer = writeBufferRef.getValue();
             final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                     .routeId(routeId)
                     .streamId(streamId)
+                    .sequence(sequence)
+                    .acknowledge(acknowledge)
                     .build();
             receiver.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
         }
@@ -414,17 +432,21 @@ public class StreamsIT
             MessageConsumer receiver,
             long routeId,
             long streamId,
+            long sequence,
+            long acknowledge,
             long budgetId,
-            int credit,
+            int maximum,
             int padding)
         {
             final MutableDirectBuffer writeBuffer = writeBufferRef.getValue();
             final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                     .routeId(routeId)
                     .streamId(streamId)
+                    .sequence(sequence)
+                    .acknowledge(acknowledge)
                     .budgetId(budgetId)
-                    .credit(credit)
                     .padding(padding)
+                    .maximum(maximum)
                     .build();
             receiver.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
         }

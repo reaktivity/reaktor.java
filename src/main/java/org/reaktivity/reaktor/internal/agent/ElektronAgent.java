@@ -371,14 +371,14 @@ public class ElektronAgent implements Agent
     {
         final long traceId = window.traceId();
         final long budgetId = window.budgetId();
-        final int credit = window.credit();
+        final int reserved = window.maximum();
 
-        creditor.creditById(traceId, budgetId, credit);
+        creditor.creditById(traceId, budgetId, reserved);
 
         long parentBudgetId = creditor.parentBudgetId(budgetId);
         if (parentBudgetId != NO_BUDGET_ID)
         {
-            doSystemWindowIfNecessary(traceId, parentBudgetId, credit);
+            doSystemWindowIfNecessary(traceId, parentBudgetId, reserved);
         }
     }
 
@@ -473,12 +473,12 @@ public class ElektronAgent implements Agent
     private void doSystemWindow(
         long traceId,
         long budgetId,
-        int credit)
+        int reserved)
     {
         if (ReaktorConfiguration.DEBUG_BUDGETS)
         {
             System.out.format("[%d] [0x%016x] [0x%016x] doSystemWindow credit=%d \n",
-                System.nanoTime(), traceId, budgetId, credit);
+                System.nanoTime(), traceId, budgetId, reserved);
         }
 
         final int targetIndex = ownerIndex(budgetId);
@@ -488,7 +488,7 @@ public class ElektronAgent implements Agent
                                         .streamId(0L)
                                         .traceId(traceId)
                                         .budgetId(budgetId)
-                                        .credit(credit)
+                                        .maximum(reserved)
                                         .padding(0)
                                         .build();
         writer.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
@@ -699,6 +699,8 @@ public class ElektronAgent implements Agent
             final SignalFW signal = signalRW.wrap(signalBuffer, 0, signalBuffer.capacity())
                                             .routeId(routeId)
                                             .streamId(0L)
+                                            .sequence(0L)
+                                            .acknowledge(0L)
                                             .cancelId(NO_CANCEL_ID)
                                             .signalId(SYSTEM_SIGNAL_ROUTED)
                                             .extension(m -> m.set(visitRoutedSignalEx(routeId,
@@ -728,6 +730,8 @@ public class ElektronAgent implements Agent
             final SignalFW signal = signalRW.wrap(signalBuffer, 0, signalBuffer.capacity())
                                             .routeId(routeId)
                                             .streamId(0L)
+                                            .sequence(0L)
+                                            .acknowledge(0L)
                                             .cancelId(NO_CANCEL_ID)
                                             .signalId(SYSTEM_SIGNAL_UNROUTED)
                                             .extension(m -> m.set(visitUnroutedSignalEx(routeId, nukleusName)))
@@ -791,6 +795,8 @@ public class ElektronAgent implements Agent
         final FrameFW frame = frameRO.wrap(buffer, index, index + length);
         final long streamId = frame.streamId();
         final long routeId = frame.routeId();
+        final long sequence = frame.sequence();
+        final long acknowledge = frame.acknowledge();
 
         this.lastReadStreamId = streamId;
 
@@ -800,17 +806,19 @@ public class ElektronAgent implements Agent
         }
         else if (isInitial(streamId))
         {
-            handleReadInitial(routeId, streamId, msgTypeId, buffer, index, length);
+            handleReadInitial(routeId, streamId, sequence, acknowledge, msgTypeId, buffer, index, length);
         }
         else
         {
-            handleReadReply(routeId, streamId, msgTypeId, buffer, index, length);
+            handleReadReply(routeId, streamId, sequence, acknowledge, msgTypeId, buffer, index, length);
         }
     }
 
     private void handleReadInitial(
         long routeId,
         long streamId,
+        long sequence,
+        long acknowledge,
         int msgTypeId,
         MutableDirectBuffer buffer,
         int index,
@@ -844,7 +852,7 @@ public class ElektronAgent implements Agent
                     handler.accept(msgTypeId, buffer, index, length);
                     break;
                 default:
-                    doReset(routeId, streamId);
+                    doReset(routeId, streamId, sequence, acknowledge);
                     break;
                 }
             }
@@ -923,8 +931,10 @@ public class ElektronAgent implements Agent
                 final FrameFW frame = frameRO.wrap(buffer, index, index + length);
                 final long streamId = frame.streamId();
                 final long routeId = frame.routeId();
+                final long sequence = frame.sequence();
+                final long acknowledge = frame.acknowledge();
 
-                doReset(routeId, streamId);
+                doReset(routeId, streamId, sequence, acknowledge);
             }
             break;
         case DataFW.TYPE_ID:
@@ -977,6 +987,8 @@ public class ElektronAgent implements Agent
     private void handleReadReply(
         long routeId,
         long streamId,
+        long sequence,
+        long acknowledge,
         int msgTypeId,
         MutableDirectBuffer buffer,
         int index,
@@ -1016,7 +1028,7 @@ public class ElektronAgent implements Agent
                     handler.accept(msgTypeId, buffer, index, length);
                     break;
                 default:
-                    doReset(routeId, streamId);
+                    doReset(routeId, streamId, sequence, acknowledge);
                     break;
                 }
             }
@@ -1084,6 +1096,8 @@ public class ElektronAgent implements Agent
             final FrameFW frame = frameRO.wrap(buffer, index, index + length);
             final long routeId = frame.routeId();
             final long streamId = frame.streamId();
+            final long sequence = frame.sequence();
+            final long acknowledge = frame.acknowledge();
             final MessageConsumer newHandler = handleBeginReply(msgTypeId, buffer, index, length);
             if (newHandler != null)
             {
@@ -1094,7 +1108,7 @@ public class ElektronAgent implements Agent
             }
             else
             {
-                doReset(routeId, streamId);
+                doReset(routeId, streamId, sequence, acknowledge);
             }
         }
         else if (msgTypeId == DataFW.TYPE_ID)
@@ -1159,11 +1173,15 @@ public class ElektronAgent implements Agent
 
     private void doReset(
         final long routeId,
-        final long streamId)
+        final long streamId,
+        final long sequence,
+        final long acknowledge)
     {
         final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
+                .sequence(sequence)
+                .acknowledge(acknowledge)
                 .build();
 
         final MessageConsumer replyTo = supplyReplyTo(streamId);
@@ -1179,6 +1197,8 @@ public class ElektronAgent implements Agent
         final AbortFW abort = abortRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                                      .routeId(syntheticAbortRouteId)
                                      .streamId(streamId)
+                                     .sequence(-1L)
+                                     .acknowledge(-1L)
                                      .build();
 
         stream.accept(abort.typeId(), abort.buffer(), abort.offset(), abort.sizeof());
@@ -1607,7 +1627,7 @@ public class ElektronAgent implements Agent
             int signalId)
         {
             final long timerId = timerWheel.scheduleTimer(timeMillis);
-            final Runnable task = () -> signal(routeId, streamId, NO_CANCEL_ID, signalId);
+            final Runnable task = () -> signal(routeId, streamId, 0L, 0L, NO_CANCEL_ID, signalId);
             final Runnable oldTask = tasksByTimerId.put(timerId, task);
             assert oldTask == null;
             assert timerId >= 0L;
@@ -1630,7 +1650,7 @@ public class ElektronAgent implements Agent
                 assert newFutureId != NO_CANCEL_ID;
 
                 final Future<?> newFuture =
-                    executorService.submit(() -> invokeAndSignal(task, routeId, streamId, newFutureId, signalId));
+                    executorService.submit(() -> invokeAndSignal(task, routeId, streamId, 0L, 0L, newFutureId, signalId));
                 final Future<?> oldFuture = futuresById.put(newFutureId, newFuture);
                 assert oldFuture == null;
                 cancelId = newFutureId;
@@ -1638,7 +1658,7 @@ public class ElektronAgent implements Agent
             else
             {
                 cancelId = NO_CANCEL_ID;
-                invokeAndSignal(task, routeId, streamId, cancelId, signalId);
+                invokeAndSignal(task, routeId, streamId, 0L, 0L, cancelId, signalId);
             }
 
             assert cancelId < 0L;
@@ -1652,7 +1672,7 @@ public class ElektronAgent implements Agent
             long streamId,
             int signalId)
         {
-            signal(routeId, streamId, NO_CANCEL_ID, signalId);
+            signal(routeId, streamId, 0L, 0L, NO_CANCEL_ID, signalId);
         }
 
         @Override
@@ -1681,6 +1701,8 @@ public class ElektronAgent implements Agent
             Runnable task,
             long routeId,
             long streamId,
+            long sequence,
+            long acknowledge,
             long cancelId,
             int signalId)
         {
@@ -1690,13 +1712,15 @@ public class ElektronAgent implements Agent
             }
             finally
             {
-                signal(routeId, streamId, cancelId, signalId);
+                signal(routeId, streamId, sequence, acknowledge, cancelId, signalId);
             }
         }
 
         private void signal(
             long routeId,
             long streamId,
+            long sequence,
+            long acknowledge,
             long cancelId,
             int signalId)
         {
@@ -1706,6 +1730,8 @@ public class ElektronAgent implements Agent
                                             .rewrap()
                                             .routeId(routeId)
                                             .streamId(streamId)
+                                            .sequence(sequence)
+                                            .acknowledge(acknowledge)
                                             .timestamp(timestamp)
                                             .traceId(supplyTraceId())
                                             .cancelId(cancelId)

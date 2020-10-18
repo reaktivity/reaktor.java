@@ -145,14 +145,16 @@ final class NukleusTarget implements AutoCloseable
     public void doSystemWindow(
         long traceId,
         long budgetId,
-        int credit)
+        int maximum)
     {
         final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(0L)
                 .streamId(0L)
+                .sequence(0L)
+                .acknowledge(0L)
                 .traceId(traceId)
                 .budgetId(budgetId)
-                .credit(credit)
+                .maximum(maximum)
                 .padding(0)
                 .build();
 
@@ -166,6 +168,8 @@ final class NukleusTarget implements AutoCloseable
         final FlushFW flush = flushRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(0L)
                 .streamId(0L)
+                .sequence(0L)
+                .acknowledge(0L)
                 .traceId(traceId)
                 .budgetId(budgetId)
                 .build();
@@ -243,9 +247,14 @@ final class NukleusTarget implements AutoCloseable
             final int writableExtBytes = beginExt.readableBytes();
             final byte[] beginExtCopy = writeExtCopy(beginExt);
 
+            final long sequence = clientChannel.targetSeq();
+            final long acknowledge = clientChannel.targetAck();
+
             final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                    .routeId(routeId)
                    .streamId(initialId)
+                   .sequence(sequence)
+                   .acknowledge(acknowledge)
                    .timestamp(supplyTimestamp.getAsLong())
                    .traceId(supplyTraceId.getAsLong())
                    .authorization(authorization)
@@ -268,12 +277,7 @@ final class NukleusTarget implements AutoCloseable
             final NukleusChannelConfig config = clientChannel.getConfig();
             if (config.getUpdate() == NukleusUpdateMode.PROACTIVE)
             {
-                final NukleusChannelConfig channelConfig = clientChannel.getConfig();
-                final int initialWindow = channelConfig.getWindow();
-                final int padding = channelConfig.getPadding();
-                final long creditorId = clientChannel.creditorId();
-
-                doWindow(clientChannel, creditorId, initialWindow, padding);
+                doWindow(clientChannel);
             }
 
             clientChannel.beginOutputFuture().setSuccess();
@@ -319,10 +323,14 @@ final class NukleusTarget implements AutoCloseable
     {
         final long routeId = clientChannel.routeId();
         final long initialId = clientChannel.targetId();
+        final long sequence = clientChannel.targetSeq();
+        final long acknowledge = clientChannel.targetAck();
 
         final AbortFW abort = abortRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(initialId)
+                .sequence(sequence)
+                .acknowledge(acknowledge)
                 .timestamp(supplyTimestamp.getAsLong())
                 .traceId(supplyTraceId.getAsLong())
                 .build();
@@ -350,11 +358,15 @@ final class NukleusTarget implements AutoCloseable
 
         final long routeId = channel.routeId();
         final long replyId = channel.targetId();
+        final long sequence = channel.targetSeq();
+        final long acknowledge = channel.targetAck();
         final long affinity = channel.getConfig().getAffinity();
 
         final BeginFW begin = beginRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(replyId)
+                .sequence(sequence)
+                .acknowledge(acknowledge)
                 .timestamp(supplyTimestamp.getAsLong())
                 .traceId(supplyTraceId.getAsLong())
                 .affinity(affinity)
@@ -435,6 +447,8 @@ final class NukleusTarget implements AutoCloseable
     {
         final long routeId = channel.routeId();
         final long streamId = channel.targetId();
+        final long sequence = channel.targetSeq();
+        final long acknowledge = channel.targetAck();
         final long authorization = channel.targetAuth();
         final long budgetId = channel.debitorId();
 
@@ -444,6 +458,8 @@ final class NukleusTarget implements AutoCloseable
         final FlushFW flush = flushRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
+                .sequence(sequence)
+                .acknowledge(acknowledge)
                 .timestamp(supplyTimestamp.getAsLong())
                 .traceId(supplyTraceId.getAsLong())
                 .authorization(authorization)
@@ -464,11 +480,15 @@ final class NukleusTarget implements AutoCloseable
 
         final long routeId = channel.routeId();
         final long streamId = channel.targetId();
+        final long sequence = channel.targetSeq();
+        final long acknowledge = channel.targetAck();
         final long authorization = channel.targetAuth();
 
         final AbortFW abort = abortRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
+                .sequence(sequence)
+                .acknowledge(acknowledge)
                 .timestamp(supplyTimestamp.getAsLong())
                 .traceId(supplyTraceId.getAsLong())
                 .authorization(authorization)
@@ -499,6 +519,8 @@ final class NukleusTarget implements AutoCloseable
 
         final long routeId = channel.routeId();
         final long streamId = channel.targetId();
+        final long sequence = channel.targetSeq();
+        final long acknowledge = channel.targetAck();
         final ChannelBuffer endExt = channel.writeExtBuffer(END, true);
         final int writableExtBytes = endExt.readableBytes();
         final byte[] endExtCopy = writeExtCopy(endExt);
@@ -507,6 +529,8 @@ final class NukleusTarget implements AutoCloseable
         final EndFW end = endRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
+                .sequence(sequence)
+                .acknowledge(acknowledge)
                 .timestamp(supplyTimestamp.getAsLong())
                 .traceId(supplyTraceId.getAsLong())
                 .authorization(authorization)
@@ -539,6 +563,8 @@ final class NukleusTarget implements AutoCloseable
 
         final long routeId = channel.routeId();
         final long streamId = channel.targetId();
+        final long sequence = channel.targetSeq();
+        final long acknowledge = channel.targetAck();
         final ChannelBuffer endExt = channel.writeExtBuffer(END, true);
         final int writableExtBytes = endExt.readableBytes();
         final byte[] endExtCopy = writeExtCopy(endExt);
@@ -546,6 +572,8 @@ final class NukleusTarget implements AutoCloseable
         final EndFW end = endRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
+                .sequence(sequence)
+                .acknowledge(acknowledge)
                 .timestamp(supplyTimestamp.getAsLong())
                 .traceId(supplyTraceId.getAsLong())
                 .authorization(channel.targetAuth())
@@ -618,7 +646,7 @@ final class NukleusTarget implements AutoCloseable
         final long authorization = channel.targetAuth();
         final boolean flushing = writeBuf == NULL_BUFFER;
         final int reservedBytes = channel.reservedBytes(Math.min(writeBuf.readableBytes(), writeBuffer.capacity() >> 1));
-        final int writableBytes = Math.max(Math.min(reservedBytes - channel.writablePadding, writeBuf.readableBytes()), 0);
+        final int writableBytes = Math.max(Math.min(reservedBytes - channel.targetPad(), writeBuf.readableBytes()), 0);
 
         // allow extension-only DATA frames to be flushed immediately
         boolean flushable = writableBytes > 0 || writeBuf.capacity() == 0;
@@ -658,11 +686,15 @@ final class NukleusTarget implements AutoCloseable
 
             final long streamId = channel.targetId();
             final long routeId = channel.routeId();
+            final long sequence = channel.targetSeq();
+            final long acknowledge = channel.targetAck();
             final long budgetId = channel.debitorId();
 
             final DataFW data = dataRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                     .routeId(routeId)
                     .streamId(streamId)
+                    .sequence(sequence)
+                    .acknowledge(acknowledge)
                     .timestamp(supplyTimestamp.getAsLong())
                     .traceId(supplyTraceId.getAsLong())
                     .authorization(authorization)
@@ -715,25 +747,29 @@ final class NukleusTarget implements AutoCloseable
     }
 
     void doWindow(
-        final NukleusChannel channel,
-        final long budgetId,
-        final int credit,
-        final int padding)
+        final NukleusChannel channel)
     {
         final long routeId = channel.routeId();
         final long streamId = channel.sourceId();
+        final long sequence = channel.sourceSeq();
+        final long acknowledge = channel.sourceAck();
+        final long budgetId = channel.creditorId();
+        final int padding = channel.getConfig().getPadding();
+        final int maximum = channel.getConfig().getWindow();
+        final int minimum = 0; // TODO
         final byte capabilities = channel.getConfig().getCapabilities();
-
-        channel.readableBytes(credit);
 
         final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
+                .sequence(sequence)
+                .acknowledge(acknowledge)
                 .timestamp(supplyTimestamp.getAsLong())
                 .traceId(supplyTraceId.getAsLong())
                 .budgetId(budgetId)
-                .credit(credit)
                 .padding(padding)
+                .maximum(maximum)
+                .minimum(minimum)
                 .capabilities(capabilities)
                 .build();
 
@@ -746,18 +782,24 @@ final class NukleusTarget implements AutoCloseable
     {
         final long routeId = channel.routeId();
         final long streamId = channel.sourceId();
+        final long sequence = channel.sourceSeq();
+        final long acknowledge = channel.sourceAck();
 
-        doReset(routeId, streamId, traceId);
+        doReset(routeId, streamId, sequence, acknowledge, traceId);
     }
 
     void doReset(
         final long routeId,
         final long streamId,
+        final long sequence,
+        final long acknowledge,
         final long traceId)
     {
         final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
+                .sequence(sequence)
+                .acknowledge(acknowledge)
                 .timestamp(supplyTimestamp.getAsLong())
                 .traceId(traceId)
                 .build();
@@ -768,6 +810,8 @@ final class NukleusTarget implements AutoCloseable
     void doChallenge(
         final long routeId,
         final long streamId,
+        final long sequence,
+        final long acknowledge,
         final long traceId,
         final ChannelBuffer extension)
     {
@@ -776,6 +820,8 @@ final class NukleusTarget implements AutoCloseable
         final ChallengeFW challenge = challengeRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
+                .sequence(sequence)
+                .acknowledge(acknowledge)
                 .timestamp(supplyTimestamp.getAsLong())
                 .traceId(traceId)
                 .extension(p -> p.set(extensionCopy))
@@ -859,10 +905,11 @@ final class NukleusTarget implements AutoCloseable
         private void onWindow(
             WindowFW window)
         {
+            final long acknowledge = window.acknowledge();
             final long traceId = window.traceId();
             final long budgetId = window.budgetId();
-            final int credit = window.credit();
             final int padding = window.padding();
+            final int maximum = window.maximum();
             final int minimum = window.minimum();
             final int capabilities = window.capabilities();
 
@@ -873,8 +920,28 @@ final class NukleusTarget implements AutoCloseable
                 channel.setDebitor(debitor, budgetId);
             }
 
-            channel.writableWindow(credit, padding, minimum, traceId);
+            final long sequence = channel.targetSeq();
+            channel.writableWindow(acknowledge, padding, minimum, maximum, traceId);
             channel.capabilities(capabilities);
+
+            final long newSequence = channel.targetSeq();
+            if (newSequence > sequence)
+            {
+                final long routeId = channel.routeId();
+                final long streamId = channel.targetId();
+                final long authorization = channel.targetAuth();
+
+                final FlushFW flush = flushRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                        .routeId(routeId)
+                        .streamId(streamId)
+                        .timestamp(supplyTimestamp.getAsLong())
+                        .traceId(supplyTraceId.getAsLong())
+                        .authorization(authorization)
+                        .budgetId(budgetId)
+                        .build();
+
+                streamsBuffer.write(flush.typeId(), flush.buffer(), flush.offset(), flush.sizeof());
+            }
 
             flushThrottledWrites(channel);
         }
@@ -927,10 +994,14 @@ final class NukleusTarget implements AutoCloseable
             {
                 final long streamId = channel.sourceId();
                 final long routeId = channel.routeId();
+                final long sequence = channel.sourceSeq();
+                final long acknowledge = channel.sourceAck();
 
                 final ResetFW reset = resetRW.wrap(resetBuffer, 0, resetBuffer.capacity())
                         .routeId(routeId)
                         .streamId(streamId)
+                        .sequence(sequence)
+                        .acknowledge(acknowledge)
                         .timestamp(supplyTimestamp.getAsLong())
                         .traceId(supplyTraceId.getAsLong())
                         .build();
