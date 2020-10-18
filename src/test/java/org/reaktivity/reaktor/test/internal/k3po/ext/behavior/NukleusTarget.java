@@ -934,6 +934,8 @@ final class NukleusTarget implements AutoCloseable
                 final FlushFW flush = flushRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                         .routeId(routeId)
                         .streamId(streamId)
+                        .sequence(newSequence)
+                        .acknowledge(acknowledge)
                         .timestamp(supplyTimestamp.getAsLong())
                         .traceId(supplyTraceId.getAsLong())
                         .authorization(authorization)
