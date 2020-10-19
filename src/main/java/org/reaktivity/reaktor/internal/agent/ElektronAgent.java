@@ -486,9 +486,11 @@ public class ElektronAgent implements Agent
         final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                                         .routeId(0L)
                                         .streamId(0L)
+                                        .sequence(0L)
+                                        .acknowledge(0L)
+                                        .maximum(reserved)
                                         .traceId(traceId)
                                         .budgetId(budgetId)
-                                        .maximum(reserved)
                                         .padding(0)
                                         .build();
         writer.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
@@ -701,6 +703,7 @@ public class ElektronAgent implements Agent
                                             .streamId(0L)
                                             .sequence(0L)
                                             .acknowledge(0L)
+                                            .maximum(0)
                                             .cancelId(NO_CANCEL_ID)
                                             .signalId(SYSTEM_SIGNAL_ROUTED)
                                             .extension(m -> m.set(visitRoutedSignalEx(routeId,
@@ -732,6 +735,7 @@ public class ElektronAgent implements Agent
                                             .streamId(0L)
                                             .sequence(0L)
                                             .acknowledge(0L)
+                                            .maximum(0)
                                             .cancelId(NO_CANCEL_ID)
                                             .signalId(SYSTEM_SIGNAL_UNROUTED)
                                             .extension(m -> m.set(visitUnroutedSignalEx(routeId, nukleusName)))
@@ -797,6 +801,7 @@ public class ElektronAgent implements Agent
         final long routeId = frame.routeId();
         final long sequence = frame.sequence();
         final long acknowledge = frame.acknowledge();
+        final int maximum = frame.maximum();
 
         this.lastReadStreamId = streamId;
 
@@ -806,11 +811,11 @@ public class ElektronAgent implements Agent
         }
         else if (isInitial(streamId))
         {
-            handleReadInitial(routeId, streamId, sequence, acknowledge, msgTypeId, buffer, index, length);
+            handleReadInitial(routeId, streamId, sequence, acknowledge, maximum, msgTypeId, buffer, index, length);
         }
         else
         {
-            handleReadReply(routeId, streamId, sequence, acknowledge, msgTypeId, buffer, index, length);
+            handleReadReply(routeId, streamId, sequence, acknowledge, maximum, msgTypeId, buffer, index, length);
         }
     }
 
@@ -819,6 +824,7 @@ public class ElektronAgent implements Agent
         long streamId,
         long sequence,
         long acknowledge,
+        int maximum,
         int msgTypeId,
         MutableDirectBuffer buffer,
         int index,
@@ -852,7 +858,7 @@ public class ElektronAgent implements Agent
                     handler.accept(msgTypeId, buffer, index, length);
                     break;
                 default:
-                    doReset(routeId, streamId, sequence, acknowledge);
+                    doReset(routeId, streamId, sequence, acknowledge, maximum);
                     break;
                 }
             }
@@ -933,8 +939,9 @@ public class ElektronAgent implements Agent
                 final long routeId = frame.routeId();
                 final long sequence = frame.sequence();
                 final long acknowledge = frame.acknowledge();
+                final int maximum = frame.maximum();
 
-                doReset(routeId, streamId, sequence, acknowledge);
+                doReset(routeId, streamId, sequence, acknowledge, maximum);
             }
             break;
         case DataFW.TYPE_ID:
@@ -989,6 +996,7 @@ public class ElektronAgent implements Agent
         long streamId,
         long sequence,
         long acknowledge,
+        int maximum,
         int msgTypeId,
         MutableDirectBuffer buffer,
         int index,
@@ -1028,7 +1036,7 @@ public class ElektronAgent implements Agent
                     handler.accept(msgTypeId, buffer, index, length);
                     break;
                 default:
-                    doReset(routeId, streamId, sequence, acknowledge);
+                    doReset(routeId, streamId, sequence, acknowledge, maximum);
                     break;
                 }
             }
@@ -1098,6 +1106,7 @@ public class ElektronAgent implements Agent
             final long streamId = frame.streamId();
             final long sequence = frame.sequence();
             final long acknowledge = frame.acknowledge();
+            final int maximum = frame.maximum();
             final MessageConsumer newHandler = handleBeginReply(msgTypeId, buffer, index, length);
             if (newHandler != null)
             {
@@ -1108,7 +1117,7 @@ public class ElektronAgent implements Agent
             }
             else
             {
-                doReset(routeId, streamId, sequence, acknowledge);
+                doReset(routeId, streamId, sequence, acknowledge, maximum);
             }
         }
         else if (msgTypeId == DataFW.TYPE_ID)
@@ -1175,13 +1184,15 @@ public class ElektronAgent implements Agent
         final long routeId,
         final long streamId,
         final long sequence,
-        final long acknowledge)
+        final long acknowledge,
+        final int maximum)
     {
         final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(routeId)
                 .streamId(streamId)
                 .sequence(sequence)
                 .acknowledge(acknowledge)
+                .maximum(maximum)
                 .build();
 
         final MessageConsumer replyTo = supplyReplyTo(streamId);
@@ -1732,6 +1743,7 @@ public class ElektronAgent implements Agent
                                             .streamId(streamId)
                                             .sequence(sequence)
                                             .acknowledge(acknowledge)
+                                            .maximum(0)
                                             .timestamp(timestamp)
                                             .traceId(supplyTraceId())
                                             .cancelId(cancelId)
@@ -1857,6 +1869,9 @@ public class ElektronAgent implements Agent
                                             .rewrap()
                                             .routeId(routeId)
                                             .streamId(streamId)
+                                            .sequence(0L)
+                                            .acknowledge(0L)
+                                            .maximum(0)
                                             .timestamp(timestamp)
                                             .traceId(supplyTraceId())
                                             .cancelId(NO_CANCEL_ID)

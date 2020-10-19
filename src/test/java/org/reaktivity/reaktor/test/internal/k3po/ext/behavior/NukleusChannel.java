@@ -50,8 +50,8 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
     private int writableMin;
     private int writableMax;
 
-    private int readableSeq;
-    private int readableAck;
+    private long readableSeq;
+    private long readableAck;
 
     private long sourceId;
     private long sourceAuth;
@@ -216,8 +216,8 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
 
     public int readableBudget()
     {
-        final int readableMax = getConfig().getWindow();
-        return Math.max(readableMax - Math.max(readableSeq - readableAck, 0), 0);
+        final int readableMax = sourceMax();
+        return Math.max(readableMax - (int)Math.max(readableSeq - readableAck, 0), 0);
     }
 
     public void routeId(
@@ -273,9 +273,28 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
         return readableSeq;
     }
 
+    public void sourceSeq(
+        long readableSeq)
+    {
+        assert readableSeq >= this.readableSeq;
+        this.readableSeq = readableSeq;
+    }
+
     public long sourceAck()
     {
         return readableAck;
+    }
+
+    public void sourceAck(
+        long readableAck)
+    {
+        assert readableAck >= this.readableAck;
+        this.readableAck = readableAck;
+    }
+
+    public int sourceMax()
+    {
+        return getConfig().getWindow();
     }
 
     public ChannelFuture beginOutputFuture()
@@ -429,10 +448,11 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
     }
 
     public void readBytes(
+        long sequence,
         int reservedBytes)
     {
-        final int readableMax = getConfig().getWindow();
-        this.readableSeq += reservedBytes;
+        final int readableMax = sourceMax();
+        this.readableSeq = sequence + reservedBytes;
         assert readableSeq <= readableAck + readableMax;
     }
 
@@ -440,7 +460,9 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
         int writtenBytes,
         int reservedBytes)
     {
+        assert reservedBytes >= 0;
         this.writableSeq += reservedBytes;
+        assert writableSeq >= writableAck;
         assert writablePadding >= 0 && (writableSeq <= writableAck + writableMax || !getConfig().hasThrottle());
     }
 
@@ -452,6 +474,15 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
     public long targetAck()
     {
         return writableAck;
+    }
+
+    public void targetAck(
+        long writableAck)
+    {
+        assert writableAck >= this.writableAck;
+        this.writableAck = writableAck;
+
+        assert writableAck <= writableSeq;
     }
 
     public int targetPad()
@@ -476,11 +507,12 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
         int maximum,
         long traceId)
     {
-        writableSeq = Math.max(writableSeq, acknowledge);
         writableAck = acknowledge;
         writablePadding = padding;
         writableMin = minimum;
         writableMax = maximum;
+
+        assert writableAck <= writableSeq;
 
         if (getConfig().getThrottle() == MESSAGE && targetWriteRequestInProgress)
         {

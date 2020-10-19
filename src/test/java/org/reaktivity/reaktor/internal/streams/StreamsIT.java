@@ -177,6 +177,7 @@ public class StreamsIT
         private final RouteFW routeRO = new RouteFW();
         private final BeginFW beginRO = new BeginFW();
         private final WindowFW windowRO = new WindowFW();
+        private final ResetFW resetRO = new ResetFW();
 
         private final BeginFW.Builder beginRW = new BeginFW.Builder();
         private final ResetFW.Builder resetRW = new ResetFW.Builder();
@@ -240,6 +241,7 @@ public class StreamsIT
                 final BeginFW begin = beginRO.wrap(buffer, index, index + length);
                 final long routeId = begin.routeId();
                 final long authorization = begin.authorization();
+                final int maximum = begin.maximum();
 
                 final RouteManager router = routerRef.getValue();
                 MessagePredicate filter = (m, b, i, l) -> true;
@@ -262,7 +264,7 @@ public class StreamsIT
                     MessageConsumer connectInitial = router.supplyReceiver(connectInitialId);
 
                     doBegin(connectInitial, connectRouteId, connectInitialId, connectInitialSeq, connectInitialAck,
-                            begin.authorization());
+                            authorization, maximum);
                     router.setThrottle(connectInitialId, connectReply);
                 }
                 else
@@ -270,7 +272,7 @@ public class StreamsIT
                     final long streamId = begin.streamId();
                     final MessageConsumer acceptReply = acceptReplyRef.getValue();
 
-                    doReset(acceptReply, routeId, streamId, connectInitialSeq, connectInitialAck);
+                    doReset(acceptReply, routeId, streamId, connectInitialSeq, connectInitialAck, maximum);
                 }
                 return null;
             }
@@ -294,9 +296,16 @@ public class StreamsIT
 
             doAnswer(invocation ->
             {
+                final DirectBuffer buffer = invocation.getArgument(1);
+                final int index = invocation.getArgument(2);
+                final int length = invocation.getArgument(3);
+
+                final BeginFW begin = beginRO.wrap(buffer, index, index + length);
+                final int maximum = begin.maximum();
+
                 final MessageConsumer acceptReply = acceptReplyRef.getValue();
                 final RouteManager router = routerRef.getValue();
-                doBegin(acceptReply, acceptRouteId, acceptReplyId, acceptReplySeq, acceptReplyAck, 0L);
+                doBegin(acceptReply, acceptRouteId, acceptReplyId, acceptReplySeq, acceptReplyAck, 0L, maximum);
                 router.setThrottle(acceptReplyId, acceptInitial);
                 return null;
             }
@@ -304,8 +313,15 @@ public class StreamsIT
 
             doAnswer(invocation ->
             {
+                final DirectBuffer buffer = invocation.getArgument(1);
+                final int index = invocation.getArgument(2);
+                final int length = invocation.getArgument(3);
+
+                final ResetFW reset = resetRO.wrap(buffer, index, index + length);
+                final int maximum = reset.maximum();
+
                 final MessageConsumer acceptReply = acceptReplyRef.getValue();
-                doReset(acceptReply, acceptRouteId, acceptInitialId, acceptInitialSeq, acceptInitialAck);
+                doReset(acceptReply, acceptRouteId, acceptInitialId, acceptInitialSeq, acceptInitialAck, maximum);
                 return null;
             }
             ).when(connectReply).accept(eq(ResetFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
@@ -397,7 +413,8 @@ public class StreamsIT
             long streamId,
             long sequence,
             long acknowledge,
-            long authorization)
+            long authorization,
+            int maximum)
         {
             final MutableDirectBuffer writeBuffer = writeBufferRef.getValue();
             final BeginFW begin = beginRW.wrap(writeBuffer,  0, writeBuffer.capacity())
@@ -405,6 +422,7 @@ public class StreamsIT
                     .streamId(streamId)
                     .sequence(sequence)
                     .acknowledge(acknowledge)
+                    .maximum(maximum)
                     .authorization(authorization)
                     .affinity(0L)
                     .build();
@@ -416,7 +434,8 @@ public class StreamsIT
             long routeId,
             long streamId,
             long sequence,
-            long acknowledge)
+            long acknowledge,
+            int maximum)
         {
             final MutableDirectBuffer writeBuffer = writeBufferRef.getValue();
             final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity())
@@ -424,6 +443,7 @@ public class StreamsIT
                     .streamId(streamId)
                     .sequence(sequence)
                     .acknowledge(acknowledge)
+                    .maximum(maximum)
                     .build();
             receiver.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());
         }
@@ -444,9 +464,9 @@ public class StreamsIT
                     .streamId(streamId)
                     .sequence(sequence)
                     .acknowledge(acknowledge)
+                    .maximum(maximum)
                     .budgetId(budgetId)
                     .padding(padding)
-                    .maximum(maximum)
                     .build();
             receiver.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
         }
