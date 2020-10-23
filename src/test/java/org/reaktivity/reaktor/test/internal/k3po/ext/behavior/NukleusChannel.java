@@ -430,15 +430,15 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
     public int reservedBytes(
         int writableBytes)
     {
-        int reservedBytes = writableBytes != 0 ? Math.max(writableBytes + writablePadding, writableMin) : 0;
+        int reservedBytes = Math.max(writableBytes + writablePadding, writableMin);
 
         final boolean hasThrottle = getConfig().hasThrottle();
         if (hasThrottle)
         {
             writableBytes = Math.min(writableBytes(), writableBytes);
-            reservedBytes = writableBytes != 0 ? Math.max(writableBytes + writablePadding, writableMin) : 0;
+            reservedBytes = Math.max(writableBytes + writablePadding, writableMin);
 
-            if (writableBytes > 0 && debitor != null && debitorIndex != -1L)
+            if (reservedBytes > 0 && debitor != null && debitorIndex != -1L)
             {
                 reservedBytes = debitor.claim(debitorIndex, targetId, reservedBytes, reservedBytes);
             }
