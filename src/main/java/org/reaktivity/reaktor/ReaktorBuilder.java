@@ -27,6 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -181,7 +182,7 @@ public class ReaktorBuilder
         }
 
         final int parallelism = config.taskParallelism();
-        final ExecutorService executor = Executors.newWorkStealingPool(parallelism);
+        final ExecutorService executor = Executors.newFixedThreadPool(parallelism, new ReaktorTaskThreadFactory());
 
         final int count = threads;
         final ElektronAgent[] elektronAgents = new ElektronAgent[count];
@@ -216,5 +217,24 @@ public class ReaktorBuilder
         }
 
         return new Reaktor(config, errorHandler, configs, executor, agents.toArray(new Agent[0]), threadFactory);
+    }
+
+    private static final class ReaktorTaskThreadFactory implements ThreadFactory
+    {
+        private final AtomicInteger nextThreadId = new AtomicInteger();
+        private final ThreadFactory factory = Executors.defaultThreadFactory();
+
+        @Override
+        public Thread newThread(Runnable r)
+        {
+            Thread t = factory.newThread(r);
+
+            if (t != null)
+            {
+                t.setName(String.format("reaktor/task#%d", nextThreadId.getAndIncrement()));
+            }
+
+            return t;
+        }
     }
 }
