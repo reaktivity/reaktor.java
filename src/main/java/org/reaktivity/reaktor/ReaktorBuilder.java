@@ -27,6 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -181,7 +182,7 @@ public class ReaktorBuilder
         }
 
         final int parallelism = config.taskParallelism();
-        final ExecutorService executor = Executors.newWorkStealingPool(parallelism);
+        final ExecutorService executor = Executors.newFixedThreadPool(parallelism);
 
         final int count = threads;
         final ElektronAgent[] elektronAgents = new ElektronAgent[count];
