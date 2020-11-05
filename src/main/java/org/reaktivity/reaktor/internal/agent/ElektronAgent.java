@@ -1700,7 +1700,7 @@ public class ElektronAgent implements Agent
             }
             else if (cancelId != NO_CANCEL_ID)
             {
-                final int futureId = (int) cancelId;
+                final long futureId = cancelId;
                 final Future<?> future = futuresById.remove(futureId);
                 cancelled = future != null && future.cancel(true);
             }
