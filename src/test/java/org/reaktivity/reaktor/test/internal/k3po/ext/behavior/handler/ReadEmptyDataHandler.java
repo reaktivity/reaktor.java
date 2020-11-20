@@ -15,7 +15,7 @@
  */
 package org.reaktivity.reaktor.test.internal.k3po.ext.behavior.handler;
 
-import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NullChannelBuffer.NULL_BUFFER;
+import static org.jboss.netty.buffer.ChannelBuffers.EMPTY_BUFFER;
 
 import java.util.EnumSet;
 
@@ -24,9 +24,9 @@ import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.MessageEvent;
 import org.kaazing.k3po.driver.internal.behavior.handler.event.AbstractEventHandler;
 
-public class ReadNullDataHandler extends AbstractEventHandler
+public class ReadEmptyDataHandler extends AbstractEventHandler
 {
-    public ReadNullDataHandler()
+    public ReadEmptyDataHandler()
     {
         super(EnumSet.of(ChannelEventKind.MESSAGE));
     }
@@ -35,7 +35,7 @@ public class ReadNullDataHandler extends AbstractEventHandler
     protected StringBuilder describe(
         StringBuilder sb)
     {
-        return sb.append("read data.null");
+        return sb.append("read data.empty");
     }
 
     @Override
@@ -47,8 +47,7 @@ public class ReadNullDataHandler extends AbstractEventHandler
 
         try
         {
-            if (!handlerFuture.isDone() &&
-                e.getMessage() == NULL_BUFFER)
+            if (!handlerFuture.isDone() && e.getMessage() == EMPTY_BUFFER)
             {
                 handlerFuture.setSuccess();
             }

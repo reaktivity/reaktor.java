@@ -113,6 +113,7 @@ public final class NukleusTypeSystem implements TypeSystemSpi
         Set<StructuredTypeInfo> readConfigs = new LinkedHashSet<>();
         readConfigs.add(CONFIG_BEGIN_EXT);
         readConfigs.add(CONFIG_DATA_EXT);
+        readConfigs.add(CONFIG_DATA_EMPTY);
         readConfigs.add(CONFIG_DATA_NULL);
         readConfigs.add(CONFIG_END_EXT);
         this.readConfigs = readConfigs;

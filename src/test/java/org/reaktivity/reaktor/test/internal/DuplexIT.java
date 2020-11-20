@@ -609,10 +609,30 @@ public class DuplexIT
 
     @Test
     @Specification({
+        "client.write.empty.data.and.server.read.empty.data/client",
+        "client.write.empty.data.and.server.read.empty.data/server"
+    })
+    public void shouldReceiveClientWrittenEmptyDataAndServerReadEmptyData() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "server.flush.empty.data.with.ext/client",
         "server.flush.empty.data.with.ext/server"
     })
     public void shouldReceiveServerFlushedEmptyDataWithExtension() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "server.write.empty.data.and.client.read.empty.data/client",
+        "server.write.empty.data.and.client.read.empty.data/server"
+    })
+    public void shouldReceiveServerWrittenEmptyDataAndClientReadEmptyData() throws Exception
     {
         k3po.finish();
     }
