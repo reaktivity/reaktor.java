@@ -5,7 +5,7 @@
 3. Create a new branch called `develop`
 4. Make the `develop` branch the default branch
 5. Protect the `develop` branch (check everything except "Include Administrators")
-6. Protect the `master` branch (check only "Protect this branch")
+6. Protect the `main` branch (check only "Protect this branch")
 7. Clone the new repository locally, then
 ```bash
 $ git config merge.ours.driver true
@@ -21,13 +21,4 @@ $ git add pom.xml
 $ git commit
 $ git push origin develop
 ```
-Verify the Travis CI build success, then further protect the `develop` branch by requiring the `continuous-integration/travis-ci` status check.
-
-Slack Travis CI application configuration gives token string of the form `reaktivity:XXXXXXXXXXXXXXXXXXXXXXXX`.
-```bash
-$ travis encrypt "reaktivity:XXXXXXXXXXXXXXXXXXXXXXXX" --add notifications.slack
-$ git add .travis.yml
-$ git commit -m "Notify build results via Slack"
-$ git push origin develop
-```
-Verify the Travis CI build notification is delivered via Slack.
+Verify the GitHub Actions build success.
