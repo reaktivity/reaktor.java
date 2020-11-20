@@ -644,16 +644,25 @@ final class NukleusTarget implements AutoCloseable
                 writeCopy = octetsRO.wrap(new UnsafeBuffer(writeCopyBytes), 0, writableBytes);
             }
 
+            int optionFlags = channel.flags();
+
             int flags = 0;
 
-            if (writableBytes == writeBuf.readableBytes())
+            if (optionFlags != -1)
             {
-                flags |= 0x01;  // FIN
+                flags = optionFlags;
             }
-
-            if (writeReaderIndex == 0)
+            else
             {
-                flags |= 0x02;  // INIT
+                if (writableBytes == writeBuf.readableBytes())
+                {
+                    flags |= 0x01;  // FIN
+                }
+
+                if (writeReaderIndex == 0)
+                {
+                    flags |= 0x02;  // INIT
+                }
             }
 
             final long streamId = channel.targetId();

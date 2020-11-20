@@ -15,7 +15,6 @@
  */
 package org.reaktivity.reaktor.test.internal.k3po.ext.behavior;
 
-import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.stream.Collectors.toList;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusExtensionKind.BEGIN;
@@ -30,6 +29,7 @@ import static org.reaktivity.reaktor.test.internal.k3po.ext.types.NukleusTypeSys
 import static org.reaktivity.reaktor.test.internal.k3po.ext.types.NukleusTypeSystem.CONFIG_DATA_EXT;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.types.NukleusTypeSystem.CONFIG_DATA_NULL;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.types.NukleusTypeSystem.CONFIG_END_EXT;
+import static org.reaktivity.reaktor.test.internal.k3po.ext.types.NukleusTypeSystem.OPTION_FLAGS;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -57,14 +57,25 @@ import org.kaazing.k3po.driver.internal.behavior.handler.command.WriteAdviseHand
 import org.kaazing.k3po.driver.internal.behavior.handler.command.WriteConfigHandler;
 import org.kaazing.k3po.driver.internal.behavior.handler.event.ReadAdvisedHandler;
 import org.kaazing.k3po.driver.internal.behavior.handler.event.WriteAdvisedHandler;
+import org.kaazing.k3po.driver.internal.behavior.visitor.GenerateConfigurationVisitor.State;
 import org.kaazing.k3po.lang.internal.RegionInfo;
 import org.kaazing.k3po.lang.internal.ast.AstReadAdviseNode;
 import org.kaazing.k3po.lang.internal.ast.AstReadAdvisedNode;
 import org.kaazing.k3po.lang.internal.ast.AstReadConfigNode;
+import org.kaazing.k3po.lang.internal.ast.AstReadOptionNode;
 import org.kaazing.k3po.lang.internal.ast.AstWriteAdviseNode;
 import org.kaazing.k3po.lang.internal.ast.AstWriteAdvisedNode;
 import org.kaazing.k3po.lang.internal.ast.AstWriteConfigNode;
+import org.kaazing.k3po.lang.internal.ast.AstWriteOptionNode;
 import org.kaazing.k3po.lang.internal.ast.matcher.AstValueMatcher;
+import org.kaazing.k3po.lang.internal.ast.value.AstExpressionValue;
+import org.kaazing.k3po.lang.internal.ast.value.AstLiteralByteValue;
+import org.kaazing.k3po.lang.internal.ast.value.AstLiteralBytesValue;
+import org.kaazing.k3po.lang.internal.ast.value.AstLiteralIntegerValue;
+import org.kaazing.k3po.lang.internal.ast.value.AstLiteralLongValue;
+import org.kaazing.k3po.lang.internal.ast.value.AstLiteralShortValue;
+import org.kaazing.k3po.lang.internal.ast.value.AstLiteralTextValue;
+import org.kaazing.k3po.lang.internal.ast.value.AstLiteralURIValue;
 import org.kaazing.k3po.lang.internal.ast.value.AstValue;
 import org.kaazing.k3po.lang.types.StructuredTypeInfo;
 import org.kaazing.k3po.lang.types.TypeInfo;
@@ -73,8 +84,10 @@ import org.reaktivity.reaktor.test.internal.k3po.ext.behavior.handler.NukleusExt
 import org.reaktivity.reaktor.test.internal.k3po.ext.behavior.handler.ReadBeginExtHandler;
 import org.reaktivity.reaktor.test.internal.k3po.ext.behavior.handler.ReadDataExtHandler;
 import org.reaktivity.reaktor.test.internal.k3po.ext.behavior.handler.ReadEndExtHandler;
+import org.reaktivity.reaktor.test.internal.k3po.ext.behavior.handler.ReadFlagsOptionHandler;
 import org.reaktivity.reaktor.test.internal.k3po.ext.behavior.handler.ReadNullDataHandler;
 import org.reaktivity.reaktor.test.internal.k3po.ext.behavior.handler.WriteEmptyDataHandler;
+import org.reaktivity.reaktor.test.internal.k3po.ext.behavior.handler.WriteFlagsOptionHandler;
 
 public class NukleusBehaviorSystem implements BehaviorSystemSpi
 {
@@ -92,8 +105,13 @@ public class NukleusBehaviorSystem implements BehaviorSystemSpi
 
     public NukleusBehaviorSystem()
     {
-        this.readOptionFactories = emptyMap();
-        this.writeOptionFactories = emptyMap();
+        Map<TypeInfo<?>, ReadOptionFactory> readOptionFactories = new LinkedHashMap<>();
+        readOptionFactories.put(OPTION_FLAGS, NukleusBehaviorSystem::newReadFlagsHandler);
+        this.readOptionFactories = unmodifiableMap(readOptionFactories);
+
+        Map<TypeInfo<?>, WriteOptionFactory> writeOptionsFactories = new LinkedHashMap<>();
+        writeOptionsFactories.put(OPTION_FLAGS, NukleusBehaviorSystem::newWriteFlagsHandler);
+        this.writeOptionFactories = unmodifiableMap(writeOptionsFactories);
 
         Map<StructuredTypeInfo, ReadConfigFactory> readConfigFactories = new LinkedHashMap<>();
         readConfigFactories.put(CONFIG_BEGIN_EXT, NukleusBehaviorSystem::newReadBeginExtHandler);
@@ -221,6 +239,26 @@ public class NukleusBehaviorSystem implements BehaviorSystemSpi
         StructuredTypeInfo advisoryType)
     {
         return writeAdvisedFactories.get(advisoryType);
+    }
+
+    private static ChannelHandler newReadFlagsHandler(
+        AstReadOptionNode node)
+    {
+        AstValue<?> flagsValue = node.getOptionValue();
+        int value = flagsValue.accept(new GenerateFlagsOptionValueVisitor(), null);
+        ReadFlagsOptionHandler handler = new ReadFlagsOptionHandler(value);
+        handler.setRegionInfo(node.getRegionInfo());
+        return handler;
+    }
+
+    private static ChannelHandler newWriteFlagsHandler(
+        AstWriteOptionNode node)
+    {
+        AstValue<?> flagsValue = node.getOptionValue();
+        int value = flagsValue.accept(new GenerateFlagsOptionValueVisitor(), null);
+        WriteFlagsOptionHandler handler = new WriteFlagsOptionHandler(value);
+        handler.setRegionInfo(node.getRegionInfo());
+        return handler;
     }
 
     private static ReadBeginExtHandler newReadBeginExtHandler(
@@ -375,5 +413,72 @@ public class NukleusBehaviorSystem implements BehaviorSystemSpi
         WriteAdvisedHandler handler = new WriteAdvisedHandler(ADVISORY_CHALLENGE, decoder);
         handler.setRegionInfo(regionInfo);
         return handler;
+    }
+
+    private static final class GenerateFlagsOptionValueVisitor implements AstValue.Visitor<Integer, State>
+    {
+        @Override
+        public Integer visit(
+            AstExpressionValue<?> value,
+            State state)
+        {
+            return (int) value.getValue();
+        }
+
+        @Override
+        public Integer visit(
+            AstLiteralTextValue astLiteralTextValue,
+            State state)
+        {
+            return null;
+        }
+
+        @Override
+        public Integer visit(
+            AstLiteralBytesValue astLiteralBytesValue,
+            State state)
+        {
+            return null;
+        }
+
+        @Override
+        public Integer visit(
+            AstLiteralByteValue astLiteralByteValue,
+            State state)
+        {
+            return null;
+        }
+
+        @Override
+        public Integer visit(
+            AstLiteralShortValue astLiteralShortValue,
+            State state)
+        {
+            return null;
+        }
+
+        @Override
+        public Integer visit(
+            AstLiteralIntegerValue literal,
+            State state)
+        {
+            return literal.getValue();
+        }
+
+        @Override
+        public Integer visit(
+            AstLiteralLongValue astLiteralLongValue,
+            State state)
+        {
+            return null;
+        }
+
+        @Override
+        public Integer visit(
+            AstLiteralURIValue astLiteralURIValue,
+            State state)
+        {
+            return null;
+        }
     }
 }
