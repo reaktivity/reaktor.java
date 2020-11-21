@@ -21,4 +21,5 @@ accept "nukleus://streams/server#0"
 accepted
 connected
 
+read option nukleus:flags ${nukleus:flags("init", "fin")}
 read "Hello, world"
