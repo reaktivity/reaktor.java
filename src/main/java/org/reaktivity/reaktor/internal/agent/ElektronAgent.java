@@ -628,10 +628,14 @@ public class ElektronAgent implements Agent
 
         if (config.syntheticAbort())
         {
+            final Int2ObjectHashMap<MessageConsumer> handlers = new Int2ObjectHashMap<>();
             for (int senderIndex = 0; senderIndex < streams.length; senderIndex++)
             {
+                handlers.clear();
+                streams[senderIndex].forEach(handlers::put);
+
                 final int senderIndex0 = senderIndex;
-                streams[senderIndex].forEach((id, handler) -> doSyntheticAbort(streamId(localIndex, senderIndex0, id), handler));
+                handlers.forEach((id, handler) -> doSyntheticAbort(streamId(localIndex, senderIndex0, id), handler));
             }
 
             acquiredBuffers = bufferPool.acquiredSlots();
