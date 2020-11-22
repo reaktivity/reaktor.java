@@ -676,7 +676,7 @@ public class ElektronAgent implements Agent
         BitSet affinity = affinityMask.apply(localAddress);
         if (affinity.get(localIndex))
         {
-            elektronByName.computeIfAbsent(nukleusName, name -> new ElektronRef(name, nukleus.supplyElektron()));
+            elektronByName.computeIfAbsent(nukleusName, name -> new ElektronRef(name, nukleus.supplyElektron(localIndex)));
         }
     }
 
