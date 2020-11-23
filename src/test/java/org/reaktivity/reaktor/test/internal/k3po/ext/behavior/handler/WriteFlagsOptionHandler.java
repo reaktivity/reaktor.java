@@ -34,7 +34,7 @@ public class WriteFlagsOptionHandler extends AbstractCommandHandler
         ChannelHandlerContext ctx) throws Exception
     {
         NukleusChannel channel = (NukleusChannel) ctx.getChannel();
-        channel.flags(flags);
+        channel.writeFlags(flags);
         getHandlerFuture().setSuccess();
     }
 }

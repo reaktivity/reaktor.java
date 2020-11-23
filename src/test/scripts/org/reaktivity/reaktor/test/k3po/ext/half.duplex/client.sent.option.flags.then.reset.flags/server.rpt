@@ -21,15 +21,15 @@ accept "nukleus://streams/server#0"
 accepted
 connected
 
-read option nukleus:flags ${nukleus:flags("init")}
+read option nukleus:flags "init"
 read "Hello"
 
-read option nukleus:flags ${nukleus:flags("none")}
+read option nukleus:flags "none"
 read ", "
 
-read option nukleus:flags ${nukleus:flags("fin")}
+read option nukleus:flags "fin"
 read "World"
 
-read option nukleus:flags ${nukleus:flags("auto")}
+read option nukleus:flags "auto"
 
 read "Flags reset"
