@@ -138,6 +138,9 @@ public final class Functions
             case "fin":
                 value |= 1;
                 break;
+            case "incomplete":
+                value |= 4;
+                break;
             case "auto":
                 value = -1;
             }
