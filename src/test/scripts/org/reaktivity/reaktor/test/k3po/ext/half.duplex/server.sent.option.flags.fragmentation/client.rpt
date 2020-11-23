@@ -19,4 +19,11 @@ connect "nukleus://streams/server#0"
         option nukleus:window 8192
 connected
 
-read "Hello, world"
+read option nukleus:flags "init"
+read "Hello"
+
+read option nukleus:flags "none"
+read ", "
+
+read option nukleus:flags "fin"
+read "World"

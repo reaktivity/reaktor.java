@@ -21,6 +21,7 @@ import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.MessageEvent;
 import org.kaazing.k3po.driver.internal.behavior.handler.event.AbstractEventHandler;
+import org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusChannel;
 
 public class ReadFlagsOptionHandler extends AbstractEventHandler
 {
@@ -30,7 +31,7 @@ public class ReadFlagsOptionHandler extends AbstractEventHandler
         int flags)
     {
         super(EnumSet.of(ChannelEventKind.MESSAGE));
-        this.flags = flags;
+        this.flags = flags != -1 ? flags : 3;
     }
 
     @Override
@@ -39,10 +40,12 @@ public class ReadFlagsOptionHandler extends AbstractEventHandler
         MessageEvent e) throws Exception
     {
         ChannelFuture handlerFuture = getHandlerFuture();
+        NukleusChannel channel = (NukleusChannel) ctx.getChannel();
         try
         {
-            if (!handlerFuture.isDone())
+            if (!handlerFuture.isDone() && channel.writeFlags() == this.flags)
             {
+                channel.readFlags(flags);
                 handlerFuture.setSuccess();
             }
         }
