@@ -19,14 +19,14 @@ connect "nukleus://streams/server#0"
         option nukleus:window 8192
 connected
 
-write option nukleus:flags ${nukleus:flags("init")}
+write option nukleus:flags "init"
 write "Hello"
 write flush
 
-write option nukleus:flags ${nukleus:flags("none")}
+write option nukleus:flags "none"
 write ", "
 write flush
 
-write option nukleus:flags ${nukleus:flags("fin")}
+write option nukleus:flags "fin"
 write "World"
 write flush

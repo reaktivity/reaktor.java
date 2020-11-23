@@ -123,31 +123,6 @@ public final class Functions
         return newRouteId(Role.CACHE_CLIENT, receiverAddress, senderAddress);
     }
 
-    @Function
-    public static int flags(
-        String... flags)
-    {
-        int value = 0;
-        for (String flag : flags)
-        {
-            switch (flag)
-            {
-            case "init":
-                value |= 2;
-                break;
-            case "fin":
-                value |= 1;
-                break;
-            case "incomplete":
-                value |= 4;
-                break;
-            case "auto":
-                value = -1;
-            }
-        }
-        return value;
-    }
-
     private static long nextLongNonZero()
     {
         final ThreadLocalRandom random = ThreadLocalRandom.current();

@@ -644,7 +644,7 @@ final class NukleusTarget implements AutoCloseable
                 writeCopy = octetsRO.wrap(new UnsafeBuffer(writeCopyBytes), 0, writableBytes);
             }
 
-            int optionFlags = channel.flags();
+            int optionFlags = channel.writeFlags();
 
             int flags = 0;
 

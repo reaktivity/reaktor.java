@@ -439,58 +439,77 @@ public class NukleusBehaviorSystem implements BehaviorSystemSpi
 
         @Override
         public Integer visit(
-            AstLiteralTextValue astLiteralTextValue,
+            AstLiteralTextValue value,
             State state)
         {
-            return null;
+            int flagValue = 0;
+            String literal = value.getValue();
+            String[] flags = literal.split("\\s+");
+            for (String flag : flags)
+            {
+                switch (flag)
+                {
+                case "init":
+                    flagValue |= 2;
+                    break;
+                case "fin":
+                    flagValue |= 1;
+                    break;
+                case "auto":
+                    flagValue = -1;
+                    break;
+                }
+            }
+
+            return flagValue;
         }
 
         @Override
         public Integer visit(
-            AstLiteralBytesValue astLiteralBytesValue,
+            AstLiteralBytesValue value,
             State state)
         {
-            return null;
+            return -1;
         }
 
         @Override
         public Integer visit(
-            AstLiteralByteValue astLiteralByteValue,
+            AstLiteralByteValue value,
             State state)
         {
-            return null;
+            return -1;
         }
 
         @Override
         public Integer visit(
-            AstLiteralShortValue astLiteralShortValue,
+            AstLiteralShortValue value,
             State state)
         {
-            return null;
+            return -1;
         }
 
         @Override
         public Integer visit(
-            AstLiteralIntegerValue literal,
+            AstLiteralIntegerValue value,
             State state)
         {
-            return literal.getValue();
+            return value.getValue();
         }
 
         @Override
         public Integer visit(
-            AstLiteralLongValue astLiteralLongValue,
+            AstLiteralLongValue value,
             State state)
         {
-            return null;
+            return -1;
         }
 
         @Override
         public Integer visit(
-            AstLiteralURIValue astLiteralURIValue,
+            AstLiteralURIValue value,
             State state)
         {
-            return null;
+            return -1;
         }
     }
 }

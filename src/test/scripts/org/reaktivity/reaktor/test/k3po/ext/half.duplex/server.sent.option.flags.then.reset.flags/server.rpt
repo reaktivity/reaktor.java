@@ -21,4 +21,18 @@ accept "nukleus://streams/server#0"
 accepted
 connected
 
-write "Hello" ", " "world"
+write option nukleus:flags "init"
+write "Hello"
+write flush
+
+write option nukleus:flags "none"
+write ", "
+write flush
+
+write option nukleus:flags "fin"
+write "World"
+write flush
+
+write option nukleus:flags "auto"
+
+write "Flags reset"

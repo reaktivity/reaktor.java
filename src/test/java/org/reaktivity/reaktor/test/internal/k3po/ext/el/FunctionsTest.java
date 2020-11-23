@@ -16,7 +16,6 @@
 package org.reaktivity.reaktor.test.internal.k3po.ext.el;
 
 import static org.hamcrest.Matchers.instanceOf;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertThat;
 import static org.kaazing.k3po.lang.internal.el.ExpressionFactoryUtils.newExpressionFactory;
@@ -56,20 +55,5 @@ public final class FunctionsTest
         Object correlationId = expression.getValue(environment);
 
         assertThat(correlationId, instanceOf(Long.class));
-    }
-
-    @Test
-    public void shouldInvokeFlags() throws Exception
-    {
-        ExpressionFactory factory = newExpressionFactory();
-        ExpressionContext environment = new ExpressionContext();
-
-        String expressionText = "${nukleus:flags(\"init\")}";
-        ValueExpression expression = factory.createValueExpression(environment, expressionText, int.class);
-
-        Object routeRef = expression.getValue(environment);
-
-        assertThat(routeRef, instanceOf(Integer.class));
-        assertEquals(2, Integer.class.cast(routeRef).intValue());
     }
 }

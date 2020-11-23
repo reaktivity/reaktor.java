@@ -21,6 +21,6 @@ accept "nukleus://streams/server#0"
 accepted
 connected
 
-write option nukleus:flags ${nukleus:flags("init", "fin")}
+write option nukleus:flags "init fin"
 write "Hello, world"
 write flush
