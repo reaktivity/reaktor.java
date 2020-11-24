@@ -21,8 +21,8 @@ accept "nukleus://streams/server#0"
 accepted
 connected
 
-read option nukleus:flags ${nukleus:flags("init", "incomplete")}
-read nukleus:data.empty
+read option nukleus:flags "init incomplete"
+read "Hello, "
 
-read option nukleus:flags ${nukleus:flags("auto")}
+read option nukleus:flags "auto"
 read "Hello, world"

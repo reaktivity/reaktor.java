@@ -21,10 +21,10 @@ accept "nukleus://streams/server#0"
 accepted
 connected
 
-write option nukleus:flags ${nukleus:flags("init", "incomplete")}
+write option nukleus:flags "init incomplete"
 write "Hello, "
 write flush
 
-write option nukleus:flags ${nukleus:flags("auto")}
+write option nukleus:flags "auto"
 write "Hello, world"
 write flush

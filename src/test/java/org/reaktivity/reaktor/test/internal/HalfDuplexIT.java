@@ -626,6 +626,16 @@ public class HalfDuplexIT
 
     @Test
     @Specification({
+        "client.sent.option.flags.incomplete/client",
+        "client.sent.option.flags.incomplete/server"
+    })
+    public void shouldReceiveClientSentOptionFlagsIncomplete() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "server.sent.option.flags.fragmentation/client",
         "server.sent.option.flags.fragmentation/server"
     })
@@ -650,6 +660,16 @@ public class HalfDuplexIT
         "server.sent.option.flags.then.reset.flags/server"
     })
     public void shouldReceiveServerSentOptionFlagsThenResetFlags() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "server.sent.option.flags.incomplete/client",
+        "server.sent.option.flags.incomplete/server"
+    })
+    public void shouldReceiveServerSentOptionFlagsIncomplete() throws Exception
     {
         k3po.finish();
     }

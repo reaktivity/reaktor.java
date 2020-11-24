@@ -19,8 +19,8 @@ connect "nukleus://streams/server#0"
         option nukleus:window 8192
 connected
 
-read option nukleus:flags ${nukleus:flags("init", "incomplete")}
+read option nukleus:flags "init incomplete"
 read "Hello, "
 
-read option nukleus:flags ${nukleus:flags("auto")}
+read option nukleus:flags "auto"
 read "Hello, world"
