@@ -22,7 +22,7 @@ accepted
 connected
 
 read option nukleus:flags "init incomplete"
-read "Hello, "
+read nukleus:data.empty
 
 read option nukleus:flags "auto"
 read "Hello, world"

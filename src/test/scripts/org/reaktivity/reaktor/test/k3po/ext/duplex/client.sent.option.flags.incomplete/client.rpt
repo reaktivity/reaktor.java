@@ -20,7 +20,7 @@ connect "nukleus://streams/server#0"
 connected
 
 write option nukleus:flags "init incomplete"
-write "Hello, "
+write nukleus:data.empty
 write flush
 
 write option nukleus:flags "auto"
