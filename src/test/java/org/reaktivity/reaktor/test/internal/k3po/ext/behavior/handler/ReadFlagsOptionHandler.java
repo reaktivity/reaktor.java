@@ -17,6 +17,7 @@ package org.reaktivity.reaktor.test.internal.k3po.ext.behavior.handler;
 
 import java.util.EnumSet;
 
+import org.jboss.netty.channel.ChannelException;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.MessageEvent;
@@ -43,10 +44,13 @@ public class ReadFlagsOptionHandler extends AbstractEventHandler
         NukleusChannel channel = (NukleusChannel) ctx.getChannel();
         try
         {
-            if (!handlerFuture.isDone() && channel.writeFlags() == this.flags)
+            if (!handlerFuture.isDone() && channel.readFlags() == this.flags)
             {
-                channel.readFlags(flags);
                 handlerFuture.setSuccess();
+            }
+            else
+            {
+                handlerFuture.setFailure(new ChannelException("flags do not match"));
             }
         }
         catch (Exception ex)
