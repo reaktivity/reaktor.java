@@ -85,6 +85,8 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
 
     private int pendingSharedBudget;
 
+    private int readFlags = -1;
+    private int writeFlags = -1;
 
     NukleusChannel(
         NukleusServerChannel parent,
@@ -326,6 +328,28 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
         {
             pendingSharedBudget += pendingSharedCredit;
         }
+    }
+
+    public int readFlags()
+    {
+        return readFlags;
+    }
+
+    public void readFlags(
+        int readFlags)
+    {
+        this.readFlags = readFlags;
+    }
+
+    public int writeFlags()
+    {
+        return writeFlags;
+    }
+
+    public void writeFlags(
+        int flags)
+    {
+        this.writeFlags = flags;
     }
 
     public void setDebitor(

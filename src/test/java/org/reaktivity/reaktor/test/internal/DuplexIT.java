@@ -626,4 +626,64 @@ public class DuplexIT
     {
         k3po.finish();
     }
+
+    @Test
+    @Specification({
+        "client.sent.option.flags.fragmentation/client",
+        "client.sent.option.flags.fragmentation/server"
+    })
+    public void shouldReceiveClientSentOptionFlagsFragmented() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "client.sent.option.flags.no.fragmentation/client",
+        "client.sent.option.flags.no.fragmentation/server"
+    })
+    public void shouldReceiveClientSentOptionFlagsNotFragmented() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "client.sent.option.flags.then.reset.flags/client",
+        "client.sent.option.flags.then.reset.flags/server"
+    })
+    public void shouldReceiveClientSentOptionFlagsThenResetFlags() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "server.sent.option.flags.fragmentation/client",
+        "server.sent.option.flags.fragmentation/server"
+    })
+    public void shouldReceiveServerSentOptionFlagsFragmentation() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "server.sent.option.flags.no.fragmentation/client",
+        "server.sent.option.flags.no.fragmentation/server"
+    })
+    public void shouldReceiveServerSentOptionFlagsNotFragmentation() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "server.sent.option.flags.then.reset.flags/client",
+        "server.sent.option.flags.then.reset.flags/server"
+    })
+    public void shouldReceiveServerSentOptionFlagsThenResetFlags() throws Exception
+    {
+        k3po.finish();
+    }
 }
