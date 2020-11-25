@@ -204,6 +204,7 @@ public final class NukleusStreamFactory
             if (channel.readableBytes() >= readableBytes)
             {
                 channel.readableBytes(-readableBytes);
+                channel.readFlags(flags);
 
                 int dataExtBytes = dataExt.sizeof();
                 if (dataExtBytes != 0)

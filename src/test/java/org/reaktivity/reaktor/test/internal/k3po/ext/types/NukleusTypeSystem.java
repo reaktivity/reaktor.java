@@ -41,6 +41,7 @@ public final class NukleusTypeSystem implements TypeSystemSpi
     public static final TypeInfo<String> OPTION_ALIGNMENT = new TypeInfo<>("alignment", String.class);
     public static final TypeInfo<Long> OPTION_AFFINITY = new TypeInfo<>("affinity", Long.class);
     public static final TypeInfo<Byte> OPTION_CAPABILITIES = new TypeInfo<>("capabilities", Byte.class);
+    public static final TypeInfo<Integer> OPTION_FLAGS = new TypeInfo<>("flags", Integer.class);
 
     public static final StructuredTypeInfo CONFIG_BEGIN_EXT =
             new StructuredTypeInfo("nukleus", "begin.ext", emptyList(), MAX_VALUE);
@@ -102,9 +103,11 @@ public final class NukleusTypeSystem implements TypeSystemSpi
         this.connectOptions = unmodifiableSet(connectOptions);
 
         Set<TypeInfo<?>> readOptions = new LinkedHashSet<>();
+        readOptions.add(OPTION_FLAGS);
         this.readOptions = unmodifiableSet(readOptions);
 
         Set<TypeInfo<?>> writeOptions = new LinkedHashSet<>();
+        writeOptions.add(OPTION_FLAGS);
         this.writeOptions = unmodifiableSet(writeOptions);
 
         Set<StructuredTypeInfo> readConfigs = new LinkedHashSet<>();
