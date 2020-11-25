@@ -44,13 +44,16 @@ public class ReadFlagsOptionHandler extends AbstractEventHandler
         NukleusChannel channel = (NukleusChannel) ctx.getChannel();
         try
         {
-            if (!handlerFuture.isDone() && channel.readFlags() == this.flags)
+            if (!handlerFuture.isDone())
             {
-                handlerFuture.setSuccess();
-            }
-            else
-            {
-                handlerFuture.setFailure(new ChannelException("flags do not match"));
+                if (channel.readFlags() == this.flags)
+                {
+                    handlerFuture.setSuccess();
+                }
+                else
+                {
+                    handlerFuture.setFailure(new ChannelException("flags do not match"));
+                }
             }
         }
         catch (Exception ex)
