@@ -20,6 +20,7 @@ import java.util.EnumSet;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.MessageEvent;
+import org.kaazing.k3po.driver.internal.behavior.ScriptProgressException;
 import org.kaazing.k3po.driver.internal.behavior.handler.event.AbstractEventHandler;
 import org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusChannel;
 
@@ -31,7 +32,7 @@ public class ReadFlagsOptionHandler extends AbstractEventHandler
         int flags)
     {
         super(EnumSet.of(ChannelEventKind.MESSAGE));
-        this.flags = flags != -1 ? flags : 3;
+        this.flags = flags;
     }
 
     @Override
@@ -43,10 +44,18 @@ public class ReadFlagsOptionHandler extends AbstractEventHandler
         NukleusChannel channel = (NukleusChannel) ctx.getChannel();
         try
         {
-            if (!handlerFuture.isDone() && channel.writeFlags() == this.flags)
+            if (!handlerFuture.isDone())
             {
-                channel.readFlags(flags);
-                handlerFuture.setSuccess();
+                int readFlags = channel.readFlags();
+                if (flags == readFlags || flags == -1 && readFlags == 3)
+                {
+                    handlerFuture.setSuccess();
+                }
+                else
+                {
+                    String message = String.format("Expected flags: %d, but was: %d", flags, readFlags);
+                    handlerFuture.setFailure(new ScriptProgressException(getRegionInfo(), message));
+                }
             }
         }
         catch (Exception ex)
