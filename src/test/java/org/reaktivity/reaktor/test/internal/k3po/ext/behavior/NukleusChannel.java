@@ -85,7 +85,6 @@ public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfi
 
     private int pendingSharedBudget;
 
-    private int flags = -1;
     private int readFlags = -1;
     private int writeFlags = -1;
 
