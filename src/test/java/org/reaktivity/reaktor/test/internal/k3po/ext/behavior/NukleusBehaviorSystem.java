@@ -455,6 +455,9 @@ public class NukleusBehaviorSystem implements BehaviorSystemSpi
                 case "fin":
                     flagValue |= 1;
                     break;
+                case "incomplete":
+                    flagValue |= 4;
+                    break;
                 case "auto":
                     flagValue = -1;
                     break;

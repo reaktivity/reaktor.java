@@ -377,4 +377,14 @@ public class SimplexIT
     {
         k3po.finish();
     }
+
+    @Test
+    @Specification({
+        "client.sent.option.flags.incomplete/client",
+        "client.sent.option.flags.incomplete/server"
+    })
+    public void shouldReceiveClientSentOptionFlagsIncomplete() throws Exception
+    {
+        k3po.finish();
+    }
 }
