@@ -596,7 +596,7 @@ final class NukleusTarget implements AutoCloseable
             ChannelBuffer writeBuf = (ChannelBuffer) writeRequest.getMessage();
 
             ChannelBuffer writeExt = channel.writeExtBuffer(DATA, true);
-            if (writeBuf.readable() || writeExt.readable() || writeRequest.getMessage() == EMPTY_BUFFER)
+            if (writeBuf.readable() || writeExt.readable() || writeBuf == EMPTY_BUFFER)
             {
                 boolean flushed = flushData(channel, writeBuf, writeExt);
                 if (!flushed)
