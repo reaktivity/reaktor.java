@@ -98,6 +98,7 @@ import org.reaktivity.reaktor.internal.layouts.BufferPoolLayout;
 import org.reaktivity.reaktor.internal.layouts.MetricsLayout;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
 import org.reaktivity.reaktor.internal.router.Resolver;
+import org.reaktivity.reaktor.internal.router.StreamId;
 import org.reaktivity.reaktor.internal.router.Target;
 import org.reaktivity.reaktor.internal.router.WriteCounters;
 import org.reaktivity.reaktor.internal.types.Flyweight;
@@ -680,7 +681,7 @@ public class ElektronAgent implements Agent
         BitSet affinity = affinityMask.apply(localAddress);
         if (affinity.get(localIndex))
         {
-            elektronByName.computeIfAbsent(nukleusName, name -> new ElektronRef(name, nukleus.supplyElektron()));
+            elektronByName.computeIfAbsent(nukleusName, name -> new ElektronRef(name, nukleus.supplyElektron(localIndex)));
         }
     }
 
@@ -1422,6 +1423,7 @@ public class ElektronAgent implements Agent
                 .setAccumulatorSupplier(supplyAccumulator)
                 .setBufferPoolSupplier(supplyCountingBufferPool)
                 .setDroppedFrameConsumer(this::handleDroppedReadFrame)
+                .setRemoteIndexSupplier(StreamId::remoteIndex)
                 .build();
     }
 
