@@ -84,7 +84,7 @@ public class ReaktorTest
                 allowing(elektron).addressFactoryBuilder(with(any(RouteKind.class)));
                 will(returnValue(null));
 
-                oneOf(nukleus).supplyElektron();
+                oneOf(nukleus).supplyElektron(with(any(int.class)));
                 will(returnValue(elektron));
 
                 oneOf(elektron).agent();
