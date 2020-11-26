@@ -23,7 +23,18 @@ public interface Nukleus
 {
     String name();
     Configuration config();
-    Elektron supplyElektron();
+
+    @Deprecated
+    default Elektron supplyElektron()
+    {
+        return null;
+    }
+
+    default Elektron supplyElektron(
+        int index)
+    {
+        return supplyElektron();
+    }
 
     default CommandHandler commandHandler(
         int msgTypeId)

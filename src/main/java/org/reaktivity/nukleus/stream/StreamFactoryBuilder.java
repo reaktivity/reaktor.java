@@ -19,6 +19,7 @@ import java.util.function.Function;
 import java.util.function.LongConsumer;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
+import java.util.function.LongToIntFunction;
 import java.util.function.LongUnaryOperator;
 import java.util.function.Supplier;
 import java.util.function.ToIntFunction;
@@ -121,6 +122,12 @@ public interface StreamFactoryBuilder
 
     default StreamFactoryBuilder setDroppedFrameConsumer(
         MessageConsumer dropFrame)
+    {
+        return this;
+    }
+
+    default StreamFactoryBuilder setRemoteIndexSupplier(
+        LongToIntFunction supplyRemoteIndex)
     {
         return this;
     }
