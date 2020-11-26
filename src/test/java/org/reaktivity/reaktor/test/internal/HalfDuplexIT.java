@@ -536,6 +536,16 @@ public class HalfDuplexIT
 
     @Test
     @Specification({
+        "client.sent.write.empty.data.and.server.read.empty.data/client",
+        "client.sent.write.empty.data.and.server.read.empty.data/server"
+    })
+    public void shouldReceiveClientWrittenEmptyDataAndServerReadEmptyData() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "client.flush.null.data.with.ext/client",
         "client.flush.null.data.with.ext/server"
     })
@@ -570,6 +580,16 @@ public class HalfDuplexIT
         "server.write.empty.data.with.ext/server"
     })
     public void shouldReceiveServerWrittenEmptyDataWithExtension() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "server.sent.write.empty.data.and.client.read.empty.data/client",
+        "server.sent.write.empty.data.and.client.read.empty.data/server"
+    })
+    public void shouldReceiveServerWrittenEmptyDataAndClientReadEmptyData() throws Exception
     {
         k3po.finish();
     }
