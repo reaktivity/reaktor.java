@@ -330,6 +330,16 @@ public class SimplexIT
 
     @Test
     @Specification({
+        "client.write.empty.data.and.server.read.empty.data/client",
+        "client.write.empty.data.and.server.read.empty.data/server"
+    })
+    public void shouldReceiveClientWrittenEmptyDataAndServerWrittenEmptyData() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "client.flush.null.data.with.ext/client",
         "client.flush.null.data.with.ext/server"
     })
@@ -364,6 +374,16 @@ public class SimplexIT
         "client.sent.option.flags.then.reset.flags/server"
     })
     public void shouldReceiveClientSentOptionFlagsThenResetFlags() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "client.sent.option.flags.incomplete/client",
+        "client.sent.option.flags.incomplete/server"
+    })
+    public void shouldReceiveClientSentOptionFlagsIncomplete() throws Exception
     {
         k3po.finish();
     }

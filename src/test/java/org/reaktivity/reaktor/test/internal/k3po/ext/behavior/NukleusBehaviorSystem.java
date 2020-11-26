@@ -83,6 +83,7 @@ import org.reaktivity.reaktor.test.internal.k3po.ext.behavior.handler.NukleusExt
 import org.reaktivity.reaktor.test.internal.k3po.ext.behavior.handler.NukleusExtensionEncoder;
 import org.reaktivity.reaktor.test.internal.k3po.ext.behavior.handler.ReadBeginExtHandler;
 import org.reaktivity.reaktor.test.internal.k3po.ext.behavior.handler.ReadDataExtHandler;
+import org.reaktivity.reaktor.test.internal.k3po.ext.behavior.handler.ReadEmptyDataHandler;
 import org.reaktivity.reaktor.test.internal.k3po.ext.behavior.handler.ReadEndExtHandler;
 import org.reaktivity.reaktor.test.internal.k3po.ext.behavior.handler.ReadFlagsOptionHandler;
 import org.reaktivity.reaktor.test.internal.k3po.ext.behavior.handler.ReadNullDataHandler;
@@ -115,6 +116,7 @@ public class NukleusBehaviorSystem implements BehaviorSystemSpi
 
         Map<StructuredTypeInfo, ReadConfigFactory> readConfigFactories = new LinkedHashMap<>();
         readConfigFactories.put(CONFIG_BEGIN_EXT, NukleusBehaviorSystem::newReadBeginExtHandler);
+        readConfigFactories.put(CONFIG_DATA_EMPTY, NukleusBehaviorSystem::newReadEmptyDataHandler);
         readConfigFactories.put(CONFIG_DATA_EXT, NukleusBehaviorSystem::newReadDataExtHandler);
         readConfigFactories.put(CONFIG_DATA_NULL, NukleusBehaviorSystem::newReadNullDataHandler);
         readConfigFactories.put(CONFIG_END_EXT, NukleusBehaviorSystem::newReadEndExtHandler);
@@ -289,6 +291,16 @@ public class NukleusBehaviorSystem implements BehaviorSystemSpi
         return handler;
     }
 
+    private static ReadEmptyDataHandler newReadEmptyDataHandler(
+        AstReadConfigNode node,
+        Function<AstValueMatcher, MessageDecoder> decoderFactory)
+    {
+        RegionInfo regionInfo = node.getRegionInfo();
+        ReadEmptyDataHandler handler = new ReadEmptyDataHandler();
+        handler.setRegionInfo(regionInfo);
+        return handler;
+    }
+
     private static ChannelHandler newReadNullDataHandler(
         AstReadConfigNode node,
         Function<AstValueMatcher, MessageDecoder> decoderFactory)
@@ -442,6 +454,9 @@ public class NukleusBehaviorSystem implements BehaviorSystemSpi
                     break;
                 case "fin":
                     flagValue |= 1;
+                    break;
+                case "incomplete":
+                    flagValue |= 4;
                     break;
                 case "auto":
                     flagValue = -1;

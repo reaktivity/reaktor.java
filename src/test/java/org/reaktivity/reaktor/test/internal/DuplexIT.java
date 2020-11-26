@@ -609,10 +609,30 @@ public class DuplexIT
 
     @Test
     @Specification({
+        "client.write.empty.data.and.server.read.empty.data/client",
+        "client.write.empty.data.and.server.read.empty.data/server"
+    })
+    public void shouldReceiveClientWrittenEmptyDataAndServerReadEmptyData() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "server.flush.empty.data.with.ext/client",
         "server.flush.empty.data.with.ext/server"
     })
     public void shouldReceiveServerFlushedEmptyDataWithExtension() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "server.write.empty.data.and.client.read.empty.data/client",
+        "server.write.empty.data.and.client.read.empty.data/server"
+    })
+    public void shouldReceiveServerWrittenEmptyDataAndClientReadEmptyData() throws Exception
     {
         k3po.finish();
     }
@@ -659,6 +679,16 @@ public class DuplexIT
 
     @Test
     @Specification({
+        "client.sent.option.flags.incomplete/client",
+        "client.sent.option.flags.incomplete/server"
+    })
+    public void shouldReceiveClientSentOptionFlagsIncomplete() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
         "server.sent.option.flags.fragmentation/client",
         "server.sent.option.flags.fragmentation/server"
     })
@@ -683,6 +713,16 @@ public class DuplexIT
         "server.sent.option.flags.then.reset.flags/server"
     })
     public void shouldReceiveServerSentOptionFlagsThenResetFlags() throws Exception
+    {
+        k3po.finish();
+    }
+
+    @Test
+    @Specification({
+        "server.sent.option.flags.incomplete/client",
+        "server.sent.option.flags.incomplete/server"
+    })
+    public void shouldReceiveServerSentOptionFlagsIncomplete() throws Exception
     {
         k3po.finish();
     }

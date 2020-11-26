@@ -244,9 +244,9 @@ public final class NukleusStreamFactory
                         channel.pendingSharedCredit(credit);
                     }
 
-                    if ((flags & 0x01) != 0x00)
+                    if ((flags & 0x01) != 0x00 || (flags & 0x04) != 0x00)
                     {
-                        message.markWriterIndex(); // FIN
+                        message.markWriterIndex(); // FIN | INCOMPLETE
                         fragments = 0;
                     }
                     else
