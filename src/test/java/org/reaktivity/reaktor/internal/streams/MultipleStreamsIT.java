@@ -170,6 +170,7 @@ public class MultipleStreamsIT
             when(serverStreamFactory.setBufferPoolSupplier(any(Supplier.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setDroppedFrameConsumer(any(MessageConsumer.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.setRemoteIndexSupplier(any(LongToIntFunction.class))).thenReturn(serverStreamFactory);
+            when(serverStreamFactory.setHostResolver(any(Function.class))).thenReturn(serverStreamFactory);
             when(serverStreamFactory.build()).thenReturn(streamFactory);
 
             when(streamFactory.newStream(
