@@ -33,6 +33,7 @@ import static org.reaktivity.reaktor.internal.router.StreamId.streamId;
 import static org.reaktivity.reaktor.internal.router.StreamId.streamIndex;
 import static org.reaktivity.reaktor.internal.router.StreamId.throttleIndex;
 
+import java.net.InetAddress;
 import java.util.BitSet;
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -148,6 +149,7 @@ public class ElektronAgent implements Agent
     private final Function<String, BitSet> affinityMask;
     private final String elektronName;
     private final Counters counters;
+    private final Function<String, InetAddress[]> resolveHost;
     private final boolean timestamps;
     private final MetricsLayout metricsLayout;
     private final StreamsLayout streamsLayout;
@@ -200,6 +202,7 @@ public class ElektronAgent implements Agent
 
     private long lastReadStreamId;
 
+
     public ElektronAgent(
         int index,
         int count,
@@ -246,6 +249,7 @@ public class ElektronAgent implements Agent
                 new CountersManager(metricsLayout.labelsBuffer(), metricsLayout.valuesBuffer());
         this.counters = new Counters(countersManager);
 
+        this.resolveHost = config.hostResolver();
         this.timestamps = config.timestamps();
         this.readLimit = config.maximumMessagesPerRead();
         this.expireLimit = config.maximumExpirationsPerPoll();
@@ -1424,6 +1428,7 @@ public class ElektronAgent implements Agent
                 .setBufferPoolSupplier(supplyCountingBufferPool)
                 .setDroppedFrameConsumer(this::handleDroppedReadFrame)
                 .setRemoteIndexSupplier(StreamId::remoteIndex)
+                .setHostResolver(resolveHost)
                 .build();
     }
 
