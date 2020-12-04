@@ -15,6 +15,7 @@
  */
 package org.reaktivity.nukleus.stream;
 
+import java.net.InetAddress;
 import java.util.function.Function;
 import java.util.function.LongConsumer;
 import java.util.function.LongFunction;
@@ -128,6 +129,12 @@ public interface StreamFactoryBuilder
 
     default StreamFactoryBuilder setRemoteIndexSupplier(
         LongToIntFunction supplyRemoteIndex)
+    {
+        return this;
+    }
+
+    default StreamFactoryBuilder setHostResolver(
+        Function<String, InetAddress[]> resolver)
     {
         return this;
     }
