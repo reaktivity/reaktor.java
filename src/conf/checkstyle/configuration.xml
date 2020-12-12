@@ -71,12 +71,12 @@
             <property name="caseSensitive" value="true"/>
             <property name="sortStaticImportsAlphabetically" value="true"/>
         </module>
- 
+
         <module name="Indentation">
             <property name="lineWrappingIndentation" value="4"/>
             <property name="caseIndent" value="0"/>
         </module>
- 
+
         <module name="LeftCurly">
             <property name="option" value="nl"/>
         </module>
