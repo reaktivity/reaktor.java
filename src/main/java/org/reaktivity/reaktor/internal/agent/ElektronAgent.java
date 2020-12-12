@@ -33,6 +33,7 @@ import static org.reaktivity.reaktor.internal.router.StreamId.streamId;
 import static org.reaktivity.reaktor.internal.router.StreamId.streamIndex;
 import static org.reaktivity.reaktor.internal.router.StreamId.throttleIndex;
 
+import java.net.InetAddress;
 import java.util.BitSet;
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -98,6 +99,7 @@ import org.reaktivity.reaktor.internal.layouts.BufferPoolLayout;
 import org.reaktivity.reaktor.internal.layouts.MetricsLayout;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
 import org.reaktivity.reaktor.internal.router.Resolver;
+import org.reaktivity.reaktor.internal.router.StreamId;
 import org.reaktivity.reaktor.internal.router.Target;
 import org.reaktivity.reaktor.internal.router.WriteCounters;
 import org.reaktivity.reaktor.internal.types.Flyweight;
@@ -147,6 +149,7 @@ public class ElektronAgent implements Agent
     private final Function<String, BitSet> affinityMask;
     private final String elektronName;
     private final Counters counters;
+    private final Function<String, InetAddress[]> resolveHost;
     private final boolean timestamps;
     private final MetricsLayout metricsLayout;
     private final StreamsLayout streamsLayout;
@@ -199,6 +202,7 @@ public class ElektronAgent implements Agent
 
     private long lastReadStreamId;
 
+
     public ElektronAgent(
         int index,
         int count,
@@ -245,6 +249,7 @@ public class ElektronAgent implements Agent
                 new CountersManager(metricsLayout.labelsBuffer(), metricsLayout.valuesBuffer());
         this.counters = new Counters(countersManager);
 
+        this.resolveHost = config.hostResolver();
         this.timestamps = config.timestamps();
         this.readLimit = config.maximumMessagesPerRead();
         this.expireLimit = config.maximumExpirationsPerPoll();
@@ -630,10 +635,14 @@ public class ElektronAgent implements Agent
 
         if (config.syntheticAbort())
         {
+            final Int2ObjectHashMap<MessageConsumer> handlers = new Int2ObjectHashMap<>();
             for (int senderIndex = 0; senderIndex < streams.length; senderIndex++)
             {
+                handlers.clear();
+                streams[senderIndex].forEach(handlers::put);
+
                 final int senderIndex0 = senderIndex;
-                streams[senderIndex].forEach((id, handler) -> doSyntheticAbort(streamId(localIndex, senderIndex0, id), handler));
+                handlers.forEach((id, handler) -> doSyntheticAbort(streamId(localIndex, senderIndex0, id), handler));
             }
 
             acquiredBuffers = bufferPool.acquiredSlots();
@@ -678,7 +687,7 @@ public class ElektronAgent implements Agent
         BitSet affinity = affinityMask.apply(localAddress);
         if (affinity.get(localIndex))
         {
-            elektronByName.computeIfAbsent(nukleusName, name -> new ElektronRef(name, nukleus.supplyElektron()));
+            elektronByName.computeIfAbsent(nukleusName, name -> new ElektronRef(name, nukleus.supplyElektron(localIndex)));
         }
     }
 
@@ -1449,6 +1458,8 @@ public class ElektronAgent implements Agent
                 .setAccumulatorSupplier(supplyAccumulator)
                 .setBufferPoolSupplier(supplyCountingBufferPool)
                 .setDroppedFrameConsumer(this::handleDroppedReadFrame)
+                .setRemoteIndexSupplier(StreamId::remoteIndex)
+                .setHostResolver(resolveHost)
                 .build();
     }
 

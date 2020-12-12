@@ -210,6 +210,7 @@ public final class NukleusStreamFactory
             if (channel.paddedBytes(readableBytes) <= reservedBytes && reservedBytes <= channel.readableBudget())
             {
                 channel.readBytes(sequence, reservedBytes);
+                channel.readFlags(flags);
 
                 int dataExtBytes = dataExt.sizeof();
                 if (dataExtBytes != 0)
@@ -246,9 +247,9 @@ public final class NukleusStreamFactory
                         channel.pendingSharedCredit(reservedBytes);
                     }
 
-                    if ((flags & 0x01) != 0x00)
+                    if ((flags & 0x01) != 0x00 || (flags & 0x04) != 0x00)
                     {
-                        message.markWriterIndex(); // FIN
+                        message.markWriterIndex(); // FIN | INCOMPLETE
                         fragments = 0;
                     }
                     else

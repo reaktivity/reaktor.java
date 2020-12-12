@@ -19,10 +19,17 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Properties;
+import java.util.function.Function;
 
+import org.agrona.LangUtil;
 import org.reaktivity.nukleus.Configuration;
 
 public class ReaktorConfiguration extends Configuration
@@ -32,6 +39,7 @@ public class ReaktorConfiguration extends Configuration
     public static final PropertyDef<String> REAKTOR_NAME;
     public static final PropertyDef<String> REAKTOR_DIRECTORY;
     public static final PropertyDef<Path> REAKTOR_CACHE_DIRECTORY;
+    public static final PropertyDef<HostResolver> REAKTOR_HOST_RESOLVER;
     public static final IntPropertyDef REAKTOR_BUDGETS_BUFFER_CAPACITY;
     public static final IntPropertyDef REAKTOR_STREAMS_BUFFER_CAPACITY;
     public static final IntPropertyDef REAKTOR_COMMAND_BUFFER_CAPACITY;
@@ -62,6 +70,8 @@ public class ReaktorConfiguration extends Configuration
         REAKTOR_NAME = config.property("name", "reaktor");
         REAKTOR_DIRECTORY = config.property("directory", ".");
         REAKTOR_CACHE_DIRECTORY = config.property(Path.class, "cache.directory", ReaktorConfiguration::cacheDirectory, "cache");
+        REAKTOR_HOST_RESOLVER = config.property(HostResolver.class, "host.resolver",
+                ReaktorConfiguration::decodeHostResolver, ReaktorConfiguration::defaultHostResolver);
         REAKTOR_BUDGETS_BUFFER_CAPACITY = config.property("budgets.buffer.capacity", 1024 * 1024);
         REAKTOR_STREAMS_BUFFER_CAPACITY = config.property("streams.buffer.capacity", 1024 * 1024);
         REAKTOR_COMMAND_BUFFER_CAPACITY = config.property("command.buffer.capacity", 1024 * 1024);
@@ -236,6 +246,11 @@ public class ReaktorConfiguration extends Configuration
         return REAKTOR_CREDITOR_CHILD_CLEANUP_LINGER_MILLIS.getAsLong(this);
     }
 
+    public Function<String, InetAddress[]> hostResolver()
+    {
+        return REAKTOR_HOST_RESOLVER.get(this)::resolve;
+    }
+
     private static int defaultBufferPoolCapacity(
         Configuration config)
     {
@@ -247,5 +262,69 @@ public class ReaktorConfiguration extends Configuration
         String cacheDirectory)
     {
         return Paths.get(REAKTOR_DIRECTORY.get(config)).resolve(cacheDirectory);
+    }
+
+    @FunctionalInterface
+    private interface HostResolver
+    {
+        InetAddress[] resolve(
+            String name);
+    }
+
+    private static HostResolver decodeHostResolver(
+        Configuration config,
+        String value)
+    {
+        HostResolver resolver = null;
+
+        try
+        {
+            MethodType signature = MethodType.methodType(InetAddress[].class, String.class);
+            String[] parts = value.split("::");
+            Class<?> ownerClass = Class.forName(parts[0]);
+            String methodName = parts[1];
+            MethodHandle method = MethodHandles.publicLookup().findStatic(ownerClass, methodName, signature);
+            resolver = name ->
+            {
+                InetAddress[] addresses = null;
+
+                try
+                {
+                    addresses = (InetAddress[]) method.invoke(name);
+                }
+                catch (Throwable ex)
+                {
+                    LangUtil.rethrowUnchecked(ex);
+                }
+
+                return addresses;
+            };
+        }
+        catch (Throwable ex)
+        {
+            LangUtil.rethrowUnchecked(ex);
+        }
+
+        return resolver;
+    }
+
+    private static HostResolver defaultHostResolver(
+        Configuration config)
+    {
+        return name ->
+        {
+            InetAddress[] addresses = null;
+
+            try
+            {
+                addresses = InetAddress.getAllByName(name);
+            }
+            catch (UnknownHostException ex)
+            {
+                LangUtil.rethrowUnchecked(ex);
+            }
+
+            return addresses;
+        };
     }
 }

@@ -32,7 +32,8 @@ public class ReadNullDataHandler extends AbstractEventHandler
     }
 
     @Override
-    protected StringBuilder describe(StringBuilder sb)
+    protected StringBuilder describe(
+        StringBuilder sb)
     {
         return sb.append("read data.null");
     }
