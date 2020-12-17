@@ -466,8 +466,12 @@ public class ElektronAgent implements Agent
                 final FlushFW flush = flushRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                         .routeId(0L)
                         .streamId(0L)
+                        .sequence(0L)
+                        .acknowledge(0L)
+                        .maximum(0)
                         .traceId(traceId)
                         .budgetId(budgetId)
+                        .reserved(0)
                         .build();
 
                 writer.accept(flush.typeId(), flush.buffer(), flush.offset(), flush.sizeof());
