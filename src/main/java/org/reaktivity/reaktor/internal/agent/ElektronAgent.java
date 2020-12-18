@@ -1223,6 +1223,7 @@ public class ElektronAgent implements Agent
                                      .streamId(streamId)
                                      .sequence(-1L)
                                      .acknowledge(-1L)
+                                     .maximum(0)
                                      .build();
 
         stream.accept(abort.typeId(), abort.buffer(), abort.offset(), abort.sizeof());
