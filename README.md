@@ -12,8 +12,8 @@
 mvnw.cmd clean install
 ```
 
-[build-status-image]: https://travis-ci.com/reaktivity/reaktor.java.svg?branch=develop
-[build-status]: https://travis-ci.com/reaktivity/reaktor.java
+[build-status-image]: https://github.com/reaktivity/reaktor.java/workflows/build/badge.svg
+[build-status]: https://github.com/reaktivity/reaktor.java/actions
 [code-coverage-image]: https://codecov.io/gh/reaktivity/reaktor.java/branch/develop/graph/badge.svg
 [code-coverage]: https://codecov.io/gh/reaktivity/reaktor.java
 
