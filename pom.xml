@@ -188,7 +188,7 @@
                       <message>No Snapshots Allowed!</message>
                     </requireReleaseDeps>
                     <requireJavaVersion>
-                      <version>[9,10)</version>
+                      <version>[11,12)</version>
                     </requireJavaVersion>
                   </rules>
                 </configuration>
@@ -210,7 +210,7 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-javadoc-plugin</artifactId>
-            <version>3.0.0-M1</version>
+            <version>3.2.0</version>
             <executions>
               <execution>
                 <goals>
