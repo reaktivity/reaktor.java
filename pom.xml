@@ -47,7 +47,7 @@
 
     <nukleus.plugin.version>0.64</nukleus.plugin.version>
     <nukleus.spec.version>develop-SNAPSHOT</nukleus.spec.version>
-    <nukleus.version>0.51</nukleus.version>
+    <nukleus.version>0.52</nukleus.version>
     <jmock.version>2.6.0</jmock.version>
     <mockito.version>3.4.6</mockito.version>
     <k3po.version>3.1.0</k3po.version>
@@ -64,6 +64,12 @@
       <groupId>org.reaktivity</groupId>
       <artifactId>nukleus</artifactId>
       <version>${nukleus.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse</groupId>
+      <artifactId>yasson</artifactId>
+      <version>1.0.8</version>
+      <scope>runtime</scope>
     </dependency>
     <dependency>
       <groupId>org.jmock</groupId>
@@ -170,10 +176,7 @@
         <artifactId>maven-checkstyle-plugin</artifactId>
         <version>3.1.0</version>
         <configuration>
-          <sourceDirectories>
-            <sourceDirectory>${project.build.sourceDirectory}</sourceDirectory>
-            <sourceDirectory>${project.build.testSourceDirectory}</sourceDirectory>
-          </sourceDirectories>
+          <includeTestSourceDirectory>true</includeTestSourceDirectory>
         </configuration>
         <executions>
           <execution>
@@ -347,6 +350,9 @@
                     <requireReleaseDeps>
                       <message>No Snapshots Allowed!</message>
                     </requireReleaseDeps>
+                    <requireJavaVersion>
+                      <version>[9,10)</version>
+                    </requireJavaVersion>
                   </rules>
                 </configuration>
               </execution>
