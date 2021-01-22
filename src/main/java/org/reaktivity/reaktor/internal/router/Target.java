@@ -323,6 +323,9 @@ public final class Target implements AutoCloseable
         final ResetFW reset = resetRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                 .routeId(syntheticRouteId)
                 .streamId(streamId)
+                .sequence(-1L)
+                .acknowledge(-1L)
+                .maximum(0)
                 .build();
 
         sender.accept(reset.typeId(), reset.buffer(), reset.offset(), reset.sizeof());

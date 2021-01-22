@@ -125,6 +125,7 @@ public class MultipleStreamsIT
         private final RouteFW routeRO = new RouteFW();
 
         private final BeginFW beginRO = new BeginFW();
+        private final EndFW endRO = new EndFW();
         private final WindowFW windowRO = new WindowFW();
 
         private final BeginFW.Builder beginRW = new BeginFW.Builder();
@@ -134,22 +135,38 @@ public class MultipleStreamsIT
         private MessageConsumer acceptReply1;
         private long acceptRouteId1;
         private long acceptInitialId1;
+        private long acceptInitialSeq1;
+        private long acceptInitialAck1;
         private long acceptReplyId1;
+        private long acceptReplySeq1;
+        private long acceptReplyAck1;
 
         private MessageConsumer connectInitial1;
         private long connectRouteId1;
         private long connectInitialId1;
+        private long connectInitialSeq1;
+        private long connectInitialAck1;
         private long connectReplyId1;
+        private long connectReplySeq1;
+        private long connectReplyAck1;
 
         private MessageConsumer acceptReply2;
         private long acceptRouteId2;
         private long acceptInitialId2;
+        private long acceptInitialSeq2;
+        private long acceptInitialAck2;
         private long acceptReplyId2;
+        private long acceptReplySeq2;
+        private long acceptReplyAck2;
 
         private MessageConsumer connectInitial2;
         private long connectRouteId2;
         private long connectInitialId2;
+        private long connectInitialSeq2;
+        private long connectInitialAck2;
         private long connectReplyId2;
+        private long connectReplySeq2;
+        private long connectReplyAck2;
 
         @SuppressWarnings("unchecked")
         public ExampleNukleusFactorySpi()
@@ -225,6 +242,7 @@ public class MultipleStreamsIT
                 final BeginFW begin = beginRO.wrap(buffer, index, index + length);
                 final long routeId = begin.routeId();
                 final long authorization = begin.authorization();
+                final int maximum = begin.maximum();
 
                 final RouteManager router = routerRef.getValue();
                 MessagePredicate filter = (m, b, i, l) -> true;
@@ -246,8 +264,8 @@ public class MultipleStreamsIT
 
                     connectInitial1 = router.supplyReceiver(connectInitialId1);
 
-                    doBegin(connectInitial1, connectRouteId1, connectInitialId1,
-                            begin.authorization());
+                    doBegin(connectInitial1, connectRouteId1, connectInitialId1, 0L, 0L,
+                            begin.authorization(), maximum);
                     router.setThrottle(connectInitialId1, connectReply1);
                 }
 
@@ -263,24 +281,39 @@ public class MultipleStreamsIT
 
                 final WindowFW window = windowRO.wrap(buffer, index, index + length);
                 final long budgetId = window.budgetId();
-                final int credit = window.credit();
+                final int maximum = window.maximum();
                 final int padding = window.padding();
 
-                doWindow(acceptReply1, acceptRouteId1, acceptInitialId1, budgetId, credit, padding);
+                doWindow(acceptReply1, acceptRouteId1, acceptInitialId1, acceptInitialSeq1, acceptInitialAck1,
+                        budgetId, maximum, padding);
                 return null;
             }
             ).when(connectReply1).accept(eq(WindowFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
 
             doAnswer(invocation ->
             {
-                doEnd(connectInitial1, connectRouteId1, connectInitialId1);
+                final DirectBuffer buffer = invocation.getArgument(1);
+                final int index = invocation.getArgument(2);
+                final int length = invocation.getArgument(3);
+
+                final EndFW end = endRO.wrap(buffer, index, index + length);
+                final int maximum = end.maximum();
+
+                doEnd(connectInitial1, connectRouteId1, connectInitialId1, connectInitialSeq1, connectInitialAck1, maximum);
                 return null;
             }
             ).when(acceptInitial1).accept(eq(EndFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
 
             doAnswer(invocation ->
             {
-                doBegin(acceptReply1, acceptRouteId1, acceptReplyId1, 0L);
+                final DirectBuffer buffer = invocation.getArgument(1);
+                final int index = invocation.getArgument(2);
+                final int length = invocation.getArgument(3);
+
+                final BeginFW begin = beginRO.wrap(buffer, index, index + length);
+                final int maximum = begin.maximum();
+
+                doBegin(acceptReply1, acceptRouteId1, acceptReplyId1, acceptReplySeq1, acceptReplyAck1, 0L, maximum);
                 final RouteManager router = routerRef.getValue();
                 router.setThrottle(acceptReplyId1, acceptInitial1);
                 return null;
@@ -295,17 +328,25 @@ public class MultipleStreamsIT
 
                 final WindowFW window = windowRO.wrap(buffer, index, index + length);
                 final long budgetId = window.budgetId();
-                final int credit = window.credit();
+                final int maximum = window.maximum();
                 final int padding = window.padding();
 
-                doWindow(connectInitial1, connectRouteId1, connectReplyId1, budgetId, credit, padding);
+                doWindow(connectInitial1, connectRouteId1, connectReplyId1, connectReplySeq1, connectReplyAck1,
+                        budgetId, maximum, padding);
                 return null;
             }
             ).when(acceptInitial1).accept(eq(WindowFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
 
             doAnswer(invocation ->
             {
-                doEnd(acceptReply1, acceptRouteId1, acceptReplyId1);
+                final DirectBuffer buffer = invocation.getArgument(1);
+                final int index = invocation.getArgument(2);
+                final int length = invocation.getArgument(3);
+
+                final EndFW end = endRO.wrap(buffer, index, index + length);
+                final int maximum = end.maximum();
+
+                doEnd(acceptReply1, acceptRouteId1, acceptReplyId1, acceptReplySeq1, acceptReplyAck1, maximum);
                 return null;
             }
             ).when(connectReply1).accept(eq(EndFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
@@ -320,6 +361,7 @@ public class MultipleStreamsIT
 
                 final long routeId = begin.routeId();
                 final long authorization = begin.authorization();
+                final int maximum = begin.maximum();
 
                 final RouteManager router = routerRef.getValue();
                 MessagePredicate filter = (m, b, i, l) -> true;
@@ -341,8 +383,8 @@ public class MultipleStreamsIT
 
                     connectInitial2 = router.supplyReceiver(connectInitialId2);
 
-                    doBegin(connectInitial2, connectRouteId2, connectInitialId2,
-                            begin.authorization());
+                    doBegin(connectInitial2, connectRouteId2, connectInitialId2, connectInitialSeq1, connectInitialAck1,
+                            begin.authorization(), maximum);
                     router.setThrottle(connectInitialId2, connectReply2);
                 }
                 return null;
@@ -357,24 +399,39 @@ public class MultipleStreamsIT
 
                 final WindowFW window = windowRO.wrap(buffer, index, index + length);
                 final long budgetId = window.budgetId();
-                final int credit = window.credit();
+                final int maximum = window.maximum();
                 final int padding = window.padding();
 
-                doWindow(acceptReply2, acceptRouteId2, acceptInitialId2, budgetId, credit, padding);
+                doWindow(acceptReply2, acceptRouteId2, acceptInitialId2, acceptInitialSeq2, acceptInitialAck2,
+                        budgetId, maximum, padding);
                 return null;
             }
             ).when(connectReply2).accept(eq(WindowFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
 
             doAnswer(invocation ->
             {
-                doEnd(connectInitial2, connectRouteId2, connectInitialId2);
+                final DirectBuffer buffer = invocation.getArgument(1);
+                final int index = invocation.getArgument(2);
+                final int length = invocation.getArgument(3);
+
+                final EndFW end = endRO.wrap(buffer, index, index + length);
+                final int maximum = end.maximum();
+
+                doEnd(connectInitial2, connectRouteId2, connectInitialId2, connectInitialSeq2, connectInitialAck2, maximum);
                 return null;
             }
             ).when(acceptInitial2).accept(eq(EndFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
 
             doAnswer(invocation ->
             {
-                doBegin(acceptReply2, acceptRouteId2, acceptReplyId2, 0L);
+                final DirectBuffer buffer = invocation.getArgument(1);
+                final int index = invocation.getArgument(2);
+                final int length = invocation.getArgument(3);
+
+                final BeginFW begin = beginRO.wrap(buffer, index, index + length);
+                final int maximum = begin.maximum();
+
+                doBegin(acceptReply2, acceptRouteId2, acceptReplyId2, acceptReplySeq2, acceptReplyAck2, 0L, maximum);
                 final RouteManager router = routerRef.getValue();
                 router.setThrottle(acceptReplyId2, acceptInitial2);
                 return null;
@@ -388,17 +445,25 @@ public class MultipleStreamsIT
 
                 final WindowFW window = windowRO.wrap(buffer, index, index + length);
                 final long budgetId = window.budgetId();
-                final int credit = window.credit();
+                final int maximum = window.maximum();
                 final int padding = window.padding();
 
-                doWindow(connectInitial2, connectRouteId2, connectReplyId2, budgetId, credit, padding);
+                doWindow(connectInitial2, connectRouteId2, connectReplyId2, connectReplySeq2, connectReplyAck2,
+                        budgetId, maximum, padding);
                 return null;
             }
             ).when(acceptInitial2).accept(eq(WindowFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
 
             doAnswer(invocation ->
             {
-                doEnd(acceptReply2, acceptRouteId2, acceptReplyId2);
+                final DirectBuffer buffer = invocation.getArgument(1);
+                final int index = invocation.getArgument(2);
+                final int length = invocation.getArgument(3);
+
+                final EndFW end = endRO.wrap(buffer, index, index + length);
+                final int maximum = end.maximum();
+
+                doEnd(acceptReply2, acceptRouteId2, acceptReplyId2, acceptReplySeq2, acceptReplyAck2, maximum);
                 return null;
             }
             ).when(connectReply2).accept(eq(EndFW.TYPE_ID), any(DirectBuffer.class), anyInt(), anyInt());
@@ -471,12 +536,18 @@ public class MultipleStreamsIT
             MessageConsumer receiver,
             long routeId,
             long streamId,
-            long authorization)
+            long sequence,
+            long acknowledge,
+            long authorization,
+            int maximum)
         {
             final MutableDirectBuffer writeBuffer = writeBufferRef.getValue();
             final BeginFW begin = beginRW.wrap(writeBuffer,  0, writeBuffer.capacity())
                     .routeId(routeId)
                     .streamId(streamId)
+                    .sequence(sequence)
+                    .acknowledge(acknowledge)
+                    .maximum(maximum)
                     .authorization(authorization)
                     .affinity(0L)
                     .build();
@@ -486,12 +557,18 @@ public class MultipleStreamsIT
         private void doEnd(
             MessageConsumer receiver,
             long routeId,
-            long streamId)
+            long streamId,
+            long sequence,
+            long acknowledge,
+            int maximum)
         {
             final MutableDirectBuffer writeBuffer = writeBufferRef.getValue();
             final EndFW end = endRW.wrap(writeBuffer,  0, writeBuffer.capacity())
                     .routeId(routeId)
                     .streamId(streamId)
+                    .sequence(sequence)
+                    .acknowledge(acknowledge)
+                    .maximum(maximum)
                     .build();
             receiver.accept(end.typeId(), end.buffer(), end.offset(), end.sizeof());
         }
@@ -500,16 +577,20 @@ public class MultipleStreamsIT
             MessageConsumer receiver,
             long routeId,
             long streamId,
+            long sequence,
+            long acknowledge,
             long budgetId,
-            int credit,
+            int maximum,
             int padding)
         {
             final MutableDirectBuffer writeBuffer = writeBufferRef.getValue();
             final WindowFW window = windowRW.wrap(writeBuffer,  0, writeBuffer.capacity())
                     .routeId(routeId)
                     .streamId(streamId)
+                    .sequence(sequence)
+                    .acknowledge(acknowledge)
+                    .maximum(maximum)
                     .budgetId(budgetId)
-                    .credit(credit)
                     .padding(padding)
                     .build();
             receiver.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
