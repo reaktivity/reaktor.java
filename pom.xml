@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.reaktivity</groupId>
   <artifactId>reaktor</artifactId>
-  <version>0.155</version>
+  <version>0.156</version>
   <name>Reaktor for Java Nuklei</name>
   <description>Reaktor for Java Nuklei</description>
   <url>https://github.com/reaktivity/reaktor.java</url>
@@ -35,6 +35,13 @@
     <url>https://github.com/reaktivity/reaktor.java</url>
   </scm>
 
+  <repositories>
+    <repository>
+      <id>github</id>
+      <url>https://maven.pkg.github.com/reaktivity/packages/</url>
+    </repository>
+  </repositories>
+
   <properties>
     <maven.compiler.source>9</maven.compiler.source>
     <maven.compiler.target>9</maven.compiler.target>
@@ -45,9 +52,9 @@
     <jacoco.coverage.ratio>0.65</jacoco.coverage.ratio>
     <jacoco.missed.count>7</jacoco.missed.count>
 
-    <nukleus.plugin.version>0.64</nukleus.plugin.version>
-    <nukleus.spec.version>0.50</nukleus.spec.version>
-    <nukleus.version>0.52</nukleus.version>
+    <nukleus.plugin.version>0.81</nukleus.plugin.version>
+    <nukleus.spec.version>0.54</nukleus.spec.version>
+    <nukleus.version>0.68</nukleus.version>
     <jmock.version>2.6.0</jmock.version>
     <mockito.version>3.4.6</mockito.version>
     <k3po.version>3.1.0</k3po.version>
@@ -149,7 +156,7 @@
         <configuration>
           <header>COPYRIGHT</header>
           <properties>
-            <copyrightYears>2016-2020</copyrightYears>
+            <copyrightYears>2016-2021</copyrightYears>
           </properties>
           <includes>
             <include>src/**</include>
@@ -322,14 +329,15 @@
       <id>release</id>
 
       <distributionManagement>
-        <snapshotRepository>
-          <id>ossrh</id>
-          <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-        </snapshotRepository>
+        <downloadUrl>https://maven.pkg.github.com/reaktivity/reaktor.java/</downloadUrl>
         <repository>
-          <id>ossrh</id>
-          <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+          <id>github</id>
+          <url>https://maven.pkg.github.com/reaktivity/reaktor.java/</url>
         </repository>
+        <snapshotRepository>
+          <id>github</id>
+          <url>https://maven.pkg.github.com/reaktivity/reaktor.java/</url>
+        </snapshotRepository>
       </distributionManagement>
 
       <build>
@@ -351,7 +359,7 @@
                       <message>No Snapshots Allowed!</message>
                     </requireReleaseDeps>
                     <requireJavaVersion>
-                      <version>[9,10)</version>
+                      <version>[11,12)</version>
                     </requireJavaVersion>
                   </rules>
                 </configuration>
@@ -373,7 +381,7 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-javadoc-plugin</artifactId>
-            <version>3.0.0-M1</version>
+            <version>3.2.0</version>
             <executions>
               <execution>
                 <goals>
@@ -381,6 +389,119 @@
                 </goals>
               </execution>
             </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <profile>
+      <id>github.packages</id>
+
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-dependency-plugin</artifactId>
+            <version>3.1.2</version>
+            <configuration>
+              <outputDirectory>${project.build.directory}</outputDirectory>
+              <overWriteReleases>true</overWriteReleases>
+              <artifactItems>
+                <artifact>
+                  <groupId>${project.groupId}</groupId>
+                  <artifactId>${project.artifactId}</artifactId>
+                  <version>${project.version}</version>
+                  <type>pom</type>
+                </artifact>
+                <artifact>
+                  <groupId>${project.groupId}</groupId>
+                  <artifactId>${project.artifactId}</artifactId>
+                  <version>${project.version}</version>
+                </artifact>
+                <artifact>
+                  <groupId>${project.groupId}</groupId>
+                  <artifactId>${project.artifactId}</artifactId>
+                  <version>${project.version}</version>
+                  <classifier>sources</classifier>
+                </artifact>
+                <artifact>
+                  <groupId>${project.groupId}</groupId>
+                  <artifactId>${project.artifactId}</artifactId>
+                  <version>${project.version}</version>
+                  <classifier>javadoc</classifier>
+                </artifact>
+                <artifact>
+                  <groupId>${project.groupId}</groupId>
+                  <artifactId>${project.artifactId}</artifactId>
+                  <version>${project.version}</version>
+                  <classifier>tests</classifier>
+                </artifact>
+              </artifactItems>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <profile>
+      <id>ossrh</id>
+
+      <distributionManagement>
+        <snapshotRepository>
+          <id>ossrh</id>
+          <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+        </snapshotRepository>
+        <repository>
+          <id>ossrh</id>
+          <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+        </repository>
+      </distributionManagement>
+
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>com.github.genthaler</groupId>
+            <artifactId>beanshell-maven-plugin</artifactId>
+            <version>1.4</version>
+            <configuration>
+              <script>
+                <![CDATA[
+                project.getArtifact().setFile(new java.io.File(project.getBuild().getDirectory(), project.getBuild().getFinalName() + ".jar"));
+                ]]>
+              </script>
+            </configuration>
+          </plugin>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>build-helper-maven-plugin</artifactId>
+            <version>3.2.0</version>
+            <configuration>
+              <artifacts>
+                <artifact>
+                  <classifier>sources</classifier>
+                  <file>${project.build.directory}/${project.artifactId}-${project.version}-sources.jar</file>
+                </artifact>
+                <artifact>
+                  <classifier>javadoc</classifier>
+                  <file>${project.build.directory}/${project.artifactId}-${project.version}-javadoc.jar</file>
+                </artifact>
+                <artifact>
+                  <classifier>tests</classifier>
+                  <file>${project.build.directory}/${project.artifactId}-${project.version}-tests.jar</file>
+                </artifact>
+              </artifacts>
+            </configuration>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-gpg-plugin</artifactId>
+            <version>1.6</version>
+            <configuration>
+              <gpgArguments>
+                <arg>--pinentry-mode</arg>
+                <arg>loopback</arg>
+              </gpgArguments>
+            </configuration>
           </plugin>
           <plugin>
             <groupId>org.sonatype.plugins</groupId>
@@ -392,18 +513,6 @@
               <nexusUrl>https://oss.sonatype.org/</nexusUrl>
               <autoReleaseAfterClose>true</autoReleaseAfterClose>
             </configuration>
-          </plugin>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-gpg-plugin</artifactId>
-            <version>1.6</version>
-            <executions>
-              <execution>
-                <goals>
-                  <goal>sign</goal>
-                </goals>
-              </execution>
-            </executions>
           </plugin>
         </plugins>
       </build>
