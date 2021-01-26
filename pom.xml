@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.reaktivity</groupId>
   <artifactId>reaktor</artifactId>
-  <version>0.158</version>
+  <version>0.159</version>
   <name>Reaktor for Java Nuklei</name>
   <description>Reaktor for Java Nuklei</description>
   <url>https://github.com/reaktivity/reaktor.java</url>
@@ -52,9 +52,9 @@
     <jacoco.coverage.ratio>0.65</jacoco.coverage.ratio>
     <jacoco.missed.count>7</jacoco.missed.count>
 
-    <nukleus.plugin.version>0.81</nukleus.plugin.version>
-    <nukleus.spec.version>0.54</nukleus.spec.version>
-    <nukleus.version>0.68</nukleus.version>
+    <nukleus.plugin.version>0.82</nukleus.plugin.version>
+    <nukleus.spec.version>0.55</nukleus.spec.version>
+    <nukleus.version>0.69</nukleus.version>
     <jmock.version>2.6.0</jmock.version>
     <mockito.version>3.4.6</mockito.version>
     <k3po.version>3.1.0</k3po.version>
@@ -359,7 +359,7 @@
                       <message>No Snapshots Allowed!</message>
                     </requireReleaseDeps>
                     <requireJavaVersion>
-                      <version>[11,12)</version>
+                      <version>[13,14)</version>
                     </requireJavaVersion>
                   </rules>
                 </configuration>
@@ -380,8 +380,31 @@
           </plugin>
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-antrun-plugin</artifactId>
+            <version>3.0.0</version>
+            <executions>
+              <execution>
+                <phase>package</phase>
+                <configuration>
+                  <target>
+                    <mkdir dir="${project.build.directory}/apidocs" />
+                  </target>
+                </configuration>
+                <goals>
+                  <goal>run</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-javadoc-plugin</artifactId>
             <version>3.2.0</version>
+            <configuration>
+              <sourceFileExcludes>
+                <exclude>**/internal/**/*.java</exclude>
+              </sourceFileExcludes>
+            </configuration>
             <executions>
               <execution>
                 <goals>
