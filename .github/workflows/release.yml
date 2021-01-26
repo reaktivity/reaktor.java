@@ -45,6 +45,7 @@ jobs:
         gpg-private-key: ${{ secrets.OSSRH_SIGNER_KEY }}
         gpg-passphrase: OSSRH_SIGNER_PASSPHRASE
     - name: Deploy to Maven Central
+      id: deploy
       continue-on-error: true
       run: ./mvnw -B -Possrh com.github.genthaler:beanshell-maven-plugin:run build-helper:attach-artifact gpg:sign nexus-staging:deploy
       env:
@@ -60,7 +61,7 @@ jobs:
         custom_payload: |
           {
             attachments: [{
-              color: '${{ job.status }}' === 'success' ? 'good' : '${{ job.status }}' === 'failure' ? 'danger' : 'warning',
+              color: '${{ steps.deploy.outcome }}' === 'success' ? 'good' : '${{ steps.deploy.outcome }}' === 'failure' ? 'danger' : 'warning',
               text: `${process.env.AS_JOB} of ${process.env.AS_REPO} (${process.env.GITHUB_REF.replace(/refs\/tags\//, '')}) by ${process.env.AS_AUTHOR.replace(/\<.*\>/, '')} completed in ${process.env.AS_TOOK}`,
             }]
           }
