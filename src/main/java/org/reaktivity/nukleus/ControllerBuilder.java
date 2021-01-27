@@ -13,19 +13,16 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-module org.reaktivity.reaktor
+package org.reaktivity.nukleus;
+
+import java.util.function.Function;
+
+public interface ControllerBuilder<T extends Controller>
 {
-    exports org.reaktivity.reaktor;
+    Class<T> kind();
 
-    requires transitive org.agrona.core;
-    requires transitive jdk.unsupported;
+    ControllerBuilder<T> setFactory(
+        Function<ControllerSpi, T> factory);
 
-    exports org.reaktivity.nukleus;
-    exports org.reaktivity.nukleus.buffer;
-    exports org.reaktivity.nukleus.function;
-    exports org.reaktivity.nukleus.route;
-    exports org.reaktivity.nukleus.stream;
-
-    uses org.reaktivity.nukleus.NukleusFactorySpi;
-    uses org.reaktivity.nukleus.ControllerFactorySpi;
+    T build();
 }

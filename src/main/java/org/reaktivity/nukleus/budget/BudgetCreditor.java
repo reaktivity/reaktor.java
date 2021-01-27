@@ -13,19 +13,27 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-module org.reaktivity.reaktor
+package org.reaktivity.nukleus.budget;
+
+public interface BudgetCreditor
 {
-    exports org.reaktivity.reaktor;
+    long NO_CREDITOR_INDEX = -1L;
+    long NO_BUDGET_ID = 0;
 
-    requires transitive org.agrona.core;
-    requires transitive jdk.unsupported;
+    long acquire(
+        long budgetId);
 
-    exports org.reaktivity.nukleus;
-    exports org.reaktivity.nukleus.buffer;
-    exports org.reaktivity.nukleus.function;
-    exports org.reaktivity.nukleus.route;
-    exports org.reaktivity.nukleus.stream;
+    long credit(
+        long traceId,
+        long budgetIndex,
+        long credit);
 
-    uses org.reaktivity.nukleus.NukleusFactorySpi;
-    uses org.reaktivity.nukleus.ControllerFactorySpi;
+    void release(
+        long budgetIndex);
+
+    long supplyChild(
+        long budgetId);
+
+    void cleanupChild(
+        long budgetId);
 }

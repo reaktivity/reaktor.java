@@ -13,19 +13,22 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-module org.reaktivity.reaktor
+package org.reaktivity.nukleus.route;
+
+import org.reaktivity.nukleus.function.MessageConsumer;
+
+public interface Address extends AutoCloseable
 {
-    exports org.reaktivity.reaktor;
+    String name();
 
-    requires transitive org.agrona.core;
-    requires transitive jdk.unsupported;
+    String nukleus();
 
-    exports org.reaktivity.nukleus;
-    exports org.reaktivity.nukleus.buffer;
-    exports org.reaktivity.nukleus.function;
-    exports org.reaktivity.nukleus.route;
-    exports org.reaktivity.nukleus.stream;
+    default void close()
+    {
+    }
 
-    uses org.reaktivity.nukleus.NukleusFactorySpi;
-    uses org.reaktivity.nukleus.ControllerFactorySpi;
+    default MessageConsumer routeHandler()
+    {
+        return (t, b, i, l) -> {};
+    }
 }

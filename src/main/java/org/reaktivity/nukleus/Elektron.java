@@ -13,19 +13,29 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-module org.reaktivity.reaktor
+package org.reaktivity.nukleus;
+
+import org.agrona.concurrent.Agent;
+import org.reaktivity.nukleus.route.AddressFactoryBuilder;
+import org.reaktivity.nukleus.route.RouteKind;
+import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
+
+public interface Elektron
 {
-    exports org.reaktivity.reaktor;
+    default StreamFactoryBuilder streamFactoryBuilder(
+        RouteKind kind)
+    {
+        return null;
+    }
 
-    requires transitive org.agrona.core;
-    requires transitive jdk.unsupported;
+    default AddressFactoryBuilder addressFactoryBuilder(
+        RouteKind kind)
+    {
+        return null;
+    }
 
-    exports org.reaktivity.nukleus;
-    exports org.reaktivity.nukleus.buffer;
-    exports org.reaktivity.nukleus.function;
-    exports org.reaktivity.nukleus.route;
-    exports org.reaktivity.nukleus.stream;
-
-    uses org.reaktivity.nukleus.NukleusFactorySpi;
-    uses org.reaktivity.nukleus.ControllerFactorySpi;
+    default Agent agent()
+    {
+        return null;
+    }
 }

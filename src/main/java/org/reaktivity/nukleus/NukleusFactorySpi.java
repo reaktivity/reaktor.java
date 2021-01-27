@@ -13,19 +13,12 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-module org.reaktivity.reaktor
+package org.reaktivity.nukleus;
+
+public interface NukleusFactorySpi
 {
-    exports org.reaktivity.reaktor;
+    String name();
 
-    requires transitive org.agrona.core;
-    requires transitive jdk.unsupported;
-
-    exports org.reaktivity.nukleus;
-    exports org.reaktivity.nukleus.buffer;
-    exports org.reaktivity.nukleus.function;
-    exports org.reaktivity.nukleus.route;
-    exports org.reaktivity.nukleus.stream;
-
-    uses org.reaktivity.nukleus.NukleusFactorySpi;
-    uses org.reaktivity.nukleus.ControllerFactorySpi;
+    Nukleus create(
+        Configuration config);
 }
