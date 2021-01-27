@@ -13,19 +13,21 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-module org.reaktivity.reaktor
+package org.reaktivity.nukleus.concurrent;
+
+import java.util.function.IntConsumer;
+
+public interface Signaler
 {
-    exports org.reaktivity.reaktor;
+    long NO_CANCEL_ID = 0xffff_ffff_ffff_ffffL;
 
-    requires transitive org.agrona.core;
-    requires transitive jdk.unsupported;
+    long signalAt(long timeMillis, int signalId, IntConsumer handler);
 
-    exports org.reaktivity.nukleus;
-    exports org.reaktivity.nukleus.buffer;
-    exports org.reaktivity.nukleus.function;
-    exports org.reaktivity.nukleus.route;
-    exports org.reaktivity.nukleus.stream;
+    void signalNow(long routeId, long streamId, int signalId);
 
-    uses org.reaktivity.nukleus.NukleusFactorySpi;
-    uses org.reaktivity.nukleus.ControllerFactorySpi;
+    long signalAt(long timeMillis, long routeId, long streamId, int signalId);
+
+    long signalTask(Runnable task, long routeId, long streamId, int signalId);
+
+    boolean cancel(long cancelId);
 }

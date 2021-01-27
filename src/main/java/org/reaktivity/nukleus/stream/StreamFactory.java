@@ -13,19 +13,17 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-module org.reaktivity.reaktor
+package org.reaktivity.nukleus.stream;
+
+import org.agrona.DirectBuffer;
+import org.reaktivity.nukleus.function.MessageConsumer;
+
+public interface StreamFactory
 {
-    exports org.reaktivity.reaktor;
-
-    requires transitive org.agrona.core;
-    requires transitive jdk.unsupported;
-
-    exports org.reaktivity.nukleus;
-    exports org.reaktivity.nukleus.buffer;
-    exports org.reaktivity.nukleus.function;
-    exports org.reaktivity.nukleus.route;
-    exports org.reaktivity.nukleus.stream;
-
-    uses org.reaktivity.nukleus.NukleusFactorySpi;
-    uses org.reaktivity.nukleus.ControllerFactorySpi;
+    MessageConsumer newStream(
+        int msgTypeId,
+        DirectBuffer buffer,
+        int index,
+        int length,
+        MessageConsumer throttle);
 }

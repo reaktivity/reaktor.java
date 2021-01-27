@@ -13,19 +13,14 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-module org.reaktivity.reaktor
+package org.reaktivity.nukleus.concurrent;
+
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+
+public interface SignalingExecutor
 {
-    exports org.reaktivity.reaktor;
+    Future<?> schedule(long delay, TimeUnit unit, long routeId, long streamId, long signalId);
 
-    requires transitive org.agrona.core;
-    requires transitive jdk.unsupported;
-
-    exports org.reaktivity.nukleus;
-    exports org.reaktivity.nukleus.buffer;
-    exports org.reaktivity.nukleus.function;
-    exports org.reaktivity.nukleus.route;
-    exports org.reaktivity.nukleus.stream;
-
-    uses org.reaktivity.nukleus.NukleusFactorySpi;
-    uses org.reaktivity.nukleus.ControllerFactorySpi;
+    Future<?> execute(Runnable task, long routeId, long streamId, long signalId);
 }

@@ -13,19 +13,29 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-module org.reaktivity.reaktor
+package org.reaktivity.nukleus.function;
+
+import org.agrona.DirectBuffer;
+import org.agrona.MutableDirectBuffer;
+import org.agrona.concurrent.MessageHandler;
+
+@FunctionalInterface
+public interface MessageConsumer extends MessageHandler, AutoCloseable
 {
-    exports org.reaktivity.reaktor;
+    void accept(int msgTypeId, DirectBuffer buffer, int index, int length);
 
-    requires transitive org.agrona.core;
-    requires transitive jdk.unsupported;
+    @Override
+    default void onMessage(
+        int msgTypeId,
+        MutableDirectBuffer buffer,
+        int index,
+        int length)
+    {
+        accept(msgTypeId, buffer, index, length);
+    }
 
-    exports org.reaktivity.nukleus;
-    exports org.reaktivity.nukleus.buffer;
-    exports org.reaktivity.nukleus.function;
-    exports org.reaktivity.nukleus.route;
-    exports org.reaktivity.nukleus.stream;
-
-    uses org.reaktivity.nukleus.NukleusFactorySpi;
-    uses org.reaktivity.nukleus.ControllerFactorySpi;
+    @Override
+    default void close() throws Exception
+    {
+    }
 }

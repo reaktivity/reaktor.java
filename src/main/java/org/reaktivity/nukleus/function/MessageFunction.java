@@ -13,19 +13,12 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-module org.reaktivity.reaktor
+package org.reaktivity.nukleus.function;
+
+import org.agrona.DirectBuffer;
+
+@FunctionalInterface
+public interface MessageFunction<R>
 {
-    exports org.reaktivity.reaktor;
-
-    requires transitive org.agrona.core;
-    requires transitive jdk.unsupported;
-
-    exports org.reaktivity.nukleus;
-    exports org.reaktivity.nukleus.buffer;
-    exports org.reaktivity.nukleus.function;
-    exports org.reaktivity.nukleus.route;
-    exports org.reaktivity.nukleus.stream;
-
-    uses org.reaktivity.nukleus.NukleusFactorySpi;
-    uses org.reaktivity.nukleus.ControllerFactorySpi;
+    R apply(int msgTypeId, DirectBuffer buffer, int index, int length);
 }
