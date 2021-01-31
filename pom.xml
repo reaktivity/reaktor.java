@@ -191,11 +191,7 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>3.0.0-M5</version>
         <configuration>
-          <javaOptions>
-            <additionalOptions>
-              <jacoco>${jacoco.java.option}</jacoco>
-            </additionalOptions>
-          </javaOptions>
+          <argLine>@{jacoco.java.option}</argLine>
         </configuration>
       </plugin>
       <plugin>
@@ -203,11 +199,7 @@
         <artifactId>maven-failsafe-plugin</artifactId>
         <version>3.0.0-M4</version>
         <configuration>
-          <javaOptions>
-            <additionalOptions>
-              <jacoco>${jacoco.java.option}</jacoco>
-            </additionalOptions>
-          </javaOptions>
+          <argLine>@{jacoco.java.option}</argLine>
         </configuration>
       </plugin>
     </plugins>
