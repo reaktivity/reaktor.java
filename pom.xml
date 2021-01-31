@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.reaktivity</groupId>
   <artifactId>reaktor</artifactId>
-  <version>0.161</version>
+  <version>0.162</version>
   <name>Reaktor for Java Nuklei</name>
   <description>Reaktor for Java Nuklei</description>
   <url>https://github.com/reaktivity/reaktor.java</url>
@@ -52,8 +52,8 @@
     <jacoco.coverage.ratio>0.65</jacoco.coverage.ratio>
     <jacoco.missed.count>15</jacoco.missed.count>
 
-    <nukleus.plugin.version>0.82</nukleus.plugin.version>
-    <nukleus.spec.version>0.55</nukleus.spec.version>
+    <nukleus.plugin.version>0.85</nukleus.plugin.version>
+    <nukleus.spec.version>0.57</nukleus.spec.version>
     <jmock.version>2.6.0</jmock.version>
     <mockito.version>3.4.6</mockito.version>
     <k3po.version>3.1.0</k3po.version>
@@ -282,6 +282,7 @@
         <artifactId>jacoco-maven-plugin</artifactId>
         <version>0.8.6</version>
         <configuration>
+          <propertyName>jacoco.java.option</propertyName>
           <excludes>
             <exclude>org/reaktivity/reaktor/internal/types/**/*.class</exclude>
             <exclude>org/reaktivity/reaktor/test/internal/k3po/ext/types/**/*.class</exclude>
@@ -314,27 +315,35 @@
         </executions>
       </plugin>
       <plugin>
+        <groupId>org.moditect</groupId>
+        <artifactId>moditect-maven-plugin</artifactId>
+        <version>1.0.0.RC1</version>
+        <configuration>
+          <module>
+            <moduleInfoFile>src/main/moditect/module-info.java</moduleInfoFile>
+          </module>
+        </configuration>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>add-module-info</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
-        <version>2.22.1</version>
+        <version>3.0.0-M5</version>
         <configuration>
-          <argLine>@{argLine}</argLine>
-          <excludes>
-            <exclude/>
-          </excludes>
+          <argLine>@{jacoco.java.option}</argLine>
         </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-jar-plugin</artifactId>
         <version>3.0.2</version>
-        <configuration>
-          <archive>
-            <manifestEntries>
-              <Automatic-Module-Name>org.reaktivity.reaktor</Automatic-Module-Name>
-          </manifestEntries>
-        </archive>
-        </configuration>
         <executions>
           <execution>
             <goals>
@@ -360,9 +369,9 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-failsafe-plugin</artifactId>
-        <version>2.22.1</version>
+        <version>3.0.0-M4</version>
         <configuration>
-          <argLine>@{argLine}</argLine>
+          <argLine>@{jacoco.java.option}</argLine>
         </configuration>
         <executions>
           <execution>
@@ -414,6 +423,47 @@
         </executions>
       </plugin>
     </plugins>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.eclipse.m2e</groupId>
+          <artifactId>lifecycle-mapping</artifactId>
+          <version>1.0.0</version>
+          <configuration>
+            <lifecycleMappingMetadata>
+              <pluginExecutions>
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                    <groupId>org.jasig.maven</groupId>
+                    <artifactId>maven-notice-plugin</artifactId>
+                    <versionRange>[1.1.0,)</versionRange>
+                    <goals>
+                      <goal>check</goal>
+                    </goals>
+                  </pluginExecutionFilter>
+                  <action>
+                    <ignore></ignore>
+                  </action>
+                </pluginExecution>
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                    <groupId>org.moditect</groupId>
+                    <artifactId>moditect-maven-plugin</artifactId>
+                    <versionRange>[1.0.0.RC1,)</versionRange>
+                    <goals>
+                      <goal>add-module-info</goal>
+                    </goals>
+                  </pluginExecutionFilter>
+                  <action>
+                    <ignore></ignore>
+                  </action>
+                </pluginExecution>
+              </pluginExecutions>
+            </lifecycleMappingMetadata>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
   </build>
 
   <profiles>
