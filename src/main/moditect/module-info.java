@@ -15,4 +15,17 @@
  */
 module org.reaktivity.reaktor
 {
+    exports org.reaktivity.reaktor;
+
+    requires transitive org.agrona.core;
+    requires transitive jdk.unsupported;
+
+    exports org.reaktivity.nukleus;
+    exports org.reaktivity.nukleus.buffer;
+    exports org.reaktivity.nukleus.function;
+    exports org.reaktivity.nukleus.route;
+    exports org.reaktivity.nukleus.stream;
+
+    uses org.reaktivity.nukleus.NukleusFactorySpi;
+    uses org.reaktivity.nukleus.ControllerFactorySpi;
 }
