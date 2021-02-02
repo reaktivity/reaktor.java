@@ -25,7 +25,6 @@ import java.util.function.ToIntFunction;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.concurrent.Agent;
 import org.reaktivity.nukleus.buffer.BufferPool;
-import org.reaktivity.nukleus.concurrent.SignalingExecutor;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.route.RouteManager;
 import org.reaktivity.nukleus.stream.StreamFactory;
@@ -34,12 +33,6 @@ public interface AgentBuilder
 {
     default AgentBuilder setRouteManager(
         RouteManager router)
-    {
-        return this;
-    }
-
-    default AgentBuilder setExecutor(
-        SignalingExecutor executor)
     {
         return this;
     }
