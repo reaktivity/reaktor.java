@@ -16,9 +16,13 @@
 module org.reaktivity.reaktor
 {
     exports org.reaktivity.reaktor;
+    exports org.reaktivity.reaktor.config;
 
     requires transitive org.agrona.core;
     requires transitive jdk.unsupported;
+
+    uses org.reaktivity.reaktor.config.ConditionAdapterSpi;
+    uses org.reaktivity.reaktor.config.OptionsAdapterSpi;
 
     exports org.reaktivity.nukleus;
     exports org.reaktivity.nukleus.buffer;
