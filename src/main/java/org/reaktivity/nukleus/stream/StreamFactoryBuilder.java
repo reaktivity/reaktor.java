@@ -30,7 +30,6 @@ import org.reaktivity.nukleus.budget.BudgetCreditor;
 import org.reaktivity.nukleus.budget.BudgetDebitor;
 import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.concurrent.Signaler;
-import org.reaktivity.nukleus.concurrent.SignalingExecutor;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.route.RouteManager;
 
@@ -38,13 +37,6 @@ public interface StreamFactoryBuilder
 {
     default StreamFactoryBuilder setRouteManager(
         RouteManager router)
-    {
-        return this;
-    }
-
-    @Deprecated
-    default StreamFactoryBuilder setExecutor(
-        SignalingExecutor executor)
     {
         return this;
     }
