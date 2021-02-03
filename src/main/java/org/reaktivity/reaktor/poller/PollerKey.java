@@ -13,32 +13,24 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.nukleus;
+package org.reaktivity.reaktor.poller;
 
 import java.nio.channels.SelectableChannel;
-import java.util.function.Function;
+import java.util.function.ToIntFunction;
 
-import org.reaktivity.nukleus.route.AddressFactoryBuilder;
-import org.reaktivity.nukleus.route.RouteKind;
-import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
-import org.reaktivity.reaktor.poller.PollerKey;
-
-public interface Elektron
+public interface PollerKey
 {
-    default void setPollerKeySupplier(
-        Function<SelectableChannel, PollerKey> supplyPollerKey)
-    {
-    }
+    SelectableChannel channel();
 
-    default StreamFactoryBuilder streamFactoryBuilder(
-        RouteKind kind)
-    {
-        return null;
-    }
+    boolean isValid();
 
-    default AddressFactoryBuilder addressFactoryBuilder(
-        RouteKind kind)
-    {
-        return null;
-    }
+    void register(
+        int registerOps);
+
+    void clear(
+        int clearOps);
+
+    void handler(
+        int handlerOps,
+        ToIntFunction<PollerKey> handler);
 }
