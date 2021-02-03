@@ -16,6 +16,7 @@
 package org.reaktivity.nukleus.stream;
 
 import java.net.InetAddress;
+import java.nio.channels.SelectableChannel;
 import java.util.function.Function;
 import java.util.function.LongConsumer;
 import java.util.function.LongFunction;
@@ -32,6 +33,7 @@ import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.nukleus.concurrent.Signaler;
 import org.reaktivity.nukleus.function.MessageConsumer;
 import org.reaktivity.nukleus.route.RouteManager;
+import org.reaktivity.reaktor.poller.PollerKey;
 
 public interface StreamFactoryBuilder
 {
@@ -127,6 +129,12 @@ public interface StreamFactoryBuilder
 
     default StreamFactoryBuilder setHostResolver(
         Function<String, InetAddress[]> resolver)
+    {
+        return this;
+    }
+
+    default StreamFactoryBuilder setPollerKeySupplier(
+        Function<SelectableChannel, PollerKey> supplyPollerKey)
     {
         return this;
     }
