@@ -57,7 +57,6 @@ import org.agrona.DeadlineTimerWheel;
 import org.agrona.DeadlineTimerWheel.TimerHandler;
 import org.agrona.DirectBuffer;
 import org.agrona.MutableDirectBuffer;
-import org.agrona.collections.ArrayUtil;
 import org.agrona.collections.Int2ObjectHashMap;
 import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.concurrent.Agent;
@@ -68,7 +67,6 @@ import org.agrona.concurrent.ringbuffer.RingBuffer;
 import org.agrona.concurrent.status.AtomicCounter;
 import org.agrona.concurrent.status.CountersManager;
 import org.agrona.hints.ThreadHints;
-import org.reaktivity.nukleus.AgentBuilder;
 import org.reaktivity.nukleus.Elektron;
 import org.reaktivity.nukleus.Nukleus;
 import org.reaktivity.nukleus.budget.BudgetDebitor;
@@ -94,6 +92,7 @@ import org.reaktivity.reaktor.internal.layouts.BudgetsLayout;
 import org.reaktivity.reaktor.internal.layouts.BufferPoolLayout;
 import org.reaktivity.reaktor.internal.layouts.MetricsLayout;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
+import org.reaktivity.reaktor.internal.poller.Poller;
 import org.reaktivity.reaktor.internal.router.Resolver;
 import org.reaktivity.reaktor.internal.router.StreamId;
 import org.reaktivity.reaktor.internal.router.Target;
@@ -174,6 +173,7 @@ public class ElektronAgent implements Agent
     private final Long2ObjectHashMap<Address> addressesByRouteId;
 
     private final RouteManager resolver;
+    private final Poller poller;
 
     private final DefaultBudgetCreditor creditor;
     private final Int2ObjectHashMap<DefaultBudgetDebitor> debitorsByIndex;
@@ -193,10 +193,7 @@ public class ElektronAgent implements Agent
     private long traceId;
     private long budgetId;
 
-    private volatile Agent[] agents;
-
     private long lastReadStreamId;
-
 
     public ElektronAgent(
         int index,
@@ -205,8 +202,7 @@ public class ElektronAgent implements Agent
         LabelManager labels,
         ExecutorService executorService,
         Function<String, BitSet> affinityMask,
-        Supplier<DirectBuffer> routesBufferRef,
-        Supplier<AgentBuilder> supplyAgentBuilder)
+        Supplier<DirectBuffer> routesBufferRef)
     {
         this.reaktorTypeId = labels.supplyLabelId(config.name());
         this.localIndex = index;
@@ -267,7 +263,6 @@ public class ElektronAgent implements Agent
         this.affinityByRemoteId = new Long2ObjectHashMap<>();
         this.targetsByIndex = new Int2ObjectHashMap<>();
         this.writersByIndex = new Int2ObjectHashMap<>();
-        this.agents = new Agent[0];
 
         this.timerWheel = new DeadlineTimerWheel(MILLISECONDS, currentTimeMillis(), 512, 1024);
         this.tasksByTimerId = new Long2ObjectHashMap<>();
@@ -275,6 +270,7 @@ public class ElektronAgent implements Agent
         this.signaler = new ElektronSignaler(executorService);
 
         this.resolver = new ResolverRef(this::newResolver);
+        this.poller = new Poller();
 
         final BufferPool bufferPool = bufferPoolLayout.bufferPool();
 
@@ -299,25 +295,6 @@ public class ElektronAgent implements Agent
         this.creditor = new DefaultBudgetCreditor(index, budgetsLayout, this::doSystemFlush, this::supplyBudgetId,
             signaler::executeTaskAt, config.childCleanupLingerMillis());
         this.debitorsByIndex = new Int2ObjectHashMap<DefaultBudgetDebitor>();
-
-        if (supplyAgentBuilder != null)
-        {
-            final AgentBuilder agentBuilder = supplyAgentBuilder.get();
-            final Agent agent = agentBuilder
-                    .setRouteManager(resolver)
-                    .setWriteBuffer(writeBuffer)
-                    .setAddressIdSupplier(labels::supplyLabelId)
-                    .setStreamFactorySupplier(this::supplyStreamFactory)
-                    .setThrottleSupplier(this::supplyThrottle)
-                    .setThrottleRemover(this::removeThrottle)
-                    .setInitialIdSupplier(this::supplyInitialId)
-                    .setReplyIdSupplier(this::supplyReplyId)
-                    .setTraceIdSupplier(this::supplyTraceId)
-                    .setGroupIdSupplier(this::supplyBudgetId)
-                    .setBufferPool(bufferPool)
-                    .build();
-            this.agents = ArrayUtil.add(agents, agent);
-        }
     }
 
     private void onSystemMessage(
@@ -575,10 +552,7 @@ public class ElektronAgent implements Agent
 
         try
         {
-            for (final Agent agent : agents)
-            {
-                workDone += agent.doWork();
-            }
+            workDone += poller.doWork();
 
             if (timerWheel.timerCount() != 0L)
             {
@@ -621,10 +595,7 @@ public class ElektronAgent implements Agent
             ThreadHints.onSpinWait();
         }
 
-        for (final Agent agent : agents)
-        {
-            agent.onClose();
-        }
+        poller.onClose();
 
         int acquiredBuffers = 0;
         int acquiredCreditors = 0;
@@ -1317,6 +1288,7 @@ public class ElektronAgent implements Agent
             Elektron elekron)
         {
             this.elektron = requireNonNull(elekron);
+            this.elektron.setPollerKeySupplier(poller::register);
 
             final Map<RouteKind, StreamFactory> streamFactories = new EnumMap<>(RouteKind.class);
             final Map<RouteKind, AddressFactory> addressFactories = new EnumMap<>(RouteKind.class);
@@ -1357,15 +1329,6 @@ public class ElektronAgent implements Agent
         {
             synchronized (this)
             {
-                if (this.count == 0)
-                {
-                    final Agent agent = elektron.agent();
-                    if (agent != null)
-                    {
-                        agents = ArrayUtil.add(agents, agent);
-                    }
-                }
-
                 final StreamFactory streamFactory = streamFactories.get(routeKind);
                 if (streamFactory != null)
                 {
@@ -1389,31 +1352,6 @@ public class ElektronAgent implements Agent
                 {
                     final StreamFactory streamFactory = streamFactoriesByAddressId.remove(labelId);
                     assert streamFactory == streamFactories.get(routeKind);
-
-                    final Agent agent = elektron.agent();
-                    if (agent != null)
-                    {
-                        // TODO: quiesce streams first
-                        agents = ArrayUtil.remove(agents, agent);
-                        final Agent closeAgent = new Agent()
-                        {
-
-                            @Override
-                            public int doWork() throws Exception
-                            {
-                                quietClose(agent::onClose);
-                                agents = ArrayUtil.remove(agents, this);
-                                return 1;
-                            }
-
-                            @Override
-                            public String roleName()
-                            {
-                                return String.format("%s (deferred close)", agent.roleName());
-                            }
-                        };
-                        agents = ArrayUtil.add(agents, closeAgent);
-                    }
                 }
             }
 
@@ -1457,29 +1395,8 @@ public class ElektronAgent implements Agent
                 .setDroppedFrameConsumer(this::handleDroppedReadFrame)
                 .setRemoteIndexSupplier(StreamId::remoteIndex)
                 .setHostResolver(resolveHost)
+                .setPollerKeySupplier(poller::register)
                 .build();
-    }
-
-    private StreamFactory supplyStreamFactory(
-        int addressId)
-    {
-        return streamFactoriesByAddressId.get(addressId);
-    }
-
-    private MessageConsumer supplyThrottle(
-        long streamId)
-    {
-        final int instanceId = instanceId(streamId);
-        final Int2ObjectHashMap<MessageConsumer> dispatcher = throttles[throttleIndex(streamId)];
-        return dispatcher.get(instanceId);
-    }
-
-    private void removeThrottle(
-        long streamId)
-    {
-        final int instanceId = instanceId(streamId);
-        final Int2ObjectHashMap<MessageConsumer> dispatcher = throttles[throttleIndex(streamId)];
-        dispatcher.remove(instanceId);
     }
 
     private long supplyInitialId(

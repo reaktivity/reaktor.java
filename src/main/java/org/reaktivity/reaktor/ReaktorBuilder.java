@@ -35,7 +35,6 @@ import java.util.function.Supplier;
 
 import org.agrona.ErrorHandler;
 import org.agrona.concurrent.Agent;
-import org.reaktivity.nukleus.AgentBuilder;
 import org.reaktivity.nukleus.Configuration;
 import org.reaktivity.nukleus.Controller;
 import org.reaktivity.nukleus.ControllerFactory;
@@ -55,7 +54,6 @@ public class ReaktorBuilder
     private Function<String, BitSet> affinityMaskDefault;
     private ErrorHandler errorHandler;
     private Supplier<NukleusFactory> supplyNukleusFactory;
-    private Supplier<AgentBuilder> supplyAgentBuilder;
     private ThreadFactory threadFactory;
 
     private int threads = 1;
@@ -134,13 +132,6 @@ public class ReaktorBuilder
         return this;
     }
 
-    public ReaktorBuilder supplyAgentBuilder(
-        Supplier<AgentBuilder> supplyAgentBuilder)
-    {
-        this.supplyAgentBuilder = supplyAgentBuilder;
-        return this;
-    }
-
     public Reaktor build()
     {
         final Set<Configuration> configs = new LinkedHashSet<>();
@@ -160,11 +151,10 @@ public class ReaktorBuilder
             }
         }
 
-        // ensure control file is not created for no nuklei
         NukleusAgent nukleusAgent = null;
-        if (!nuklei.isEmpty() || supplyAgentBuilder != null)
+        if (!nuklei.isEmpty())
         {
-            nukleusAgent = new NukleusAgent(config, supplyAgentBuilder);
+            nukleusAgent = new NukleusAgent(config);
             nuklei.forEach(nukleusAgent::assign);
         }
 
