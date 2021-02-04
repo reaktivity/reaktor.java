@@ -13,65 +13,20 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.reaktor.internal.agent;
+package org.reaktivity.reaktor.internal.context;
 
-import java.util.BitSet;
-import java.util.LinkedHashSet;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import org.agrona.concurrent.Agent;
-import org.reaktivity.reaktor.ReaktorConfiguration;
-import org.reaktivity.reaktor.internal.LabelManager;
-import org.reaktivity.reaktor.internal.ReaktorThreadFactory;
-import org.reaktivity.reaktor.nukleus.Nukleus;
-import org.reaktivity.reaktor.nukleus.NukleusFactory;
 
-public class NukleusAgent implements Agent
+public class ConfigureAgent implements Agent
 {
-    private final LabelManager labels;
-    private final Set<ElektronAgent> elektronAgents;
-    private final Set<Nukleus> nuklei;
-    private final ExecutorService executor;
+    private final Set<DispatchAgent> dispatchers;
 
-    public NukleusAgent(
-        ReaktorConfiguration config,
-        int agentCount)
+    public ConfigureAgent(
+        Set<DispatchAgent> dispatchers)
     {
-        this.labels = new LabelManager(config.directory());
-        this.executor = Executors.newFixedThreadPool(config.taskParallelism(), new ReaktorThreadFactory("task"));
-
-        final Set<Nukleus> nuklei = new LinkedHashSet<>();
-        final NukleusFactory factory = NukleusFactory.instantiate();
-        for (String name : factory.names())
-        {
-            Nukleus nukleus = factory.create(name, config);
-            nuklei.add(nukleus);
-        }
-        this.nuklei = nuklei;
-
-        // TODO: revisit affinity
-        BitSet affinityMask = new BitSet(agentCount);
-        affinityMask.set(0, affinityMask.size());
-
-        Set<ElektronAgent> elektronAgents = new LinkedHashSet<>();
-        for (int agentIndex = 0; agentIndex < agentCount; agentIndex++)
-        {
-            ElektronAgent agent = new ElektronAgent(config, executor, labels, affinityMask, nuklei, agentIndex);
-            elektronAgents.add(agent);
-        }
-        this.elektronAgents = elektronAgents;
-    }
-
-    public Set<Nukleus> nuklei()
-    {
-        return nuklei;
-    }
-
-    public Set<ElektronAgent> elektronAgents()
-    {
-        return elektronAgents;
+        this.dispatchers = dispatchers;
     }
 
     @Override
@@ -90,6 +45,5 @@ public class NukleusAgent implements Agent
     @Override
     public void onClose()
     {
-        executor.shutdownNow();
     }
 }

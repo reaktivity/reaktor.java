@@ -24,15 +24,15 @@ public final class NamespaceTask implements Runnable
 {
     private final CompletableFuture<Void> future;
     private final Namespace namespace;
-    private final Consumer<Namespace> behavior;
+    private final Consumer<Namespace> configurable;
 
-    protected NamespaceTask(
+    NamespaceTask(
         Namespace namespace,
-        Consumer<Namespace> behavior)
+        Consumer<Namespace> configurable)
     {
         this.future = new CompletableFuture<Void>();
         this.namespace = namespace;
-        this.behavior = behavior;
+        this.configurable = configurable;
     }
 
     public CompletableFuture<Void> future()
@@ -45,7 +45,7 @@ public final class NamespaceTask implements Runnable
     {
         try
         {
-            behavior.accept(namespace);
+            configurable.accept(namespace);
             future.complete(null);
         }
         catch (Exception ex)

@@ -19,6 +19,9 @@ import static org.agrona.LangUtil.rethrowUnchecked;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.function.ToLongFunction;
 
 import org.agrona.CloseHelper;
 import org.agrona.ErrorHandler;
@@ -27,22 +30,23 @@ import org.agrona.concurrent.Agent;
 import org.agrona.concurrent.AgentRunner;
 import org.agrona.concurrent.BackoffIdleStrategy;
 import org.agrona.concurrent.IdleStrategy;
-import org.reaktivity.reaktor.internal.agent.NukleusAgent;
+import org.reaktivity.reaktor.nukleus.Nukleus;
 
 public final class Reaktor implements AutoCloseable
 {
     private final AgentRunner[] runners;
-    private final NukleusAgent nukleusAgent;
+    private final ExecutorService executor;
+    private final Set<Nukleus> nuklei;
+    private final ToLongFunction<String> counter;
 
     Reaktor(
         ReaktorConfiguration config,
         ErrorHandler errorHandler,
-        NukleusAgent nukleusAgent)
+        ExecutorService executor,
+        Set<Nukleus> nuklei,
+        List<Agent> agents,
+        ToLongFunction<String> counter)
     {
-        List<Agent> agents = new ArrayList<>();
-        agents.add(nukleusAgent);
-        agents.addAll(nukleusAgent.elektronAgents());
-
         AgentRunner[] runners = new AgentRunner[0];
         for (Agent agent : agents)
         {
@@ -55,14 +59,15 @@ public final class Reaktor implements AutoCloseable
         }
         this.runners = runners;
 
-        this.nukleusAgent = nukleusAgent;
+        this.executor = executor;
+        this.nuklei = nuklei;
+        this.counter = counter;
     }
 
     public <T> T nukleus(
         Class<T> kind)
     {
-        return nukleusAgent.nuklei()
-                .stream()
+        return nuklei.stream()
                 .filter(kind::isInstance)
                 .map(kind::cast)
                 .findFirst()
@@ -72,7 +77,7 @@ public final class Reaktor implements AutoCloseable
     public long counter(
         String name)
     {
-        return nukleusAgent.elektronAgents().stream().mapToLong(agent -> agent.counter(name)).sum();
+        return counter.applyAsLong(name);
     }
 
     public Reaktor start()
@@ -100,6 +105,8 @@ public final class Reaktor implements AutoCloseable
                 errors.add(t);
             }
         }
+
+        executor.shutdownNow();
 
         if (!errors.isEmpty())
         {

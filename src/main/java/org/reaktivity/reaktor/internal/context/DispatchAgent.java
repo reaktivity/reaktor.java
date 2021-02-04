@@ -13,7 +13,7 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.reaktor.internal.agent;
+package org.reaktivity.reaktor.internal.context;
 
 import static java.lang.String.format;
 import static java.lang.System.currentTimeMillis;
@@ -74,8 +74,6 @@ import org.reaktivity.reaktor.internal.Counters;
 import org.reaktivity.reaktor.internal.LabelManager;
 import org.reaktivity.reaktor.internal.budget.DefaultBudgetCreditor;
 import org.reaktivity.reaktor.internal.budget.DefaultBudgetDebitor;
-import org.reaktivity.reaktor.internal.context.ConfigurationContext;
-import org.reaktivity.reaktor.internal.context.NamespaceTask;
 import org.reaktivity.reaktor.internal.layouts.BudgetsLayout;
 import org.reaktivity.reaktor.internal.layouts.BufferPoolLayout;
 import org.reaktivity.reaktor.internal.layouts.MetricsLayout;
@@ -105,7 +103,7 @@ import org.reaktivity.reaktor.nukleus.function.MessageConsumer;
 import org.reaktivity.reaktor.nukleus.poller.PollerKey;
 import org.reaktivity.reaktor.nukleus.stream.StreamFactory;
 
-public class ElektronAgent implements ElektronContext, Agent
+public class DispatchAgent implements ElektronContext, Agent
 {
     private static final int SIGNAL_TASK_QUEUED = 1;
 
@@ -177,7 +175,7 @@ public class ElektronAgent implements ElektronContext, Agent
 
     private long lastReadStreamId;
 
-    public ElektronAgent(
+    public DispatchAgent(
         ReaktorConfiguration config,
         ExecutorService executor,
         LabelManager labels,
@@ -452,13 +450,6 @@ public class ElektronAgent implements ElektronContext, Agent
         return workDone;
     }
 
-    public long counter(
-        String name)
-    {
-        final LongSupplier counter = counters.readonlyCounter(name);
-        return counter != null ? counter.getAsLong() : 0L;
-    }
-
     @Override
     public void onClose()
     {
@@ -534,6 +525,13 @@ public class ElektronAgent implements ElektronContext, Agent
         taskQueue.offer(detachTask);
         signaler.signalNow(0L, 0L, SIGNAL_TASK_QUEUED);
         return detachTask.future();
+    }
+
+    public long counter(
+        String name)
+    {
+        final LongSupplier counter = counters.readonlyCounter(name);
+        return counter != null ? counter.getAsLong() : 0L;
     }
 
     private AtomicCounter supplyAtomicCounter(
@@ -1272,7 +1270,7 @@ public class ElektronAgent implements ElektronContext, Agent
 
     private final class ElektronSignaler implements Signaler
     {
-        private final ThreadLocal<SignalFW.Builder> signalRW = withInitial(ElektronAgent::newSignalRW);
+        private final ThreadLocal<SignalFW.Builder> signalRW = withInitial(DispatchAgent::newSignalRW);
 
         private final ExecutorService executorService;
 
