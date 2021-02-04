@@ -29,7 +29,7 @@ import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireFlushe
 import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireOutputAborted;
 import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireOutputAdvised;
 import static org.kaazing.k3po.driver.internal.netty.channel.Channels.fireOutputShutdown;
-import static org.reaktivity.reaktor.internal.router.BudgetId.budgetMask;
+import static org.reaktivity.reaktor.internal.stream.BudgetId.budgetMask;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusExtensionKind.BEGIN;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusExtensionKind.CHALLENGE;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusExtensionKind.DATA;

@@ -19,17 +19,17 @@ import static java.lang.System.currentTimeMillis;
 import static org.reaktivity.reaktor.internal.layouts.BudgetsLayout.budgetIdOffset;
 import static org.reaktivity.reaktor.internal.layouts.BudgetsLayout.budgetRemainingOffset;
 import static org.reaktivity.reaktor.internal.layouts.BudgetsLayout.budgetWatchersOffset;
-import static org.reaktivity.reaktor.internal.router.BudgetId.budgetMask;
+import static org.reaktivity.reaktor.internal.stream.BudgetId.budgetMask;
 
 import java.util.function.LongSupplier;
 
 import org.agrona.collections.Hashing;
 import org.agrona.collections.Long2LongHashMap;
 import org.agrona.concurrent.AtomicBuffer;
-import org.reaktivity.nukleus.budget.BudgetCreditor;
 import org.reaktivity.reaktor.ReaktorConfiguration;
 import org.reaktivity.reaktor.internal.layouts.BudgetsLayout;
 import org.reaktivity.reaktor.internal.util.function.LongObjectBiConsumer;
+import org.reaktivity.reaktor.nukleus.budget.BudgetCreditor;
 
 public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
 {

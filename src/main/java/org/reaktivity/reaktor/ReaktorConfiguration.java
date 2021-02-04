@@ -30,7 +30,12 @@ import java.util.Properties;
 import java.util.function.Function;
 
 import org.agrona.LangUtil;
-import org.reaktivity.nukleus.Configuration;
+import org.reaktivity.reaktor.nukleus.Configuration;
+import org.reaktivity.reaktor.nukleus.Configuration.BooleanPropertyDef;
+import org.reaktivity.reaktor.nukleus.Configuration.ConfigurationDef;
+import org.reaktivity.reaktor.nukleus.Configuration.IntPropertyDef;
+import org.reaktivity.reaktor.nukleus.Configuration.LongPropertyDef;
+import org.reaktivity.reaktor.nukleus.Configuration.PropertyDef;
 
 public class ReaktorConfiguration extends Configuration
 {

@@ -18,8 +18,8 @@ package org.reaktivity.reaktor.test.internal.k3po.ext.behavior;
 import static org.jboss.netty.channel.Channels.fireChannelBound;
 import static org.jboss.netty.channel.Channels.fireChannelConnected;
 import static org.jboss.netty.channel.Channels.future;
-import static org.reaktivity.reaktor.internal.router.BudgetId.budgetMask;
-import static org.reaktivity.reaktor.internal.router.BudgetId.ownerIndex;
+import static org.reaktivity.reaktor.internal.stream.BudgetId.budgetMask;
+import static org.reaktivity.reaktor.internal.stream.BudgetId.ownerIndex;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusExtensionKind.BEGIN;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusTransmission.SIMPLEX;
 

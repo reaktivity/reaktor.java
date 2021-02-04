@@ -19,9 +19,9 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.reaktivity.nukleus.budget.BudgetDebitor.NO_DEBITOR_INDEX;
 import static org.reaktivity.reaktor.internal.layouts.BudgetsLayout.budgetIdOffset;
 import static org.reaktivity.reaktor.internal.layouts.BudgetsLayout.budgetRemainingOffset;
+import static org.reaktivity.reaktor.nukleus.budget.BudgetDebitor.NO_DEBITOR_INDEX;
 
 import java.nio.file.Paths;
 import java.util.function.LongConsumer;

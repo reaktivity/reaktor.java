@@ -16,7 +16,7 @@
 package org.reaktivity.reaktor.test.internal.k3po.ext.behavior;
 
 import static java.lang.System.identityHashCode;
-import static org.reaktivity.reaktor.internal.router.BudgetId.ownerIndex;
+import static org.reaktivity.reaktor.internal.stream.BudgetId.ownerIndex;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusTransmission.HALF_DUPLEX;
 
 import java.nio.file.Path;

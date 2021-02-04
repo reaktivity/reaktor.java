@@ -24,7 +24,7 @@ import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.util.function.ToIntFunction;
 
-import org.reaktivity.reaktor.poller.PollerKey;
+import org.reaktivity.reaktor.nukleus.poller.PollerKey;
 
 public final class PollerKeyImpl implements PollerKey
 {

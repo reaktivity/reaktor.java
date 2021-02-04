@@ -36,7 +36,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
-import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
 import org.agrona.ErrorHandler;
@@ -44,13 +43,11 @@ import org.agrona.LangUtil;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
-import org.reaktivity.nukleus.Configuration.PropertyDef;
-import org.reaktivity.nukleus.Controller;
-import org.reaktivity.nukleus.Nukleus;
-import org.reaktivity.nukleus.NukleusFactorySpi;
 import org.reaktivity.reaktor.Reaktor;
 import org.reaktivity.reaktor.ReaktorBuilder;
 import org.reaktivity.reaktor.ReaktorConfiguration;
+import org.reaktivity.reaktor.nukleus.Configuration.PropertyDef;
+import org.reaktivity.reaktor.nukleus.Nukleus;
 import org.reaktivity.reaktor.test.annotation.Configure;
 
 public final class ReaktorRule implements TestRule
@@ -126,50 +123,6 @@ public final class ReaktorRule implements TestRule
     {
         this.clean = true;
         return this;
-    }
-
-    public ReaktorRule nukleus(
-        Predicate<String> matcher)
-    {
-        builder.nukleus(matcher);
-        return this;
-    }
-
-    public ReaktorRule loader(
-        ClassLoader loader)
-    {
-        builder.loader(loader);
-        return this;
-    }
-
-    public ReaktorRule controller(
-        Predicate<String> matcher)
-    {
-        builder.controller(matcher);
-        return this;
-    }
-
-    public ReaktorRule affinityMask(
-        String address,
-        long affinityMask)
-    {
-        builder.affinityMask(address, affinityMask);
-        return this;
-    }
-
-    public ReaktorRule nukleusFactory(
-        Class<? extends NukleusFactorySpi> factory)
-    {
-        loader(Services.newLoader(NukleusFactorySpi.class, factory));
-        return this;
-    }
-
-    public <T extends Controller> T controller(
-        Class<T> kind)
-    {
-        ensureReaktorStarted();
-
-        return requireNonNull(reaktor.controller(kind));
     }
 
     public <T extends Nukleus> T nukleus(

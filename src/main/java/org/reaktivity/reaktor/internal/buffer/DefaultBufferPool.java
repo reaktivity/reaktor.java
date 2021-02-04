@@ -27,7 +27,7 @@ import org.agrona.collections.Hashing;
 import org.agrona.collections.MutableInteger;
 import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
-import org.reaktivity.nukleus.buffer.BufferPool;
+import org.reaktivity.reaktor.nukleus.buffer.BufferPool;
 
 /**
  * A chunk of shared memory for temporary storage of data. This is logically segmented into a set of

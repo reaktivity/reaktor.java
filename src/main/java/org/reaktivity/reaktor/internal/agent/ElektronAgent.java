@@ -18,28 +18,30 @@ package org.reaktivity.reaktor.internal.agent;
 import static java.lang.String.format;
 import static java.lang.System.currentTimeMillis;
 import static java.lang.ThreadLocal.withInitial;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.agrona.CloseHelper.quietClose;
-import static org.reaktivity.nukleus.budget.BudgetCreditor.NO_BUDGET_ID;
-import static org.reaktivity.nukleus.concurrent.Signaler.NO_CANCEL_ID;
-import static org.reaktivity.reaktor.internal.router.BudgetId.ownerIndex;
-import static org.reaktivity.reaktor.internal.router.RouteId.localId;
-import static org.reaktivity.reaktor.internal.router.RouteId.remoteId;
-import static org.reaktivity.reaktor.internal.router.StreamId.instanceId;
-import static org.reaktivity.reaktor.internal.router.StreamId.isInitial;
-import static org.reaktivity.reaktor.internal.router.StreamId.remoteIndex;
-import static org.reaktivity.reaktor.internal.router.StreamId.streamId;
-import static org.reaktivity.reaktor.internal.router.StreamId.streamIndex;
-import static org.reaktivity.reaktor.internal.router.StreamId.throttleIndex;
+import static org.reaktivity.reaktor.internal.stream.BudgetId.ownerIndex;
+import static org.reaktivity.reaktor.internal.stream.RouteId.localId;
+import static org.reaktivity.reaktor.internal.stream.RouteId.remoteId;
+import static org.reaktivity.reaktor.internal.stream.StreamId.instanceId;
+import static org.reaktivity.reaktor.internal.stream.StreamId.isInitial;
+import static org.reaktivity.reaktor.internal.stream.StreamId.remoteIndex;
+import static org.reaktivity.reaktor.internal.stream.StreamId.streamId;
+import static org.reaktivity.reaktor.internal.stream.StreamId.streamIndex;
+import static org.reaktivity.reaktor.internal.stream.StreamId.throttleIndex;
+import static org.reaktivity.reaktor.nukleus.budget.BudgetCreditor.NO_BUDGET_ID;
+import static org.reaktivity.reaktor.nukleus.concurrent.Signaler.NO_CANCEL_ID;
 
 import java.net.InetAddress;
+import java.nio.channels.SelectableChannel;
 import java.util.BitSet;
-import java.util.EnumMap;
-import java.util.EnumSet;
+import java.util.Deque;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -49,7 +51,6 @@ import java.util.function.IntFunction;
 import java.util.function.LongConsumer;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
-import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -67,60 +68,48 @@ import org.agrona.concurrent.ringbuffer.RingBuffer;
 import org.agrona.concurrent.status.AtomicCounter;
 import org.agrona.concurrent.status.CountersManager;
 import org.agrona.hints.ThreadHints;
-import org.reaktivity.nukleus.Elektron;
-import org.reaktivity.nukleus.Nukleus;
-import org.reaktivity.nukleus.budget.BudgetDebitor;
-import org.reaktivity.nukleus.buffer.BufferPool;
-import org.reaktivity.nukleus.buffer.CountingBufferPool;
-import org.reaktivity.nukleus.concurrent.Signaler;
-import org.reaktivity.nukleus.function.MessageConsumer;
-import org.reaktivity.nukleus.function.MessageFunction;
-import org.reaktivity.nukleus.function.MessagePredicate;
-import org.reaktivity.nukleus.route.Address;
-import org.reaktivity.nukleus.route.AddressFactory;
-import org.reaktivity.nukleus.route.AddressFactoryBuilder;
-import org.reaktivity.nukleus.route.RouteKind;
-import org.reaktivity.nukleus.route.RouteManager;
-import org.reaktivity.nukleus.stream.StreamFactory;
-import org.reaktivity.nukleus.stream.StreamFactoryBuilder;
 import org.reaktivity.reaktor.ReaktorConfiguration;
+import org.reaktivity.reaktor.config.Namespace;
 import org.reaktivity.reaktor.internal.Counters;
 import org.reaktivity.reaktor.internal.LabelManager;
 import org.reaktivity.reaktor.internal.budget.DefaultBudgetCreditor;
 import org.reaktivity.reaktor.internal.budget.DefaultBudgetDebitor;
+import org.reaktivity.reaktor.internal.context.ConfigurationContext;
+import org.reaktivity.reaktor.internal.context.NamespaceTask;
 import org.reaktivity.reaktor.internal.layouts.BudgetsLayout;
 import org.reaktivity.reaktor.internal.layouts.BufferPoolLayout;
 import org.reaktivity.reaktor.internal.layouts.MetricsLayout;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
 import org.reaktivity.reaktor.internal.poller.Poller;
-import org.reaktivity.reaktor.internal.router.Resolver;
-import org.reaktivity.reaktor.internal.router.StreamId;
-import org.reaktivity.reaktor.internal.router.Target;
-import org.reaktivity.reaktor.internal.router.WriteCounters;
-import org.reaktivity.reaktor.internal.types.Flyweight;
-import org.reaktivity.reaktor.internal.types.OctetsFW;
-import org.reaktivity.reaktor.internal.types.control.Role;
-import org.reaktivity.reaktor.internal.types.control.RouteFW;
-import org.reaktivity.reaktor.internal.types.control.UnrouteFW;
+import org.reaktivity.reaktor.internal.stream.StreamId;
+import org.reaktivity.reaktor.internal.stream.Target;
+import org.reaktivity.reaktor.internal.stream.WriteCounters;
 import org.reaktivity.reaktor.internal.types.stream.AbortFW;
 import org.reaktivity.reaktor.internal.types.stream.BeginFW;
 import org.reaktivity.reaktor.internal.types.stream.ChallengeFW;
 import org.reaktivity.reaktor.internal.types.stream.DataFW;
 import org.reaktivity.reaktor.internal.types.stream.EndFW;
-import org.reaktivity.reaktor.internal.types.stream.ExtensionFW;
 import org.reaktivity.reaktor.internal.types.stream.FlushFW;
 import org.reaktivity.reaktor.internal.types.stream.FrameFW;
-import org.reaktivity.reaktor.internal.types.stream.ReaktorSignalExFW;
 import org.reaktivity.reaktor.internal.types.stream.ResetFW;
 import org.reaktivity.reaktor.internal.types.stream.SignalFW;
 import org.reaktivity.reaktor.internal.types.stream.WindowFW;
+import org.reaktivity.reaktor.nukleus.Elektron;
+import org.reaktivity.reaktor.nukleus.ElektronContext;
+import org.reaktivity.reaktor.nukleus.Nukleus;
+import org.reaktivity.reaktor.nukleus.budget.BudgetCreditor;
+import org.reaktivity.reaktor.nukleus.budget.BudgetDebitor;
+import org.reaktivity.reaktor.nukleus.buffer.BufferPool;
+import org.reaktivity.reaktor.nukleus.concurrent.Signaler;
+import org.reaktivity.reaktor.nukleus.function.MessageConsumer;
+import org.reaktivity.reaktor.nukleus.poller.PollerKey;
+import org.reaktivity.reaktor.nukleus.stream.StreamFactory;
 
-public class ElektronAgent implements Agent
+public class ElektronAgent implements ElektronContext, Agent
 {
-    private static final Pattern ADDRESS_PATTERN = Pattern.compile("^([^#]+)(:?#.*)$");
+    private static final int SIGNAL_TASK_QUEUED = 1;
 
-    private static final int SYSTEM_SIGNAL_ROUTED = 1;
-    private static final int SYSTEM_SIGNAL_UNROUTED = 2;
+    private static final Pattern ADDRESS_PATTERN = Pattern.compile("^([^#]+)(:?#.*)$");
 
     private final FrameFW frameRO = new FrameFW();
     private final BeginFW beginRO = new BeginFW();
@@ -128,21 +117,15 @@ public class ElektronAgent implements Agent
     private final FlushFW flushRO = new FlushFW();
     private final WindowFW windowRO = new WindowFW();
     private final SignalFW signalRO = new SignalFW();
-    private final ExtensionFW extensionRO = new ExtensionFW();
-    private final ReaktorSignalExFW reaktorSignalExRO = new ReaktorSignalExFW();
     private final AbortFW.Builder abortRW = new AbortFW.Builder();
     private final FlushFW.Builder flushRW = new FlushFW.Builder();
     private final ResetFW.Builder resetRW = new ResetFW.Builder();
     private final WindowFW.Builder windowRW = new WindowFW.Builder();
-    private final SignalFW.Builder signalRW = new SignalFW.Builder();
-    private final ReaktorSignalExFW.Builder reaktorSignalExRW = new ReaktorSignalExFW.Builder();
 
-    private final int reaktorTypeId;
     private final int localIndex;
     private final ReaktorConfiguration config;
     private final LabelManager labels;
-    private final Function<String, BitSet> affinityMask;
-    private final String elektronName;
+    private final String agentName;
     private final Counters counters;
     private final Function<String, InetAddress[]> resolveHost;
     private final boolean timestamps;
@@ -151,13 +134,11 @@ public class ElektronAgent implements Agent
     private final BufferPoolLayout bufferPoolLayout;
     private final RingBuffer streamsBuffer;
     private final MutableDirectBuffer writeBuffer;
-    private final MutableDirectBuffer signalBuffer;
     private final Int2ObjectHashMap<MessageConsumer>[] streams;
     private final Int2ObjectHashMap<MessageConsumer>[] throttles;
     private final Long2ObjectHashMap<ReadCounters> countersByRouteId;
     private final Int2ObjectHashMap<MessageConsumer> writersByIndex;
     private final Int2ObjectHashMap<Target> targetsByIndex;
-    private final Map<String, ElektronRef> elektronByName;
     private final BufferPool bufferPool;
     private final int shift;
     private final long mask;
@@ -170,46 +151,44 @@ public class ElektronAgent implements Agent
     private final IntFunction<Target> newTarget;
     private final LongFunction<WriteCounters> newWriteCounters;
     private final LongFunction<Affinity> resolveAffinity;
-    private final Long2ObjectHashMap<Address> addressesByRouteId;
 
-    private final RouteManager resolver;
     private final Poller poller;
 
     private final DefaultBudgetCreditor creditor;
     private final Int2ObjectHashMap<DefaultBudgetDebitor> debitorsByIndex;
 
-    // TODO: copy-on-write
-    private final Int2ObjectHashMap<StreamFactory> streamFactoriesByAddressId;
+    private final Map<String, AtomicCounter> countersByName;
 
     private final Long2ObjectHashMap<Affinity> affinityByRemoteId;
-    private final Supplier<DirectBuffer> routesBufferRef;
 
     private final DeadlineTimerWheel timerWheel;
     private final Long2ObjectHashMap<Runnable> tasksByTimerId;
     private final Long2ObjectHashMap<Future<?>> futuresById;
     private final ElektronSignaler signaler;
+    private final Long2ObjectHashMap<MessageConsumer> correlations;
 
-    private long streamId;
+    private final ConfigurationContext context;
+    private final Deque<Runnable> taskQueue;
+    private final BitSet affinityMask;
+
+    private long iniitalId;
     private long traceId;
     private long budgetId;
 
     private long lastReadStreamId;
 
     public ElektronAgent(
-        int index,
-        int count,
         ReaktorConfiguration config,
+        ExecutorService executor,
         LabelManager labels,
-        ExecutorService executorService,
-        Function<String, BitSet> affinityMask,
-        Supplier<DirectBuffer> routesBufferRef)
+        BitSet affinityMask,
+        Set<Nukleus> nuklei,
+        int index)
     {
-        this.reaktorTypeId = labels.supplyLabelId(config.name());
         this.localIndex = index;
         this.config = config;
         this.labels = labels;
         this.affinityMask = affinityMask;
-        this.routesBufferRef = routesBufferRef;
 
         final MetricsLayout metricsLayout = new MetricsLayout.Builder()
                 .path(config.directory().resolve(String.format("metrics%d", index)))
@@ -231,7 +210,7 @@ public class ElektronAgent implements Agent
                 .readonly(false)
                 .build();
 
-        this.elektronName = String.format("reaktor/data#%d", index);
+        this.agentName = String.format("reaktor/data#%d", index);
         this.metricsLayout = metricsLayout;
         this.streamsLayout = streamsLayout;
         this.bufferPoolLayout = bufferPoolLayout;
@@ -246,11 +225,9 @@ public class ElektronAgent implements Agent
         this.expireLimit = config.maximumExpirationsPerPoll();
         this.streamsBuffer = streamsLayout.streamsBuffer();
         this.writeBuffer = new UnsafeBuffer(new byte[config.bufferSlotCapacity() + 1024]);
-        this.signalBuffer = new UnsafeBuffer(new byte[config.bufferSlotCapacity() + 1024]);
         this.streams = initDispatcher();
         this.throttles = initDispatcher();
         this.countersByRouteId = new Long2ObjectHashMap<>();
-        this.streamFactoriesByAddressId = new Int2ObjectHashMap<>();
         this.readHandler = this::handleRead;
         this.expireHandler = this::handleExpire;
         this.newReadCounters = this::newReadCounters;
@@ -258,8 +235,6 @@ public class ElektronAgent implements Agent
         this.newTarget = this::newTarget;
         this.newWriteCounters = this::newWriteCounters;
         this.resolveAffinity = this::resolveAffinity;
-        this.addressesByRouteId = new Long2ObjectHashMap<>();
-        this.elektronByName = new ConcurrentHashMap<>();
         this.affinityByRemoteId = new Long2ObjectHashMap<>();
         this.targetsByIndex = new Int2ObjectHashMap<>();
         this.writersByIndex = new Int2ObjectHashMap<>();
@@ -267,9 +242,8 @@ public class ElektronAgent implements Agent
         this.timerWheel = new DeadlineTimerWheel(MILLISECONDS, currentTimeMillis(), 512, 1024);
         this.tasksByTimerId = new Long2ObjectHashMap<>();
         this.futuresById = new Long2ObjectHashMap<>();
-        this.signaler = new ElektronSignaler(executorService);
+        this.signaler = new ElektronSignaler(executor);
 
-        this.resolver = new ResolverRef(this::newResolver);
         this.poller = new Poller();
 
         final BufferPool bufferPool = bufferPoolLayout.bufferPool();
@@ -282,7 +256,7 @@ public class ElektronAgent implements Agent
         this.shift = shift;
         this.mask = mask;
         this.bufferPool = bufferPool;
-        this.streamId = initial;
+        this.iniitalId = initial;
         this.traceId = initial;
         this.budgetId = initial;
 
@@ -295,254 +269,153 @@ public class ElektronAgent implements Agent
         this.creditor = new DefaultBudgetCreditor(index, budgetsLayout, this::doSystemFlush, this::supplyBudgetId,
             signaler::executeTaskAt, config.childCleanupLingerMillis());
         this.debitorsByIndex = new Int2ObjectHashMap<DefaultBudgetDebitor>();
+        this.countersByName = new HashMap<>();
+
+        Map<String, Elektron> elektronsByName = new LinkedHashMap<>();
+        for (Nukleus nukleus: nuklei)
+        {
+            String name = nukleus.name();
+            elektronsByName.put(name, nukleus.supplyElektron(this));
+        }
+        this.context = new ConfigurationContext(elektronsByName::get, labels::supplyLabelId);
+        this.taskQueue = new ConcurrentLinkedDeque<>();
+        this.correlations = new Long2ObjectHashMap<>();
     }
 
-    private void onSystemMessage(
-        int msgTypeId,
-        DirectBuffer buffer,
-        int index,
-        int length)
+    @Override
+    public int index()
     {
-        switch (msgTypeId)
-        {
-        case FlushFW.TYPE_ID:
-            final FlushFW flush = flushRO.wrap(buffer, index, index + length);
-            onSystemFlush(flush);
-            break;
-        case WindowFW.TYPE_ID:
-            final WindowFW window = windowRO.wrap(buffer, index, index + length);
-            onSystemWindow(window);
-            break;
-        case SignalFW.TYPE_ID:
-            final SignalFW signal = signalRO.wrap(buffer, index, index + length);
-            onSystemSignal(signal);
-            break;
-        }
+        return localIndex;
     }
 
-    private void onSystemFlush(
-        FlushFW flush)
+    @Override
+    public Signaler signaler()
     {
-        final long traceId = flush.traceId();
-        final long budgetId = flush.budgetId();
-
-        final int ownerIndex = ownerIndex(budgetId);
-        final DefaultBudgetDebitor debitor = debitorsByIndex.get(ownerIndex);
-
-        if (ReaktorConfiguration.DEBUG_BUDGETS)
-        {
-            System.out.format("[%d] [0x%016x] [0x%016x] FLUSH %08x %s\n",
-                    System.nanoTime(), traceId, budgetId, ownerIndex, debitor);
-        }
-
-        if (debitor != null)
-        {
-            debitor.flush(traceId, budgetId);
-        }
+        return signaler;
     }
 
-    private void onSystemWindow(
-        WindowFW window)
+    @Override
+    public int supplyTypeId(
+        String name)
     {
-        final long traceId = window.traceId();
-        final long budgetId = window.budgetId();
-        final int reserved = window.maximum();
-
-        creditor.creditById(traceId, budgetId, reserved);
-
-        long parentBudgetId = creditor.parentBudgetId(budgetId);
-        if (parentBudgetId != NO_BUDGET_ID)
-        {
-            doSystemWindowIfNecessary(traceId, parentBudgetId, reserved);
-        }
+        return labels.supplyLabelId(name);
     }
 
-    private void onSystemSignal(
-        SignalFW signal)
+    @Override
+    public long supplyInitialId(
+        long routeId)
     {
-        final int signalId = signal.signalId();
-        switch (signalId)
-        {
-        case SYSTEM_SIGNAL_ROUTED:
-            onSystemRoutedSignal(signal);
-            break;
-        case SYSTEM_SIGNAL_UNROUTED:
-            onSystemUnroutedSignal(signal);
-            break;
-        }
+        final int remoteId = remoteId(routeId);
+        final int remoteIndex = resolveRemoteIndex(remoteId);
+
+        iniitalId += 2L;
+        iniitalId &= mask;
+
+        return (((long)remoteIndex << 48) & 0x00ff_0000_0000_0000L) |
+               (iniitalId & 0xff00_ffff_ffff_ffffL) | 0x0000_0000_0000_0001L;
     }
 
-    private void onSystemRoutedSignal(
-        SignalFW signal)
+    @Override
+    public long supplyReplyId(
+        long initialId)
     {
-        final long routeId = signal.routeId();
-        final OctetsFW extension = signal.extension();
-        final ExtensionFW signalEx = extension.get(extensionRO::wrap);
-        assert signalEx.typeId() == reaktorTypeId;
-        final ReaktorSignalExFW reaktorSignalEx = extension.get(reaktorSignalExRO::wrap);
-        assert reaktorSignalEx.kind() == ReaktorSignalExFW.KIND_ROUTE;
-        final RouteFW route = reaktorSignalEx.route();
-        final RouteKind routeKind = RouteKind.valueOf(route.role().get().ordinal());
-        final String nukleusName = route.nukleus().asString();
-        final String localName = route.localAddress().asString();
-        final ElektronRef elektronRef = elektronByName.get(nukleusName);
-        final AddressFactory addressFactory = elektronRef.addressFactories.get(routeKind);
-        if (addressFactory != null)
-        {
-            final Address newAddress = addressFactory.newAddress(localName);
-            assert nukleusName.equals(newAddress.nukleus());
-            addressesByRouteId.put(routeId, newAddress);
-            final MessageConsumer routeHandler = newAddress.routeHandler();
-            assert routeHandler != null;
-            routeHandler.accept(route.typeId(), route.buffer(), route.offset(), route.sizeof());
-        }
+        assert isInitial(initialId);
+        return initialId & 0xffff_ffff_ffff_fffeL;
     }
 
-    private void onSystemUnroutedSignal(
-        SignalFW signal)
+    @Override
+    public long supplyBudgetId()
     {
-        final long routeId = signal.routeId();
-        final Address address = addressesByRouteId.remove(routeId);
-        if (address != null)
-        {
-            final OctetsFW extension = signal.extension();
-            final ExtensionFW signalEx = extension.get(extensionRO::wrap);
-            assert signalEx.typeId() == reaktorTypeId;
-            final ReaktorSignalExFW reaktorSignalEx = extension.get(reaktorSignalExRO::wrap);
-            assert reaktorSignalEx.kind() == ReaktorSignalExFW.KIND_UNROUTE;
-            final UnrouteFW unroute = reaktorSignalEx.unroute();
-            final MessageConsumer routeHandler = address.routeHandler();
-            assert routeHandler != null;
-            routeHandler.accept(unroute.typeId(), unroute.buffer(), unroute.offset(), unroute.sizeof());
-        }
+        budgetId++;
+        budgetId &= mask;
+        return budgetId;
     }
 
-    private void doSystemFlush(
-        long traceId,
-        long budgetId,
-        long watchers)
+    @Override
+    public long supplyTraceId()
     {
-        for (int watcherIndex = 0; watcherIndex < Long.SIZE; watcherIndex++)
-        {
-            if ((watchers & (1L << watcherIndex)) != 0L)
-            {
-                if (ReaktorConfiguration.DEBUG_BUDGETS)
-                {
-                    System.out.format("[%d] [0x%016x] [0x%016x] flush %d\n",
-                            System.nanoTime(), traceId, budgetId, watcherIndex);
-                }
-
-                final MessageConsumer writer = supplyWriter(watcherIndex);
-                final FlushFW flush = flushRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                        .routeId(0L)
-                        .streamId(0L)
-                        .sequence(0L)
-                        .acknowledge(0L)
-                        .maximum(0)
-                        .traceId(traceId)
-                        .budgetId(budgetId)
-                        .reserved(0)
-                        .build();
-
-                writer.accept(flush.typeId(), flush.buffer(), flush.offset(), flush.sizeof());
-            }
-        }
+        traceId++;
+        traceId &= mask;
+        return traceId;
     }
 
-    private void doSystemWindow(
-        long traceId,
-        long budgetId,
-        int reserved)
+    @Override
+    public BudgetCreditor creditor()
     {
-        if (ReaktorConfiguration.DEBUG_BUDGETS)
-        {
-            System.out.format("[%d] [0x%016x] [0x%016x] doSystemWindow credit=%d \n",
-                System.nanoTime(), traceId, budgetId, reserved);
-        }
-
-        final int targetIndex = ownerIndex(budgetId);
-        final MessageConsumer writer = supplyWriter(targetIndex);
-        final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
-                                        .routeId(0L)
-                                        .streamId(0L)
-                                        .sequence(0L)
-                                        .acknowledge(0L)
-                                        .maximum(reserved)
-                                        .traceId(traceId)
-                                        .budgetId(budgetId)
-                                        .padding(0)
-                                        .build();
-        writer.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
+        return creditor;
     }
 
-    private static class ResolverRef implements RouteManager
+    @Override
+    public BudgetDebitor supplyDebitor(
+        long budgetId)
     {
-        private final ThreadLocal<Resolver> resolver;
-
-        ResolverRef(
-            Supplier<Resolver> supplyResolver)
-        {
-            resolver = ThreadLocal.withInitial(supplyResolver);
-        }
-
-        @Override
-        public <R> R resolveExternal(
-            long authorization,
-            MessagePredicate filter,
-            MessageFunction<R> mapper)
-        {
-            return resolver.get().resolveExternal(authorization, filter, mapper);
-        }
-
-        @Override
-        public <R> R resolve(
-            long routeId,
-            long authorization,
-            MessagePredicate filter,
-            MessageFunction<R> mapper)
-        {
-            return resolver.get().resolve(routeId, authorization, filter, mapper);
-        }
-
-        @Override
-        public void forEach(
-            MessageConsumer consumer)
-        {
-            resolver.get().forEach(consumer);
-        }
-
-        @Override
-        public MessageConsumer supplyReceiver(
-            long streamId)
-        {
-            return resolver.get().supplyReceiver(streamId);
-        }
-
-        @Override
-        public void setThrottle(
-            long streamId,
-            MessageConsumer throttle)
-        {
-            resolver.get().setThrottle(streamId, throttle);
-        }
-
-        @Override
-        public void clearThrottle(
-            long streamId)
-        {
-            resolver.get().clearThrottle(streamId);
-        }
+        final int ownerIndex = (int) ((budgetId >> shift) & 0xFFFF_FFFF);
+        return debitorsByIndex.computeIfAbsent(ownerIndex, this::newBudgetDebitor);
     }
 
-    private Resolver newResolver()
+    @Override
+    public MutableDirectBuffer writeBuffer()
     {
-        return new Resolver(routesBufferRef, throttles, this::supplyInitialWriter);
+        return writeBuffer;
+    }
+
+    @Override
+    public BufferPool bufferPool()
+    {
+        return bufferPool;
+    }
+
+    @Override
+    public LongSupplier supplyCounter(
+        String name)
+    {
+        return () -> supplyAtomicCounter(name).increment() + 1;
+    }
+
+    @Override
+    public LongConsumer supplyAccumulator(
+        String name)
+    {
+        return increment -> supplyAtomicCounter(name).getAndAdd(increment);
+    }
+
+    @Override
+    public MessageConsumer droppedFrameHandler()
+    {
+        return this::handleDroppedReadFrame;
+    }
+
+    @Override
+    public int supplyRemoteIndex(
+        long streamId)
+    {
+        return StreamId.remoteIndex(streamId);
+    }
+
+    @Override
+    public InetAddress[] resolveHost(
+        String host)
+    {
+        return resolveHost.apply(host);
+    }
+
+    @Override
+    public PollerKey supplyPollerKey(
+        SelectableChannel channel)
+    {
+        return poller.register(channel);
     }
 
     @Override
     public String roleName()
     {
-        return elektronName;
+        return agentName;
+    }
+
+    @Override
+    public StreamFactory streamFactory()
+    {
+        return this::newStream;
     }
 
     @Override
@@ -572,7 +445,7 @@ public class ElektronAgent implements Agent
         catch (Throwable ex)
         {
             ex.addSuppressed(new Exception(String.format("[%s]\t[0x%016x] %s",
-                                                         elektronName, lastReadStreamId, streamsLayout)));
+                                                         agentName, lastReadStreamId, streamsLayout)));
             throw new AgentTerminationException(ex);
         }
 
@@ -642,116 +515,162 @@ public class ElektronAgent implements Agent
     @Override
     public String toString()
     {
-        return elektronName;
+        return agentName;
     }
 
-    public void onRouteable(
-        long routeId,
-        Nukleus nukleus)
+    public CompletableFuture<Void> attach(
+        Namespace namespace)
     {
-        String nukleusName = nukleus.name();
-        int localAddressId = localId(routeId);
-        String localAddress = labels.lookupLabel(localAddressId);
-        BitSet affinity = affinityMask.apply(localAddress);
-        if (affinity.get(localIndex))
+        NamespaceTask attachTask = context.attach(namespace);
+        taskQueue.offer(attachTask);
+        signaler.signalNow(0L, 0L, SIGNAL_TASK_QUEUED);
+        return attachTask.future();
+    }
+
+    public CompletableFuture<Void> detach(
+        Namespace namespace)
+    {
+        NamespaceTask detachTask = context.detach(namespace);
+        taskQueue.offer(detachTask);
+        signaler.signalNow(0L, 0L, SIGNAL_TASK_QUEUED);
+        return detachTask.future();
+    }
+
+    private AtomicCounter supplyAtomicCounter(
+        String name)
+    {
+        return countersByName.computeIfAbsent(name, counters::counter);
+    }
+
+    private void onSystemMessage(
+        int msgTypeId,
+        DirectBuffer buffer,
+        int index,
+        int length)
+    {
+        switch (msgTypeId)
         {
-            elektronByName.computeIfAbsent(nukleusName, name -> new ElektronRef(name, nukleus.supplyElektron(localIndex)));
+        case FlushFW.TYPE_ID:
+            final FlushFW flush = flushRO.wrap(buffer, index, index + length);
+            onSystemFlush(flush);
+            break;
+        case WindowFW.TYPE_ID:
+            final WindowFW window = windowRO.wrap(buffer, index, index + length);
+            onSystemWindow(window);
+            break;
+        case SignalFW.TYPE_ID:
+            final SignalFW signal = signalRO.wrap(buffer, index, index + length);
+            onSystemSignal(signal);
+            break;
         }
     }
 
-    public void onRouted(
-        Nukleus nukleus,
-        RouteKind routeKind,
-        long routeId,
-        OctetsFW extension)
+    private void onSystemFlush(
+        FlushFW flush)
     {
-        String nukleusName = nukleus.name();
-        int localAddressId = localId(routeId);
-        int remoteAddressId = remoteId(routeId);
-        String localAddress = labels.lookupLabel(localAddressId);
-        String remoteAddress = labels.lookupLabel(remoteAddressId);
-        BitSet affinity = affinityMask.apply(localAddress);
-        if (affinity.get(localIndex))
-        {
-            elektronByName.computeIfPresent(nukleusName, (a, r) -> r.assign(routeKind, localAddressId));
+        final long traceId = flush.traceId();
+        final long budgetId = flush.budgetId();
 
-            final SignalFW signal = signalRW.wrap(signalBuffer, 0, signalBuffer.capacity())
-                                            .routeId(routeId)
-                                            .streamId(0L)
-                                            .sequence(0L)
-                                            .acknowledge(0L)
-                                            .maximum(0)
-                                            .cancelId(NO_CANCEL_ID)
-                                            .signalId(SYSTEM_SIGNAL_ROUTED)
-                                            .extension(m -> m.set(visitRoutedSignalEx(routeId,
-                                                                                      nukleusName,
-                                                                                      routeKind,
-                                                                                      localAddress,
-                                                                                      remoteAddress,
-                                                                                      extension)))
-                                            .build();
-            streamsBuffer.write(signal.typeId(), signal.buffer(), signal.offset(), signal.sizeof());
+        final int ownerIndex = ownerIndex(budgetId);
+        final DefaultBudgetDebitor debitor = debitorsByIndex.get(ownerIndex);
+
+        if (ReaktorConfiguration.DEBUG_BUDGETS)
+        {
+            System.out.format("[%d] [0x%016x] [0x%016x] FLUSH %08x %s\n",
+                    System.nanoTime(), traceId, budgetId, ownerIndex, debitor);
+        }
+
+        if (debitor != null)
+        {
+            debitor.flush(traceId, budgetId);
         }
     }
 
-    public void onUnrouted(
-        Nukleus nukleus,
-        RouteKind routeKind,
-        long routeId)
+    private void onSystemWindow(
+        WindowFW window)
     {
-        String nukleusName = nukleus.name();
-        int localAddressId = localId(routeId);
-        String localAddress = labels.lookupLabel(localAddressId);
-        BitSet affinity = affinityMask.apply(localAddress);
-        if (affinity.get(localIndex))
-        {
-            elektronByName.computeIfPresent(nukleusName, (a, r) -> r.unassign(routeKind, localAddressId));
+        final long traceId = window.traceId();
+        final long budgetId = window.budgetId();
+        final int reserved = window.maximum();
 
-            final SignalFW signal = signalRW.wrap(signalBuffer, 0, signalBuffer.capacity())
-                                            .routeId(routeId)
-                                            .streamId(0L)
-                                            .sequence(0L)
-                                            .acknowledge(0L)
-                                            .maximum(0)
-                                            .cancelId(NO_CANCEL_ID)
-                                            .signalId(SYSTEM_SIGNAL_UNROUTED)
-                                            .extension(m -> m.set(visitUnroutedSignalEx(routeId, nukleusName)))
-                                            .build();
-            streamsBuffer.write(signal.typeId(), signal.buffer(), signal.offset(), signal.sizeof());
+        creditor.creditById(traceId, budgetId, reserved);
+
+        long parentBudgetId = creditor.parentBudgetId(budgetId);
+        if (parentBudgetId != NO_BUDGET_ID)
+        {
+            doSystemWindowIfNecessary(traceId, parentBudgetId, reserved);
         }
     }
 
-    private Flyweight.Builder.Visitor visitRoutedSignalEx(
-        long routeId,
-        String nukleusName,
-        RouteKind routeKind,
-        String localAddress,
-        String remoteAddress,
-        OctetsFW extension)
+    private void onSystemSignal(
+        SignalFW signal)
     {
-        return (b, o, l) -> reaktorSignalExRW.wrap(b, o, l)
-                                             .typeId(reaktorTypeId)
-                                             .route(r -> r.correlationId(routeId)
-                                                          .nukleus(nukleusName)
-                                                          .role(m -> m.set(Role.valueOf(routeKind.ordinal())))
-                                                          .localAddress(localAddress)
-                                                          .remoteAddress(remoteAddress)
-                                                          .extension(extension))
-                                             .build()
-                                             .sizeof();
+        final int signalId = signal.signalId();
+
+        switch (signalId)
+        {
+        case SIGNAL_TASK_QUEUED:
+            taskQueue.poll().run();
+            break;
+        }
     }
 
-    private Flyweight.Builder.Visitor visitUnroutedSignalEx(
-        long routeId,
-        String nukleusName)
+    private void doSystemFlush(
+        long traceId,
+        long budgetId,
+        long watchers)
     {
-        return (b, o, l) -> reaktorSignalExRW.wrap(b, o, l)
-                                             .typeId(reaktorTypeId)
-                                             .unroute(u -> u.correlationId(routeId)
-                                                            .nukleus(nukleusName)
-                                                            .routeId(routeId))
-                                             .build()
-                                             .sizeof();
+        for (int watcherIndex = 0; watcherIndex < Long.SIZE; watcherIndex++)
+        {
+            if ((watchers & (1L << watcherIndex)) != 0L)
+            {
+                if (ReaktorConfiguration.DEBUG_BUDGETS)
+                {
+                    System.out.format("[%d] [0x%016x] [0x%016x] flush %d\n",
+                            System.nanoTime(), traceId, budgetId, watcherIndex);
+                }
+
+                final MessageConsumer writer = supplyWriter(watcherIndex);
+                final FlushFW flush = flushRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                        .routeId(0L)
+                        .streamId(0L)
+                        .sequence(0L)
+                        .acknowledge(0L)
+                        .maximum(0)
+                        .traceId(traceId)
+                        .budgetId(budgetId)
+                        .reserved(0)
+                        .build();
+
+                writer.accept(flush.typeId(), flush.buffer(), flush.offset(), flush.sizeof());
+            }
+        }
+    }
+
+    private void doSystemWindow(
+        long traceId,
+        long budgetId,
+        int reserved)
+    {
+        if (ReaktorConfiguration.DEBUG_BUDGETS)
+        {
+            System.out.format("[%d] [0x%016x] [0x%016x] doSystemWindow credit=%d \n",
+                System.nanoTime(), traceId, budgetId, reserved);
+        }
+
+        final int targetIndex = ownerIndex(budgetId);
+        final MessageConsumer writer = supplyWriter(targetIndex);
+        final WindowFW window = windowRW.wrap(writeBuffer, 0, writeBuffer.capacity())
+                                        .routeId(0L)
+                                        .streamId(0L)
+                                        .sequence(0L)
+                                        .acknowledge(0L)
+                                        .maximum(reserved)
+                                        .traceId(traceId)
+                                        .budgetId(budgetId)
+                                        .padding(0)
+                                        .build();
+        writer.accept(window.typeId(), window.buffer(), window.offset(), window.sizeof());
     }
 
     private boolean handleExpire(
@@ -1112,11 +1031,10 @@ public class ElektronAgent implements Agent
         final BeginFW begin = beginRO.wrap(buffer, index, index + length);
         final long routeId = begin.routeId();
         final long streamId = begin.streamId();
-        final int addressId = remoteId(routeId);
 
         MessageConsumer newStream = null;
 
-        final StreamFactory streamFactory = streamFactoriesByAddressId.get(addressId);
+        final StreamFactory streamFactory = context.streamFactory(routeId);
         if (streamFactory != null)
         {
             final MessageConsumer replyTo = supplyReplyTo(streamId);
@@ -1137,21 +1055,14 @@ public class ElektronAgent implements Agent
         int length)
     {
         final BeginFW begin = beginRO.wrap(buffer, index, index + length);
-        final long routeId = begin.routeId();
         final long streamId = begin.streamId();
-        final int labelId = localId(routeId);
 
         MessageConsumer newStream = null;
 
-        final StreamFactory streamFactory = streamFactoriesByAddressId.get(labelId);
-        if (streamFactory != null)
+        newStream = correlations.remove(streamId);
+        if (newStream != null)
         {
-            final MessageConsumer replyTo = supplyReplyTo(streamId);
-            newStream = streamFactory.newStream(msgTypeId, buffer, index, length, replyTo);
-            if (newStream != null)
-            {
-                streams[streamIndex(streamId)].put(instanceId(streamId), newStream);
-            }
+            streams[streamIndex(streamId)].put(instanceId(streamId), newStream);
         }
 
         return newStream;
@@ -1200,11 +1111,20 @@ public class ElektronAgent implements Agent
         return writersByIndex.computeIfAbsent(index, supplyWriter);
     }
 
-    private MessageConsumer supplyInitialWriter(
-        long streamId)
+    private MessageConsumer newStream(
+        int msgTypeId,
+        DirectBuffer buffer,
+        int index,
+        int length,
+        MessageConsumer sender)
     {
-        final int index = remoteIndex(streamId);
-        return writersByIndex.computeIfAbsent(index, supplyWriter);
+        final FrameFW frame = frameRO.wrap(buffer, index, length);
+        final long streamId = frame.streamId();
+        assert StreamId.isInitial(streamId);
+        final long replyId = supplyReplyId(streamId);
+        correlations.put(replyId, sender);
+        final int remoteIndex = remoteIndex(streamId);
+        return writersByIndex.computeIfAbsent(remoteIndex, supplyWriter);
     }
 
     private MessageConsumer supplyWriter(
@@ -1275,164 +1195,6 @@ public class ElektronAgent implements Agent
         }
     }
 
-    private final class ElektronRef
-    {
-        private final Elektron elektron;
-        private final Map<RouteKind, StreamFactory> streamFactories;
-        private final Map<RouteKind, AddressFactory> addressFactories;
-
-        private int count;
-
-        private ElektronRef(
-            String nukleusName,
-            Elektron elekron)
-        {
-            this.elektron = requireNonNull(elekron);
-            this.elektron.setPollerKeySupplier(poller::register);
-
-            final Map<RouteKind, StreamFactory> streamFactories = new EnumMap<>(RouteKind.class);
-            final Map<RouteKind, AddressFactory> addressFactories = new EnumMap<>(RouteKind.class);
-            final Map<String, AtomicCounter> countersByName = new HashMap<>();
-            final Function<String, AtomicCounter> newCounter = counters::counter;
-            final Function<String, LongSupplier> supplyCounter =
-                name -> () -> countersByName.computeIfAbsent(name, newCounter).increment() + 1;
-            final Function<String, LongConsumer> supplyAccumulator = name -> inc -> counters.counter(name).getAndAdd(inc);
-            final AtomicCounter acquires = counters.counter(String.format("%s.acquires", nukleusName));
-            final AtomicCounter releases = counters.counter(String.format("%s.releases", nukleusName));
-            final BufferPool countingPool = new CountingBufferPool(bufferPool, acquires::increment, releases::increment);
-            final Supplier<BufferPool> supplyCountingBufferPool = () -> countingPool;
-
-            for (RouteKind routeKind : EnumSet.allOf(RouteKind.class))
-            {
-                final AddressFactoryBuilder addressFactoryBuilder = elektron.addressFactoryBuilder(routeKind);
-                if (addressFactoryBuilder != null)
-                {
-                    AddressFactory addressFactory = newAddressFactory(addressFactoryBuilder);
-                    addressFactories.put(routeKind, addressFactory);
-                }
-
-                final StreamFactoryBuilder streamFactoryBuilder = elektron.streamFactoryBuilder(routeKind);
-                if (streamFactoryBuilder != null)
-                {
-                    StreamFactory streamFactory =
-                            newStreamFactory(supplyCounter, supplyAccumulator, supplyCountingBufferPool, streamFactoryBuilder);
-                    streamFactories.put(routeKind, streamFactory);
-                }
-            }
-            this.addressFactories = addressFactories;
-            this.streamFactories = streamFactories;
-        }
-
-        public ElektronRef assign(
-            RouteKind routeKind,
-            int labelId)
-        {
-            synchronized (this)
-            {
-                final StreamFactory streamFactory = streamFactories.get(routeKind);
-                if (streamFactory != null)
-                {
-                    streamFactoriesByAddressId.put(labelId, streamFactory);
-                }
-                this.count++;
-            }
-
-            return this;
-        }
-
-        public ElektronRef unassign(
-            RouteKind routeKind,
-            int labelId)
-        {
-            synchronized (this)
-            {
-                this.count--;
-
-                if (this.count == 0)
-                {
-                    final StreamFactory streamFactory = streamFactoriesByAddressId.remove(labelId);
-                    assert streamFactory == streamFactories.get(routeKind);
-                }
-            }
-
-            return this;
-        }
-    }
-
-    private AddressFactory newAddressFactory(
-        AddressFactoryBuilder addressFactoryBuilder)
-    {
-        return addressFactoryBuilder
-                .setRouter(resolver)
-                .setWriteBuffer(writeBuffer)
-                .setTypeIdSupplier(labels::supplyLabelId)
-                .setTraceIdSupplier(this::supplyTraceId)
-                .setInitialIdSupplier(this::supplyInitialId)
-                .setReplyIdSupplier(this::supplyReplyId)
-                .build();
-    }
-
-    private StreamFactory newStreamFactory(
-        final Function<String, LongSupplier> supplyCounter,
-        final Function<String, LongConsumer> supplyAccumulator,
-        final Supplier<BufferPool> supplyCountingBufferPool,
-        final StreamFactoryBuilder streamFactoryBuilder)
-    {
-        return streamFactoryBuilder
-                .setRouteManager(resolver)
-                .setSignaler(signaler)
-                .setWriteBuffer(writeBuffer)
-                .setTypeIdSupplier(labels::supplyLabelId)
-                .setInitialIdSupplier(this::supplyInitialId)
-                .setReplyIdSupplier(this::supplyReplyId)
-                .setTraceIdSupplier(this::supplyTraceId)
-                .setBudgetIdSupplier(this::supplyBudgetId)
-                .setBudgetCreditor(creditor)
-                .setBudgetDebitorSupplier(this::supplyBudgetDebitor)
-                .setCounterSupplier(supplyCounter)
-                .setAccumulatorSupplier(supplyAccumulator)
-                .setBufferPoolSupplier(supplyCountingBufferPool)
-                .setDroppedFrameConsumer(this::handleDroppedReadFrame)
-                .setRemoteIndexSupplier(StreamId::remoteIndex)
-                .setHostResolver(resolveHost)
-                .setPollerKeySupplier(poller::register)
-                .build();
-    }
-
-    private long supplyInitialId(
-        long routeId)
-    {
-        final int remoteId = remoteId(routeId);
-        final int remoteIndex = resolveRemoteIndex(remoteId);
-
-        streamId += 2L;
-        streamId &= mask;
-
-        return (((long)remoteIndex << 48) & 0x00ff_0000_0000_0000L) |
-               (streamId & 0xff00_ffff_ffff_ffffL) | 0x0000_0000_0000_0001L;
-    }
-
-    private long supplyReplyId(
-        long initialId)
-    {
-        assert isInitial(initialId);
-        return initialId & 0xffff_ffff_ffff_fffeL;
-    }
-
-    private long supplyBudgetId()
-    {
-        budgetId++;
-        budgetId &= mask;
-        return budgetId;
-    }
-
-    private BudgetDebitor supplyBudgetDebitor(
-        long budgetId)
-    {
-        final int ownerIndex = (int) ((budgetId >> shift) & 0xFFFF_FFFF);
-        return debitorsByIndex.computeIfAbsent(ownerIndex, this::newBudgetDebitor);
-    }
-
     private DefaultBudgetDebitor newBudgetDebitor(
         int ownerIndex)
     {
@@ -1442,13 +1204,6 @@ public class ElektronAgent implements Agent
                 .build();
 
         return new DefaultBudgetDebitor(localIndex, ownerIndex, layout);
-    }
-
-    private long supplyTraceId()
-    {
-        traceId++;
-        traceId &= mask;
-        return traceId;
     }
 
     private int resolveRemoteIndex(
@@ -1485,17 +1240,15 @@ public class ElektronAgent implements Agent
         final int remoteId = (int)(remoteIdAsLong & 0xffff_ffffL);
         String remoteAddress = labels.lookupLabel(remoteId);
 
-        BitSet mask = affinityMask.apply(remoteAddress);
-
-        if (mask.cardinality() == 0)
+        if (affinityMask.cardinality() == 0)
         {
             throw new IllegalStateException(String.format("affinity mask must specify at least one bit: %s %d",
                     remoteAddress, mask));
         }
 
         Affinity affinity = new Affinity();
-        affinity.mask = mask;
-        affinity.nextIndex = mask.get(localIndex) ? localIndex : mask.nextSetBit(0);
+        affinity.mask = affinityMask;
+        affinity.nextIndex = affinityMask.get(localIndex) ? localIndex : affinityMask.nextSetBit(0);
 
         return affinity;
     }

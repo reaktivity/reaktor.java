@@ -18,14 +18,7 @@ package org.reaktivity.reaktor;
 import static org.agrona.LangUtil.rethrowUnchecked;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ThreadFactory;
-import java.util.function.BiConsumer;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import org.agrona.CloseHelper;
 import org.agrona.ErrorHandler;
@@ -34,34 +27,21 @@ import org.agrona.concurrent.Agent;
 import org.agrona.concurrent.AgentRunner;
 import org.agrona.concurrent.BackoffIdleStrategy;
 import org.agrona.concurrent.IdleStrategy;
-import org.reaktivity.nukleus.Configuration;
-import org.reaktivity.nukleus.Controller;
-import org.reaktivity.nukleus.Nukleus;
-import org.reaktivity.reaktor.internal.agent.ControllerAgent;
-import org.reaktivity.reaktor.internal.agent.ElektronAgent;
 import org.reaktivity.reaktor.internal.agent.NukleusAgent;
 
 public final class Reaktor implements AutoCloseable
 {
-    private final Set<Configuration> configs;
-    private final ExecutorService executor;
     private final AgentRunner[] runners;
-    private final ControllerAgent controllerAgent;
     private final NukleusAgent nukleusAgent;
-    private final List<ElektronAgent> elektronAgents;
-    private final ThreadFactory threadFactory;
 
     Reaktor(
         ReaktorConfiguration config,
         ErrorHandler errorHandler,
-        Set<Configuration> configs,
-        ExecutorService executor,
-        Agent[] agents,
-        ThreadFactory threadFactory)
+        NukleusAgent nukleusAgent)
     {
-        this.configs = configs;
-        this.executor = executor;
-        this.threadFactory = threadFactory;
+        List<Agent> agents = new ArrayList<>();
+        agents.add(nukleusAgent);
+        agents.addAll(nukleusAgent.elektronAgents());
 
         AgentRunner[] runners = new AgentRunner[0];
         for (Agent agent : agents)
@@ -75,59 +55,31 @@ public final class Reaktor implements AutoCloseable
         }
         this.runners = runners;
 
-        this.controllerAgent = Arrays.stream(agents)
-            .filter(agent -> agent instanceof ControllerAgent)
-            .map(ControllerAgent.class::cast)
-            .findFirst()
-            .orElse(null);
+        this.nukleusAgent = nukleusAgent;
+    }
 
-        this.nukleusAgent = Arrays.stream(agents)
-                .filter(agent -> agent instanceof NukleusAgent)
-                .map(NukleusAgent.class::cast)
+    public <T> T nukleus(
+        Class<T> kind)
+    {
+        return nukleusAgent.nuklei()
+                .stream()
+                .filter(kind::isInstance)
+                .map(kind::cast)
                 .findFirst()
                 .orElse(null);
-
-        this.elektronAgents = Arrays.stream(agents)
-                .filter(agent -> agent instanceof ElektronAgent)
-                .map(ElektronAgent.class::cast)
-                .collect(Collectors.toList());
-    }
-
-    public void properties(
-        BiConsumer<String, Object> valueAction,
-        BiConsumer<String, Object> defaultAction)
-    {
-        configs.forEach(c -> c.properties(valueAction, defaultAction));
-    }
-
-    public <T extends Controller> T controller(
-        Class<T> kind)
-    {
-        return controllerAgent != null ? controllerAgent.controller(kind) : null;
-    }
-
-    public Stream<Controller> controllers()
-    {
-        return controllerAgent != null ? controllerAgent.controllers() : null;
-    }
-
-    public <T extends Nukleus> T nukleus(
-        Class<T> kind)
-    {
-        return nukleusAgent != null ? nukleusAgent.nukleus(kind) : null;
     }
 
     public long counter(
         String name)
     {
-        return elektronAgents.stream().mapToLong(agent -> agent.counter(name)).sum();
+        return nukleusAgent.elektronAgents().stream().mapToLong(agent -> agent.counter(name)).sum();
     }
 
     public Reaktor start()
     {
         for (AgentRunner runner : runners)
         {
-            AgentRunner.startOnThread(runner, threadFactory);
+            AgentRunner.startOnThread(runner, Thread::new);
         }
 
         return this;
@@ -148,8 +100,6 @@ public final class Reaktor implements AutoCloseable
                 errors.add(t);
             }
         }
-
-        executor.shutdownNow();
 
         if (!errors.isEmpty())
         {

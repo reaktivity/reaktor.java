@@ -358,7 +358,7 @@
                 <include>org/reaktivity/reaktor/test/internal/k3po/ext/**/*.class</include>
               </includes>
               <excludes>
-                <exclude>META-INF/services/org.reaktivity.nukleus.NukleusFactorySpi</exclude>
+                <exclude>META-INF/services/org.reaktivity.reaktor.nukleus.NukleusFactorySpi</exclude>
                 <exclude>**/*IT.class</exclude>
                 <exclude>**/*Test.class</exclude>
               </excludes>

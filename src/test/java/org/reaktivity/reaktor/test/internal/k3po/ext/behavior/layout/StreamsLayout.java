@@ -27,7 +27,7 @@ import org.agrona.concurrent.AtomicBuffer;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.agrona.concurrent.ringbuffer.RingBuffer;
 import org.agrona.concurrent.ringbuffer.RingBufferDescriptor;
-import org.reaktivity.nukleus.internal.ManyToOneRingBuffer;
+import org.reaktivity.reaktor.internal.concurent.ManyToOneRingBuffer;
 
 public final class StreamsLayout extends Layout
 {
