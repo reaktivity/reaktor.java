@@ -35,11 +35,11 @@ import static org.reaktivity.reaktor.nukleus.concurrent.Signaler.NO_CANCEL_ID;
 import java.net.InetAddress;
 import java.nio.channels.SelectableChannel;
 import java.util.BitSet;
+import java.util.Collection;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutorService;
@@ -57,11 +57,15 @@ import java.util.regex.Pattern;
 import org.agrona.DeadlineTimerWheel;
 import org.agrona.DeadlineTimerWheel.TimerHandler;
 import org.agrona.DirectBuffer;
+import org.agrona.ErrorHandler;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Int2ObjectHashMap;
 import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.concurrent.Agent;
+import org.agrona.concurrent.AgentRunner;
 import org.agrona.concurrent.AgentTerminationException;
+import org.agrona.concurrent.BackoffIdleStrategy;
+import org.agrona.concurrent.IdleStrategy;
 import org.agrona.concurrent.MessageHandler;
 import org.agrona.concurrent.UnsafeBuffer;
 import org.agrona.concurrent.ringbuffer.RingBuffer;
@@ -168,6 +172,7 @@ public class DispatchAgent implements ElektronContext, Agent
     private final ConfigurationContext context;
     private final Deque<Runnable> taskQueue;
     private final BitSet affinityMask;
+    private final AgentRunner runner;
 
     private long iniitalId;
     private long traceId;
@@ -179,14 +184,21 @@ public class DispatchAgent implements ElektronContext, Agent
         ReaktorConfiguration config,
         ExecutorService executor,
         LabelManager labels,
+        ErrorHandler errorHandler,
         BitSet affinityMask,
-        Set<Nukleus> nuklei,
+        Collection<Nukleus> nuklei,
         int index)
     {
         this.localIndex = index;
         this.config = config;
         this.labels = labels;
         this.affinityMask = affinityMask;
+
+        final IdleStrategy idleStrategy = new BackoffIdleStrategy(
+                config.maxSpins(),
+                config.maxYields(),
+                config.minParkNanos(),
+                config.maxParkNanos());
 
         final MetricsLayout metricsLayout = new MetricsLayout.Builder()
                 .path(config.directory().resolve(String.format("metrics%d", index)))
@@ -212,6 +224,7 @@ public class DispatchAgent implements ElektronContext, Agent
         this.metricsLayout = metricsLayout;
         this.streamsLayout = streamsLayout;
         this.bufferPoolLayout = bufferPoolLayout;
+        this.runner = new AgentRunner(idleStrategy, errorHandler, null, this);
 
         final CountersManager countersManager =
                 new CountersManager(metricsLayout.labelsBuffer(), metricsLayout.valuesBuffer());
@@ -525,6 +538,11 @@ public class DispatchAgent implements ElektronContext, Agent
         taskQueue.offer(detachTask);
         signaler.signalNow(0L, 0L, SIGNAL_TASK_QUEUED);
         return detachTask.future();
+    }
+
+    public AgentRunner runner()
+    {
+        return runner;
     }
 
     public long counter(

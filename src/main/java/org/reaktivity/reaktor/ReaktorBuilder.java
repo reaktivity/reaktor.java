@@ -16,22 +16,12 @@
 package org.reaktivity.reaktor;
 
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Executors.newFixedThreadPool;
 
-import java.util.ArrayList;
-import java.util.BitSet;
+import java.net.URI;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.function.ToLongFunction;
 
 import org.agrona.ErrorHandler;
-import org.agrona.concurrent.Agent;
-import org.reaktivity.reaktor.internal.LabelManager;
-import org.reaktivity.reaktor.internal.ReaktorThreadFactory;
-import org.reaktivity.reaktor.internal.context.ConfigureAgent;
-import org.reaktivity.reaktor.internal.context.DispatchAgent;
 import org.reaktivity.reaktor.nukleus.Configuration;
 import org.reaktivity.reaktor.nukleus.Nukleus;
 import org.reaktivity.reaktor.nukleus.NukleusFactory;
@@ -42,6 +32,7 @@ public class ReaktorBuilder
     private ErrorHandler errorHandler;
 
     private int threads = 1;
+    private URI configURI = URI.create("https://localhost:8000/config");
 
     ReaktorBuilder()
     {
@@ -51,6 +42,13 @@ public class ReaktorBuilder
         Configuration config)
     {
         this.config = requireNonNull(config);
+        return this;
+    }
+
+    public ReaktorBuilder config(
+        URI configURI)
+    {
+        this.configURI = requireNonNull(configURI);
         return this;
     }
 
@@ -80,31 +78,8 @@ public class ReaktorBuilder
             nuklei.add(nukleus);
         }
 
-        int coreCount = threads;
-        ExecutorService executor = newFixedThreadPool(config.taskParallelism(), new ReaktorThreadFactory("task"));
-        LabelManager labels = new LabelManager(config.directory());
-
-        // TODO: revisit affinity
-        BitSet affinityMask = new BitSet(coreCount);
-        affinityMask.set(0, affinityMask.size());
-
-        Set<DispatchAgent> dispatchAgents = new LinkedHashSet<>();
-        for (int coreIndex = 0; coreIndex < coreCount; coreIndex++)
-        {
-            DispatchAgent agent = new DispatchAgent(config, executor, labels, affinityMask, nuklei, coreIndex);
-            dispatchAgents.add(agent);
-        }
-
-        final ConfigureAgent configureAgent = new ConfigureAgent(dispatchAgents);
         final ErrorHandler errorHandler = requireNonNull(this.errorHandler, "errorHandler");
 
-        List<Agent> agents = new ArrayList<>();
-        agents.add(configureAgent);
-        agents.addAll(dispatchAgents);
-
-        final ToLongFunction<String> counter =
-            name -> dispatchAgents.stream().mapToLong(d -> d.counter(name)).sum();
-
-        return new Reaktor(config, errorHandler, executor, nuklei, agents, counter);
+        return new Reaktor(config, nuklei, errorHandler, configURI, threads);
     }
 }
