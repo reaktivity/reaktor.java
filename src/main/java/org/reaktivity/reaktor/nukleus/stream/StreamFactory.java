@@ -25,5 +25,5 @@ public interface StreamFactory
         DirectBuffer buffer,
         int index,
         int length,
-        MessageConsumer throttle);
+        MessageConsumer sender);
 }

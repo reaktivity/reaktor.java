@@ -30,23 +30,30 @@ import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.ToIntFunction;
 
 import javax.json.bind.Jsonb;
 import javax.json.bind.JsonbBuilder;
 import javax.json.bind.JsonbConfig;
 
+import org.reaktivity.reaktor.config.Binding;
+import org.reaktivity.reaktor.config.Route;
 import org.reaktivity.reaktor.internal.config.Configuration;
 import org.reaktivity.reaktor.internal.config.ConfigurationAdapter;
+import org.reaktivity.reaktor.internal.stream.RouteId;
 
 public class ConfigureTask implements Callable<Void>
 {
+    private final ToIntFunction<String> supplyId;
     private final URI configURI;
     private final Collection<DispatchAgent> dispatchers;
 
     public ConfigureTask(
         URI configURI,
+        ToIntFunction<String> supplyId,
         Collection<DispatchAgent> dispatchers)
     {
+        this.supplyId = supplyId;
         this.configURI = configURI;
         this.dispatchers = dispatchers;
     }
@@ -92,6 +99,16 @@ public class ConfigureTask implements Callable<Void>
         Jsonb jsonb = JsonbBuilder.create(config);
 
         Configuration configuration = jsonb.fromJson(configText, Configuration.class);
+
+        configuration.id = supplyId.applyAsInt(configuration.name);
+        for (Binding binding : configuration.bindings)
+        {
+            binding.id = RouteId.routeId(configuration.id, supplyId.applyAsInt(binding.entry));
+            for (Route route : binding.routes)
+            {
+                route.id = RouteId.routeId(configuration.id, supplyId.applyAsInt(route.exit));
+            }
+        }
 
         CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
         for (DispatchAgent dispatcher : dispatchers)

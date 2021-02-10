@@ -48,9 +48,9 @@ public class BindingAdapter implements JsonbAdapter<Binding, JsonObject>
 
     public BindingAdapter()
     {
-        role = new RoleAdapter();
-        route = new RouteAdapter();
-        options = new OptionsAdapter();
+        this.role = new RoleAdapter();
+        this.route = new RouteAdapter();
+        this.options = new OptionsAdapter();
     }
 
     @Override

@@ -22,7 +22,6 @@ import org.agrona.collections.Int2ObjectHashMap;
 import org.reaktivity.reaktor.config.Namespace;
 import org.reaktivity.reaktor.internal.stream.RouteId;
 import org.reaktivity.reaktor.nukleus.Elektron;
-import org.reaktivity.reaktor.nukleus.stream.StreamFactory;
 
 public class ConfigurationContext
 {
@@ -52,17 +51,14 @@ public class ConfigurationContext
         return new NamespaceTask(namespace, this::detachNamespace);
     }
 
-    public StreamFactory streamFactory(
+    public BindingContext resolve(
         long routeId)
     {
-        int namespaceId = RouteId.localId(routeId);
-        int bindingId = RouteId.remoteId(routeId);
+        int namespaceId = RouteId.namespaceId(routeId);
+        int bindingId = RouteId.bindingId(routeId);
 
         NamespaceContext namespace = findNamespace(namespaceId);
-        BindingContext binding = namespace != null ? namespace.findBinding(bindingId) : null;
-        StreamFactory factory = binding != null ? binding.factory() : null;
-
-        return factory;
+        return namespace != null ? namespace.findBinding(bindingId) : null;
     }
 
     private NamespaceContext findNamespace(
@@ -74,10 +70,9 @@ public class ConfigurationContext
     private void attachNamespace(
         Namespace namespace)
     {
-        int namespaceId = supplyLabelId.applyAsInt(namespace.name);
         NamespaceContext context = new NamespaceContext(namespace, elektronsByName, supplyLabelId);
         context.attach();
-        namespacesById.put(namespaceId, context);
+        namespacesById.put(context.namespaceId(), context);
     }
 
     protected void detachNamespace(

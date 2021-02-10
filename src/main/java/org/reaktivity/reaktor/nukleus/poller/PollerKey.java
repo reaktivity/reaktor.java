@@ -20,6 +20,11 @@ import java.util.function.ToIntFunction;
 
 public interface PollerKey
 {
+    Object attach(
+        Object attachment);
+
+    Object attachment();
+
     SelectableChannel channel();
 
     boolean isValid();

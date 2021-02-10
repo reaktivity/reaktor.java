@@ -21,6 +21,8 @@ import java.util.List;
 
 public class Route
 {
+    public transient long id;
+
     public final String exit;
     public final List<Condition> when;
 
@@ -29,6 +31,6 @@ public class Route
         List<Condition> when)
     {
         this.exit = requireNonNull(exit);
-        this.when = when;
+        this.when = requireNonNull(when);
     }
 }

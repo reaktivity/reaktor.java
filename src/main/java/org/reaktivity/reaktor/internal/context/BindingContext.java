@@ -15,20 +15,38 @@
  */
 package org.reaktivity.reaktor.internal.context;
 
+import org.reaktivity.reaktor.config.Binding;
+import org.reaktivity.reaktor.nukleus.Elektron;
 import org.reaktivity.reaktor.nukleus.stream.StreamFactory;
 
 final class BindingContext
 {
-    private final StreamFactory factory;
+    private final Binding binding;
+    private final Elektron elektron;
+
+    private StreamFactory streamFactory;
 
     BindingContext(
-        StreamFactory factory)
+        Binding binding,
+        Elektron elektron)
     {
-        this.factory = factory;
+        this.binding = binding;
+        this.elektron = elektron;
     }
 
-    StreamFactory factory()
+    public void attach()
     {
-        return factory;
+        streamFactory = elektron.attach(binding);
+    }
+
+    public void detach()
+    {
+        elektron.detach(binding);
+        streamFactory = null;
+    }
+
+    public StreamFactory streamFactory()
+    {
+        return streamFactory;
     }
 }

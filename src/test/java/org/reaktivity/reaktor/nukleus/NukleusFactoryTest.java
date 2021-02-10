@@ -84,10 +84,16 @@ public final class NukleusFactoryTest
         private static final class TestElektron implements Elektron
         {
             @Override
-            public StreamFactory streamFactory(
+            public StreamFactory attach(
                 Binding binding)
             {
                 return null;
+            }
+
+            @Override
+            public void detach(
+                Binding binding)
+            {
             }
         }
     }

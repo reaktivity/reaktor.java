@@ -21,6 +21,8 @@ import java.util.List;
 
 public class Binding
 {
+    public transient long id;
+
     public final String entry;
     public final String type;
     public final Role kind;

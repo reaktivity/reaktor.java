@@ -15,32 +15,26 @@
  */
 package org.reaktivity.reaktor.internal.stream;
 
-import org.reaktivity.reaktor.internal.types.control.Role;
-
 public final class RouteId
 {
-    public static int localId(
+    public static int namespaceId(
         long routeId)
     {
-        return (int)(routeId >> 48) & 0xffff;
+        return (int)(routeId >> Integer.SIZE) & 0xffff_ffff;
     }
 
-    public static int remoteId(
+    public static int bindingId(
         long routeId)
     {
-        return (int)(routeId >> 32) & 0xffff;
+        return (int)(routeId >> 0) & 0xffff_ffff;
     }
 
     public static long routeId(
-        final int localId,
-        final int remoteId,
-        final Role role,
-        final int conditionId)
+        final int namespaceId,
+        final int bindingId)
     {
-        return (long) localId << 48 |
-               (long) remoteId << 32 |
-               (long) role.ordinal() << 28 |
-               (long) (conditionId & 0x0fff_ffff);
+        return (long) namespaceId << Integer.SIZE |
+               (long) bindingId << 0;
     }
 
     private RouteId()

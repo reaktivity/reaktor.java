@@ -21,8 +21,9 @@ import java.util.List;
 
 public class Namespace
 {
-    public final String name;
+    public transient int id;
 
+    public final String name;
     public final List<Binding> bindings;
 
     public Namespace(

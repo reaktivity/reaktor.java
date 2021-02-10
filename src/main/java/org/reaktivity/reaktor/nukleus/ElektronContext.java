@@ -21,6 +21,8 @@ import java.util.function.LongConsumer;
 import java.util.function.LongSupplier;
 
 import org.agrona.MutableDirectBuffer;
+import org.reaktivity.reaktor.config.Binding;
+import org.reaktivity.reaktor.config.Namespace;
 import org.reaktivity.reaktor.nukleus.budget.BudgetCreditor;
 import org.reaktivity.reaktor.nukleus.budget.BudgetDebitor;
 import org.reaktivity.reaktor.nukleus.buffer.BufferPool;
@@ -73,6 +75,10 @@ public interface ElektronContext
 
     PollerKey supplyPollerKey(
         SelectableChannel channel);
+
+    long supplyRouteId(
+        Namespace namespace,
+        Binding binding);
 
     StreamFactory streamFactory();
 }

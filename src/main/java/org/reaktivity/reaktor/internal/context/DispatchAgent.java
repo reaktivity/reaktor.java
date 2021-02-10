@@ -21,8 +21,8 @@ import static java.lang.ThreadLocal.withInitial;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.agrona.CloseHelper.quietClose;
 import static org.reaktivity.reaktor.internal.stream.BudgetId.ownerIndex;
-import static org.reaktivity.reaktor.internal.stream.RouteId.localId;
-import static org.reaktivity.reaktor.internal.stream.RouteId.remoteId;
+import static org.reaktivity.reaktor.internal.stream.RouteId.bindingId;
+import static org.reaktivity.reaktor.internal.stream.RouteId.namespaceId;
 import static org.reaktivity.reaktor.internal.stream.StreamId.instanceId;
 import static org.reaktivity.reaktor.internal.stream.StreamId.isInitial;
 import static org.reaktivity.reaktor.internal.stream.StreamId.remoteIndex;
@@ -73,6 +73,7 @@ import org.agrona.concurrent.status.AtomicCounter;
 import org.agrona.concurrent.status.CountersManager;
 import org.agrona.hints.ThreadHints;
 import org.reaktivity.reaktor.ReaktorConfiguration;
+import org.reaktivity.reaktor.config.Binding;
 import org.reaktivity.reaktor.config.Namespace;
 import org.reaktivity.reaktor.internal.Counters;
 import org.reaktivity.reaktor.internal.LabelManager;
@@ -83,6 +84,7 @@ import org.reaktivity.reaktor.internal.layouts.BufferPoolLayout;
 import org.reaktivity.reaktor.internal.layouts.MetricsLayout;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
 import org.reaktivity.reaktor.internal.poller.Poller;
+import org.reaktivity.reaktor.internal.stream.RouteId;
 import org.reaktivity.reaktor.internal.stream.StreamId;
 import org.reaktivity.reaktor.internal.stream.Target;
 import org.reaktivity.reaktor.internal.stream.WriteCounters;
@@ -169,7 +171,7 @@ public class DispatchAgent implements ElektronContext, Agent
     private final ElektronSignaler signaler;
     private final Long2ObjectHashMap<MessageConsumer> correlations;
 
-    private final ConfigurationContext context;
+    private final ConfigurationContext configuration;
     private final Deque<Runnable> taskQueue;
     private final BitSet affinityMask;
     private final AgentRunner runner;
@@ -288,7 +290,7 @@ public class DispatchAgent implements ElektronContext, Agent
             String name = nukleus.name();
             elektronsByName.put(name, nukleus.supplyElektron(this));
         }
-        this.context = new ConfigurationContext(elektronsByName::get, labels::supplyLabelId);
+        this.configuration = new ConfigurationContext(elektronsByName::get, labels::supplyLabelId);
         this.taskQueue = new ConcurrentLinkedDeque<>();
         this.correlations = new Long2ObjectHashMap<>();
     }
@@ -316,7 +318,7 @@ public class DispatchAgent implements ElektronContext, Agent
     public long supplyInitialId(
         long routeId)
     {
-        final int remoteId = remoteId(routeId);
+        final int remoteId = bindingId(routeId);
         final int remoteIndex = resolveRemoteIndex(remoteId);
 
         iniitalId += 2L;
@@ -418,15 +420,25 @@ public class DispatchAgent implements ElektronContext, Agent
     }
 
     @Override
-    public String roleName()
+    public long supplyRouteId(
+        Namespace namespace,
+        Binding binding)
     {
-        return agentName;
+        final int namespaceId = labels.supplyLabelId(namespace.name);
+        final int bindingId = labels.supplyLabelId(binding.entry);
+        return RouteId.routeId(namespaceId, bindingId);
     }
 
     @Override
     public StreamFactory streamFactory()
     {
         return this::newStream;
+    }
+
+    @Override
+    public String roleName()
+    {
+        return agentName;
     }
 
     @Override
@@ -525,7 +537,7 @@ public class DispatchAgent implements ElektronContext, Agent
     public CompletableFuture<Void> attach(
         Namespace namespace)
     {
-        NamespaceTask attachTask = context.attach(namespace);
+        NamespaceTask attachTask = configuration.attach(namespace);
         taskQueue.offer(attachTask);
         signaler.signalNow(0L, 0L, SIGNAL_TASK_QUEUED);
         return attachTask.future();
@@ -534,7 +546,7 @@ public class DispatchAgent implements ElektronContext, Agent
     public CompletableFuture<Void> detach(
         Namespace namespace)
     {
-        NamespaceTask detachTask = context.detach(namespace);
+        NamespaceTask detachTask = configuration.detach(namespace);
         taskQueue.offer(detachTask);
         signaler.signalNow(0L, 0L, SIGNAL_TASK_QUEUED);
         return detachTask.future();
@@ -1046,18 +1058,21 @@ public class DispatchAgent implements ElektronContext, Agent
     {
         final BeginFW begin = beginRO.wrap(buffer, index, index + length);
         final long routeId = begin.routeId();
-        final long streamId = begin.streamId();
+        final long initialId = begin.streamId();
 
         MessageConsumer newStream = null;
 
-        final StreamFactory streamFactory = context.streamFactory(routeId);
+        BindingContext binding = configuration.resolve(routeId);
+        final StreamFactory streamFactory = binding != null ? binding.streamFactory() : null;
         if (streamFactory != null)
         {
-            final MessageConsumer replyTo = supplyReplyTo(streamId);
+            final MessageConsumer replyTo = supplyReplyTo(initialId);
             newStream = streamFactory.newStream(msgTypeId, buffer, index, length, replyTo);
             if (newStream != null)
             {
-                streams[streamIndex(streamId)].put(instanceId(streamId), newStream);
+                final long replyId = supplyReplyId(initialId);
+                streams[streamIndex(initialId)].put(instanceId(initialId), newStream);
+                throttles[throttleIndex(replyId)].put(instanceId(replyId), newStream);
             }
         }
 
@@ -1138,6 +1153,7 @@ public class DispatchAgent implements ElektronContext, Agent
         final long streamId = frame.streamId();
         assert StreamId.isInitial(streamId);
         final long replyId = supplyReplyId(streamId);
+        throttles[throttleIndex(replyId)].put(instanceId(replyId), sender);
         correlations.put(replyId, sender);
         final int remoteIndex = remoteIndex(streamId);
         return writersByIndex.computeIfAbsent(remoteIndex, supplyWriter);
@@ -1164,7 +1180,7 @@ public class DispatchAgent implements ElektronContext, Agent
     private ReadCounters newReadCounters(
         long routeId)
     {
-        final int localId = localId(routeId);
+        final int localId = namespaceId(routeId);
         final String nukleus = nukleus(localId);
         return new ReadCounters(counters, nukleus, routeId);
     }
@@ -1172,7 +1188,7 @@ public class DispatchAgent implements ElektronContext, Agent
     private WriteCounters newWriteCounters(
         long routeId)
     {
-        final int localId = localId(routeId);
+        final int localId = namespaceId(routeId);
         final String nukleus = nukleus(localId);
         return new WriteCounters(counters, nukleus, routeId);
     }

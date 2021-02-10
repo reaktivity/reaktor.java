@@ -20,6 +20,9 @@ import org.reaktivity.reaktor.nukleus.stream.StreamFactory;
 
 public interface Elektron
 {
-    StreamFactory streamFactory(
+    StreamFactory attach(
+        Binding binding);
+
+    void detach(
         Binding binding);
 }

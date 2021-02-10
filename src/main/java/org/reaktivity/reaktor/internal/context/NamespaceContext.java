@@ -22,24 +22,30 @@ import org.agrona.collections.Int2ObjectHashMap;
 import org.reaktivity.reaktor.config.Binding;
 import org.reaktivity.reaktor.config.Namespace;
 import org.reaktivity.reaktor.nukleus.Elektron;
-import org.reaktivity.reaktor.nukleus.stream.StreamFactory;
 
 public class NamespaceContext
 {
     private final Namespace namespace;
-    private final Function<String, Elektron> supplyElektron;
+    private final Function<String, Elektron> lookupElektron;
     private final ToIntFunction<String> supplyLabelId;
+    private final int namespaceId;
     private final Int2ObjectHashMap<BindingContext> bindingsById;
 
     public NamespaceContext(
         Namespace namespace,
-        Function<String, Elektron> supplyElektron,
+        Function<String, Elektron> lookupElektron,
         ToIntFunction<String> supplyLabelId)
     {
         this.namespace = namespace;
-        this.supplyElektron = supplyElektron;
+        this.lookupElektron = lookupElektron;
         this.supplyLabelId = supplyLabelId;
+        this.namespaceId = supplyLabelId.applyAsInt(namespace.name);
         this.bindingsById = new Int2ObjectHashMap<>();
+    }
+
+    public int namespaceId()
+    {
+        return namespaceId;
     }
 
     public void attach()
@@ -55,17 +61,19 @@ public class NamespaceContext
     private void attachBinding(
         Binding binding)
     {
-        Elektron elektron = supplyElektron.apply(binding.type);
-        StreamFactory streamFactory = elektron.streamFactory(binding);
+        Elektron elektron = lookupElektron.apply(binding.type);
         int bindingId = supplyLabelId.applyAsInt(binding.entry);
-        bindingsById.put(bindingId, new BindingContext(streamFactory));
+        BindingContext context = new BindingContext(binding, elektron);
+        bindingsById.put(bindingId, context);
+        context.attach();
     }
 
     private void detachBinding(
         Binding binding)
     {
         int bindingId = supplyLabelId.applyAsInt(binding.entry);
-        bindingsById.remove(bindingId);
+        BindingContext context = bindingsById.remove(bindingId);
+        context.detach();
     }
 
     BindingContext findBinding(

@@ -25,6 +25,7 @@ module org.reaktivity.reaktor
     exports org.reaktivity.reaktor.nukleus.poller;
     exports org.reaktivity.reaktor.nukleus.stream;
 
+    requires transitive java.json;
     requires transitive org.agrona.core;
     requires transitive jdk.unsupported;
 
