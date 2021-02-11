@@ -15,6 +15,6 @@
  */
 package org.reaktivity.reaktor.config;
 
-public abstract class Options
+public class Options
 {
 }

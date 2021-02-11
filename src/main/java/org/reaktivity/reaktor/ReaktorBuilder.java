@@ -32,7 +32,7 @@ public class ReaktorBuilder
     private ErrorHandler errorHandler;
 
     private int threads = 1;
-    private URI configURI = URI.create("https://localhost:8000/config");
+    private URI configURI;
 
     ReaktorBuilder()
     {
@@ -45,7 +45,7 @@ public class ReaktorBuilder
         return this;
     }
 
-    public ReaktorBuilder config(
+    public ReaktorBuilder configURI(
         URI configURI)
     {
         this.configURI = requireNonNull(configURI);

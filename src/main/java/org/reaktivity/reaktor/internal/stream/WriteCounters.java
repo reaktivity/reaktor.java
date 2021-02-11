@@ -32,15 +32,15 @@ public final class WriteCounters
 
     public WriteCounters(
         Counters counters,
-        String nukleus,
-        long routeId)
+        String namespace,
+        String binding)
     {
-        this.opens = counters.counter(format("%s.%d.opens.written", nukleus, routeId));
-        this.closes = counters.counter(format("%s.%d.closes.written", nukleus, routeId));
-        this.aborts = counters.counter(format("%s.%d.aborts.written", nukleus, routeId));
-        this.windows = counters.counter(format("%s.%d.windows.written", nukleus, routeId));
-        this.resets = counters.counter(format("%s.%d.resets.written", nukleus, routeId));
-        this.bytes = counters.counter(format("%s.%d.bytes.written", nukleus, routeId));
-        this.frames = counters.counter(format("%s.%d.frames.written", nukleus, routeId));
+        this.opens = counters.counter(format("%s.%s.opens.written", namespace, binding));
+        this.closes = counters.counter(format("%s.%s.closes.written", namespace, binding));
+        this.aborts = counters.counter(format("%s.%s.aborts.written", namespace, binding));
+        this.windows = counters.counter(format("%s.%s.windows.written", namespace, binding));
+        this.resets = counters.counter(format("%s.%s.resets.written", namespace, binding));
+        this.bytes = counters.counter(format("%s.%s.bytes.written", namespace, binding));
+        this.frames = counters.counter(format("%s.%s.frames.written", namespace, binding));
     }
 }

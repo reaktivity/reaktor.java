@@ -28,18 +28,21 @@ public class Binding
     public final Role kind;
     public final Options options;
     public final List<Route> routes;
+    public final Route exit;
 
     public Binding(
         String entry,
         String type,
         Role kind,
         Options options,
-        List<Route> routes)
+        List<Route> routes,
+        Route exit)
     {
         this.entry = entry;
         this.type = requireNonNull(type);
         this.kind = requireNonNull(kind);
         this.options = options;
         this.routes = routes;
+        this.exit = exit;
     }
 }

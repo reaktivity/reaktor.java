@@ -15,16 +15,25 @@
  */
 package org.reaktivity.reaktor.config;
 
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 import java.util.List;
 
 public class Route
 {
+    private static final List<Condition> UNCONDITIONAL = emptyList();
+
     public transient long id;
 
     public final String exit;
     public final List<Condition> when;
+
+    public Route(
+        String exit)
+    {
+        this(exit, UNCONDITIONAL);
+    }
 
     public Route(
         String exit,

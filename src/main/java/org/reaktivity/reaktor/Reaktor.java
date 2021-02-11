@@ -78,7 +78,7 @@ public final class Reaktor implements AutoCloseable
             dispatchers.add(agent);
         }
 
-        final Callable<Void> configure = new ConfigureTask(configURI, labels::supplyLabelId, dispatchers);
+        final Callable<Void> configure = new ConfigureTask(configURI, labels::supplyLabelId, dispatchers, errorHandler);
 
         List<AgentRunner> runners = new ArrayList<>(dispatchers.size());
         dispatchers.forEach(d -> runners.add(d.runner()));

@@ -51,8 +51,6 @@ import java.util.function.IntFunction;
 import java.util.function.LongConsumer;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.agrona.DeadlineTimerWheel;
 import org.agrona.DeadlineTimerWheel.TimerHandler;
@@ -112,8 +110,6 @@ import org.reaktivity.reaktor.nukleus.stream.StreamFactory;
 public class DispatchAgent implements ElektronContext, Agent
 {
     private static final int SIGNAL_TASK_QUEUED = 1;
-
-    private static final Pattern ADDRESS_PATTERN = Pattern.compile("^([^#]+)(:?#.*)$");
 
     private final FrameFW frameRO = new FrameFW();
     private final BeginFW beginRO = new BeginFW();
@@ -1152,8 +1148,8 @@ public class DispatchAgent implements ElektronContext, Agent
         final FrameFW frame = frameRO.wrap(buffer, index, length);
         final long streamId = frame.streamId();
         assert StreamId.isInitial(streamId);
+        throttles[throttleIndex(streamId)].put(instanceId(streamId), sender);
         final long replyId = supplyReplyId(streamId);
-        throttles[throttleIndex(replyId)].put(instanceId(replyId), sender);
         correlations.put(replyId, sender);
         final int remoteIndex = remoteIndex(streamId);
         return writersByIndex.computeIfAbsent(remoteIndex, supplyWriter);
@@ -1180,26 +1176,21 @@ public class DispatchAgent implements ElektronContext, Agent
     private ReadCounters newReadCounters(
         long routeId)
     {
-        final int localId = namespaceId(routeId);
-        final String nukleus = nukleus(localId);
-        return new ReadCounters(counters, nukleus, routeId);
+        final int namespaceId = namespaceId(routeId);
+        final int bindingId = bindingId(routeId);
+        final String namespace = labels.lookupLabel(namespaceId);
+        final String binding = labels.lookupLabel(bindingId);
+        return new ReadCounters(counters, namespace, binding);
     }
 
     private WriteCounters newWriteCounters(
         long routeId)
     {
-        final int localId = namespaceId(routeId);
-        final String nukleus = nukleus(localId);
-        return new WriteCounters(counters, nukleus, routeId);
-    }
-
-    private String nukleus(
-        int localId)
-    {
-        final String localAddress = labels.lookupLabel(localId);
-        final Matcher matcher = ADDRESS_PATTERN.matcher(localAddress);
-        matcher.matches();
-        return matcher.group(1);
+        final int namespaceId = namespaceId(routeId);
+        final int bindingId = bindingId(routeId);
+        final String namespace = labels.lookupLabel(namespaceId);
+        final String binding = labels.lookupLabel(bindingId);
+        return new WriteCounters(counters, namespace, binding);
     }
 
     private static final class ReadCounters
@@ -1214,16 +1205,16 @@ public class DispatchAgent implements ElektronContext, Agent
 
         ReadCounters(
             Counters counters,
-            String nukleus,
-            long routeId)
+            String namespace,
+            String binding)
         {
-            this.opens = counters.counter(format("%s.%d.opens.read", nukleus, routeId));
-            this.closes = counters.counter(format("%s.%d.closes.read", nukleus, routeId));
-            this.aborts = counters.counter(format("%s.%d.aborts.read", nukleus, routeId));
-            this.windows = counters.counter(format("%s.%d.windows.read", nukleus, routeId));
-            this.resets = counters.counter(format("%s.%d.resets.read", nukleus, routeId));
-            this.bytes = counters.counter(format("%s.%d.bytes.read", nukleus, routeId));
-            this.frames = counters.counter(format("%s.%d.frames.read", nukleus, routeId));
+            this.opens = counters.counter(format("%s.%s.opens.read", namespace, binding));
+            this.closes = counters.counter(format("%s.%s.closes.read", namespace, binding));
+            this.aborts = counters.counter(format("%s.%s.aborts.read", namespace, binding));
+            this.windows = counters.counter(format("%s.%s.windows.read", namespace, binding));
+            this.resets = counters.counter(format("%s.%s.resets.read", namespace, binding));
+            this.bytes = counters.counter(format("%s.%s.bytes.read", namespace, binding));
+            this.frames = counters.counter(format("%s.%s.frames.read", namespace, binding));
         }
     }
 

@@ -69,7 +69,7 @@ public class BindingAdapterTest
     @Test
     public void shouldWriteBinding()
     {
-        Binding binding = new Binding("test", "test", SERVER, null, emptyList());
+        Binding binding = new Binding("test", "test", SERVER, null, emptyList(), null);
 
         String text = jsonb.toJson(binding);
 

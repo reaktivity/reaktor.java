@@ -35,6 +35,7 @@ import org.reaktivity.reaktor.config.Route;
 public class BindingAdapter implements JsonbAdapter<Binding, JsonObject>
 {
     private static final String ENTRY_NAME = "entry";
+    private static final String EXIT_NAME = "exit";
     private static final String TYPE_NAME = "type";
     private static final String KIND_NAME = "kind";
     private static final String OPTIONS_NAME = "options";
@@ -83,6 +84,11 @@ public class BindingAdapter implements JsonbAdapter<Binding, JsonObject>
             object.add(ROUTES_NAME, routes);
         }
 
+        if (binding.exit != null)
+        {
+            object.add(EXIT_NAME, binding.exit.exit);
+        }
+
         return object.build();
     }
 
@@ -90,8 +96,12 @@ public class BindingAdapter implements JsonbAdapter<Binding, JsonObject>
     public Binding adaptFromJson(
         JsonObject object)
     {
-        String entry = object.getString(ENTRY_NAME, null);
         String type = object.getString(TYPE_NAME);
+
+        route.adaptType(type);
+        options.adaptType(type);
+
+        String entry = object.containsKey(ENTRY_NAME) ? object.getString(ENTRY_NAME) : null;
         Role kind = role.adaptFromJson(object.getJsonString(KIND_NAME));
         Options opts = object.containsKey(OPTIONS_NAME) ?
                 options.adaptFromJson(object.getJsonObject(OPTIONS_NAME)) :
@@ -104,6 +114,10 @@ public class BindingAdapter implements JsonbAdapter<Binding, JsonObject>
                     .collect(toList())
                 : ROUTES_DEFAULT;
 
-        return new Binding(entry, type, kind, opts, routes);
+        Route exit = object.containsKey(EXIT_NAME)
+                ? new Route(object.getString(EXIT_NAME))
+                : null;
+
+        return new Binding(entry, type, kind, opts, routes, exit);
     }
 }

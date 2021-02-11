@@ -36,6 +36,7 @@ import javax.json.bind.Jsonb;
 import javax.json.bind.JsonbBuilder;
 import javax.json.bind.JsonbConfig;
 
+import org.agrona.ErrorHandler;
 import org.reaktivity.reaktor.config.Binding;
 import org.reaktivity.reaktor.config.Route;
 import org.reaktivity.reaktor.internal.config.Configuration;
@@ -47,15 +48,18 @@ public class ConfigureTask implements Callable<Void>
     private final ToIntFunction<String> supplyId;
     private final URI configURI;
     private final Collection<DispatchAgent> dispatchers;
+    private final ErrorHandler errorHandler;
 
     public ConfigureTask(
         URI configURI,
         ToIntFunction<String> supplyId,
-        Collection<DispatchAgent> dispatchers)
+        Collection<DispatchAgent> dispatchers,
+        ErrorHandler errorHandler)
     {
         this.supplyId = supplyId;
         this.configURI = configURI;
         this.dispatchers = dispatchers;
+        this.errorHandler = errorHandler;
     }
 
     @Override
@@ -65,7 +69,11 @@ public class ConfigureTask implements Callable<Void>
 
         String configText;
 
-        if ("https".equals(configURI.getScheme()) || "https".equals(configURI.getScheme()))
+        if (configURI == null)
+        {
+            configText = "";
+        }
+        else if ("https".equals(configURI.getScheme()) || "https".equals(configURI.getScheme()))
         {
             HttpClient client = HttpClient.newBuilder()
                 .version(HTTP_2)
@@ -94,28 +102,43 @@ public class ConfigureTask implements Callable<Void>
             throw new IllegalAccessException("Unexpected config scheme: " + configURI);
         }
 
-        JsonbConfig config = new JsonbConfig()
-                .withAdapters(new ConfigurationAdapter());
-        Jsonb jsonb = JsonbBuilder.create(config);
-
-        Configuration configuration = jsonb.fromJson(configText, Configuration.class);
-
-        configuration.id = supplyId.applyAsInt(configuration.name);
-        for (Binding binding : configuration.bindings)
+        try
         {
-            binding.id = RouteId.routeId(configuration.id, supplyId.applyAsInt(binding.entry));
-            for (Route route : binding.routes)
+            JsonbConfig config = new JsonbConfig()
+                    .withAdapters(new ConfigurationAdapter());
+            Jsonb jsonb = JsonbBuilder.create(config);
+
+            Configuration configuration = jsonb.fromJson(configText, Configuration.class);
+
+            configuration.id = supplyId.applyAsInt(configuration.name);
+            for (Binding binding : configuration.bindings)
             {
-                route.id = RouteId.routeId(configuration.id, supplyId.applyAsInt(route.exit));
-            }
-        }
+                binding.id = RouteId.routeId(configuration.id, supplyId.applyAsInt(binding.entry));
 
-        CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
-        for (DispatchAgent dispatcher : dispatchers)
-        {
-            future = CompletableFuture.allOf(future, dispatcher.attach(configuration));
+                // TODO: consider route exit namespace
+                for (Route route : binding.routes)
+                {
+                    route.id = RouteId.routeId(configuration.id, supplyId.applyAsInt(route.exit));
+                }
+
+                // TODO: consider binding exit namespace
+                if (binding.exit != null)
+                {
+                    binding.exit.id = RouteId.routeId(configuration.id, supplyId.applyAsInt(binding.exit.exit));
+                }
+            }
+
+            CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
+            for (DispatchAgent dispatcher : dispatchers)
+            {
+                future = CompletableFuture.allOf(future, dispatcher.attach(configuration));
+            }
+            future.join();
         }
-        future.join();
+        catch (Throwable ex)
+        {
+            errorHandler.onError(ex);
+        }
 
         // TODO: repeat to detect and apply changes
 
