@@ -31,14 +31,17 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.LongFunction;
 import java.util.function.ToLongFunction;
 
 import org.agrona.CloseHelper;
 import org.agrona.ErrorHandler;
+import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.concurrent.AgentRunner;
 import org.reaktivity.reaktor.internal.LabelManager;
 import org.reaktivity.reaktor.internal.context.ConfigureTask;
 import org.reaktivity.reaktor.internal.context.DispatchAgent;
+import org.reaktivity.reaktor.internal.stream.RouteId;
 import org.reaktivity.reaktor.nukleus.Nukleus;
 
 public final class Reaktor implements AutoCloseable
@@ -59,21 +62,31 @@ public final class Reaktor implements AutoCloseable
         Collection<Nukleus> nuklei,
         ErrorHandler errorHandler,
         URI configURI,
-        int coreCount)
+        int coreCount,
+        Collection<ReaktorAffinity> affinities)
     {
         this.nextTaskId = new AtomicInteger();
         this.factory = Executors.defaultThreadFactory();
+
         ExecutorService tasks = newFixedThreadPool(config.taskParallelism(), this::newTaskThread);
-
         LabelManager labels = new LabelManager(config.directory());
-
-        // TODO: revisit affinity
-        BitSet affinityMask = new BitSet(coreCount);
-        affinityMask.set(0, affinityMask.size());
 
         Collection<DispatchAgent> dispatchers = new LinkedHashSet<>();
         for (int coreIndex = 0; coreIndex < coreCount; coreIndex++)
         {
+            BitSet defaultMask = BitSet.valueOf(new long[] { (1L << coreCount) - 1L });
+            Long2ObjectHashMap<BitSet> affinityMasks = new Long2ObjectHashMap<>();
+            for (ReaktorAffinity affinity : affinities)
+            {
+                int namespaceId = labels.supplyLabelId(affinity.namespace);
+                int bindingId = labels.supplyLabelId(affinity.binding);
+                long routeId = RouteId.routeId(namespaceId, bindingId);
+                BitSet mask = BitSet.valueOf(new long[] { affinity.mask });
+                affinityMasks.put(routeId, mask);
+            }
+            LongFunction<BitSet> defaulter = r -> defaultMask;
+            LongFunction<BitSet> affinityMask = r -> affinityMasks.computeIfAbsent(r, defaulter);
+
             DispatchAgent agent = new DispatchAgent(config, tasks, labels, errorHandler, affinityMask, nuklei, coreIndex);
             dispatchers.add(agent);
         }
@@ -109,7 +122,7 @@ public final class Reaktor implements AutoCloseable
         return counter.applyAsLong(name);
     }
 
-    public Reaktor start()
+    public Future<Void> start()
     {
         for (AgentRunner runner : runners)
         {
@@ -118,7 +131,7 @@ public final class Reaktor implements AutoCloseable
 
         this.configureRef = commonPool().submit(configure);
 
-        return this;
+        return configureRef;
     }
 
     @Override

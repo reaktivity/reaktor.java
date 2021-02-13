@@ -15,7 +15,6 @@
  */
 package org.reaktivity.reaktor.internal.context;
 
-import static java.lang.Thread.currentThread;
 import static java.net.http.HttpClient.Redirect.NORMAL;
 import static java.net.http.HttpClient.Version.HTTP_2;
 
@@ -65,13 +64,11 @@ public class ConfigureTask implements Callable<Void>
     @Override
     public Void call() throws Exception
     {
-        currentThread().setName("reaktor/config");
-
         String configText;
 
         if (configURI == null)
         {
-            configText = "";
+            configText = "{}";
         }
         else if ("https".equals(configURI.getScheme()) || "https".equals(configURI.getScheme()))
         {

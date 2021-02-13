@@ -43,7 +43,8 @@ public final class CountingBufferPool implements BufferPool
     }
 
     @Override
-    public int acquire(long streamId)
+    public int acquire(
+        long streamId)
     {
         final int slot = bufferPool.acquire(streamId);
 
@@ -78,7 +79,8 @@ public final class CountingBufferPool implements BufferPool
     }
 
     @Override
-    public void release(int slot)
+    public void release(
+        int slot)
     {
         bufferPool.release(slot);
 

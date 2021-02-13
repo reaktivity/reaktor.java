@@ -159,7 +159,7 @@ public class DispatchAgent implements ElektronContext, Agent
 
     private final Map<String, AtomicCounter> countersByName;
 
-    private final Long2ObjectHashMap<Affinity> affinityByRemoteId;
+    private final Long2ObjectHashMap<Affinity> affinityByRouteId;
 
     private final DeadlineTimerWheel timerWheel;
     private final Long2ObjectHashMap<Runnable> tasksByTimerId;
@@ -169,7 +169,7 @@ public class DispatchAgent implements ElektronContext, Agent
 
     private final ConfigurationContext configuration;
     private final Deque<Runnable> taskQueue;
-    private final BitSet affinityMask;
+    private final LongFunction<BitSet> affinityMask;
     private final AgentRunner runner;
 
     private long iniitalId;
@@ -183,7 +183,7 @@ public class DispatchAgent implements ElektronContext, Agent
         ExecutorService executor,
         LabelManager labels,
         ErrorHandler errorHandler,
-        BitSet affinityMask,
+        LongFunction<BitSet> affinityMask,
         Collection<Nukleus> nuklei,
         int index)
     {
@@ -202,7 +202,6 @@ public class DispatchAgent implements ElektronContext, Agent
                 .path(config.directory().resolve(String.format("metrics%d", index)))
                 .labelsBufferCapacity(config.counterLabelsBufferCapacity())
                 .valuesBufferCapacity(config.counterValuesBufferCapacity())
-                .readonly(false)
                 .build();
 
         final StreamsLayout streamsLayout = new StreamsLayout.Builder()
@@ -244,7 +243,7 @@ public class DispatchAgent implements ElektronContext, Agent
         this.newTarget = this::newTarget;
         this.newWriteCounters = this::newWriteCounters;
         this.resolveAffinity = this::resolveAffinity;
-        this.affinityByRemoteId = new Long2ObjectHashMap<>();
+        this.affinityByRouteId = new Long2ObjectHashMap<>();
         this.targetsByIndex = new Int2ObjectHashMap<>();
         this.writersByIndex = new Int2ObjectHashMap<>();
 
@@ -314,8 +313,7 @@ public class DispatchAgent implements ElektronContext, Agent
     public long supplyInitialId(
         long routeId)
     {
-        final int remoteId = bindingId(routeId);
-        final int remoteIndex = resolveRemoteIndex(remoteId);
+        final int remoteIndex = resolveRemoteIndex(routeId);
 
         iniitalId += 2L;
         iniitalId &= mask;
@@ -1230,9 +1228,9 @@ public class DispatchAgent implements ElektronContext, Agent
     }
 
     private int resolveRemoteIndex(
-        int remoteId)
+        long routeId)
     {
-        final Affinity affinity = supplyAffinity(remoteId);
+        final Affinity affinity = supplyAffinity(routeId);
         final BitSet mask = affinity.mask;
         final int remoteIndex = affinity.nextIndex;
 
@@ -1252,26 +1250,29 @@ public class DispatchAgent implements ElektronContext, Agent
     }
 
     private Affinity supplyAffinity(
-        int remoteId)
+        long routeId)
     {
-        return affinityByRemoteId.computeIfAbsent(remoteId, resolveAffinity);
+        return affinityByRouteId.computeIfAbsent(routeId, resolveAffinity);
     }
 
     public Affinity resolveAffinity(
-        long remoteIdAsLong)
+        long routeId)
     {
-        final int remoteId = (int)(remoteIdAsLong & 0xffff_ffffL);
-        String remoteAddress = labels.lookupLabel(remoteId);
+        BitSet mask = affinityMask.apply(routeId);
 
-        if (affinityMask.cardinality() == 0)
+        if (mask.cardinality() == 0)
         {
-            throw new IllegalStateException(String.format("affinity mask must specify at least one bit: %s %d",
-                    remoteAddress, mask));
+            int namespaceId = RouteId.namespaceId(routeId);
+            int bindingId = RouteId.bindingId(routeId);
+            String namespace = labels.lookupLabel(namespaceId);
+            String binding = labels.lookupLabel(bindingId);
+            throw new IllegalStateException(String.format("affinity mask must specify at least one bit: %s.%s %d",
+                    namespace, binding, mask));
         }
 
         Affinity affinity = new Affinity();
-        affinity.mask = affinityMask;
-        affinity.nextIndex = affinityMask.get(localIndex) ? localIndex : affinityMask.nextSetBit(0);
+        affinity.mask = mask;
+        affinity.nextIndex = mask.get(localIndex) ? localIndex : mask.nextSetBit(0);
 
         return affinity;
     }

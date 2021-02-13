@@ -92,24 +92,22 @@ public final class NukleusSource implements AutoCloseable
     }
 
     public void doRoute(
-        String receiverAddress,
+        long routeId,
         long authorization,
         NukleusServerChannel serverChannel)
     {
-        long receiverId = labels.supplyLabelId(receiverAddress);
-        routesByAuth(receiverId).put(authorization, serverChannel);
+        routesByAuth(routeId).put(authorization, serverChannel);
     }
 
     public void doUnroute(
-        String receiverAddress,
+        long routeId,
         long authorization,
         NukleusServerChannel serverChannel)
     {
-        long receiverId = labels.supplyLabelId(receiverAddress);
-        Long2ObjectHashMap<NukleusServerChannel> channels = routesByIdAndAuth.get(receiverId);
+        Long2ObjectHashMap<NukleusServerChannel> channels = routesByIdAndAuth.get(routeId);
         if (channels != null && channels.remove(authorization) != null && channels.isEmpty())
         {
-            routesByIdAndAuth.remove(receiverId);
+            routesByIdAndAuth.remove(routeId);
         }
     }
 
@@ -217,8 +215,7 @@ public final class NukleusSource implements AutoCloseable
         long routeId,
         long authorization)
     {
-        long remoteId = (routeId >> 32) & 0xffff;
-        Long2ObjectHashMap<NukleusServerChannel> routesByAuth = routesByAuth(remoteId);
+        Long2ObjectHashMap<NukleusServerChannel> routesByAuth = routesByAuth(routeId);
         return routesByAuth.get(authorization);
     }
 

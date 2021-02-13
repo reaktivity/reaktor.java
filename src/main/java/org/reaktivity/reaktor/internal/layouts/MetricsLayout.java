@@ -74,7 +74,6 @@ public final class MetricsLayout extends Layout
         private Path path;
         private int labelsBufferCapacity;
         private int valuesBufferCapacity;
-        private boolean readonly;
 
         public Builder()
         {
@@ -87,26 +86,17 @@ public final class MetricsLayout extends Layout
             return this;
         }
 
-        public Path controlPath()
-        {
-            return path;
-        }
-
-        public Builder labelsBufferCapacity(int labelsBufferCapacity)
+        public Builder labelsBufferCapacity(
+            int labelsBufferCapacity)
         {
             this.labelsBufferCapacity = labelsBufferCapacity;
             return this;
         }
 
-        public Builder valuesBufferCapacity(int valuesBufferCapacity)
+        public Builder valuesBufferCapacity(
+            int valuesBufferCapacity)
         {
             this.valuesBufferCapacity = valuesBufferCapacity;
-            return this;
-        }
-
-        public Builder readonly(boolean readonly)
-        {
-            this.readonly = readonly;
             return this;
         }
 
@@ -114,28 +104,15 @@ public final class MetricsLayout extends Layout
         public MetricsLayout build()
         {
             File metricsFile = path.toFile();
-            if (!readonly)
-            {
-                int labelsBufferLength = labelsBufferCapacity;
-                int valuesBufferLength = valuesBufferCapacity;
 
-                CloseHelper.close(createEmptyFile(metricsFile, END_OF_META_DATA_OFFSET +
-                        labelsBufferLength + valuesBufferLength));
+            CloseHelper.close(createEmptyFile(metricsFile, END_OF_META_DATA_OFFSET +
+                    labelsBufferCapacity + valuesBufferCapacity));
 
-                MappedByteBuffer metadata = mapExistingFile(metricsFile, "metadata", 0, END_OF_META_DATA_OFFSET);
-                metadata.putInt(FIELD_OFFSET_VERSION, METRICS_VERSION);
-                metadata.putInt(FIELD_OFFSET_LABELS_BUFFER_LENGTH, labelsBufferCapacity);
-                metadata.putInt(FIELD_OFFSET_VALUES_BUFFER_LENGTH, valuesBufferCapacity);
-                unmap(metadata);
-            }
-            else
-            {
-                MappedByteBuffer metadata = mapExistingFile(metricsFile, "metadata", 0, END_OF_META_DATA_OFFSET);
-                assert METRICS_VERSION == metadata.getInt(FIELD_OFFSET_VERSION);
-                labelsBufferCapacity = metadata.getInt(FIELD_OFFSET_LABELS_BUFFER_LENGTH);
-                valuesBufferCapacity = metadata.getInt(FIELD_OFFSET_VALUES_BUFFER_LENGTH);
-                unmap(metadata);
-            }
+            MappedByteBuffer metadata = mapExistingFile(metricsFile, "metadata", 0, END_OF_META_DATA_OFFSET);
+            metadata.putInt(FIELD_OFFSET_VERSION, METRICS_VERSION);
+            metadata.putInt(FIELD_OFFSET_LABELS_BUFFER_LENGTH, labelsBufferCapacity);
+            metadata.putInt(FIELD_OFFSET_VALUES_BUFFER_LENGTH, valuesBufferCapacity);
+            unmap(metadata);
 
             int labelsBufferOffset = END_OF_META_DATA_OFFSET;
             int labelsBufferLength = labelsBufferCapacity;

@@ -15,10 +15,12 @@
  */
 package org.reaktivity.reaktor.internal.config;
 
-import static java.util.Collections.emptyList;
+import static java.util.Collections.singletonList;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.emptyCollectionOf;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 
@@ -28,8 +30,8 @@ import javax.json.bind.JsonbConfig;
 
 import org.junit.Before;
 import org.junit.Test;
-import org.reaktivity.reaktor.config.Condition;
 import org.reaktivity.reaktor.config.Route;
+import org.reaktivity.reaktor.internal.config.ConditionAdapterTest.TestCondition;
 
 public class RouteAdapterTest
 {
@@ -39,18 +41,19 @@ public class RouteAdapterTest
     public void initJson()
     {
         JsonbConfig config = new JsonbConfig()
-                .withAdapters(new RouteAdapter());
+                .withAdapters(new RouteAdapter().adaptType("test"));
         jsonb = JsonbBuilder.create(config);
     }
 
     @Test
-    public void shouldReadRoute()
+    public void shouldReadRouteWhenMatch()
     {
         String text =
                 "{" +
                     "\"exit\": \"test\"," +
                     "\"when\":" +
                     "[" +
+                      "{ \"match\": \"test\" }" +
                     "]" +
                 "}";
 
@@ -58,14 +61,26 @@ public class RouteAdapterTest
 
         assertThat(route, not(nullValue()));
         assertThat(route.exit, equalTo("test"));
-        assertThat(route.when, emptyCollectionOf(Condition.class));
+        assertThat(route.when, hasSize(1));
+        assertThat(route.when, contains(instanceOf(TestCondition.class)));
     }
 
 
     @Test
+    public void shouldWriteRouteWhenMatch()
+    {
+        Route route = new Route("test", singletonList(new TestCondition("test")));
+
+        String text = jsonb.toJson(route);
+
+        assertThat(text, not(nullValue()));
+        assertThat(text, equalTo("{\"exit\":\"test\",\"when\":[{\"match\":\"test\"}]}"));
+    }
+
+    @Test
     public void shouldWriteRoute()
     {
-        Route route = new Route("test", emptyList());
+        Route route = new Route("test");
 
         String text = jsonb.toJson(route);
 

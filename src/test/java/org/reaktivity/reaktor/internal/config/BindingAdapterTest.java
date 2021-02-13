@@ -16,9 +16,13 @@
 package org.reaktivity.reaktor.internal.config;
 
 import static java.util.Collections.emptyList;
+import static java.util.Collections.singletonList;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.emptyCollectionOf;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 import static org.reaktivity.reaktor.config.Role.SERVER;
@@ -31,6 +35,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.reaktivity.reaktor.config.Binding;
 import org.reaktivity.reaktor.config.Route;
+import org.reaktivity.reaktor.internal.config.OptionsAdapterTest.TestOptions;
 
 public class BindingAdapterTest
 {
@@ -65,7 +70,6 @@ public class BindingAdapterTest
         assertThat(binding.routes, emptyCollectionOf(Route.class));
     }
 
-
     @Test
     public void shouldWriteBinding()
     {
@@ -76,4 +80,111 @@ public class BindingAdapterTest
         assertThat(text, not(nullValue()));
         assertThat(text, equalTo("{\"entry\":\"test\",\"type\":\"test\",\"kind\":\"server\"}"));
     }
+
+    @Test
+    public void shouldReadBindingWithExit()
+    {
+        String text =
+                "{" +
+                    "\"entry\": \"test\"," +
+                    "\"type\": \"test\"," +
+                    "\"kind\": \"server\"," +
+                    "\"routes\":" +
+                    "[" +
+                    "]," +
+                    "\"exit\": \"test\"" +
+                "}";
+
+        Binding binding = jsonb.fromJson(text, Binding.class);
+
+        assertThat(binding, not(nullValue()));
+        assertThat(binding.entry, equalTo("test"));
+        assertThat(binding.kind, equalTo(SERVER));
+        assertThat(binding.routes, emptyCollectionOf(Route.class));
+        assertThat(binding.exit, not(nullValue()));
+        assertThat(binding.exit.exit, equalTo("test"));
+    }
+
+    @Test
+    public void shouldWriteBindingWithExit()
+    {
+        Binding binding = new Binding("test", "test", SERVER, null, emptyList(), new Route("test"));
+
+        String text = jsonb.toJson(binding);
+
+        assertThat(text, not(nullValue()));
+        assertThat(text, equalTo("{\"entry\":\"test\",\"type\":\"test\",\"kind\":\"server\",\"exit\":\"test\"}"));
+    }
+
+    @Test
+    public void shouldReadBindingWithOptions()
+    {
+        String text =
+                "{" +
+                    "\"entry\": \"test\"," +
+                    "\"type\": \"test\"," +
+                    "\"kind\": \"server\"," +
+                    "\"options\":" +
+                    "{" +
+                        "\"mode\": \"test\"" +
+                    "}" +
+                "}";
+
+        Binding binding = jsonb.fromJson(text, Binding.class);
+
+        assertThat(binding, not(nullValue()));
+        assertThat(binding.entry, equalTo("test"));
+        assertThat(binding.kind, equalTo(SERVER));
+        assertThat(binding.options, instanceOf(TestOptions.class));
+        assertThat(((TestOptions) binding.options).mode, equalTo("test"));
+    }
+
+    @Test
+    public void shouldWriteBindingWithOptions()
+    {
+        Binding binding = new Binding(null, "test", SERVER, new TestOptions("test"), emptyList(), null);
+
+        String text = jsonb.toJson(binding);
+
+        assertThat(text, not(nullValue()));
+        assertThat(text, equalTo("{\"type\":\"test\",\"kind\":\"server\",\"options\":{\"mode\":\"test\"}}"));
+    }
+
+    @Test
+    public void shouldReadBindingWithRoute()
+    {
+        String text =
+                "{" +
+                    "\"entry\": \"test\"," +
+                    "\"type\": \"test\"," +
+                    "\"kind\": \"server\"," +
+                    "\"routes\":" +
+                    "[" +
+                        "{" +
+                            "\"exit\": \"test\"" +
+                        "}" +
+                    "]" +
+                "}";
+
+        Binding binding = jsonb.fromJson(text, Binding.class);
+
+        assertThat(binding, not(nullValue()));
+        assertThat(binding.entry, equalTo("test"));
+        assertThat(binding.kind, equalTo(SERVER));
+        assertThat(binding.routes, hasSize(1));
+        assertThat(binding.routes.get(0).exit, equalTo("test"));
+        assertThat(binding.routes.get(0).when, empty());
+    }
+
+    @Test
+    public void shouldWriteBindingWithRoute()
+    {
+        Binding binding = new Binding(null, "test", SERVER, null, singletonList(new Route("test")), null);
+
+        String text = jsonb.toJson(binding);
+
+        assertThat(text, not(nullValue()));
+        assertThat(text, equalTo("{\"type\":\"test\",\"kind\":\"server\",\"routes\":[{\"exit\":\"test\"}]}"));
+    }
+
 }

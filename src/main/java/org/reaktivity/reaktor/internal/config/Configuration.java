@@ -23,7 +23,7 @@ import org.reaktivity.reaktor.config.Reference;
 
 public class Configuration extends Namespace
 {
-    public final List<Reference> namespaces;
+    public final List<Reference> references;
 
     public Configuration(
         String name,
@@ -31,6 +31,6 @@ public class Configuration extends Namespace
         List<Binding> bindings)
     {
         super(name, bindings);
-        this.namespaces = namespaces;
+        this.references = namespaces;
     }
 }

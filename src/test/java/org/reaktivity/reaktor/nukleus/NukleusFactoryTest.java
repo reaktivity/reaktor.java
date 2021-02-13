@@ -21,8 +21,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import java.io.IOException;
 
 import org.junit.Test;
-import org.reaktivity.reaktor.config.Binding;
-import org.reaktivity.reaktor.nukleus.stream.StreamFactory;
+import org.reaktivity.reaktor.test.internal.nukleus.TestNukleus;
 
 public final class NukleusFactoryTest
 {
@@ -34,67 +33,5 @@ public final class NukleusFactoryTest
         Nukleus nukleus = factory.create("test", config);
 
         assertThat(nukleus, instanceOf(TestNukleus.class));
-    }
-
-    public static final class TestNukleusFactory implements NukleusFactorySpi
-    {
-        @Override
-        public String name()
-        {
-            return "test";
-        }
-
-        @Override
-        public Nukleus create(
-            Configuration config)
-        {
-            return new TestNukleus(config);
-        }
-    }
-
-    private static final class TestNukleus implements Nukleus
-    {
-        private final Configuration config;
-
-        private TestNukleus(
-            Configuration config)
-        {
-            this.config = config;
-        }
-
-        @Override
-        public String name()
-        {
-            return "test";
-        }
-
-        @Override
-        public Configuration config()
-        {
-            return config;
-        }
-
-        @Override
-        public TestElektron supplyElektron(
-            ElektronContext context)
-        {
-            return new TestElektron();
-        }
-
-        private static final class TestElektron implements Elektron
-        {
-            @Override
-            public StreamFactory attach(
-                Binding binding)
-            {
-                return null;
-            }
-
-            @Override
-            public void detach(
-                Binding binding)
-            {
-            }
-        }
     }
 }

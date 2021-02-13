@@ -15,7 +15,6 @@
  */
 package org.reaktivity.reaktor.test.internal.k3po.ext.behavior;
 
-import static java.lang.System.identityHashCode;
 import static org.reaktivity.reaktor.internal.stream.BudgetId.ownerIndex;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusTransmission.HALF_DUPLEX;
 
@@ -37,6 +36,7 @@ import org.jboss.netty.channel.MessageEvent;
 import org.reaktivity.reaktor.internal.budget.DefaultBudgetCreditor;
 import org.reaktivity.reaktor.internal.budget.DefaultBudgetDebitor;
 import org.reaktivity.reaktor.internal.layouts.BudgetsLayout;
+import org.reaktivity.reaktor.internal.stream.RouteId;
 import org.reaktivity.reaktor.test.internal.k3po.ext.NukleusExtConfiguration;
 import org.reaktivity.reaktor.test.internal.k3po.ext.behavior.layout.StreamsLayout;
 import org.reaktivity.reaktor.test.internal.k3po.ext.types.stream.FlushFW;
@@ -56,7 +56,7 @@ public final class NukleusScope implements AutoCloseable
     private final Long2ObjectHashMap<MessageHandler> streamsById;
     private final Long2ObjectHashMap<MessageHandler> throttlesById;
     private final Long2ObjectHashMap<NukleusCorrelation> correlations;
-    private final ToIntFunction<String> lookupTargetIndex;
+    private final ToIntFunction<Long> lookupTargetIndex;
     private final LongSupplier supplyTimestamp;
     private final LongSupplier supplyTraceId;
     private final NukleusSource source;
@@ -67,7 +67,7 @@ public final class NukleusScope implements AutoCloseable
         NukleusExtConfiguration config,
         LabelManager labels,
         int scopeIndex,
-        ToIntFunction<String> lookupTargetIndex,
+        ToIntFunction<Long> lookupTargetIndex,
         LongSupplier supplyTimestamp,
         LongSupplier supplyTraceId)
     {
@@ -98,19 +98,19 @@ public final class NukleusScope implements AutoCloseable
     }
 
     public void doRoute(
-        String receiverAddress,
+        long routeId,
         long authorization,
         NukleusServerChannel serverChannel)
     {
-        source.doRoute(receiverAddress, authorization, serverChannel);
+        source.doRoute(routeId, authorization, serverChannel);
     }
 
     public void doUnroute(
-        String receiverAddress,
+        long routeId,
         long authorization,
         NukleusServerChannel serverChannel)
     {
-        source.doUnroute(receiverAddress, authorization, serverChannel);
+        source.doUnroute(routeId, authorization, serverChannel);
     }
 
     public void doConnect(
@@ -119,11 +119,11 @@ public final class NukleusScope implements AutoCloseable
         NukleusChannelAddress remoteAddress,
         ChannelFuture connectFuture)
     {
-        final String receiverAddress = remoteAddress.getReceiverAddress();
-        final int targetIndex = lookupTargetIndex.applyAsInt(receiverAddress);
+        long routeId = routeId(remoteAddress);
+        final int targetIndex = lookupTargetIndex.applyAsInt(routeId);
         NukleusTarget target = supplyTarget(targetIndex);
         clientChannel.setRemoteScope(targetIndex);
-        clientChannel.routeId(routeId(remoteAddress));
+        clientChannel.routeId(routeId);
         target.doConnect(clientChannel, localAddress, remoteAddress, connectFuture);
     }
 
@@ -131,8 +131,8 @@ public final class NukleusScope implements AutoCloseable
         NukleusClientChannel clientChannel,
         NukleusChannelAddress remoteAddress)
     {
-        final String receiverAddress = remoteAddress.getReceiverAddress();
-        final int targetIndex = lookupTargetIndex.applyAsInt(receiverAddress);
+        long routeId = routeId(remoteAddress);
+        final int targetIndex = lookupTargetIndex.applyAsInt(routeId);
         NukleusTarget target = supplyTarget(targetIndex);
         target.doConnectAbort(clientChannel);
     }
@@ -362,12 +362,12 @@ public final class NukleusScope implements AutoCloseable
         return target;
     }
 
-    private long routeId(
+    long routeId(
         NukleusChannelAddress remoteAddress)
     {
-        final long localId = labels.supplyLabelId(remoteAddress.getSenderAddress());
-        final long remoteId = labels.supplyLabelId(remoteAddress.getReceiverAddress());
-        return localId << 48 | remoteId << 32 | 0xf000_0000L | (identityHashCode(remoteAddress) & 0x0fff_ffffL);
+        final int namespaceId = labels.supplyLabelId(remoteAddress.getNamespace());
+        final int bindingId = labels.supplyLabelId(remoteAddress.getBinding());
+        return RouteId.routeId(namespaceId, bindingId);
     }
 
     private static int replyToIndex(

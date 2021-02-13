@@ -52,7 +52,6 @@ public class RoleAdapterTest
         assertThat(role, equalTo(SERVER));
     }
 
-
     @Test
     public void shouldWriteRole()
     {

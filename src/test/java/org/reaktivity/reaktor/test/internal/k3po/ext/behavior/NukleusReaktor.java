@@ -56,7 +56,7 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
     private final Deque<Runnable> taskQueue;
     private final AtomicLong traceIds;
     private final Int2ObjectHashMap<NukleusScope> scopesByIndex;
-    private final Map<String, Integer> scopeIndexByReceiverAddress;
+    private final Map<Long, Integer> scopeIndexByRouteId;
     private final LabelManager labels;
 
     private final CountDownLatch shutdownLatch = new CountDownLatch(1);
@@ -70,7 +70,7 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
     {
         this.config = config;
         this.scopesByIndex = new Int2ObjectHashMap<>();
-        this.scopeIndexByReceiverAddress = new ConcurrentHashMap<>();
+        this.scopeIndexByRouteId = new ConcurrentHashMap<>();
         this.taskQueue = new ConcurrentLinkedDeque<>();
         this.traceIds = new AtomicLong(Long.MIN_VALUE); // negative
         this.scopes = new NukleusScope[0];
@@ -303,9 +303,9 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
     }
 
     private int lookupTargetIndex(
-        String address)
+        long routeId)
     {
-        return scopeIndexByReceiverAddress.getOrDefault(address, 0);
+        return scopeIndexByRouteId.getOrDefault(routeId, 0);
     }
 
     private final class BindServerTask implements Runnable
@@ -334,11 +334,11 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
                 int scopeIndex = serverChannel.getLocalScope();
                 NukleusScope scope = reaktor.supplyScope(scopeIndex);
 
-                String receiverAddress = localAddress.getReceiverAddress();
+                long routeId = scope.routeId(localAddress);
                 long authorization = localAddress.getAuthorization();
-                scope.doRoute(receiverAddress, authorization, serverChannel);
+                scope.doRoute(routeId, authorization, serverChannel);
 
-                scopeIndexByReceiverAddress.put(receiverAddress, scopeIndex);
+                scopeIndexByRouteId.put(routeId, scopeIndex);
 
                 serverChannel.setLocalAddress(localAddress);
                 serverChannel.setBound();
@@ -377,9 +377,9 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
                 int scopeIndex = serverChannel.getLocalScope();
                 NukleusScope scope = reaktor.supplyScope(scopeIndex);
 
-                String receiverAddress = localAddress.getReceiverAddress();
+                long routeId = scope.routeId(localAddress);
                 long authorization = localAddress.getAuthorization();
-                scope.doUnroute(receiverAddress, authorization, serverChannel);
+                scope.doUnroute(routeId, authorization, serverChannel);
 
                 serverChannel.setLocalAddress(null);
                 fireChannelUnbound(serverChannel);
@@ -415,9 +415,9 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
                     int scopeIndex = serverChannel.getLocalScope();
                     NukleusScope scope = reaktor.supplyScope(scopeIndex);
 
-                    String receiverAddress = localAddress.getReceiverAddress();
+                    long routeId = scope.routeId(localAddress);
                     long authorization = localAddress.getAuthorization();
-                    scope.doUnroute(receiverAddress, authorization, serverChannel);
+                    scope.doUnroute(routeId, authorization, serverChannel);
 
                     serverChannel.setLocalAddress(null);
                     fireChannelUnbound(serverChannel);
@@ -451,8 +451,7 @@ public final class NukleusReaktor implements Runnable, ExternalResourceReleasabl
         @Override
         public void run()
         {
-            final String replyAddress = remoteAddress.getSenderAddress();
-            final NukleusChannelAddress localAddress = remoteAddress.newReplyToAddress(replyAddress);
+            final NukleusChannelAddress localAddress = remoteAddress.newEphemeralAddress();
 
             if (!clientChannel.isBound())
             {

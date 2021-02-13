@@ -27,13 +27,13 @@ public class RoleAdapter implements JsonbAdapter<Role, JsonString>
     public JsonString adaptToJson(
         Role role)
     {
-        return role != null ? Json.createValue(role.name().toLowerCase()) : null;
+        return Json.createValue(role.name().toLowerCase());
     }
 
     @Override
     public Role adaptFromJson(
         JsonString object)
     {
-        return object != null ? Role.valueOf(object.getString().toUpperCase()) : null;
+        return Role.valueOf(object.getString().toUpperCase());
     }
 }

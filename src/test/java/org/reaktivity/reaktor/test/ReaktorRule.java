@@ -30,6 +30,7 @@ import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_STREAMS_BUFFER
 import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_SYNTHETIC_ABORT;
 
 import java.io.File;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -48,16 +49,16 @@ import org.reaktivity.reaktor.ReaktorBuilder;
 import org.reaktivity.reaktor.ReaktorConfiguration;
 import org.reaktivity.reaktor.nukleus.Configuration.PropertyDef;
 import org.reaktivity.reaktor.nukleus.Nukleus;
+import org.reaktivity.reaktor.test.annotation.Configuration;
 import org.reaktivity.reaktor.test.annotation.Configure;
 
 public final class ReaktorRule implements TestRule
 {
-    public static final long EXTERNAL_AFFINITY_MASK = 1L << (Long.SIZE - 1);
-
     // needed by test annotations
     public static final String REAKTOR_BUFFER_POOL_CAPACITY_NAME = "reaktor.buffer.pool.capacity";
     public static final String REAKTOR_BUFFER_SLOT_CAPACITY_NAME = "reaktor.buffer.slot.capacity";
 
+    private static final long EXTERNAL_AFFINITY_MASK = 1L << (Long.SIZE - 1);
     private static final Pattern DATA_FILENAME_PATTERN = Pattern.compile("data\\d+");
 
     private final Properties properties;
@@ -66,6 +67,8 @@ public final class ReaktorRule implements TestRule
     private Reaktor reaktor;
 
     private ReaktorConfiguration configuration;
+    private URI configURI;
+    private String configurationRoot;
     private boolean clean;
 
     public ReaktorRule()
@@ -116,6 +119,34 @@ public final class ReaktorRule implements TestRule
         String value)
     {
         properties.setProperty(name, value);
+        return this;
+    }
+
+    public ReaktorRule configURI(
+        URI configURI)
+    {
+        this.configURI = configURI;
+        return this;
+    }
+
+    public ReaktorRule configurationRoot(
+        String configurationRoot)
+    {
+        this.configurationRoot = configurationRoot;
+        return this;
+    }
+
+    public ReaktorRule external(
+        String binding)
+    {
+        return external("default", binding);
+    }
+
+    public ReaktorRule external(
+        String namespace,
+        String binding)
+    {
+        builder.affinity(namespace, binding, EXTERNAL_AFFINITY_MASK);
         return this;
     }
 
@@ -243,21 +274,42 @@ public final class ReaktorRule implements TestRule
     }
 
     @Override
-    public Statement apply(Statement base, Description description)
+    public Statement apply(
+        Statement base,
+        Description description)
     {
+        Class<?> testClass = description.getTestClass();
         final String testMethod = description.getMethodName().replaceAll("\\[.*\\]", "");
         try
         {
-            Configure[] configures = description.getTestClass()
+            Configure[] configures = testClass
                        .getDeclaredMethod(testMethod)
                        .getAnnotationsByType(Configure.class);
             Arrays.stream(configures).forEach(
                 p -> properties.setProperty(p.name(), p.value()));
+
+            Configuration config = description.getAnnotation(Configuration.class);
+            if (config != null)
+            {
+                if (configurationRoot != null)
+                {
+                    String resourceName = String.format("%s/%s", configurationRoot, config.value());
+
+                    configURI = testClass.getClassLoader().getResource(resourceName).toURI();
+                }
+                else
+                {
+                    String resourceName = String.format("%s-%s", testClass.getSimpleName(), config.value());
+
+                    configURI = testClass.getResource(resourceName).toURI();
+                }
+            }
         }
         catch (Exception e)
         {
             LangUtil.rethrowUnchecked(e);
         }
+
 
         return new Statement()
         {
@@ -302,12 +354,13 @@ public final class ReaktorRule implements TestRule
                     baseThread.interrupt();
                 };
                 reaktor = builder.config(config)
+                                 .configURI(configURI)
                                  .errorHandler(errorHandler)
                                  .build();
 
                 try
                 {
-                    reaktor.start();
+                    reaktor.start().get();
 
                     base.evaluate();
                 }

@@ -15,6 +15,7 @@
  */
 package org.reaktivity.reaktor.internal.config;
 
+import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonMap;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -46,6 +47,33 @@ public class ReferenceAdapterTest
     {
         String text =
                 "{" +
+                    "\"name\": \"test\"" +
+                "}";
+
+        Reference ref = jsonb.fromJson(text, Reference.class);
+
+        assertThat(ref, not(nullValue()));
+        assertThat(ref.name, equalTo("test"));
+        assertThat(ref.links, equalTo(emptyMap()));
+    }
+
+
+    @Test
+    public void shouldWriteReference()
+    {
+        Reference route = new Reference("test", emptyMap());
+
+        String text = jsonb.toJson(route);
+
+        assertThat(text, not(nullValue()));
+        assertThat(text, equalTo("{\"name\":\"test\"}"));
+    }
+
+    @Test
+    public void shouldReadReferenceWithLink()
+    {
+        String text =
+                "{" +
                     "\"name\": \"test\"," +
                     "\"links\":" +
                     "{" +
@@ -62,7 +90,7 @@ public class ReferenceAdapterTest
 
 
     @Test
-    public void shouldWriteReference()
+    public void shouldWriteReferenceWithLink()
     {
         Reference route = new Reference("test", singletonMap("self", "/test"));
 

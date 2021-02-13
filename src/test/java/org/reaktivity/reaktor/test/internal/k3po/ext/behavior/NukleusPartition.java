@@ -339,8 +339,7 @@ final class NukleusPartition implements AutoCloseable
             ChannelPipeline pipeline = pipelineFactory.getPipeline();
 
             final NukleusChannelAddress serverAddress = serverChannel.getLocalAddress();
-            final String replyAddress = labels.lookupLabel((int)(routeId >> 48) & 0xffff);
-            NukleusChannelAddress remoteAddress = serverAddress.newReplyToAddress(replyAddress);
+            NukleusChannelAddress remoteAddress = serverAddress.newEphemeralAddress();
 
             // fire child serverChannel opened
             ChannelFactory channelFactory = serverChannel.getFactory();

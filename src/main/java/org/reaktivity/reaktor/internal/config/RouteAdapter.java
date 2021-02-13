@@ -44,10 +44,11 @@ public class RouteAdapter implements JsonbAdapter<Route, JsonObject>
         condition = new ConditionAdapter();
     }
 
-    public void adaptType(
+    public RouteAdapter adaptType(
         String type)
     {
         condition.adaptType(type);
+        return this;
     }
 
     @Override

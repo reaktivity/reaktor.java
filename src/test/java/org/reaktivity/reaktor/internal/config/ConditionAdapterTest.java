@@ -34,12 +34,13 @@ import org.reaktivity.reaktor.config.ConditionAdapterSpi;
 
 public class ConditionAdapterTest
 {
+    private ConditionAdapter adapter;
     private Jsonb jsonb;
 
     @Before
     public void initJson()
     {
-        ConditionAdapter adapter = new ConditionAdapter();
+        adapter = new ConditionAdapter();
         adapter.adaptType("test");
         JsonbConfig config = new JsonbConfig()
                 .withAdapters(adapter);
@@ -60,9 +61,8 @@ public class ConditionAdapterTest
         assertThat(((TestCondition) condition).match, equalTo("test"));
     }
 
-
     @Test
-    public void shouldWriteReference()
+    public void shouldWriteCondition()
     {
         Condition condition = new TestCondition("test");
 
@@ -70,6 +70,32 @@ public class ConditionAdapterTest
 
         assertThat(text, not(nullValue()));
         assertThat(text, equalTo("{\"match\":\"test\"}"));
+    }
+
+    @Test
+    public void shouldReadNullWhenNotAdapting()
+    {
+        String text =
+                "{" +
+                    "\"match\": \"test\"" +
+                "}";
+
+        adapter.adaptType(null);
+        Condition condition = jsonb.fromJson(text, Condition.class);
+
+        assertThat(condition, nullValue());
+    }
+
+    @Test
+    public void shouldWriteNullWhenNotAdapting()
+    {
+        Condition condition = new TestCondition("test");
+
+        adapter.adaptType(null);
+        String text = jsonb.toJson(condition);
+
+        assertThat(text, not(nullValue()));
+        assertThat(text, equalTo("null"));
     }
 
     public static final class TestCondition extends Condition

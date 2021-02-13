@@ -16,11 +16,14 @@
 package org.reaktivity.reaktor.internal.config;
 
 import static java.util.Collections.emptyList;
+import static java.util.Collections.singletonList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.emptyCollectionOf;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
+import static org.reaktivity.reaktor.config.Role.SERVER;
 
 import javax.json.bind.Jsonb;
 import javax.json.bind.JsonbBuilder;
@@ -95,5 +98,41 @@ public class NamespaceAdapterTest
 
         assertThat(text, not(nullValue()));
         assertThat(text, equalTo("{\"name\":\"test\"}"));
+    }
+
+    @Test
+    public void shouldReadNamespaceWithBinding()
+    {
+        String text =
+                "{" +
+                    "\"name\": \"test\"," +
+                    "\"bindings\":" +
+                    "[" +
+                        "{" +
+                            "\"type\": \"test\"," +
+                            "\"kind\": \"server\"" +
+                        "}" +
+                    "]" +
+                "}";
+
+        Namespace namespace = jsonb.fromJson(text, Namespace.class);
+
+        assertThat(namespace, not(nullValue()));
+        assertThat(namespace.name, equalTo("test"));
+        assertThat(namespace.bindings, hasSize(1));
+        assertThat(namespace.bindings.get(0).type, equalTo("test"));
+        assertThat(namespace.bindings.get(0).kind, equalTo(SERVER));
+    }
+
+    @Test
+    public void shouldWriteNamespaceWithBinding()
+    {
+        Binding binding = new Binding(null, "test", SERVER, null, emptyList(), null);
+        Namespace namespace = new Namespace("test", singletonList(binding));
+
+        String text = jsonb.toJson(namespace);
+
+        assertThat(text, not(nullValue()));
+        assertThat(text, equalTo("{\"name\":\"test\",\"bindings\":[{\"type\":\"test\",\"kind\":\"server\"}]}"));
     }
 }

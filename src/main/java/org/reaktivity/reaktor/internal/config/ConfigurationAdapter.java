@@ -67,6 +67,13 @@ public class ConfigurationAdapter implements JsonbAdapter<Configuration, JsonObj
             object.add(BINDINGS_NAME, bindings);
         }
 
+        if (!REFERENCES_DEFAULT.equals(root.references))
+        {
+            JsonArrayBuilder references = Json.createArrayBuilder();
+            root.references.forEach(r -> references.add(reference.adaptToJson(r)));
+            object.add(REFERENCES_NAME, references);
+        }
+
         return object.build();
     }
 

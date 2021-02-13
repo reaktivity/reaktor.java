@@ -214,7 +214,7 @@ public class DefaultBudgetCreditor implements BudgetCreditor, AutoCloseable
             System.out.format("[%d] cleanupChild childBudgetId=%d budgetParentChildRelation=%s \n",
                 System.nanoTime(), budgetId, parentBudgetIds.toString());
         }
-        executor.apply(currentTimeMillis() + childCleanupLinger, () -> parentBudgetIds.remove(budgetId));
+        executor.accept(currentTimeMillis() + childCleanupLinger, () -> parentBudgetIds.remove(budgetId));
     }
 
     long available(

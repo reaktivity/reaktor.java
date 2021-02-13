@@ -1,1 +1,1 @@
-org.reaktivity.reaktor.nukleus.NukleusFactoryTest$TestNukleusFactory
+org.reaktivity.reaktor.test.internal.nukleus.TestNukleusFactory

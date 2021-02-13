@@ -34,12 +34,13 @@ import org.reaktivity.reaktor.config.OptionsAdapterSpi;
 
 public class OptionsAdapterTest
 {
+    private OptionsAdapter adapter;
     private Jsonb jsonb;
 
     @Before
     public void initJson()
     {
-        OptionsAdapter adapter = new OptionsAdapter();
+        adapter = new OptionsAdapter();
         adapter.adaptType("test");
         JsonbConfig config = new JsonbConfig()
                 .withAdapters(adapter);
@@ -60,7 +61,6 @@ public class OptionsAdapterTest
         assertThat(options.mode, equalTo("test"));
     }
 
-
     @Test
     public void shouldWriteOptions()
     {
@@ -70,6 +70,32 @@ public class OptionsAdapterTest
 
         assertThat(text, not(nullValue()));
         assertThat(text, equalTo("{\"mode\":\"test\"}"));
+    }
+
+    @Test
+    public void shouldReadNullWhenNotAdapting()
+    {
+        String text =
+                "{" +
+                    "\"mode\": \"test\"" +
+                "}";
+
+        adapter.adaptType(null);
+        TestOptions options = (TestOptions) jsonb.fromJson(text, Options.class);
+
+        assertThat(options, nullValue());
+    }
+
+    @Test
+    public void shouldWriteNullWhenNotAdapting()
+    {
+        Options options = new TestOptions("test");
+
+        adapter.adaptType(null);
+        String text = jsonb.toJson(options);
+
+        assertThat(text, not(nullValue()));
+        assertThat(text, equalTo("null"));
     }
 
     public static final class TestOptions extends Options

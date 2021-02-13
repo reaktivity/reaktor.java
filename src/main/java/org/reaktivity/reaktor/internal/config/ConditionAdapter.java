@@ -51,9 +51,9 @@ public class ConditionAdapter implements JsonbAdapter<Condition, JsonObject>
 
     @Override
     public JsonObject adaptToJson(
-        Condition options)
+        Condition condition)
     {
-        return delegate != null ? delegate.adaptToJson(options) : null;
+        return delegate != null ? delegate.adaptToJson(condition) : null;
     }
 
     @Override

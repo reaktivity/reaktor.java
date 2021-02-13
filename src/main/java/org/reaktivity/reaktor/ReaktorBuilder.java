@@ -18,6 +18,7 @@ package org.reaktivity.reaktor;
 import static java.util.Objects.requireNonNull;
 
 import java.net.URI;
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -33,9 +34,11 @@ public class ReaktorBuilder
 
     private int threads = 1;
     private URI configURI;
+    private Collection<ReaktorAffinity> affinities;
 
     ReaktorBuilder()
     {
+        this.affinities = new LinkedHashSet<>();
     }
 
     public ReaktorBuilder config(
@@ -48,7 +51,7 @@ public class ReaktorBuilder
     public ReaktorBuilder configURI(
         URI configURI)
     {
-        this.configURI = requireNonNull(configURI);
+        this.configURI = configURI;
         return this;
     }
 
@@ -57,6 +60,14 @@ public class ReaktorBuilder
     {
         this.threads = threads;
         return this;
+    }
+
+    public void affinity(
+        String namespace,
+        String binding,
+        long mask)
+    {
+        affinities.add(new ReaktorAffinity(namespace, binding, mask));
     }
 
     public ReaktorBuilder errorHandler(
@@ -80,6 +91,6 @@ public class ReaktorBuilder
 
         final ErrorHandler errorHandler = requireNonNull(this.errorHandler, "errorHandler");
 
-        return new Reaktor(config, nuklei, errorHandler, configURI, threads);
+        return new Reaktor(config, nuklei, errorHandler, configURI, threads, affinities);
     }
 }
