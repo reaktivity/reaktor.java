@@ -354,11 +354,11 @@
                 <include>META-INF/**/*</include>
                 <include>org/reaktivity/reaktor/test/ReaktorRule*.class</include>
                 <include>org/reaktivity/reaktor/test/NukleusClassLoader*.class</include>
-                <include>org/reaktivity/reaktor/test/annotation/Configure*.class</include>
+                <include>org/reaktivity/reaktor/test/annotation/Configur*.class</include>
                 <include>org/reaktivity/reaktor/test/internal/k3po/ext/**/*.class</include>
               </includes>
               <excludes>
-                <exclude>META-INF/services/org.reaktivity.reaktor.nukleus.NukleusFactorySpi</exclude>
+                <exclude>META-INF/services/org.reaktivity.reaktor.*</exclude>
                 <exclude>**/*IT.class</exclude>
                 <exclude>**/*Test.class</exclude>
               </excludes>
