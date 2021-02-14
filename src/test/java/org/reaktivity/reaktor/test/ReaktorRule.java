@@ -165,52 +165,52 @@ public final class ReaktorRule implements TestRule
     }
 
     public long opensRead(
-        String nukleus,
-        long routeId)
+        String namespace,
+        String binding)
     {
-        return counter(format("%s.%d.opens.read", nukleus, routeId));
+        return counter(format("%s.%s.opens.read", namespace, binding));
     }
 
     public long opensWritten(
-        String nukleus,
-        long routeId)
+        String namespace,
+        String binding)
     {
-        return counter(format("%s.%d.opens.written", nukleus, routeId));
+        return counter(format("%s.%s.opens.written", namespace, binding));
     }
 
     public long closesRead(
-        String nukleus,
-        long routeId)
+        String namespace,
+        String binding)
     {
-        return counter(format("%s.%d.closes.read", nukleus, routeId));
+        return counter(format("%s.%s.closes.read", namespace, binding));
     }
 
     public long closesWritten(
-        String nukleus,
-        long routeId)
+        String namespace,
+        String binding)
     {
-        return counter(format("%s.%d.closes.written", nukleus, routeId));
+        return counter(format("%s.%s.closes.written", namespace, binding));
     }
 
     public long abortsRead(
-        String nukleus,
-        long routeId)
+        String namespace,
+        String binding)
     {
-        return counter(format("%s.%d.aborts.read", nukleus, routeId));
+        return counter(format("%s.%s.aborts.read", namespace, binding));
     }
 
     public long abortsWritten(
-        String nukleus,
-        long routeId)
+        String namespace,
+        String binding)
     {
-        return counter(format("%s.%d.aborts.written", nukleus, routeId));
+        return counter(format("%s.%s.aborts.written", namespace, binding));
     }
 
     public long resetsRead(
-        String nukleus,
-        long routeId)
+        String namespace,
+        String binding)
     {
-        return counter(format("%s.%d.resets.read", nukleus, routeId));
+        return counter(format("%s.%s.resets.read", namespace, binding));
     }
 
     public long resetsWritten(
@@ -221,31 +221,31 @@ public final class ReaktorRule implements TestRule
     }
 
     public long bytesRead(
-        String nukleus,
-        long routeId)
+        String namespace,
+        String binding)
     {
-        return counter(format("%s.%d.bytes.read", nukleus, routeId));
+        return counter(format("%s.%s.bytes.read", namespace, binding));
     }
 
     public long bytesWritten(
-        String nukleus,
-        long routeId)
+        String namespace,
+        String binding)
     {
-        return counter(format("%s.%d.bytes.written", nukleus, routeId));
+        return counter(format("%s.%s.bytes.written", namespace, binding));
     }
 
     public long framesRead(
-        String nukleus,
-        long routeId)
+        String namespace,
+        String binding)
     {
-        return counter(format("%s.%d.frames.read", nukleus, routeId));
+        return counter(format("%s.%s.frames.read", namespace, binding));
     }
 
     public long framesWritten(
-        String nukleus,
-        long routeId)
+        String namespace,
+        String binding)
     {
-        return counter(format("%s.%d.frames.written", nukleus, routeId));
+        return counter(format("%s.%s.frames.written", namespace, binding));
     }
 
     public long counter(
