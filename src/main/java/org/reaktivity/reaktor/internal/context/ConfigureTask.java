@@ -17,15 +17,16 @@ package org.reaktivity.reaktor.internal.context;
 
 import static java.net.http.HttpClient.Redirect.NORMAL;
 import static java.net.http.HttpClient.Version.HTTP_2;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
+import java.io.InputStream;
 import java.net.URI;
+import java.net.URL;
+import java.net.URLConnection;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
@@ -89,14 +90,14 @@ public class ConfigureTask implements Callable<Void>
 
             configText = body;
         }
-        else if ("file".equals(configURI.getScheme()))
-        {
-            Path configPath = Paths.get(configURI.getPath());
-            configText = Files.readString(configPath);
-        }
         else
         {
-            throw new IllegalAccessException("Unexpected config scheme: " + configURI);
+            URL configURL = configURI.toURL();
+            URLConnection connection = configURL.openConnection();
+            try (InputStream input = connection.getInputStream())
+            {
+                configText = new String(input.readAllBytes(), UTF_8);
+            }
         }
 
         try
