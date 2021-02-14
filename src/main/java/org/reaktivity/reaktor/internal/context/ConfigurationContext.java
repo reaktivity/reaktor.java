@@ -61,6 +61,12 @@ public class ConfigurationContext
         return namespace != null ? namespace.findBinding(bindingId) : null;
     }
 
+    public void detachAll()
+    {
+        namespacesById.values().forEach(n -> n.detach());
+        namespacesById.clear();
+    }
+
     private NamespaceContext findNamespace(
         int namespaceId)
     {

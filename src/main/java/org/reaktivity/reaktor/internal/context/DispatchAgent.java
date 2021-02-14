@@ -478,6 +478,8 @@ public class DispatchAgent implements ElektronContext, Agent
             ThreadHints.onSpinWait();
         }
 
+        configuration.detachAll();
+
         poller.onClose();
 
         int acquiredBuffers = 0;
