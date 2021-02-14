@@ -34,7 +34,7 @@ import org.kaazing.k3po.driver.internal.netty.bootstrap.channel.AbstractChannel;
 import org.kaazing.k3po.driver.internal.netty.channel.ChannelAddress;
 import org.reaktivity.reaktor.internal.budget.DefaultBudgetCreditor;
 import org.reaktivity.reaktor.internal.budget.DefaultBudgetDebitor;
-import org.reaktivity.reaktor.test.internal.k3po.ext.types.control.Capability;
+import org.reaktivity.reaktor.test.internal.k3po.ext.types.stream.Capability;
 
 public abstract class NukleusChannel extends AbstractChannel<NukleusChannelConfig>
 {
