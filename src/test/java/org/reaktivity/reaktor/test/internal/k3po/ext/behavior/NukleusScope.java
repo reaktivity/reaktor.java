@@ -83,7 +83,7 @@ public final class NukleusScope implements AutoCloseable
         this.lookupTargetIndex = lookupTargetIndex;
         this.supplyTimestamp = supplyTimestamp;
         this.supplyTraceId = supplyTraceId;
-        this.source = new NukleusSource(config, labels, scopeIndex, supplyTraceId,
+        this.source = new NukleusSource(config, scopeIndex, supplyTraceId,
                 correlations::remove, this::supplySender, this::supplyTarget,
                 this::doSystemFlush, streamsById, throttlesById);
 

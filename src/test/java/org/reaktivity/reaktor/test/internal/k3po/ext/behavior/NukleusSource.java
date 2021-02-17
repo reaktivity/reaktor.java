@@ -40,7 +40,6 @@ import org.reaktivity.reaktor.test.internal.k3po.ext.util.function.LongLongFunct
 
 public final class NukleusSource implements AutoCloseable
 {
-    private final LabelManager labels;
     private final Path streamsPath;
     private final NukleusStreamFactory streamFactory;
     private final LongSupplier supplyTraceId;
@@ -50,7 +49,6 @@ public final class NukleusSource implements AutoCloseable
 
     public NukleusSource(
         NukleusExtConfiguration config,
-        LabelManager labels,
         int scopeIndex,
         LongSupplier supplyTraceId,
         LongFunction<NukleusCorrelation> correlateEstablished,
@@ -60,7 +58,6 @@ public final class NukleusSource implements AutoCloseable
         Long2ObjectHashMap<MessageHandler> streamsById,
         Long2ObjectHashMap<MessageHandler> throttlesById)
     {
-        this.labels = labels;
         this.streamsPath = config.directory().resolve(String.format("data%d", scopeIndex));
         this.streamFactory = new NukleusStreamFactory(supplySender, streamsById::remove);
         this.routesByIdAndAuth = new Long2ObjectHashMap<>();
@@ -78,8 +75,7 @@ public final class NukleusSource implements AutoCloseable
                 .build();
 
         this.supplyTraceId = supplyTraceId;
-        this.partition = new NukleusPartition(labels, streamsPath, scopeIndex, streams,
-                this::lookupRoute,
+        this.partition = new NukleusPartition(streamsPath, scopeIndex, streams, this::lookupRoute,
                 streamsById::get, streamsById::put, throttlesById::get,
                 streamFactory, correlateEstablished, supplySender, supplyTarget);
         this.creditor = new DefaultBudgetCreditor(scopeIndex, budgets, flushWatchers);

@@ -52,7 +52,6 @@ final class NukleusPartition implements AutoCloseable
     private final BeginFW beginRO = new BeginFW();
     private final DataFW dataRO = new DataFW();
 
-    private final LabelManager labels;
     private final Path streamsPath;
     private final int scopeIndex;
     private final StreamsLayout layout;
@@ -68,7 +67,6 @@ final class NukleusPartition implements AutoCloseable
     private final IntFunction<NukleusTarget> supplyTarget;
 
     NukleusPartition(
-        LabelManager labels,
         Path streamsPath,
         int scopeIndex,
         StreamsLayout layout,
@@ -81,7 +79,6 @@ final class NukleusPartition implements AutoCloseable
         LongLongFunction<NukleusTarget> supplySender,
         IntFunction<NukleusTarget> supplyTarget)
     {
-        this.labels = labels;
         this.streamsPath = streamsPath;
         this.scopeIndex = scopeIndex;
         this.layout = layout;
