@@ -16,9 +16,11 @@
 package org.reaktivity.reaktor.test.internal.nukleus;
 
 import org.reaktivity.reaktor.config.Binding;
+import org.reaktivity.reaktor.config.Vault;
 import org.reaktivity.reaktor.nukleus.Elektron;
 import org.reaktivity.reaktor.nukleus.ElektronContext;
 import org.reaktivity.reaktor.nukleus.stream.StreamFactory;
+import org.reaktivity.reaktor.nukleus.vault.BindingVault;
 
 final class TestElektron implements Elektron
 {
@@ -43,5 +45,18 @@ final class TestElektron implements Elektron
         Binding binding)
     {
         factory.detach(binding);
+    }
+
+    @Override
+    public BindingVault attach(
+        Vault vault)
+    {
+        return new TestVault(vault);
+    }
+
+    @Override
+    public void detach(
+        Vault vault)
+    {
     }
 }

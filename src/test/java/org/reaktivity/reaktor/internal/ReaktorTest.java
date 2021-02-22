@@ -18,21 +18,37 @@ package org.reaktivity.reaktor.internal;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.not;
+import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_DIRECTORY;
 
 import java.net.URI;
+import java.net.URL;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Properties;
 
+import org.junit.Before;
 import org.junit.Test;
 import org.reaktivity.reaktor.Reaktor;
+import org.reaktivity.reaktor.ReaktorConfiguration;
 
 public class ReaktorTest
 {
+    private ReaktorConfiguration config;
+
+    @Before
+    public void initConfig()
+    {
+        Properties properties = new Properties();
+        properties.put(REAKTOR_DIRECTORY.name(), "target/nukleus-itests");
+        config = new ReaktorConfiguration(properties);
+    }
+
     @Test
     public void shouldConfigureEmpty() throws Exception
     {
         List<Throwable> errors = new LinkedList<>();
         try (Reaktor reaktor = Reaktor.builder()
+                .config(config)
                 .errorHandler(errors::add)
                 .build())
         {
@@ -52,10 +68,11 @@ public class ReaktorTest
     public void shouldConfigure() throws Exception
     {
         String resource = String.format("%s-%s.json", getClass().getSimpleName(), "configure");
-        URI configURI = getClass().getResource(resource).toURI();
+        URL configURL = getClass().getResource(resource);
         List<Throwable> errors = new LinkedList<>();
         try (Reaktor reaktor = Reaktor.builder()
-                .configURI(configURI)
+                .config(config)
+                .configURL(configURL)
                 .errorHandler(errors::add)
                 .build())
         {
@@ -76,7 +93,8 @@ public class ReaktorTest
     {
         List<Throwable> errors = new LinkedList<>();
         try (Reaktor reaktor = Reaktor.builder()
-                .configURI(URI.create("unknown://path"))
+                .config(config)
+                .configURL(URI.create("unknown://path").toURL())
                 .errorHandler(errors::add)
                 .build())
         {

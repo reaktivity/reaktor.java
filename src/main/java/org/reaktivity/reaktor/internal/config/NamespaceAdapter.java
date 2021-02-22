@@ -29,19 +29,24 @@ import javax.json.bind.adapter.JsonbAdapter;
 
 import org.reaktivity.reaktor.config.Binding;
 import org.reaktivity.reaktor.config.Namespace;
+import org.reaktivity.reaktor.config.Vault;
 
 public class NamespaceAdapter implements JsonbAdapter<Namespace, JsonObject>
 {
     private static final String NAME_NAME = "name";
+    private static final String VAULTS_NAME = "vaults";
     private static final String BINDINGS_NAME = "bindings";
 
     private static final String NAME_DEFAULT = "default";
     private static final List<Binding> BINDINGS_DEFAULT = emptyList();
+    private static final List<Vault> VAULTS_DEFAULT = emptyList();
 
+    private final VaultAdapter vault;
     private final BindingAdapter binding;
 
     public NamespaceAdapter()
     {
+        vault = new VaultAdapter();
         binding = new BindingAdapter();
     }
 
@@ -54,6 +59,13 @@ public class NamespaceAdapter implements JsonbAdapter<Namespace, JsonObject>
         if (!NAME_DEFAULT.equals(namespace.name))
         {
             object.add(NAME_NAME, namespace.name);
+        }
+
+        if (!VAULTS_DEFAULT.equals(namespace.vaults))
+        {
+            JsonArrayBuilder vaults = Json.createArrayBuilder();
+            namespace.vaults.forEach(b -> vaults.add(vault.adaptToJson(b)));
+            object.add(VAULTS_NAME, vaults);
         }
 
         if (!BINDINGS_DEFAULT.equals(namespace.bindings))
@@ -77,7 +89,13 @@ public class NamespaceAdapter implements JsonbAdapter<Namespace, JsonObject>
                 .map(binding::adaptFromJson)
                 .collect(Collectors.toList())
             : BINDINGS_DEFAULT;
+        List<Vault> vaults = object.containsKey(VAULTS_NAME)
+                ? object.getJsonArray(VAULTS_NAME)
+                    .stream().map(JsonValue::asJsonObject)
+                    .map(vault::adaptFromJson)
+                    .collect(Collectors.toList())
+                : VAULTS_DEFAULT;
 
-        return new Namespace(name, bindings);
+        return new Namespace(name, vaults, bindings);
     }
 }

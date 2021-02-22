@@ -17,3 +17,9 @@ buildNumber.properties
 *.ipr
 *.iws
 .DS_Store
+.hs_err*.log
+data0
+buffers0
+budgets0
+metrics0
+labels

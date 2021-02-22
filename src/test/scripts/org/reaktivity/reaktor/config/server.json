@@ -1,4 +1,11 @@
 {
+    "vaults":
+    [
+        {
+            "name": "test",
+            "type": "test"
+        }
+    ],
     "bindings":
     [
         {

@@ -23,6 +23,7 @@ public class Binding
 {
     public transient long id;
 
+    public final NamespacedRef vault;
     public final String entry;
     public final String type;
     public final Role kind;
@@ -31,6 +32,7 @@ public class Binding
     public final Route exit;
 
     public Binding(
+        NamespacedRef vault,
         String entry,
         String type,
         Role kind,
@@ -38,6 +40,7 @@ public class Binding
         List<Route> routes,
         Route exit)
     {
+        this.vault = vault;
         this.entry = entry;
         this.type = requireNonNull(type);
         this.kind = requireNonNull(kind);

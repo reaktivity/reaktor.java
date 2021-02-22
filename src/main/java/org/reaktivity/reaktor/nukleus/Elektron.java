@@ -16,13 +16,31 @@
 package org.reaktivity.reaktor.nukleus;
 
 import org.reaktivity.reaktor.config.Binding;
+import org.reaktivity.reaktor.config.Vault;
 import org.reaktivity.reaktor.nukleus.stream.StreamFactory;
+import org.reaktivity.reaktor.nukleus.vault.BindingVault;
 
 public interface Elektron
 {
-    StreamFactory attach(
-        Binding binding);
+    default StreamFactory attach(
+        Binding binding)
+    {
+        return null;
+    }
 
-    void detach(
-        Binding binding);
+    default void detach(
+        Binding binding)
+    {
+    }
+
+    default BindingVault attach(
+        Vault vault)
+    {
+        return null;
+    }
+
+    default void detach(
+        Vault vault)
+    {
+    }
 }

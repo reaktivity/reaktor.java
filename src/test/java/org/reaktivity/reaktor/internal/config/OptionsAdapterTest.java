@@ -40,7 +40,7 @@ public class OptionsAdapterTest
     @Before
     public void initJson()
     {
-        adapter = new OptionsAdapter();
+        adapter = new OptionsAdapter(OptionsAdapterSpi.Kind.BINDING);
         adapter.adaptType("test");
         JsonbConfig config = new JsonbConfig()
                 .withAdapters(adapter);

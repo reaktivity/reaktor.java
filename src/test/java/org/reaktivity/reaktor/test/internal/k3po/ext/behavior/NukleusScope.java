@@ -36,7 +36,7 @@ import org.jboss.netty.channel.MessageEvent;
 import org.reaktivity.reaktor.internal.budget.DefaultBudgetCreditor;
 import org.reaktivity.reaktor.internal.budget.DefaultBudgetDebitor;
 import org.reaktivity.reaktor.internal.layouts.BudgetsLayout;
-import org.reaktivity.reaktor.internal.stream.RouteId;
+import org.reaktivity.reaktor.internal.stream.NamespacedId;
 import org.reaktivity.reaktor.test.internal.k3po.ext.NukleusExtConfiguration;
 import org.reaktivity.reaktor.test.internal.k3po.ext.behavior.layout.StreamsLayout;
 import org.reaktivity.reaktor.test.internal.k3po.ext.types.stream.FlushFW;
@@ -367,7 +367,7 @@ public final class NukleusScope implements AutoCloseable
     {
         final int namespaceId = labels.supplyLabelId(remoteAddress.getNamespace());
         final int bindingId = labels.supplyLabelId(remoteAddress.getBinding());
-        return RouteId.routeId(namespaceId, bindingId);
+        return NamespacedId.id(namespaceId, bindingId);
     }
 
     private static int replyToIndex(

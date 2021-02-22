@@ -24,7 +24,7 @@ final class BindingContext
     private final Binding binding;
     private final Elektron elektron;
 
-    private StreamFactory streamFactory;
+    private StreamFactory attached;
 
     BindingContext(
         Binding binding,
@@ -36,17 +36,17 @@ final class BindingContext
 
     public void attach()
     {
-        streamFactory = elektron.attach(binding);
+        attached = elektron.attach(binding);
     }
 
     public void detach()
     {
         elektron.detach(binding);
-        streamFactory = null;
+        attached = null;
     }
 
     public StreamFactory streamFactory()
     {
-        return streamFactory;
+        return attached;
     }
 }

@@ -33,7 +33,7 @@ import javax.json.bind.JsonbConfig;
 import org.junit.Before;
 import org.junit.Test;
 import org.reaktivity.reaktor.config.Binding;
-import org.reaktivity.reaktor.config.Reference;
+import org.reaktivity.reaktor.config.Vault;
 
 public class ConfigurationAdapterTest
 {
@@ -59,13 +59,13 @@ public class ConfigurationAdapterTest
         assertThat(config, not(nullValue()));
         assertThat(config.name, equalTo("default"));
         assertThat(config.bindings, emptyCollectionOf(Binding.class));
-        assertThat(config.references, emptyCollectionOf(Reference.class));
+        assertThat(config.namespaces, emptyCollectionOf(NamespaceRef.class));
     }
 
     @Test
     public void shouldWriteEmptyConfiguration()
     {
-        Configuration config = new Configuration("default", emptyList(), emptyList());
+        Configuration config = new Configuration("default", emptyList(), emptyList(), emptyList());
 
         String text = jsonb.toJson(config);
 
@@ -82,7 +82,10 @@ public class ConfigurationAdapterTest
                     "\"bindings\":" +
                     "[" +
                     "]," +
-                    "\"references\":" +
+                    "\"vaults\":" +
+                    "[" +
+                    "]," +
+                    "\"namespaces\":" +
                     "[" +
                     "]" +
                 "}";
@@ -92,13 +95,13 @@ public class ConfigurationAdapterTest
         assertThat(config, not(nullValue()));
         assertThat(config.name, equalTo("test"));
         assertThat(config.bindings, emptyCollectionOf(Binding.class));
-        assertThat(config.references, emptyCollectionOf(Reference.class));
+        assertThat(config.namespaces, emptyCollectionOf(NamespaceRef.class));
     }
 
     @Test
     public void shouldWriteConfiguration()
     {
-        Configuration config = new Configuration("test", emptyList(), emptyList());
+        Configuration config = new Configuration("test", emptyList(), emptyList(), emptyList());
 
         String text = jsonb.toJson(config);
 
@@ -119,7 +122,10 @@ public class ConfigurationAdapterTest
                             "\"kind\": \"server\"" +
                         "}" +
                     "]," +
-                    "\"references\":" +
+                    "\"vaults\":" +
+                    "[" +
+                    "]," +
+                    "\"namespaces\":" +
                     "[" +
                     "]" +
                 "}";
@@ -131,19 +137,62 @@ public class ConfigurationAdapterTest
         assertThat(config.bindings, hasSize(1));
         assertThat(config.bindings.get(0).type, equalTo("test"));
         assertThat(config.bindings.get(0).kind, equalTo(SERVER));
-        assertThat(config.references, emptyCollectionOf(Reference.class));
+        assertThat(config.namespaces, emptyCollectionOf(NamespaceRef.class));
     }
 
     @Test
     public void shouldWriteConfigurationWithBinding()
     {
-        Binding binding = new Binding(null, "test", SERVER, null, emptyList(), null);
-        Configuration config = new Configuration("test", emptyList(), singletonList(binding));
+        Binding binding = new Binding(null, null, "test", SERVER, null, emptyList(), null);
+        Configuration config = new Configuration("test", emptyList(), emptyList(), singletonList(binding));
 
         String text = jsonb.toJson(config);
 
         assertThat(text, not(nullValue()));
         assertThat(text, equalTo("{\"name\":\"test\",\"bindings\":[{\"type\":\"test\",\"kind\":\"server\"}]}"));
+    }
+
+    @Test
+    public void shouldReadConfigurationWithVault()
+    {
+        String text =
+                "{" +
+                    "\"name\": \"test\"," +
+                    "\"bindings\":" +
+                    "[" +
+                    "]," +
+                    "\"vaults\":" +
+                    "[" +
+                        "{" +
+                            "\"name\": \"default\"," +
+                            "\"type\": \"test\"" +
+                        "}" +
+                    "]," +
+                    "\"namespaces\":" +
+                    "[" +
+                    "]" +
+                "}";
+
+        Configuration config = jsonb.fromJson(text, Configuration.class);
+
+        assertThat(config, not(nullValue()));
+        assertThat(config.name, equalTo("test"));
+        assertThat(config.vaults, hasSize(1));
+        assertThat(config.vaults.get(0).name, equalTo("default"));
+        assertThat(config.vaults.get(0).type, equalTo("test"));
+        assertThat(config.namespaces, emptyCollectionOf(NamespaceRef.class));
+    }
+
+    @Test
+    public void shouldWriteConfigurationWithVault()
+    {
+        Vault vault = new Vault("default", "test", null);
+        Configuration config = new Configuration("test", emptyList(), singletonList(vault), emptyList());
+
+        String text = jsonb.toJson(config);
+
+        assertThat(text, not(nullValue()));
+        assertThat(text, equalTo("{\"name\":\"test\",\"vaults\":[{\"name\":\"default\",\"type\":\"test\"}]}"));
     }
 
     @Test
@@ -155,7 +204,7 @@ public class ConfigurationAdapterTest
                     "\"bindings\":" +
                     "[" +
                     "]," +
-                    "\"references\":" +
+                    "\"namespaces\":" +
                     "[" +
                         "{" +
                             "\"name\": \"test\"" +
@@ -168,20 +217,20 @@ public class ConfigurationAdapterTest
         assertThat(config, not(nullValue()));
         assertThat(config.name, equalTo("test"));
         assertThat(config.bindings, emptyCollectionOf(Binding.class));
-        assertThat(config.references, hasSize(1));
-        assertThat(config.references.get(0).name, equalTo("test"));
-        assertThat(config.references.get(0).links, equalTo(emptyMap()));
+        assertThat(config.namespaces, hasSize(1));
+        assertThat(config.namespaces.get(0).name, equalTo("test"));
+        assertThat(config.namespaces.get(0).links, equalTo(emptyMap()));
     }
 
     @Test
     public void shouldWriteConfigurationWithNamespace()
     {
-        Reference reference = new Reference("test", emptyMap());
-        Configuration config = new Configuration("test", singletonList(reference), emptyList());
+        NamespaceRef reference = new NamespaceRef("test", emptyMap());
+        Configuration config = new Configuration("test", singletonList(reference), emptyList(), emptyList());
 
         String text = jsonb.toJson(config);
 
         assertThat(text, not(nullValue()));
-        assertThat(text, equalTo("{\"name\":\"test\",\"references\":[{\"name\":\"test\"}]}"));
+        assertThat(text, equalTo("{\"name\":\"test\",\"namespaces\":[{\"name\":\"test\"}]}"));
     }
 }

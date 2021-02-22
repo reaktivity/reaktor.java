@@ -16,6 +16,7 @@
 package org.reaktivity.reaktor.nukleus;
 
 import java.net.InetAddress;
+import java.net.URL;
 import java.nio.channels.SelectableChannel;
 import java.util.function.LongConsumer;
 import java.util.function.LongSupplier;
@@ -30,6 +31,7 @@ import org.reaktivity.reaktor.nukleus.concurrent.Signaler;
 import org.reaktivity.reaktor.nukleus.function.MessageConsumer;
 import org.reaktivity.reaktor.nukleus.poller.PollerKey;
 import org.reaktivity.reaktor.nukleus.stream.StreamFactory;
+import org.reaktivity.reaktor.nukleus.vault.BindingVault;
 
 public interface ElektronContext
 {
@@ -60,10 +62,10 @@ public interface ElektronContext
     BufferPool bufferPool();
 
     LongSupplier supplyCounter(
-            String name);
+        String name);
 
     LongConsumer supplyAccumulator(
-            String name);
+        String name);
 
     MessageConsumer droppedFrameHandler();
 
@@ -81,4 +83,10 @@ public interface ElektronContext
         Binding binding);
 
     StreamFactory streamFactory();
+
+    BindingVault supplyVault(
+        long vaultId);
+
+    URL resolvePath(
+        String path);
 }

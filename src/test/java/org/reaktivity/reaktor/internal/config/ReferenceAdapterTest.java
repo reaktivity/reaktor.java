@@ -28,7 +28,6 @@ import javax.json.bind.JsonbConfig;
 
 import org.junit.Before;
 import org.junit.Test;
-import org.reaktivity.reaktor.config.Reference;
 
 public class ReferenceAdapterTest
 {
@@ -38,7 +37,7 @@ public class ReferenceAdapterTest
     public void initJson()
     {
         JsonbConfig config = new JsonbConfig()
-                .withAdapters(new ReferenceAdapter());
+                .withAdapters(new NamspaceRefAdapter());
         jsonb = JsonbBuilder.create(config);
     }
 
@@ -50,7 +49,7 @@ public class ReferenceAdapterTest
                     "\"name\": \"test\"" +
                 "}";
 
-        Reference ref = jsonb.fromJson(text, Reference.class);
+        NamespaceRef ref = jsonb.fromJson(text, NamespaceRef.class);
 
         assertThat(ref, not(nullValue()));
         assertThat(ref.name, equalTo("test"));
@@ -61,7 +60,7 @@ public class ReferenceAdapterTest
     @Test
     public void shouldWriteReference()
     {
-        Reference route = new Reference("test", emptyMap());
+        NamespaceRef route = new NamespaceRef("test", emptyMap());
 
         String text = jsonb.toJson(route);
 
@@ -81,7 +80,7 @@ public class ReferenceAdapterTest
                     "}" +
                 "}";
 
-        Reference ref = jsonb.fromJson(text, Reference.class);
+        NamespaceRef ref = jsonb.fromJson(text, NamespaceRef.class);
 
         assertThat(ref, not(nullValue()));
         assertThat(ref.name, equalTo("test"));
@@ -92,7 +91,7 @@ public class ReferenceAdapterTest
     @Test
     public void shouldWriteReferenceWithLink()
     {
-        Reference route = new Reference("test", singletonMap("self", "/test"));
+        NamespaceRef route = new NamespaceRef("test", singletonMap("self", "/test"));
 
         String text = jsonb.toJson(route);
 

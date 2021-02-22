@@ -34,12 +34,14 @@ public class OptionsAdapter implements JsonbAdapter<Options, JsonObject>
 
     private OptionsAdapterSpi delegate;
 
-    public OptionsAdapter()
+    public OptionsAdapter(
+        OptionsAdapterSpi.Kind kind)
     {
         delegatesByName = ServiceLoader
             .load(OptionsAdapterSpi.class)
             .stream()
             .map(Supplier::get)
+            .filter(s -> s.kind() == kind)
             .collect(toMap(OptionsAdapterSpi::type, identity()));
     }
 

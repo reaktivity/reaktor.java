@@ -20,7 +20,6 @@ import static java.net.http.HttpClient.Version.HTTP_2;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import java.io.InputStream;
-import java.net.URI;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.http.HttpClient;
@@ -39,25 +38,26 @@ import javax.json.bind.JsonbConfig;
 import org.agrona.ErrorHandler;
 import org.reaktivity.reaktor.config.Binding;
 import org.reaktivity.reaktor.config.Route;
+import org.reaktivity.reaktor.config.Vault;
 import org.reaktivity.reaktor.internal.config.Configuration;
 import org.reaktivity.reaktor.internal.config.ConfigurationAdapter;
-import org.reaktivity.reaktor.internal.stream.RouteId;
+import org.reaktivity.reaktor.internal.stream.NamespacedId;
 
 public class ConfigureTask implements Callable<Void>
 {
     private final ToIntFunction<String> supplyId;
-    private final URI configURI;
+    private final URL configURL;
     private final Collection<DispatchAgent> dispatchers;
     private final ErrorHandler errorHandler;
 
     public ConfigureTask(
-        URI configURI,
+        URL configURL,
         ToIntFunction<String> supplyId,
         Collection<DispatchAgent> dispatchers,
         ErrorHandler errorHandler)
     {
         this.supplyId = supplyId;
-        this.configURI = configURI;
+        this.configURL = configURL;
         this.dispatchers = dispatchers;
         this.errorHandler = errorHandler;
     }
@@ -67,11 +67,11 @@ public class ConfigureTask implements Callable<Void>
     {
         String configText;
 
-        if (configURI == null)
+        if (configURL == null)
         {
             configText = "{}";
         }
-        else if ("https".equals(configURI.getScheme()) || "https".equals(configURI.getScheme()))
+        else if ("https".equals(configURL.getProtocol()) || "https".equals(configURL.getProtocol()))
         {
             HttpClient client = HttpClient.newBuilder()
                 .version(HTTP_2)
@@ -80,7 +80,7 @@ public class ConfigureTask implements Callable<Void>
 
             HttpRequest request = HttpRequest.newBuilder()
                 .GET()
-                .uri(configURI)
+                .uri(configURL.toURI())
                 .build();
 
             HttpResponse<String> response = client.send(
@@ -92,7 +92,6 @@ public class ConfigureTask implements Callable<Void>
         }
         else
         {
-            URL configURL = configURI.toURL();
             URLConnection connection = configURL.openConnection();
             try (InputStream input = connection.getInputStream())
             {
@@ -111,19 +110,31 @@ public class ConfigureTask implements Callable<Void>
             configuration.id = supplyId.applyAsInt(configuration.name);
             for (Binding binding : configuration.bindings)
             {
-                binding.id = RouteId.routeId(configuration.id, supplyId.applyAsInt(binding.entry));
+                binding.id = NamespacedId.id(configuration.id, supplyId.applyAsInt(binding.entry));
+
+                if (binding.vault != null)
+                {
+                    binding.vault.id = NamespacedId.id(
+                            supplyId.applyAsInt(binding.vault.namespace),
+                            supplyId.applyAsInt(binding.vault.name));
+                }
 
                 // TODO: consider route exit namespace
                 for (Route route : binding.routes)
                 {
-                    route.id = RouteId.routeId(configuration.id, supplyId.applyAsInt(route.exit));
+                    route.id = NamespacedId.id(configuration.id, supplyId.applyAsInt(route.exit));
                 }
 
                 // TODO: consider binding exit namespace
                 if (binding.exit != null)
                 {
-                    binding.exit.id = RouteId.routeId(configuration.id, supplyId.applyAsInt(binding.exit.exit));
+                    binding.exit.id = NamespacedId.id(configuration.id, supplyId.applyAsInt(binding.exit.exit));
                 }
+            }
+
+            for (Vault vault : configuration.vaults)
+            {
+                vault.id = NamespacedId.id(configuration.id, supplyId.applyAsInt(vault.name));
             }
 
             CompletableFuture<Void> future = CompletableFuture.completedFuture(null);

@@ -28,12 +28,15 @@ import javax.json.JsonValue;
 import javax.json.bind.adapter.JsonbAdapter;
 
 import org.reaktivity.reaktor.config.Binding;
+import org.reaktivity.reaktor.config.NamespacedRef;
 import org.reaktivity.reaktor.config.Options;
+import org.reaktivity.reaktor.config.OptionsAdapterSpi;
 import org.reaktivity.reaktor.config.Role;
 import org.reaktivity.reaktor.config.Route;
 
 public class BindingAdapter implements JsonbAdapter<Binding, JsonObject>
 {
+    private static final String VAULT_NAME = "vault";
     private static final String ENTRY_NAME = "entry";
     private static final String EXIT_NAME = "exit";
     private static final String TYPE_NAME = "type";
@@ -51,7 +54,7 @@ public class BindingAdapter implements JsonbAdapter<Binding, JsonObject>
     {
         this.role = new RoleAdapter();
         this.route = new RouteAdapter();
-        this.options = new OptionsAdapter();
+        this.options = new OptionsAdapter(OptionsAdapterSpi.Kind.BINDING);
     }
 
     @Override
@@ -62,6 +65,12 @@ public class BindingAdapter implements JsonbAdapter<Binding, JsonObject>
         options.adaptType(binding.type);
 
         JsonObjectBuilder object = Json.createObjectBuilder();
+
+        if (binding.vault != null)
+        {
+            // TODO: qualified name format
+            object.add(VAULT_NAME, binding.vault.name);
+        }
 
         if (binding.entry != null)
         {
@@ -101,6 +110,9 @@ public class BindingAdapter implements JsonbAdapter<Binding, JsonObject>
         route.adaptType(type);
         options.adaptType(type);
 
+        NamespacedRef vault = object.containsKey(VAULT_NAME)
+                ? NamespacedRef.of(object.getString(VAULT_NAME))
+                : null;
         String entry = object.containsKey(ENTRY_NAME) ? object.getString(ENTRY_NAME) : null;
         Role kind = role.adaptFromJson(object.getJsonString(KIND_NAME));
         Options opts = object.containsKey(OPTIONS_NAME) ?
@@ -118,6 +130,6 @@ public class BindingAdapter implements JsonbAdapter<Binding, JsonObject>
                 ? new Route(object.getString(EXIT_NAME))
                 : null;
 
-        return new Binding(entry, type, kind, opts, routes, exit);
+        return new Binding(vault, entry, type, kind, opts, routes, exit);
     }
 }

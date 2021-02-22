@@ -33,6 +33,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.reaktivity.reaktor.config.Binding;
 import org.reaktivity.reaktor.config.Namespace;
+import org.reaktivity.reaktor.config.Vault;
 
 public class NamespaceAdapterTest
 {
@@ -63,7 +64,7 @@ public class NamespaceAdapterTest
     @Test
     public void shouldWriteEmptyNamespace()
     {
-        Namespace namespace = new Namespace("default", emptyList());
+        Namespace namespace = new Namespace("default", emptyList(), emptyList());
 
         String text = jsonb.toJson(namespace);
 
@@ -77,6 +78,9 @@ public class NamespaceAdapterTest
         String text =
                 "{" +
                     "\"name\": \"test\"," +
+                    "\"vaults\":" +
+                    "[" +
+                    "]," +
                     "\"bindings\":" +
                     "[" +
                     "]" +
@@ -92,7 +96,7 @@ public class NamespaceAdapterTest
     @Test
     public void shouldWriteNamespace()
     {
-        Namespace namespace = new Namespace("test", emptyList());
+        Namespace namespace = new Namespace("test", emptyList(), emptyList());
 
         String text = jsonb.toJson(namespace);
 
@@ -106,6 +110,9 @@ public class NamespaceAdapterTest
         String text =
                 "{" +
                     "\"name\": \"test\"," +
+                    "\"vaults\":" +
+                    "[" +
+                    "]," +
                     "\"bindings\":" +
                     "[" +
                         "{" +
@@ -127,12 +134,51 @@ public class NamespaceAdapterTest
     @Test
     public void shouldWriteNamespaceWithBinding()
     {
-        Binding binding = new Binding(null, "test", SERVER, null, emptyList(), null);
-        Namespace namespace = new Namespace("test", singletonList(binding));
+        Binding binding = new Binding(null, null, "test", SERVER, null, emptyList(), null);
+        Namespace namespace = new Namespace("test", emptyList(), singletonList(binding));
 
         String text = jsonb.toJson(namespace);
 
         assertThat(text, not(nullValue()));
         assertThat(text, equalTo("{\"name\":\"test\",\"bindings\":[{\"type\":\"test\",\"kind\":\"server\"}]}"));
+    }
+
+    @Test
+    public void shouldReadConfigurationWithVault()
+    {
+        String text =
+                "{" +
+                    "\"name\": \"test\"," +
+                    "\"bindings\":" +
+                    "[" +
+                    "]," +
+                    "\"vaults\":" +
+                    "[" +
+                        "{" +
+                            "\"name\": \"default\"," +
+                            "\"type\": \"test\"" +
+                        "}" +
+                    "]" +
+                "}";
+
+        Namespace namespace = jsonb.fromJson(text, Namespace.class);
+
+        assertThat(namespace, not(nullValue()));
+        assertThat(namespace.name, equalTo("test"));
+        assertThat(namespace.vaults, hasSize(1));
+        assertThat(namespace.vaults.get(0).name, equalTo("default"));
+        assertThat(namespace.vaults.get(0).type, equalTo("test"));
+    }
+
+    @Test
+    public void shouldWriteConfigurationWithVault()
+    {
+        Vault vault = new Vault("default", "test", null);
+        Namespace namespace = new Namespace("test", singletonList(vault), emptyList());
+
+        String text = jsonb.toJson(namespace);
+
+        assertThat(text, not(nullValue()));
+        assertThat(text, equalTo("{\"name\":\"test\",\"vaults\":[{\"name\":\"default\",\"type\":\"test\"}]}"));
     }
 }

@@ -25,19 +25,16 @@ import java.util.ServiceLoader;
 
 public final class NukleusFactory
 {
+    private final Map<String, NukleusFactorySpi> factorySpis;
+
     public static NukleusFactory instantiate()
     {
         return instantiate(load(NukleusFactorySpi.class));
     }
 
-    public static NukleusFactory instantiate(ClassLoader classLoader)
-    {
-        return instantiate(load(NukleusFactorySpi.class, classLoader));
-    }
-
     public Iterable<String> names()
     {
-        return factorySpisByName.keySet();
+        return factorySpis.keySet();
     }
 
     public Nukleus create(
@@ -46,20 +43,9 @@ public final class NukleusFactory
     {
         requireNonNull(name, "name");
 
-        NukleusFactorySpi factorySpi = resolveFactory(name);
+        NukleusFactorySpi factorySpi = requireNonNull(factorySpis.get(name), () -> "Unregonized nukleus name: " + name);
 
         return factorySpi.create(config);
-    }
-
-    private NukleusFactorySpi resolveFactory(
-        String name)
-    {
-        NukleusFactorySpi factorySpi = factorySpisByName.get(name);
-        if (factorySpi == null)
-        {
-            throw new IllegalArgumentException("Unregonized nukleus name: " + name);
-        }
-        return factorySpi;
     }
 
     private static NukleusFactory instantiate(
@@ -71,10 +57,9 @@ public final class NukleusFactory
         return new NukleusFactory(unmodifiableMap(factorySpisByName));
     }
 
-    private final Map<String, NukleusFactorySpi> factorySpisByName;
-
-    private NukleusFactory(Map<String, NukleusFactorySpi> factorySpisByName)
+    private NukleusFactory(
+        Map<String, NukleusFactorySpi> factorySpis)
     {
-        this.factorySpisByName = factorySpisByName;
+        this.factorySpis = factorySpis;
     }
 }

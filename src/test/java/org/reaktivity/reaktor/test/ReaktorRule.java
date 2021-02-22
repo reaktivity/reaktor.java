@@ -30,7 +30,7 @@ import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_STREAMS_BUFFER
 import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_SYNTHETIC_ABORT;
 
 import java.io.File;
-import java.net.URI;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -67,7 +67,7 @@ public final class ReaktorRule implements TestRule
     private Reaktor reaktor;
 
     private ReaktorConfiguration configuration;
-    private URI configURI;
+    private URL configURL;
     private String configurationRoot;
     private boolean clean;
 
@@ -123,9 +123,9 @@ public final class ReaktorRule implements TestRule
     }
 
     public ReaktorRule configURI(
-        URI configURI)
+        URL configURL)
     {
-        this.configURI = configURI;
+        this.configURL = configURL;
         return this;
     }
 
@@ -295,13 +295,13 @@ public final class ReaktorRule implements TestRule
                 {
                     String resourceName = String.format("%s/%s", configurationRoot, config.value());
 
-                    configURI = testClass.getClassLoader().getResource(resourceName).toURI();
+                    configURL = testClass.getClassLoader().getResource(resourceName);
                 }
                 else
                 {
                     String resourceName = String.format("%s-%s", testClass.getSimpleName(), config.value());
 
-                    configURI = testClass.getResource(resourceName).toURI();
+                    configURL = testClass.getResource(resourceName);
                 }
             }
         }
@@ -354,7 +354,7 @@ public final class ReaktorRule implements TestRule
                     baseThread.interrupt();
                 };
                 reaktor = builder.config(config)
-                                 .configURI(configURI)
+                                 .configURL(configURL)
                                  .errorHandler(errorHandler)
                                  .build();
 

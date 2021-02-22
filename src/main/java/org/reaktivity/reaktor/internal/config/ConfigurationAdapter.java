@@ -28,24 +28,28 @@ import javax.json.JsonValue;
 import javax.json.bind.adapter.JsonbAdapter;
 
 import org.reaktivity.reaktor.config.Binding;
-import org.reaktivity.reaktor.config.Reference;
+import org.reaktivity.reaktor.config.Vault;
 
 public class ConfigurationAdapter implements JsonbAdapter<Configuration, JsonObject>
 {
     private static final String NAME_NAME = "name";
     private static final String BINDINGS_NAME = "bindings";
-    private static final String REFERENCES_NAME = "references";
+    private static final String NAMESPACES_NAME = "namespaces";
+    private static final String VAULTS_NAME = "vaults";
 
     private static final String NAME_DEFAULT = "default";
-    private static final List<Reference> REFERENCES_DEFAULT = emptyList();
+    private static final List<NamespaceRef> NAMESPACES_DEFAULT = emptyList();
     private static final List<Binding> BINDINGS_DEFAULT = emptyList();
+    private static final List<Vault> VAULTS_DEFAULT = emptyList();
 
-    private final ReferenceAdapter reference;
+    private final NamspaceRefAdapter namespace;
+    private final VaultAdapter vault;
     private final BindingAdapter binding;
 
     public ConfigurationAdapter()
     {
-        reference = new ReferenceAdapter();
+        namespace = new NamspaceRefAdapter();
+        vault = new VaultAdapter();
         binding = new BindingAdapter();
     }
 
@@ -60,6 +64,13 @@ public class ConfigurationAdapter implements JsonbAdapter<Configuration, JsonObj
             object.add(NAME_NAME, root.name);
         }
 
+        if (!VAULTS_DEFAULT.equals(root.vaults))
+        {
+            JsonArrayBuilder vaults = Json.createArrayBuilder();
+            root.vaults.forEach(b -> vaults.add(vault.adaptToJson(b)));
+            object.add(VAULTS_NAME, vaults);
+        }
+
         if (!BINDINGS_DEFAULT.equals(root.bindings))
         {
             JsonArrayBuilder bindings = Json.createArrayBuilder();
@@ -67,11 +78,11 @@ public class ConfigurationAdapter implements JsonbAdapter<Configuration, JsonObj
             object.add(BINDINGS_NAME, bindings);
         }
 
-        if (!REFERENCES_DEFAULT.equals(root.references))
+        if (!NAMESPACES_DEFAULT.equals(root.namespaces))
         {
             JsonArrayBuilder references = Json.createArrayBuilder();
-            root.references.forEach(r -> references.add(reference.adaptToJson(r)));
-            object.add(REFERENCES_NAME, references);
+            root.namespaces.forEach(r -> references.add(namespace.adaptToJson(r)));
+            object.add(NAMESPACES_NAME, references);
         }
 
         return object.build();
@@ -81,20 +92,28 @@ public class ConfigurationAdapter implements JsonbAdapter<Configuration, JsonObj
     public Configuration adaptFromJson(
         JsonObject object)
     {
-        String name = object.getString(NAME_NAME, NAME_DEFAULT);
-        List<Reference> references = object.containsKey(REFERENCES_NAME)
-                ? object.getJsonArray(REFERENCES_NAME)
+        String name = object.containsKey(NAME_NAME)
+                ? object.getString(NAME_NAME)
+                : NAME_DEFAULT;
+        List<NamespaceRef> namespaces = object.containsKey(NAMESPACES_NAME)
+                ? object.getJsonArray(NAMESPACES_NAME)
                     .stream().map(JsonValue::asJsonObject)
-                    .map(reference::adaptFromJson)
+                    .map(namespace::adaptFromJson)
                     .collect(Collectors.toList())
-                : REFERENCES_DEFAULT;
+                : NAMESPACES_DEFAULT;
         List<Binding> bindings = object.containsKey(BINDINGS_NAME)
             ? object.getJsonArray(BINDINGS_NAME)
                 .stream().map(JsonValue::asJsonObject)
                 .map(binding::adaptFromJson)
                 .collect(Collectors.toList())
             : BINDINGS_DEFAULT;
+        List<Vault> vaults = object.containsKey(VAULTS_NAME)
+                ? object.getJsonArray(VAULTS_NAME)
+                    .stream().map(JsonValue::asJsonObject)
+                    .map(vault::adaptFromJson)
+                    .collect(Collectors.toList())
+                : VAULTS_DEFAULT;
 
-        return new Configuration(name, references, bindings);
+        return new Configuration(name, namespaces, vaults, bindings);
     }
 }

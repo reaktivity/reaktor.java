@@ -20,6 +20,17 @@ import javax.json.bind.adapter.JsonbAdapter;
 
 public interface OptionsAdapterSpi extends JsonbAdapter<Options, JsonObject>
 {
+    enum Kind
+    {
+        BINDING,
+        VAULT
+    }
+
+    default Kind kind()
+    {
+        return Kind.BINDING;
+    }
+
     String type();
 
     @Override

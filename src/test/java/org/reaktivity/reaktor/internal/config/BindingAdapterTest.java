@@ -34,6 +34,7 @@ import javax.json.bind.JsonbConfig;
 import org.junit.Before;
 import org.junit.Test;
 import org.reaktivity.reaktor.config.Binding;
+import org.reaktivity.reaktor.config.NamespacedRef;
 import org.reaktivity.reaktor.config.Route;
 import org.reaktivity.reaktor.internal.config.OptionsAdapterTest.TestOptions;
 
@@ -54,6 +55,70 @@ public class BindingAdapterTest
     {
         String text =
                 "{" +
+                    "\"type\": \"test\"," +
+                    "\"kind\": \"server\"," +
+                    "\"routes\":" +
+                    "[" +
+                    "]" +
+                "}";
+
+        Binding binding = jsonb.fromJson(text, Binding.class);
+
+        assertThat(binding, not(nullValue()));
+        assertThat(binding.kind, equalTo(SERVER));
+        assertThat(binding.routes, emptyCollectionOf(Route.class));
+    }
+
+    @Test
+    public void shouldWriteBinding()
+    {
+        Binding binding = new Binding(null, null, "test", SERVER, null, emptyList(), null);
+
+        String text = jsonb.toJson(binding);
+
+        assertThat(text, not(nullValue()));
+        assertThat(text, equalTo("{\"type\":\"test\",\"kind\":\"server\"}"));
+    }
+
+    @Test
+    public void shouldReadBindingWithVault()
+    {
+        String text =
+                "{" +
+                    "\"vault\": \"test\"," +
+                    "\"type\": \"test\"," +
+                    "\"kind\": \"server\"," +
+                    "\"routes\":" +
+                    "[" +
+                    "]" +
+                "}";
+
+        Binding binding = jsonb.fromJson(text, Binding.class);
+
+        assertThat(binding, not(nullValue()));
+        assertThat(binding.vault, not(nullValue()));
+        assertThat(binding.vault.name, equalTo("test"));
+        assertThat(binding.kind, equalTo(SERVER));
+        assertThat(binding.routes, emptyCollectionOf(Route.class));
+    }
+
+    @Test
+    public void shouldWriteBindingWithVault()
+    {
+        NamespacedRef vault = new NamespacedRef("default", "test");
+        Binding binding = new Binding(vault, null, "test", SERVER, null, emptyList(), null);
+
+        String text = jsonb.toJson(binding);
+
+        assertThat(text, not(nullValue()));
+        assertThat(text, equalTo("{\"vault\":\"test\",\"type\":\"test\",\"kind\":\"server\"}"));
+    }
+
+    @Test
+    public void shouldReadBindingWithEntry()
+    {
+        String text =
+                "{" +
                     "\"entry\": \"test\"," +
                     "\"type\": \"test\"," +
                     "\"kind\": \"server\"," +
@@ -71,9 +136,9 @@ public class BindingAdapterTest
     }
 
     @Test
-    public void shouldWriteBinding()
+    public void shouldWriteBindingWithEntry()
     {
-        Binding binding = new Binding("test", "test", SERVER, null, emptyList(), null);
+        Binding binding = new Binding(null, "test", "test", SERVER, null, emptyList(), null);
 
         String text = jsonb.toJson(binding);
 
@@ -108,7 +173,7 @@ public class BindingAdapterTest
     @Test
     public void shouldWriteBindingWithExit()
     {
-        Binding binding = new Binding("test", "test", SERVER, null, emptyList(), new Route("test"));
+        Binding binding = new Binding(null, "test", "test", SERVER, null, emptyList(), new Route("test"));
 
         String text = jsonb.toJson(binding);
 
@@ -142,7 +207,7 @@ public class BindingAdapterTest
     @Test
     public void shouldWriteBindingWithOptions()
     {
-        Binding binding = new Binding(null, "test", SERVER, new TestOptions("test"), emptyList(), null);
+        Binding binding = new Binding(null, null, "test", SERVER, new TestOptions("test"), emptyList(), null);
 
         String text = jsonb.toJson(binding);
 
@@ -179,7 +244,7 @@ public class BindingAdapterTest
     @Test
     public void shouldWriteBindingWithRoute()
     {
-        Binding binding = new Binding(null, "test", SERVER, null, singletonList(new Route("test")), null);
+        Binding binding = new Binding(null, null, "test", SERVER, null, singletonList(new Route("test")), null);
 
         String text = jsonb.toJson(binding);
 

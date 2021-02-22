@@ -21,6 +21,7 @@ import java.util.function.ToIntFunction;
 import org.agrona.collections.Int2ObjectHashMap;
 import org.reaktivity.reaktor.config.Binding;
 import org.reaktivity.reaktor.config.Namespace;
+import org.reaktivity.reaktor.config.Vault;
 import org.reaktivity.reaktor.nukleus.Elektron;
 
 public class NamespaceContext
@@ -30,6 +31,7 @@ public class NamespaceContext
     private final ToIntFunction<String> supplyLabelId;
     private final int namespaceId;
     private final Int2ObjectHashMap<BindingContext> bindingsById;
+    private final Int2ObjectHashMap<VaultContext> vaultsById;
 
     public NamespaceContext(
         Namespace namespace,
@@ -41,6 +43,7 @@ public class NamespaceContext
         this.supplyLabelId = supplyLabelId;
         this.namespaceId = supplyLabelId.applyAsInt(namespace.name);
         this.bindingsById = new Int2ObjectHashMap<>();
+        this.vaultsById = new Int2ObjectHashMap<>();
     }
 
     public int namespaceId()
@@ -50,11 +53,13 @@ public class NamespaceContext
 
     public void attach()
     {
+        namespace.vaults.forEach(this::attachVault);
         namespace.bindings.forEach(this::attachBinding);
     }
 
     public void detach()
     {
+        namespace.vaults.forEach(this::detachVault);
         namespace.bindings.forEach(this::detachBinding);
     }
 
@@ -62,10 +67,13 @@ public class NamespaceContext
         Binding binding)
     {
         Elektron elektron = lookupElektron.apply(binding.type);
-        int bindingId = supplyLabelId.applyAsInt(binding.entry);
-        BindingContext context = new BindingContext(binding, elektron);
-        bindingsById.put(bindingId, context);
-        context.attach();
+        if (elektron != null)
+        {
+            int bindingId = supplyLabelId.applyAsInt(binding.entry);
+            BindingContext context = new BindingContext(binding, elektron);
+            bindingsById.put(bindingId, context);
+            context.attach();
+        }
     }
 
     private void detachBinding(
@@ -76,9 +84,36 @@ public class NamespaceContext
         context.detach();
     }
 
+    private void attachVault(
+        Vault vault)
+    {
+        Elektron elektron = lookupElektron.apply(vault.type);
+        if (elektron != null)
+        {
+            int vaultId = supplyLabelId.applyAsInt(vault.name);
+            VaultContext context = new VaultContext(vault, elektron);
+            vaultsById.put(vaultId, context);
+            context.attach();
+        }
+    }
+
+    private void detachVault(
+        Vault vault)
+    {
+        int vaultId = supplyLabelId.applyAsInt(vault.name);
+        VaultContext context = vaultsById.remove(vaultId);
+        context.detach();
+    }
+
     BindingContext findBinding(
         int bindingId)
     {
         return bindingsById.get(bindingId);
+    }
+
+    VaultContext findVault(
+        int vaultId)
+    {
+        return vaultsById.get(vaultId);
     }
 }

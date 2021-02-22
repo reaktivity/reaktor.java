@@ -20,7 +20,7 @@ import java.util.function.ToIntFunction;
 
 import org.agrona.collections.Int2ObjectHashMap;
 import org.reaktivity.reaktor.config.Namespace;
-import org.reaktivity.reaktor.internal.stream.RouteId;
+import org.reaktivity.reaktor.internal.stream.NamespacedId;
 import org.reaktivity.reaktor.nukleus.Elektron;
 
 public class ConfigurationContext
@@ -51,14 +51,24 @@ public class ConfigurationContext
         return new NamespaceTask(namespace, this::detachNamespace);
     }
 
-    public BindingContext resolve(
-        long routeId)
+    public BindingContext resolveBinding(
+        long bindingId)
     {
-        int namespaceId = RouteId.namespaceId(routeId);
-        int bindingId = RouteId.bindingId(routeId);
+        int namespaceId = NamespacedId.namespaceId(bindingId);
+        int localId = NamespacedId.localId(bindingId);
 
         NamespaceContext namespace = findNamespace(namespaceId);
-        return namespace != null ? namespace.findBinding(bindingId) : null;
+        return namespace != null ? namespace.findBinding(localId) : null;
+    }
+
+    public VaultContext resolveVault(
+        long vaultId)
+    {
+        int namespaceId = NamespacedId.namespaceId(vaultId);
+        int localId = NamespacedId.localId(vaultId);
+
+        NamespaceContext namespace = findNamespace(namespaceId);
+        return namespace != null ? namespace.findVault(localId) : null;
     }
 
     public void detachAll()
@@ -77,8 +87,8 @@ public class ConfigurationContext
         Namespace namespace)
     {
         NamespaceContext context = new NamespaceContext(namespace, elektronsByName, supplyLabelId);
-        context.attach();
         namespacesById.put(context.namespaceId(), context);
+        context.attach();
     }
 
     protected void detachNamespace(

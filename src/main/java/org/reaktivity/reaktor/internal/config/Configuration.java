@@ -19,18 +19,19 @@ import java.util.List;
 
 import org.reaktivity.reaktor.config.Binding;
 import org.reaktivity.reaktor.config.Namespace;
-import org.reaktivity.reaktor.config.Reference;
+import org.reaktivity.reaktor.config.Vault;
 
 public class Configuration extends Namespace
 {
-    public final List<Reference> references;
+    public final List<NamespaceRef> namespaces;
 
     public Configuration(
         String name,
-        List<Reference> namespaces,
+        List<NamespaceRef> namespaces,
+        List<Vault> vaults,
         List<Binding> bindings)
     {
-        super(name, bindings);
-        this.references = namespaces;
+        super(name, vaults, bindings);
+        this.namespaces = namespaces;
     }
 }

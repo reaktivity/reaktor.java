@@ -21,8 +21,8 @@ import static java.lang.ThreadLocal.withInitial;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.agrona.CloseHelper.quietClose;
 import static org.reaktivity.reaktor.internal.stream.BudgetId.ownerIndex;
-import static org.reaktivity.reaktor.internal.stream.RouteId.bindingId;
-import static org.reaktivity.reaktor.internal.stream.RouteId.namespaceId;
+import static org.reaktivity.reaktor.internal.stream.NamespacedId.localId;
+import static org.reaktivity.reaktor.internal.stream.NamespacedId.namespaceId;
 import static org.reaktivity.reaktor.internal.stream.StreamId.instanceId;
 import static org.reaktivity.reaktor.internal.stream.StreamId.isInitial;
 import static org.reaktivity.reaktor.internal.stream.StreamId.remoteIndex;
@@ -33,6 +33,8 @@ import static org.reaktivity.reaktor.nukleus.budget.BudgetCreditor.NO_BUDGET_ID;
 import static org.reaktivity.reaktor.nukleus.concurrent.Signaler.NO_CANCEL_ID;
 
 import java.net.InetAddress;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.nio.channels.SelectableChannel;
 import java.util.BitSet;
 import java.util.Collection;
@@ -56,6 +58,7 @@ import org.agrona.DeadlineTimerWheel;
 import org.agrona.DeadlineTimerWheel.TimerHandler;
 import org.agrona.DirectBuffer;
 import org.agrona.ErrorHandler;
+import org.agrona.LangUtil;
 import org.agrona.MutableDirectBuffer;
 import org.agrona.collections.Int2ObjectHashMap;
 import org.agrona.collections.Long2ObjectHashMap;
@@ -82,7 +85,7 @@ import org.reaktivity.reaktor.internal.layouts.BufferPoolLayout;
 import org.reaktivity.reaktor.internal.layouts.MetricsLayout;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
 import org.reaktivity.reaktor.internal.poller.Poller;
-import org.reaktivity.reaktor.internal.stream.RouteId;
+import org.reaktivity.reaktor.internal.stream.NamespacedId;
 import org.reaktivity.reaktor.internal.stream.StreamId;
 import org.reaktivity.reaktor.internal.stream.Target;
 import org.reaktivity.reaktor.internal.stream.WriteCounters;
@@ -106,6 +109,7 @@ import org.reaktivity.reaktor.nukleus.concurrent.Signaler;
 import org.reaktivity.reaktor.nukleus.function.MessageConsumer;
 import org.reaktivity.reaktor.nukleus.poller.PollerKey;
 import org.reaktivity.reaktor.nukleus.stream.StreamFactory;
+import org.reaktivity.reaktor.nukleus.vault.BindingVault;
 
 public class DispatchAgent implements ElektronContext, Agent
 {
@@ -124,6 +128,7 @@ public class DispatchAgent implements ElektronContext, Agent
 
     private final int localIndex;
     private final ReaktorConfiguration config;
+    private final URL configURL;
     private final LabelManager labels;
     private final String agentName;
     private final Counters counters;
@@ -180,6 +185,7 @@ public class DispatchAgent implements ElektronContext, Agent
 
     public DispatchAgent(
         ReaktorConfiguration config,
+        URL configURL,
         ExecutorService executor,
         LabelManager labels,
         ErrorHandler errorHandler,
@@ -189,6 +195,7 @@ public class DispatchAgent implements ElektronContext, Agent
     {
         this.localIndex = index;
         this.config = config;
+        this.configURL = configURL;
         this.labels = labels;
         this.affinityMask = affinityMask;
 
@@ -285,6 +292,7 @@ public class DispatchAgent implements ElektronContext, Agent
             String name = nukleus.name();
             elektronsByName.put(name, nukleus.supplyElektron(this));
         }
+
         this.configuration = new ConfigurationContext(elektronsByName::get, labels::supplyLabelId);
         this.taskQueue = new ConcurrentLinkedDeque<>();
         this.correlations = new Long2ObjectHashMap<>();
@@ -420,13 +428,37 @@ public class DispatchAgent implements ElektronContext, Agent
     {
         final int namespaceId = labels.supplyLabelId(namespace.name);
         final int bindingId = labels.supplyLabelId(binding.entry);
-        return RouteId.routeId(namespaceId, bindingId);
+        return NamespacedId.id(namespaceId, bindingId);
     }
 
     @Override
     public StreamFactory streamFactory()
     {
         return this::newStream;
+    }
+
+    @Override
+    public BindingVault supplyVault(
+        long vaultId)
+    {
+        VaultContext vault = configuration.resolveVault(vaultId);
+        return vault != null ? vault.vaultFactory() : null;
+    }
+
+    @Override
+    public URL resolvePath(
+        String path)
+    {
+        URL resolved = null;
+        try
+        {
+            resolved = new URL(configURL, path);
+        }
+        catch (MalformedURLException ex)
+        {
+            LangUtil.rethrowUnchecked(ex);
+        }
+        return resolved;
     }
 
     @Override
@@ -1058,7 +1090,7 @@ public class DispatchAgent implements ElektronContext, Agent
 
         MessageConsumer newStream = null;
 
-        BindingContext binding = configuration.resolve(routeId);
+        BindingContext binding = configuration.resolveBinding(routeId);
         final StreamFactory streamFactory = binding != null ? binding.streamFactory() : null;
         if (streamFactory != null)
         {
@@ -1123,8 +1155,8 @@ public class DispatchAgent implements ElektronContext, Agent
         final AbortFW abort = abortRW.wrap(writeBuffer, 0, writeBuffer.capacity())
                                      .routeId(syntheticAbortRouteId)
                                      .streamId(streamId)
-                                     .sequence(-1L)
-                                     .acknowledge(-1L)
+                                     .sequence(Long.MAX_VALUE)
+                                     .acknowledge(0L)
                                      .maximum(0)
                                      .build();
 
@@ -1177,7 +1209,7 @@ public class DispatchAgent implements ElektronContext, Agent
         long routeId)
     {
         final int namespaceId = namespaceId(routeId);
-        final int bindingId = bindingId(routeId);
+        final int bindingId = localId(routeId);
         final String namespace = labels.lookupLabel(namespaceId);
         final String binding = labels.lookupLabel(bindingId);
         return new ReadCounters(counters, namespace, binding);
@@ -1187,7 +1219,7 @@ public class DispatchAgent implements ElektronContext, Agent
         long routeId)
     {
         final int namespaceId = namespaceId(routeId);
-        final int bindingId = bindingId(routeId);
+        final int bindingId = localId(routeId);
         final String namespace = labels.lookupLabel(namespaceId);
         final String binding = labels.lookupLabel(bindingId);
         return new WriteCounters(counters, namespace, binding);
@@ -1264,8 +1296,8 @@ public class DispatchAgent implements ElektronContext, Agent
 
         if (mask.cardinality() == 0)
         {
-            int namespaceId = RouteId.namespaceId(routeId);
-            int bindingId = RouteId.bindingId(routeId);
+            int namespaceId = NamespacedId.namespaceId(routeId);
+            int bindingId = NamespacedId.localId(routeId);
             String namespace = labels.lookupLabel(namespaceId);
             String binding = labels.lookupLabel(bindingId);
             throw new IllegalStateException(String.format("affinity mask must specify at least one bit: %s.%s %d",

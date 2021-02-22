@@ -24,13 +24,16 @@ public class Namespace
     public transient int id;
 
     public final String name;
+    public final List<Vault> vaults;
     public final List<Binding> bindings;
 
     public Namespace(
         String name,
+        List<Vault> vaults,
         List<Binding> bindings)
     {
         this.name = requireNonNull(name);
+        this.vaults = requireNonNull(vaults);
         this.bindings = requireNonNull(bindings);
     }
 }

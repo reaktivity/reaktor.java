@@ -19,7 +19,7 @@ import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.ForkJoinPool.commonPool;
 import static org.agrona.LangUtil.rethrowUnchecked;
 
-import java.net.URI;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
@@ -41,7 +41,7 @@ import org.agrona.concurrent.AgentRunner;
 import org.reaktivity.reaktor.internal.LabelManager;
 import org.reaktivity.reaktor.internal.context.ConfigureTask;
 import org.reaktivity.reaktor.internal.context.DispatchAgent;
-import org.reaktivity.reaktor.internal.stream.RouteId;
+import org.reaktivity.reaktor.internal.stream.NamespacedId;
 import org.reaktivity.reaktor.nukleus.Nukleus;
 
 public final class Reaktor implements AutoCloseable
@@ -61,7 +61,7 @@ public final class Reaktor implements AutoCloseable
         ReaktorConfiguration config,
         Collection<Nukleus> nuklei,
         ErrorHandler errorHandler,
-        URI configURI,
+        URL configURL,
         int coreCount,
         Collection<ReaktorAffinity> affinities)
     {
@@ -80,18 +80,19 @@ public final class Reaktor implements AutoCloseable
             {
                 int namespaceId = labels.supplyLabelId(affinity.namespace);
                 int bindingId = labels.supplyLabelId(affinity.binding);
-                long routeId = RouteId.routeId(namespaceId, bindingId);
+                long routeId = NamespacedId.id(namespaceId, bindingId);
                 BitSet mask = BitSet.valueOf(new long[] { affinity.mask });
                 affinityMasks.put(routeId, mask);
             }
             LongFunction<BitSet> defaulter = r -> defaultMask;
             LongFunction<BitSet> affinityMask = r -> affinityMasks.computeIfAbsent(r, defaulter);
 
-            DispatchAgent agent = new DispatchAgent(config, tasks, labels, errorHandler, affinityMask, nuklei, coreIndex);
+            DispatchAgent agent =
+                    new DispatchAgent(config, configURL, tasks, labels, errorHandler, affinityMask, nuklei, coreIndex);
             dispatchers.add(agent);
         }
 
-        final Callable<Void> configure = new ConfigureTask(configURI, labels::supplyLabelId, dispatchers, errorHandler);
+        final Callable<Void> configure = new ConfigureTask(configURL, labels::supplyLabelId, dispatchers, errorHandler);
 
         List<AgentRunner> runners = new ArrayList<>(dispatchers.size());
         dispatchers.forEach(d -> runners.add(d.runner()));
