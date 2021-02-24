@@ -50,7 +50,7 @@
     <checkstyle.config.location>src/conf/checkstyle/configuration.xml</checkstyle.config.location>
     <checkstyle.suppressions.location>src/conf/checkstyle/suppressions.xml</checkstyle.suppressions.location>
     <jacoco.coverage.ratio>0.71</jacoco.coverage.ratio>
-    <jacoco.missed.count>2</jacoco.missed.count>
+    <jacoco.missed.count>3</jacoco.missed.count>
 
     <nukleus.plugin.version>0.85</nukleus.plugin.version>
     <nukleus.spec.version>develop-SNAPSHOT</nukleus.spec.version>
