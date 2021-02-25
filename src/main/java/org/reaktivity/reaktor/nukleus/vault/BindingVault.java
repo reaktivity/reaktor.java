@@ -31,7 +31,7 @@ public interface BindingVault
     KeyStore newTrust(
         Collection<String> aliases);
 
-    default X509Certificate sign(
+    default X509Certificate[] sign(
         String signerAlias,
         PublicKey publicKey,
         String distinguishedName,
