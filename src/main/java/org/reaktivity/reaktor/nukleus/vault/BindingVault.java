@@ -37,8 +37,7 @@ public interface BindingVault
         String distinguishedName,
         Instant notBefore,
         Instant notAfter,
-        List<String> subjectNames,
-        String signatureAlg)
+        List<String> subjectNames)
     {
         return null;
     }
