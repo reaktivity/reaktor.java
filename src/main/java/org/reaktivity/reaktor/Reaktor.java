@@ -68,7 +68,11 @@ public final class Reaktor implements AutoCloseable
         this.nextTaskId = new AtomicInteger();
         this.factory = Executors.defaultThreadFactory();
 
-        ExecutorService tasks = newFixedThreadPool(config.taskParallelism(), this::newTaskThread);
+        ExecutorService tasks = null;
+        if (config.taskParallelism() > 0)
+        {
+            tasks = newFixedThreadPool(config.taskParallelism(), this::newTaskThread);
+        }
         LabelManager labels = new LabelManager(config.directory());
 
         Collection<DispatchAgent> dispatchers = new LinkedHashSet<>();
@@ -154,7 +158,10 @@ public final class Reaktor implements AutoCloseable
             }
         }
 
-        tasks.shutdownNow();
+        if (tasks != null)
+        {
+            tasks.shutdownNow();
+        }
 
         if (!errors.isEmpty())
         {
