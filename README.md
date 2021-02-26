@@ -14,7 +14,6 @@ $ git fetch build develop
 $ git merge build/develop --allow-unrelated-histories --no-commit
 ```
 Review the changes, modify the `pom.xml` to reflect your project `name`, `description`, and `artifactId`.
-Activate the new repository in Travis CI.
 Commit the changes and push them back.
 ```bash
 $ git add pom.xml
