@@ -16,28 +16,27 @@
 package org.reaktivity.reaktor.nukleus.vault;
 
 import java.security.KeyStore;
-import java.security.PublicKey;
 import java.security.cert.X509Certificate;
-import java.time.Instant;
-import java.util.Collection;
-import java.util.List;
 
 public interface BindingVault
 {
-    KeyStore newKeys(
-        char[] password,
-        Collection<String> aliases);
+    KeyStore.PrivateKeyEntry key(
+        String ref);
 
-    KeyStore newTrust(
-        Collection<String> aliases);
+    KeyStore.TrustedCertificateEntry trust(
+        String ref);
 
     default X509Certificate[] sign(
-        String signerAlias,
-        PublicKey publicKey,
-        String distinguishedName,
-        Instant notBefore,
-        Instant notAfter,
-        List<String> subjectNames)
+        String signerRef,
+        CertificateRequest request)
+    {
+        return null;
+    }
+
+    default String signedRef(
+        String signerRef,
+        String dname,
+        String keyType)
     {
         return null;
     }

@@ -13,33 +13,17 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package org.reaktivity.reaktor.test.internal.nukleus;
+package org.reaktivity.reaktor.nukleus.vault;
 
-import java.security.KeyStore.PrivateKeyEntry;
-import java.security.KeyStore.TrustedCertificateEntry;
+import java.security.PublicKey;
+import java.time.Instant;
+import java.util.Collection;
 
-import org.reaktivity.reaktor.config.Vault;
-import org.reaktivity.reaktor.nukleus.vault.BindingVault;
-
-final class TestVault implements BindingVault
+public final class CertificateRequest
 {
-    TestVault(
-        Vault vault)
-    {
-    }
-
-    @Override
-    public PrivateKeyEntry key(
-        String name)
-    {
-        return null;
-    }
-
-    @Override
-    public TrustedCertificateEntry trust(
-        String name)
-    {
-        return null;
-    }
-
+    public PublicKey publicKey;
+    public String dname;
+    public Instant notBefore;
+    public Instant notAfter;
+    public Collection<String> subjectNames;
 }
