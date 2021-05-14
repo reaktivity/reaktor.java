@@ -62,12 +62,13 @@ public class ReaktorBuilder
         return this;
     }
 
-    public void affinity(
+    public ReaktorBuilder affinity(
         String namespace,
         String binding,
         long mask)
     {
         affinities.add(new ReaktorAffinity(namespace, binding, mask));
+        return this;
     }
 
     public ReaktorBuilder errorHandler(
