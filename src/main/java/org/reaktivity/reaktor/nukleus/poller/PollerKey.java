@@ -32,6 +32,8 @@ public interface PollerKey
     void register(
         int registerOps);
 
+    void cancel();
+
     void clear(
         int clearOps);
 

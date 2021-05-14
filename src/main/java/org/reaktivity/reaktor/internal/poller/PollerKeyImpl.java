@@ -84,6 +84,12 @@ public final class PollerKeyImpl implements PollerKey
     }
 
     @Override
+    public void cancel()
+    {
+        key.cancel();
+    }
+
+    @Override
     public void clear(
         int clearOps)
     {
