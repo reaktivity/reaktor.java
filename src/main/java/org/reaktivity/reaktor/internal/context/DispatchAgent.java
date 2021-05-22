@@ -1202,7 +1202,7 @@ public class DispatchAgent implements ElektronContext, Agent
     private Target newTarget(
         int index)
     {
-        return new Target(config, index, writeBuffer, streams, throttles, newWriteCounters);
+        return new Target(config, index, writeBuffer, correlations, streams, throttles, newWriteCounters);
     }
 
     private ReadCounters newReadCounters(

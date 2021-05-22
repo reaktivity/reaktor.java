@@ -54,6 +54,7 @@ public final class Target implements AutoCloseable
     private final AutoCloseable streamsLayout;
     private final MutableDirectBuffer writeBuffer;
     private final boolean timestamps;
+    private final Long2ObjectHashMap<MessageConsumer> correlations;
     private final Int2ObjectHashMap<MessageConsumer>[] streams;
     private final Int2ObjectHashMap<MessageConsumer>[] throttles;
     private final Long2ObjectHashMap<WriteCounters> countersByRouteId;
@@ -62,10 +63,12 @@ public final class Target implements AutoCloseable
 
     private MessagePredicate streamsBuffer;
 
+
     public Target(
         ReaktorConfiguration config,
         int index,
         MutableDirectBuffer writeBuffer,
+        Long2ObjectHashMap<MessageConsumer> correlations,
         Int2ObjectHashMap<MessageConsumer>[] streams,
         Int2ObjectHashMap<MessageConsumer>[] throttles,
         LongFunction<WriteCounters> newWriteCounters)
@@ -86,6 +89,7 @@ public final class Target implements AutoCloseable
 
         this.writeBuffer = writeBuffer;
         this.newWriteCounters = newWriteCounters;
+        this.correlations = correlations;
         this.streams = streams;
         this.throttles = throttles;
 
@@ -298,6 +302,7 @@ public final class Target implements AutoCloseable
                 counters.resets.increment();
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 streams[streamIndex(streamId)].remove(instanceId(streamId));
+                correlations.remove(streamId);
                 break;
             case SignalFW.TYPE_ID:
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
