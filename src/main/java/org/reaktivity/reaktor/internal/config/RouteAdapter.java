@@ -37,6 +37,7 @@ public class RouteAdapter implements JsonbAdapter<Route, JsonObject>
 
     private static final List<Condition> WHEN_DEFAULT = emptyList();
 
+    private int index;
     private final ConditionAdapter condition;
 
     public RouteAdapter()
@@ -49,6 +50,12 @@ public class RouteAdapter implements JsonbAdapter<Route, JsonObject>
     {
         condition.adaptType(type);
         return this;
+    }
+
+    public void adaptFromJsonIndex(
+        int index)
+    {
+        this.index = index;
     }
 
     @Override
@@ -81,6 +88,6 @@ public class RouteAdapter implements JsonbAdapter<Route, JsonObject>
                     .collect(Collectors.toList())
                 : WHEN_DEFAULT;
 
-        return new Route(exit, when);
+        return new Route(index, exit, when);
     }
 }

@@ -26,19 +26,36 @@ public class Route
 
     public transient long id;
 
+    public final int order;
     public final String exit;
     public final List<Condition> when;
 
     public Route(
         String exit)
     {
-        this(exit, UNCONDITIONAL);
+        this(0, exit);
     }
 
     public Route(
         String exit,
         List<Condition> when)
     {
+        this(0, exit, when);
+    }
+
+    public Route(
+        int order,
+        String exit)
+    {
+        this(order, exit, UNCONDITIONAL);
+    }
+
+    public Route(
+        int order,
+        String exit,
+        List<Condition> when)
+    {
+        this.order = order;
         this.exit = requireNonNull(exit);
         this.when = requireNonNull(when);
     }

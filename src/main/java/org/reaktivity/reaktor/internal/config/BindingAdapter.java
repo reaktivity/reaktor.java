@@ -27,6 +27,7 @@ import javax.json.JsonObjectBuilder;
 import javax.json.JsonValue;
 import javax.json.bind.adapter.JsonbAdapter;
 
+import org.agrona.collections.MutableInteger;
 import org.reaktivity.reaktor.config.Binding;
 import org.reaktivity.reaktor.config.NamespacedRef;
 import org.reaktivity.reaktor.config.Options;
@@ -118,16 +119,18 @@ public class BindingAdapter implements JsonbAdapter<Binding, JsonObject>
         Options opts = object.containsKey(OPTIONS_NAME) ?
                 options.adaptFromJson(object.getJsonObject(OPTIONS_NAME)) :
                 null;
+        MutableInteger order = new MutableInteger();
         List<Route> routes = object.containsKey(ROUTES_NAME)
                 ? object.getJsonArray(ROUTES_NAME)
                     .stream()
                     .map(JsonValue::asJsonObject)
+                    .peek(o -> route.adaptFromJsonIndex(order.value++))
                     .map(route::adaptFromJson)
                     .collect(toList())
                 : ROUTES_DEFAULT;
 
         Route exit = object.containsKey(EXIT_NAME)
-                ? new Route(object.getString(EXIT_NAME))
+                ? new Route(routes.size(), object.getString(EXIT_NAME))
                 : null;
 
         return new Binding(vault, entry, type, kind, opts, routes, exit);
