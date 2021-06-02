@@ -22,6 +22,8 @@ import org.agrona.concurrent.MessageHandler;
 @FunctionalInterface
 public interface MessageConsumer extends MessageHandler, AutoCloseable
 {
+    MessageConsumer NOOP = (m, b, i, l) -> {};
+
     void accept(int msgTypeId, DirectBuffer buffer, int index, int length);
 
     @Override
