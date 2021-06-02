@@ -19,5 +19,7 @@ public enum Role
 {
     SERVER,
     CLIENT,
-    PROXY
+    PROXY,
+    CACHE_CLIENT,
+    CACHE_SERVER
 }
