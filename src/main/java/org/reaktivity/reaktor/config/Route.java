@@ -29,6 +29,7 @@ public class Route
     public final int order;
     public final String exit;
     public final List<Condition> when;
+    public final With with;
 
     public Route(
         String exit)
@@ -55,8 +56,18 @@ public class Route
         String exit,
         List<Condition> when)
     {
+        this(order, exit, when, null);
+    }
+
+    public Route(
+        int order,
+        String exit,
+        List<Condition> when,
+        With with)
+    {
         this.order = order;
         this.exit = requireNonNull(exit);
         this.when = requireNonNull(when);
+        this.with = with;
     }
 }

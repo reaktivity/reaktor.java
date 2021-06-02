@@ -29,26 +29,31 @@ import javax.json.bind.adapter.JsonbAdapter;
 
 import org.reaktivity.reaktor.config.Condition;
 import org.reaktivity.reaktor.config.Route;
+import org.reaktivity.reaktor.config.With;
 
 public class RouteAdapter implements JsonbAdapter<Route, JsonObject>
 {
     private static final String EXIT_NAME = "exit";
     private static final String WHEN_NAME = "when";
+    private static final String WITH_NAME = "with";
 
     private static final List<Condition> WHEN_DEFAULT = emptyList();
 
     private int index;
     private final ConditionAdapter condition;
+    private final WithAdapter with;
 
     public RouteAdapter()
     {
         condition = new ConditionAdapter();
+        with = new WithAdapter();
     }
 
     public RouteAdapter adaptType(
         String type)
     {
         condition.adaptType(type);
+        with.adaptType(type);
         return this;
     }
 
@@ -73,6 +78,11 @@ public class RouteAdapter implements JsonbAdapter<Route, JsonObject>
             object.add(WHEN_NAME, when);
         }
 
+        if (route.with != null)
+        {
+            object.add(WITH_NAME, with.adaptToJson(route.with));
+        }
+
         return object.build();
     }
 
@@ -87,7 +97,10 @@ public class RouteAdapter implements JsonbAdapter<Route, JsonObject>
                     .map(condition::adaptFromJson)
                     .collect(Collectors.toList())
                 : WHEN_DEFAULT;
+        With wth = object.containsKey(WITH_NAME)
+                ? with.adaptFromJson(object.getJsonObject(WITH_NAME))
+                : null;
 
-        return new Route(index, exit, when);
+        return new Route(index, exit, when, wth);
     }
 }

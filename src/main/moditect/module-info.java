@@ -34,6 +34,7 @@ module org.reaktivity.reaktor
 
     uses org.reaktivity.reaktor.config.ConditionAdapterSpi;
     uses org.reaktivity.reaktor.config.OptionsAdapterSpi;
+    uses org.reaktivity.reaktor.config.WithAdapterSpi;
     uses org.reaktivity.reaktor.nukleus.NukleusFactorySpi;
     uses org.reaktivity.reaktor.nukleus.vault.BindingVault;
 }
