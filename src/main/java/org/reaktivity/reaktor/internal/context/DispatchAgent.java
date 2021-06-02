@@ -311,6 +311,20 @@ public class DispatchAgent implements ElektronContext, Agent
     }
 
     @Override
+    public String supplyNamespace(
+        long routeId)
+    {
+        return labels.lookupLabel(NamespacedId.namespaceId(routeId));
+    }
+
+    @Override
+    public String supplyLocalName(
+        long routeId)
+    {
+        return labels.lookupLabel(NamespacedId.localId(routeId));
+    }
+
+    @Override
     public int supplyTypeId(
         String name)
     {
@@ -352,6 +366,13 @@ public class DispatchAgent implements ElektronContext, Agent
         traceId++;
         traceId &= mask;
         return traceId;
+    }
+
+    @Override
+    public void detachSender(
+        long streamId)
+    {
+        throttles[throttleIndex(streamId)].remove(instanceId(streamId));
     }
 
     @Override
@@ -1183,6 +1204,13 @@ public class DispatchAgent implements ElektronContext, Agent
         throttles[throttleIndex(streamId)].put(instanceId(streamId), sender);
         final long replyId = supplyReplyId(streamId);
         correlations.put(replyId, sender);
+        return supplyReceiver(streamId);
+    }
+
+    @Override
+    public MessageConsumer supplyReceiver(
+        long streamId)
+    {
         final int remoteIndex = remoteIndex(streamId);
         return writersByIndex.computeIfAbsent(remoteIndex, supplyWriter);
     }

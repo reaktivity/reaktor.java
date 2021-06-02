@@ -52,6 +52,12 @@ public interface ElektronContext
 
     long supplyTraceId();
 
+    MessageConsumer supplyReceiver(
+        long streamId);
+
+    void detachSender(
+        long replyId);
+
     BudgetCreditor creditor();
 
     BudgetDebitor supplyDebitor(
@@ -81,6 +87,12 @@ public interface ElektronContext
     long supplyRouteId(
         Namespace namespace,
         Binding binding);
+
+    String supplyNamespace(
+        long routeId);
+
+    String supplyLocalName(
+        long routeId);
 
     StreamFactory streamFactory();
 
