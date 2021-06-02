@@ -30,6 +30,7 @@ import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_STREAMS_BUFFER
 import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_SYNTHETIC_ABORT;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -304,6 +305,8 @@ public final class ReaktorRule implements TestRule
                     configURL = testClass.getResource(resourceName);
                 }
             }
+
+            cleanup();
         }
         catch (Exception e)
         {
@@ -313,39 +316,10 @@ public final class ReaktorRule implements TestRule
 
         return new Statement()
         {
-            private boolean shouldDeletePath(
-                Path path)
-            {
-                String filename = path.getFileName().toString();
-                return "control".equals(filename) ||
-                       "routes".equals(filename) ||
-                       "streams".equals(filename) ||
-                       "labels".equals(filename) ||
-                       DATA_FILENAME_PATTERN.matcher(filename).matches();
-            }
-
             @Override
             public void evaluate() throws Throwable
             {
                 ReaktorConfiguration config = configuration();
-                Path directory = config.directory();
-                Path cacheDirectory = config.cacheDirectory();
-
-                if (clean && exists(directory))
-                {
-                    Files.walk(directory, FOLLOW_LINKS)
-                         .filter(this::shouldDeletePath)
-                         .map(Path::toFile)
-                         .forEach(File::delete);
-                }
-
-                if (clean && exists(cacheDirectory))
-                {
-                    Files.walk(cacheDirectory)
-                         .map(Path::toFile)
-                         .forEach(File::delete);
-                }
-
                 final Thread baseThread = Thread.currentThread();
                 final List<Throwable> errors = new ArrayList<>();
                 final ErrorHandler errorHandler = ex ->
@@ -385,5 +359,38 @@ public final class ReaktorRule implements TestRule
                 }
             }
         };
+    }
+
+    private void cleanup() throws IOException
+    {
+        ReaktorConfiguration config = configuration();
+        Path directory = config.directory();
+        Path cacheDirectory = config.cacheDirectory();
+
+        if (clean && exists(directory))
+        {
+            Files.walk(directory, FOLLOW_LINKS)
+                 .filter(this::shouldDeletePath)
+                 .map(Path::toFile)
+                 .forEach(File::delete);
+        }
+
+        if (clean && exists(cacheDirectory))
+        {
+            Files.walk(cacheDirectory)
+                 .map(Path::toFile)
+                 .forEach(File::delete);
+        }
+    }
+
+    private boolean shouldDeletePath(
+        Path path)
+    {
+        String filename = path.getFileName().toString();
+        return "control".equals(filename) ||
+               "routes".equals(filename) ||
+               "streams".equals(filename) ||
+               "labels".equals(filename) ||
+               DATA_FILENAME_PATTERN.matcher(filename).matches();
     }
 }
