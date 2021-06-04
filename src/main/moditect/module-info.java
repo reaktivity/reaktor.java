@@ -16,17 +16,25 @@
 module org.reaktivity.reaktor
 {
     exports org.reaktivity.reaktor;
+    exports org.reaktivity.reaktor.config;
+    exports org.reaktivity.reaktor.nukleus;
+    exports org.reaktivity.reaktor.nukleus.budget;
+    exports org.reaktivity.reaktor.nukleus.buffer;
+    exports org.reaktivity.reaktor.nukleus.concurrent;
+    exports org.reaktivity.reaktor.nukleus.function;
+    exports org.reaktivity.reaktor.nukleus.poller;
+    exports org.reaktivity.reaktor.nukleus.stream;
+    exports org.reaktivity.reaktor.nukleus.vault;
 
+    requires transitive java.json;
+    requires transitive java.json.bind;
     requires transitive org.agrona.core;
-    requires transitive jdk.unsupported;
+    requires jdk.unsupported;
+    requires java.net.http;
 
-    exports org.reaktivity.nukleus;
-    exports org.reaktivity.nukleus.buffer;
-    exports org.reaktivity.nukleus.concurrent;
-    exports org.reaktivity.nukleus.function;
-    exports org.reaktivity.nukleus.route;
-    exports org.reaktivity.nukleus.stream;
-
-    uses org.reaktivity.nukleus.NukleusFactorySpi;
-    uses org.reaktivity.nukleus.ControllerFactorySpi;
+    uses org.reaktivity.reaktor.config.ConditionAdapterSpi;
+    uses org.reaktivity.reaktor.config.OptionsAdapterSpi;
+    uses org.reaktivity.reaktor.config.WithAdapterSpi;
+    uses org.reaktivity.reaktor.nukleus.NukleusFactorySpi;
+    uses org.reaktivity.reaktor.nukleus.vault.BindingVault;
 }

@@ -19,7 +19,7 @@ import static org.agrona.BitUtil.isPowerOfTwo;
 import static org.reaktivity.reaktor.internal.layouts.BudgetsLayout.budgetIdOffset;
 import static org.reaktivity.reaktor.internal.layouts.BudgetsLayout.budgetRemainingOffset;
 import static org.reaktivity.reaktor.internal.layouts.BudgetsLayout.budgetWatchersOffset;
-import static org.reaktivity.reaktor.internal.router.BudgetId.budgetMask;
+import static org.reaktivity.reaktor.internal.stream.BudgetId.budgetMask;
 
 import java.util.function.LongConsumer;
 
@@ -28,9 +28,9 @@ import org.agrona.collections.Long2LongHashMap;
 import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.collections.LongHashSet;
 import org.agrona.concurrent.AtomicBuffer;
-import org.reaktivity.nukleus.budget.BudgetDebitor;
 import org.reaktivity.reaktor.ReaktorConfiguration;
 import org.reaktivity.reaktor.internal.layouts.BudgetsLayout;
+import org.reaktivity.reaktor.nukleus.budget.BudgetDebitor;
 
 public final class DefaultBudgetDebitor implements BudgetDebitor, AutoCloseable
 {

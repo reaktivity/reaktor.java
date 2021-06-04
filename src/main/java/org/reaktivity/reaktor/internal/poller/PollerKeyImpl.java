@@ -24,7 +24,7 @@ import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.util.function.ToIntFunction;
 
-import org.reaktivity.reaktor.poller.PollerKey;
+import org.reaktivity.reaktor.nukleus.poller.PollerKey;
 
 public final class PollerKeyImpl implements PollerKey
 {
@@ -35,6 +35,7 @@ public final class PollerKeyImpl implements PollerKey
 
     private final SelectionKey key;
     private int interestOps;
+    private Object attached;
 
     PollerKeyImpl(
         SelectionKey key)
@@ -43,16 +44,34 @@ public final class PollerKeyImpl implements PollerKey
         this.interestOps = key.interestOps();
     }
 
+    @Override
+    public Object attach(
+        Object attachment)
+    {
+        Object detached = attached;
+        attached = attachment;
+        return detached;
+    }
+
+    @Override
+    public Object attachment()
+    {
+        return attached;
+    }
+
+    @Override
     public SelectableChannel channel()
     {
         return key.channel();
     }
 
+    @Override
     public boolean isValid()
     {
         return key.isValid();
     }
 
+    @Override
     public void register(
         int registerOps)
     {
@@ -64,6 +83,13 @@ public final class PollerKeyImpl implements PollerKey
         }
     }
 
+    @Override
+    public void cancel()
+    {
+        key.cancel();
+    }
+
+    @Override
     public void clear(
         int clearOps)
     {
@@ -75,6 +101,7 @@ public final class PollerKeyImpl implements PollerKey
         }
     }
 
+    @Override
     public void handler(
         final int handlerOps,
         final ToIntFunction<PollerKey> handler)

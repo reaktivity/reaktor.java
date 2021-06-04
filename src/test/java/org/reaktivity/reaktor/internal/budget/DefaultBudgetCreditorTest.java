@@ -19,7 +19,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.reaktivity.nukleus.budget.BudgetCreditor.NO_CREDITOR_INDEX;
+import static org.reaktivity.reaktor.nukleus.budget.BudgetCreditor.NO_CREDITOR_INDEX;
 
 import java.nio.file.Paths;
 

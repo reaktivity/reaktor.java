@@ -88,7 +88,7 @@ public class NukleusChannelAddressFactory extends ChannelAddressFactorySpi
         }
 
         final long authorization = (Long) options.getOrDefault(OPTION_AUTHORIZATION.getName(), 0L);
-        final String replyTo = (String) options.getOrDefault(OPTION_REPLY_TO.getName(), "k3po#0");
+        final String replyTo = (String) options.getOrDefault(OPTION_REPLY_TO.getName(), "default");
 
         return new NukleusChannelAddress(location, authorization, replyTo);
     }

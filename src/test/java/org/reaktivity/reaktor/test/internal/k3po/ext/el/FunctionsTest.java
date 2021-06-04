@@ -15,9 +15,9 @@
  */
 package org.reaktivity.reaktor.test.internal.k3po.ext.el;
 
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertThat;
 import static org.kaazing.k3po.lang.internal.el.ExpressionFactoryUtils.newExpressionFactory;
 
 import javax.el.ExpressionFactory;
@@ -29,31 +29,17 @@ import org.kaazing.k3po.lang.internal.el.ExpressionContext;
 public final class FunctionsTest
 {
     @Test
-    public void shouldInvokeNewRouteRef() throws Exception
+    public void shouldInvokeId() throws Exception
     {
         ExpressionFactory factory = newExpressionFactory();
         ExpressionContext environment = new ExpressionContext();
 
-        String expressionText = "${nukleus:newRouteRef()}";
-        ValueExpression expression = factory.createValueExpression(environment, expressionText, long.class);
+        String expressionText = "${nukleus:id(\"test\")}";
+        ValueExpression expression = factory.createValueExpression(environment, expressionText, int.class);
 
-        Object routeRef = expression.getValue(environment);
+        Object id = expression.getValue(environment);
 
-        assertThat(routeRef, instanceOf(Long.class));
-        assertNotEquals(0L, Long.class.cast(routeRef).longValue());
-    }
-
-    @Test
-    public void shouldInvokeNewCorrelationId() throws Exception
-    {
-        ExpressionFactory factory = newExpressionFactory();
-        ExpressionContext environment = new ExpressionContext();
-
-        String expressionText = "${nukleus:newCorrelationId()}";
-        ValueExpression expression = factory.createValueExpression(environment, expressionText, long.class);
-
-        Object correlationId = expression.getValue(environment);
-
-        assertThat(correlationId, instanceOf(Long.class));
+        assertThat(id, instanceOf(Integer.class));
+        assertNotEquals(0, Integer.class.cast(id).intValue());
     }
 }

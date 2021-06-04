@@ -15,141 +15,153 @@
  */
 package org.reaktivity.reaktor;
 
+import static java.util.concurrent.Executors.newFixedThreadPool;
+import static java.util.concurrent.ForkJoinPool.commonPool;
 import static org.agrona.LangUtil.rethrowUnchecked;
 
+import java.net.URL;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.BitSet;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
-import java.util.function.BiConsumer;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.LongFunction;
+import java.util.function.ToLongFunction;
 
 import org.agrona.CloseHelper;
 import org.agrona.ErrorHandler;
-import org.agrona.collections.ArrayUtil;
-import org.agrona.concurrent.Agent;
+import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.concurrent.AgentRunner;
-import org.agrona.concurrent.BackoffIdleStrategy;
-import org.agrona.concurrent.IdleStrategy;
-import org.reaktivity.nukleus.Configuration;
-import org.reaktivity.nukleus.Controller;
-import org.reaktivity.nukleus.Nukleus;
-import org.reaktivity.reaktor.internal.agent.ControllerAgent;
-import org.reaktivity.reaktor.internal.agent.ElektronAgent;
-import org.reaktivity.reaktor.internal.agent.NukleusAgent;
+import org.reaktivity.reaktor.internal.LabelManager;
+import org.reaktivity.reaktor.internal.context.ConfigureTask;
+import org.reaktivity.reaktor.internal.context.DispatchAgent;
+import org.reaktivity.reaktor.internal.stream.NamespacedId;
+import org.reaktivity.reaktor.nukleus.Nukleus;
 
 public final class Reaktor implements AutoCloseable
 {
-    private final Set<Configuration> configs;
-    private final ExecutorService executor;
-    private final AgentRunner[] runners;
-    private final ControllerAgent controllerAgent;
-    private final NukleusAgent nukleusAgent;
-    private final List<ElektronAgent> elektronAgents;
-    private final ThreadFactory threadFactory;
+    private final Collection<Nukleus> nuklei;
+    private final ExecutorService tasks;
+    private final Callable<Void> configure;
+    private final Collection<AgentRunner> runners;
+    private final ToLongFunction<String> counter;
+
+    private final AtomicInteger nextTaskId;
+    private final ThreadFactory factory;
+
+    private Future<Void> configureRef;
 
     Reaktor(
         ReaktorConfiguration config,
+        Collection<Nukleus> nuklei,
         ErrorHandler errorHandler,
-        Set<Configuration> configs,
-        ExecutorService executor,
-        Agent[] agents,
-        ThreadFactory threadFactory)
+        URL configURL,
+        int coreCount,
+        Collection<ReaktorAffinity> affinities)
     {
-        this.configs = configs;
-        this.executor = executor;
-        this.threadFactory = threadFactory;
+        this.nextTaskId = new AtomicInteger();
+        this.factory = Executors.defaultThreadFactory();
 
-        AgentRunner[] runners = new AgentRunner[0];
-        for (Agent agent : agents)
+        ExecutorService tasks = null;
+        if (config.taskParallelism() > 0)
         {
-            final IdleStrategy idleStrategy = new BackoffIdleStrategy(
-                    config.maxSpins(),
-                    config.maxYields(),
-                    config.minParkNanos(),
-                    config.maxParkNanos());
-            runners = ArrayUtil.add(runners, new AgentRunner(idleStrategy, errorHandler, null, agent));
+            tasks = newFixedThreadPool(config.taskParallelism(), this::newTaskThread);
         }
+        LabelManager labels = new LabelManager(config.directory());
+
+        Collection<DispatchAgent> dispatchers = new LinkedHashSet<>();
+        for (int coreIndex = 0; coreIndex < coreCount; coreIndex++)
+        {
+            BitSet defaultMask = BitSet.valueOf(new long[] { (1L << coreCount) - 1L });
+            Long2ObjectHashMap<BitSet> affinityMasks = new Long2ObjectHashMap<>();
+            for (ReaktorAffinity affinity : affinities)
+            {
+                int namespaceId = labels.supplyLabelId(affinity.namespace);
+                int bindingId = labels.supplyLabelId(affinity.binding);
+                long routeId = NamespacedId.id(namespaceId, bindingId);
+                BitSet mask = BitSet.valueOf(new long[] { affinity.mask });
+                affinityMasks.put(routeId, mask);
+            }
+            LongFunction<BitSet> defaulter = r -> defaultMask;
+            LongFunction<BitSet> affinityMask = r -> affinityMasks.computeIfAbsent(r, defaulter);
+
+            DispatchAgent agent =
+                    new DispatchAgent(config, configURL, tasks, labels, errorHandler, affinityMask, nuklei, coreIndex);
+            dispatchers.add(agent);
+        }
+
+        final Callable<Void> configure = new ConfigureTask(configURL, labels::supplyLabelId, dispatchers, errorHandler);
+
+        List<AgentRunner> runners = new ArrayList<>(dispatchers.size());
+        dispatchers.forEach(d -> runners.add(d.runner()));
+
+        final ToLongFunction<String> counter =
+            name -> dispatchers.stream().mapToLong(d -> d.counter(name)).sum();
+
+        this.nuklei = nuklei;
+        this.tasks = tasks;
+        this.configure = configure;
         this.runners = runners;
+        this.counter = counter;
+    }
 
-        this.controllerAgent = Arrays.stream(agents)
-            .filter(agent -> agent instanceof ControllerAgent)
-            .map(ControllerAgent.class::cast)
-            .findFirst()
-            .orElse(null);
-
-        this.nukleusAgent = Arrays.stream(agents)
-                .filter(agent -> agent instanceof NukleusAgent)
-                .map(NukleusAgent.class::cast)
+    public <T> T nukleus(
+        Class<T> kind)
+    {
+        return nuklei.stream()
+                .filter(kind::isInstance)
+                .map(kind::cast)
                 .findFirst()
                 .orElse(null);
-
-        this.elektronAgents = Arrays.stream(agents)
-                .filter(agent -> agent instanceof ElektronAgent)
-                .map(ElektronAgent.class::cast)
-                .collect(Collectors.toList());
-    }
-
-    public void properties(
-        BiConsumer<String, Object> valueAction,
-        BiConsumer<String, Object> defaultAction)
-    {
-        configs.forEach(c -> c.properties(valueAction, defaultAction));
-    }
-
-    public <T extends Controller> T controller(
-        Class<T> kind)
-    {
-        return controllerAgent != null ? controllerAgent.controller(kind) : null;
-    }
-
-    public Stream<Controller> controllers()
-    {
-        return controllerAgent != null ? controllerAgent.controllers() : null;
-    }
-
-    public <T extends Nukleus> T nukleus(
-        Class<T> kind)
-    {
-        return nukleusAgent != null ? nukleusAgent.nukleus(kind) : null;
     }
 
     public long counter(
         String name)
     {
-        return elektronAgents.stream().mapToLong(agent -> agent.counter(name)).sum();
+        return counter.applyAsLong(name);
     }
 
-    public Reaktor start()
+    public Future<Void> start()
     {
         for (AgentRunner runner : runners)
         {
-            AgentRunner.startOnThread(runner, threadFactory);
+            AgentRunner.startOnThread(runner, Thread::new);
         }
 
-        return this;
+        this.configureRef = commonPool().submit(configure);
+
+        return configureRef;
     }
 
     @Override
     public void close() throws Exception
     {
         final List<Throwable> errors = new ArrayList<>();
+
+        configureRef.cancel(true);
+
         for (AgentRunner runner : runners)
         {
             try
             {
                 CloseHelper.close(runner);
             }
-            catch (Throwable t)
+            catch (Throwable ex)
             {
-                errors.add(t);
+                errors.add(ex);
             }
         }
 
-        executor.shutdownNow();
+        if (tasks != null)
+        {
+            tasks.shutdownNow();
+        }
 
         if (!errors.isEmpty())
         {
@@ -162,5 +174,18 @@ public final class Reaktor implements AutoCloseable
     public static ReaktorBuilder builder()
     {
         return new ReaktorBuilder();
+    }
+
+    private Thread newTaskThread(
+        Runnable r)
+    {
+        Thread t = factory.newThread(r);
+
+        if (t != null)
+        {
+            t.setName(String.format("reaktor/task#%d", nextTaskId.getAndIncrement()));
+        }
+
+        return t;
     }
 }

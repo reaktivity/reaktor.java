@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.reaktivity</groupId>
   <artifactId>reaktor</artifactId>
-  <version>0.165</version>
+  <version>0.166</version>
   <name>Reaktor for Java Nuklei</name>
   <description>Reaktor for Java Nuklei</description>
   <url>https://github.com/reaktivity/reaktor.java</url>
@@ -43,17 +43,17 @@
   </repositories>
 
   <properties>
-    <maven.compiler.source>9</maven.compiler.source>
-    <maven.compiler.target>9</maven.compiler.target>
+    <maven.compiler.source>11</maven.compiler.source>
+    <maven.compiler.target>11</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <checkstyle.config.location>src/conf/checkstyle/configuration.xml</checkstyle.config.location>
     <checkstyle.suppressions.location>src/conf/checkstyle/suppressions.xml</checkstyle.suppressions.location>
-    <jacoco.coverage.ratio>0.65</jacoco.coverage.ratio>
-    <jacoco.missed.count>15</jacoco.missed.count>
+    <jacoco.coverage.ratio>0.71</jacoco.coverage.ratio>
+    <jacoco.missed.count>4</jacoco.missed.count>
 
     <nukleus.plugin.version>0.85</nukleus.plugin.version>
-    <nukleus.spec.version>0.57</nukleus.spec.version>
+    <nukleus.spec.version>0.58</nukleus.spec.version>
     <jmock.version>2.6.0</jmock.version>
     <mockito.version>3.4.6</mockito.version>
     <k3po.version>3.1.0</k3po.version>
@@ -159,7 +159,7 @@
         <artifactId>nukleus-maven-plugin</artifactId>
         <version>${nukleus.plugin.version}</version>
         <configuration>
-          <scopeNames>core internal</scopeNames>
+          <scopeNames>core</scopeNames>
           <packageName>org.reaktivity.reaktor.internal.types</packageName>
           <testPackageName>org.reaktivity.reaktor.test.internal.k3po.ext.types</testPackageName>
         </configuration>
@@ -354,11 +354,11 @@
                 <include>META-INF/**/*</include>
                 <include>org/reaktivity/reaktor/test/ReaktorRule*.class</include>
                 <include>org/reaktivity/reaktor/test/NukleusClassLoader*.class</include>
-                <include>org/reaktivity/reaktor/test/annotation/Configure*.class</include>
+                <include>org/reaktivity/reaktor/test/annotation/Configur*.class</include>
                 <include>org/reaktivity/reaktor/test/internal/k3po/ext/**/*.class</include>
               </includes>
               <excludes>
-                <exclude>META-INF/services/org.reaktivity.nukleus.NukleusFactorySpi</exclude>
+                <exclude>META-INF/services/org.reaktivity.reaktor.*</exclude>
                 <exclude>**/*IT.class</exclude>
                 <exclude>**/*Test.class</exclude>
               </excludes>
