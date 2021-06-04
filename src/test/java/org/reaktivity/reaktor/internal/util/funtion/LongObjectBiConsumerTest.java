@@ -28,18 +28,18 @@ public class LongObjectBiConsumerTest
         final long time = 1L;
         final String text = "Hello World";
 
-        LongObjectBiConsumer<String> executor1 = (t, txt) ->
+        LongObjectBiConsumer<String> consumer1 = (t, txt) ->
         {
             assertEquals(time, t);
             assertEquals(txt, text);
         };
 
-        LongObjectBiConsumer<String> executor2 = (t, txt) ->
+        LongObjectBiConsumer<String> consumer2 = (t, txt) ->
         {
             assertEquals(time, t);
             assertEquals(txt, text);
         };
 
-        executor1.andThen(executor2);
+        consumer1.andThen(consumer2).accept((Long) time, text);
     }
 }

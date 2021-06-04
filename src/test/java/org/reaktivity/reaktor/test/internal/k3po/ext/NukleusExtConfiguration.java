@@ -22,7 +22,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Properties;
 
-import org.reaktivity.nukleus.Configuration;
+import org.reaktivity.reaktor.nukleus.Configuration;
 
 public final class NukleusExtConfiguration extends Configuration
 {

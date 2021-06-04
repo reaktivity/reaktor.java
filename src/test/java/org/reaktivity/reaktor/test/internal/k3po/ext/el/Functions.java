@@ -15,18 +15,14 @@
  */
 package org.reaktivity.reaktor.test.internal.k3po.ext.el;
 
-import static java.lang.Long.MAX_VALUE;
-import static java.lang.Long.MIN_VALUE;
 import static java.lang.ThreadLocal.withInitial;
 
 import java.nio.file.Path;
-import java.util.concurrent.ThreadLocalRandom;
 
 import org.kaazing.k3po.lang.el.Function;
 import org.kaazing.k3po.lang.el.spi.FunctionMapperSpi;
 import org.reaktivity.reaktor.test.internal.k3po.ext.NukleusExtConfiguration;
 import org.reaktivity.reaktor.test.internal.k3po.ext.behavior.LabelManager;
-import org.reaktivity.reaktor.test.internal.k3po.ext.types.control.Role;
 
 public final class Functions
 {
@@ -52,94 +48,6 @@ public final class Functions
     {
         final LabelManager labels = LABELS.get();
         return labels.supplyLabelId(nukleus);
-    }
-
-    @Function
-    public static long newRouteRef()
-    {
-        return nextLongNonZero();
-    }
-
-    @Function
-    public static long newCorrelationId()
-    {
-        final ThreadLocalRandom random = ThreadLocalRandom.current();
-        return random.nextLong();
-    }
-
-    @Function
-    public static Long newClientRouteId(
-        String senderAddress,
-        String receiverAddress)
-    {
-        return newRouteId(Role.CLIENT, receiverAddress, senderAddress);
-    }
-
-    @Function
-    public static Long newServerRouteId(
-        String senderAddress,
-        String receiverAddress)
-    {
-        return newRouteId(Role.SERVER, receiverAddress, senderAddress);
-    }
-
-    @Function
-    public static Long newProxyRouteId(
-        String senderAddress,
-        String receiverAddress)
-    {
-        return newRouteId(Role.PROXY, receiverAddress, senderAddress);
-    }
-
-    @Function
-    public static Long newClientReverseRouteId(
-        String senderAddress,
-        String receiverAddress)
-    {
-        return newRouteId(Role.CLIENT_REVERSE, receiverAddress, senderAddress);
-    }
-
-    @Function
-    public static Long newServerReverseRouteId(
-        String senderAddress,
-        String receiverAddress)
-    {
-        return newRouteId(Role.SERVER_REVERSE, receiverAddress, senderAddress);
-    }
-
-    @Function
-    public static Long newCacheServerRouteId(
-        String senderAddress,
-        String receiverAddress)
-    {
-        return newRouteId(Role.CACHE_SERVER, receiverAddress, senderAddress);
-    }
-
-    @Function
-    public static Long newCacheClientRouteId(
-        String senderAddress,
-        String receiverAddress)
-    {
-        return newRouteId(Role.CACHE_CLIENT, receiverAddress, senderAddress);
-    }
-
-    private static long nextLongNonZero()
-    {
-        final ThreadLocalRandom random = ThreadLocalRandom.current();
-        return random.nextLong(MIN_VALUE, 0) | random.nextLong(MAX_VALUE);
-    }
-
-    private static Long newRouteId(
-        Role role,
-        String localAddress,
-        String remoteAddress)
-    {
-        final LabelManager labels = LABELS.get();
-        long localId = labels.supplyLabelId(localAddress);
-        long remoteId = labels.supplyLabelId(remoteAddress);
-        long condition = ThreadLocalRandom.current().nextInt(1 << 28);
-
-        return localId << 48 | remoteId << 32 | role.ordinal() << 28 | condition;
     }
 
     private Functions()

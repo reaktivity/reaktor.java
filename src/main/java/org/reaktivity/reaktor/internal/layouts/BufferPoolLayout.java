@@ -24,8 +24,8 @@ import java.nio.MappedByteBuffer;
 import java.nio.file.Path;
 
 import org.agrona.CloseHelper;
-import org.reaktivity.nukleus.buffer.BufferPool;
 import org.reaktivity.reaktor.internal.buffer.DefaultBufferPool;
+import org.reaktivity.reaktor.nukleus.buffer.BufferPool;
 
 public final class BufferPoolLayout extends Layout
 {

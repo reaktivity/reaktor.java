@@ -18,8 +18,8 @@ package org.reaktivity.reaktor.test.internal.k3po.ext.behavior;
 import static org.jboss.netty.channel.Channels.fireChannelBound;
 import static org.jboss.netty.channel.Channels.fireChannelConnected;
 import static org.jboss.netty.channel.Channels.future;
-import static org.reaktivity.reaktor.internal.router.BudgetId.budgetMask;
-import static org.reaktivity.reaktor.internal.router.BudgetId.ownerIndex;
+import static org.reaktivity.reaktor.internal.stream.BudgetId.budgetMask;
+import static org.reaktivity.reaktor.internal.stream.BudgetId.ownerIndex;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusExtensionKind.BEGIN;
 import static org.reaktivity.reaktor.test.internal.k3po.ext.behavior.NukleusTransmission.SIMPLEX;
 
@@ -52,7 +52,6 @@ final class NukleusPartition implements AutoCloseable
     private final BeginFW beginRO = new BeginFW();
     private final DataFW dataRO = new DataFW();
 
-    private final LabelManager labels;
     private final Path streamsPath;
     private final int scopeIndex;
     private final StreamsLayout layout;
@@ -68,7 +67,6 @@ final class NukleusPartition implements AutoCloseable
     private final IntFunction<NukleusTarget> supplyTarget;
 
     NukleusPartition(
-        LabelManager labels,
         Path streamsPath,
         int scopeIndex,
         StreamsLayout layout,
@@ -81,7 +79,6 @@ final class NukleusPartition implements AutoCloseable
         LongLongFunction<NukleusTarget> supplySender,
         IntFunction<NukleusTarget> supplyTarget)
     {
-        this.labels = labels;
         this.streamsPath = streamsPath;
         this.scopeIndex = scopeIndex;
         this.layout = layout;
@@ -339,8 +336,7 @@ final class NukleusPartition implements AutoCloseable
             ChannelPipeline pipeline = pipelineFactory.getPipeline();
 
             final NukleusChannelAddress serverAddress = serverChannel.getLocalAddress();
-            final String replyAddress = labels.lookupLabel((int)(routeId >> 48) & 0xffff);
-            NukleusChannelAddress remoteAddress = serverAddress.newReplyToAddress(replyAddress);
+            NukleusChannelAddress remoteAddress = serverAddress.newEphemeralAddress();
 
             // fire child serverChannel opened
             ChannelFactory channelFactory = serverChannel.getFactory();

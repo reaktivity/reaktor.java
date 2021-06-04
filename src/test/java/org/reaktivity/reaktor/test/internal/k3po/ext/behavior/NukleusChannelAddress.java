@@ -26,28 +26,28 @@ public final class NukleusChannelAddress extends ChannelAddress
     private static final long serialVersionUID = 1L;
 
     private final long authorization;
-    private final String senderAddress;
-    private final String receiverAddress;
+    private final String namespace;
+    private final String binding;
 
     public NukleusChannelAddress(
         URI location,
         long authorization,
-        String senderAddress)
+        String namespace)
     {
-        this(location, authorization, senderAddress, receiverAddress(location));
+        this(location, authorization, namespace, bindingName(location));
     }
 
     private NukleusChannelAddress(
         URI location,
         long authorization,
-        String senderAddress,
-        String receiverAddress)
+        String namespace,
+        String binding)
     {
         super(location);
 
         this.authorization = authorization;
-        this.senderAddress = requireNonNull(senderAddress);
-        this.receiverAddress = requireNonNull(receiverAddress);
+        this.namespace = requireNonNull(namespace);
+        this.binding = requireNonNull(binding);
     }
 
     private NukleusChannelAddress(
@@ -55,14 +55,14 @@ public final class NukleusChannelAddress extends ChannelAddress
         ChannelAddress transport,
         boolean ephemeral,
         long authorization,
-        String senderAddress,
-        String receiverAddress)
+        String namespace,
+        String binding)
     {
         super(location, transport, ephemeral);
 
         this.authorization = authorization;
-        this.senderAddress = requireNonNull(senderAddress);
-        this.receiverAddress = requireNonNull(receiverAddress);
+        this.namespace = requireNonNull(namespace);
+        this.binding = requireNonNull(binding);
     }
 
     public long getAuthorization()
@@ -70,14 +70,14 @@ public final class NukleusChannelAddress extends ChannelAddress
         return authorization;
     }
 
-    public String getSenderAddress()
+    public String getNamespace()
     {
-        return senderAddress;
+        return namespace;
     }
 
-    public String getReceiverAddress()
+    public String getBinding()
     {
-        return receiverAddress;
+        return binding;
     }
 
     @Override
@@ -90,17 +90,17 @@ public final class NukleusChannelAddress extends ChannelAddress
         String replyAddress)
     {
         URI location = getLocation();
-        return new NukleusChannelAddress(location, authorization, receiverAddress, replyAddress);
+        return new NukleusChannelAddress(location, authorization, namespace, replyAddress);
     }
 
     private NukleusChannelAddress newEphemeralAddress(
         URI location,
         ChannelAddress transport)
     {
-        return new NukleusChannelAddress(location, transport, true, authorization, senderAddress, receiverAddress);
+        return new NukleusChannelAddress(location, transport, true, authorization, namespace, binding);
     }
 
-    private static String receiverAddress(
+    private static String bindingName(
         URI location)
     {
         final String fragment = location.getFragment();

@@ -30,13 +30,14 @@ import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_STREAMS_BUFFER
 import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_SYNTHETIC_ABORT;
 
 import java.io.File;
+import java.io.IOException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
-import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
 import org.agrona.ErrorHandler;
@@ -44,23 +45,21 @@ import org.agrona.LangUtil;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
-import org.reaktivity.nukleus.Configuration.PropertyDef;
-import org.reaktivity.nukleus.Controller;
-import org.reaktivity.nukleus.Nukleus;
-import org.reaktivity.nukleus.NukleusFactorySpi;
 import org.reaktivity.reaktor.Reaktor;
 import org.reaktivity.reaktor.ReaktorBuilder;
 import org.reaktivity.reaktor.ReaktorConfiguration;
+import org.reaktivity.reaktor.nukleus.Configuration.PropertyDef;
+import org.reaktivity.reaktor.nukleus.Nukleus;
+import org.reaktivity.reaktor.test.annotation.Configuration;
 import org.reaktivity.reaktor.test.annotation.Configure;
 
 public final class ReaktorRule implements TestRule
 {
-    public static final long EXTERNAL_AFFINITY_MASK = 1L << (Long.SIZE - 1);
-
     // needed by test annotations
     public static final String REAKTOR_BUFFER_POOL_CAPACITY_NAME = "reaktor.buffer.pool.capacity";
     public static final String REAKTOR_BUFFER_SLOT_CAPACITY_NAME = "reaktor.buffer.slot.capacity";
 
+    private static final long EXTERNAL_AFFINITY_MASK = 1L << (Long.SIZE - 1);
     private static final Pattern DATA_FILENAME_PATTERN = Pattern.compile("data\\d+");
 
     private final Properties properties;
@@ -69,6 +68,8 @@ public final class ReaktorRule implements TestRule
     private Reaktor reaktor;
 
     private ReaktorConfiguration configuration;
+    private URL configURL;
+    private String configurationRoot;
     private boolean clean;
 
     public ReaktorRule()
@@ -122,54 +123,38 @@ public final class ReaktorRule implements TestRule
         return this;
     }
 
+    public ReaktorRule configURI(
+        URL configURL)
+    {
+        this.configURL = configURL;
+        return this;
+    }
+
+    public ReaktorRule configurationRoot(
+        String configurationRoot)
+    {
+        this.configurationRoot = configurationRoot;
+        return this;
+    }
+
+    public ReaktorRule external(
+        String binding)
+    {
+        return external("default", binding);
+    }
+
+    public ReaktorRule external(
+        String namespace,
+        String binding)
+    {
+        builder.affinity(namespace, binding, EXTERNAL_AFFINITY_MASK);
+        return this;
+    }
+
     public ReaktorRule clean()
     {
         this.clean = true;
         return this;
-    }
-
-    public ReaktorRule nukleus(
-        Predicate<String> matcher)
-    {
-        builder.nukleus(matcher);
-        return this;
-    }
-
-    public ReaktorRule loader(
-        ClassLoader loader)
-    {
-        builder.loader(loader);
-        return this;
-    }
-
-    public ReaktorRule controller(
-        Predicate<String> matcher)
-    {
-        builder.controller(matcher);
-        return this;
-    }
-
-    public ReaktorRule affinityMask(
-        String address,
-        long affinityMask)
-    {
-        builder.affinityMask(address, affinityMask);
-        return this;
-    }
-
-    public ReaktorRule nukleusFactory(
-        Class<? extends NukleusFactorySpi> factory)
-    {
-        loader(Services.newLoader(NukleusFactorySpi.class, factory));
-        return this;
-    }
-
-    public <T extends Controller> T controller(
-        Class<T> kind)
-    {
-        ensureReaktorStarted();
-
-        return requireNonNull(reaktor.controller(kind));
     }
 
     public <T extends Nukleus> T nukleus(
@@ -181,52 +166,52 @@ public final class ReaktorRule implements TestRule
     }
 
     public long opensRead(
-        String nukleus,
-        long routeId)
+        String namespace,
+        String binding)
     {
-        return counter(format("%s.%d.opens.read", nukleus, routeId));
+        return counter(format("%s.%s.opens.read", namespace, binding));
     }
 
     public long opensWritten(
-        String nukleus,
-        long routeId)
+        String namespace,
+        String binding)
     {
-        return counter(format("%s.%d.opens.written", nukleus, routeId));
+        return counter(format("%s.%s.opens.written", namespace, binding));
     }
 
     public long closesRead(
-        String nukleus,
-        long routeId)
+        String namespace,
+        String binding)
     {
-        return counter(format("%s.%d.closes.read", nukleus, routeId));
+        return counter(format("%s.%s.closes.read", namespace, binding));
     }
 
     public long closesWritten(
-        String nukleus,
-        long routeId)
+        String namespace,
+        String binding)
     {
-        return counter(format("%s.%d.closes.written", nukleus, routeId));
+        return counter(format("%s.%s.closes.written", namespace, binding));
     }
 
     public long abortsRead(
-        String nukleus,
-        long routeId)
+        String namespace,
+        String binding)
     {
-        return counter(format("%s.%d.aborts.read", nukleus, routeId));
+        return counter(format("%s.%s.aborts.read", namespace, binding));
     }
 
     public long abortsWritten(
-        String nukleus,
-        long routeId)
+        String namespace,
+        String binding)
     {
-        return counter(format("%s.%d.aborts.written", nukleus, routeId));
+        return counter(format("%s.%s.aborts.written", namespace, binding));
     }
 
     public long resetsRead(
-        String nukleus,
-        long routeId)
+        String namespace,
+        String binding)
     {
-        return counter(format("%s.%d.resets.read", nukleus, routeId));
+        return counter(format("%s.%s.resets.read", namespace, binding));
     }
 
     public long resetsWritten(
@@ -237,31 +222,31 @@ public final class ReaktorRule implements TestRule
     }
 
     public long bytesRead(
-        String nukleus,
-        long routeId)
+        String namespace,
+        String binding)
     {
-        return counter(format("%s.%d.bytes.read", nukleus, routeId));
+        return counter(format("%s.%s.bytes.read", namespace, binding));
     }
 
     public long bytesWritten(
-        String nukleus,
-        long routeId)
+        String namespace,
+        String binding)
     {
-        return counter(format("%s.%d.bytes.written", nukleus, routeId));
+        return counter(format("%s.%s.bytes.written", namespace, binding));
     }
 
     public long framesRead(
-        String nukleus,
-        long routeId)
+        String namespace,
+        String binding)
     {
-        return counter(format("%s.%d.frames.read", nukleus, routeId));
+        return counter(format("%s.%s.frames.read", namespace, binding));
     }
 
     public long framesWritten(
-        String nukleus,
-        long routeId)
+        String namespace,
+        String binding)
     {
-        return counter(format("%s.%d.frames.written", nukleus, routeId));
+        return counter(format("%s.%s.frames.written", namespace, binding));
     }
 
     public long counter(
@@ -290,57 +275,51 @@ public final class ReaktorRule implements TestRule
     }
 
     @Override
-    public Statement apply(Statement base, Description description)
+    public Statement apply(
+        Statement base,
+        Description description)
     {
+        Class<?> testClass = description.getTestClass();
         final String testMethod = description.getMethodName().replaceAll("\\[.*\\]", "");
         try
         {
-            Configure[] configures = description.getTestClass()
+            Configure[] configures = testClass
                        .getDeclaredMethod(testMethod)
                        .getAnnotationsByType(Configure.class);
             Arrays.stream(configures).forEach(
                 p -> properties.setProperty(p.name(), p.value()));
+
+            Configuration config = description.getAnnotation(Configuration.class);
+            if (config != null)
+            {
+                if (configurationRoot != null)
+                {
+                    String resourceName = String.format("%s/%s", configurationRoot, config.value());
+
+                    configURL = testClass.getClassLoader().getResource(resourceName);
+                }
+                else
+                {
+                    String resourceName = String.format("%s-%s", testClass.getSimpleName(), config.value());
+
+                    configURL = testClass.getResource(resourceName);
+                }
+            }
+
+            cleanup();
         }
         catch (Exception e)
         {
             LangUtil.rethrowUnchecked(e);
         }
 
+
         return new Statement()
         {
-            private boolean shouldDeletePath(
-                Path path)
-            {
-                String filename = path.getFileName().toString();
-                return "control".equals(filename) ||
-                       "routes".equals(filename) ||
-                       "streams".equals(filename) ||
-                       "labels".equals(filename) ||
-                       DATA_FILENAME_PATTERN.matcher(filename).matches();
-            }
-
             @Override
             public void evaluate() throws Throwable
             {
                 ReaktorConfiguration config = configuration();
-                Path directory = config.directory();
-                Path cacheDirectory = config.cacheDirectory();
-
-                if (clean && exists(directory))
-                {
-                    Files.walk(directory, FOLLOW_LINKS)
-                         .filter(this::shouldDeletePath)
-                         .map(Path::toFile)
-                         .forEach(File::delete);
-                }
-
-                if (clean && exists(cacheDirectory))
-                {
-                    Files.walk(cacheDirectory)
-                         .map(Path::toFile)
-                         .forEach(File::delete);
-                }
-
                 final Thread baseThread = Thread.currentThread();
                 final List<Throwable> errors = new ArrayList<>();
                 final ErrorHandler errorHandler = ex ->
@@ -349,12 +328,13 @@ public final class ReaktorRule implements TestRule
                     baseThread.interrupt();
                 };
                 reaktor = builder.config(config)
+                                 .configURL(configURL)
                                  .errorHandler(errorHandler)
                                  .build();
 
                 try
                 {
-                    reaktor.start();
+                    reaktor.start().get();
 
                     base.evaluate();
                 }
@@ -379,5 +359,38 @@ public final class ReaktorRule implements TestRule
                 }
             }
         };
+    }
+
+    private void cleanup() throws IOException
+    {
+        ReaktorConfiguration config = configuration();
+        Path directory = config.directory();
+        Path cacheDirectory = config.cacheDirectory();
+
+        if (clean && exists(directory))
+        {
+            Files.walk(directory, FOLLOW_LINKS)
+                 .filter(this::shouldDeletePath)
+                 .map(Path::toFile)
+                 .forEach(File::delete);
+        }
+
+        if (clean && exists(cacheDirectory))
+        {
+            Files.walk(cacheDirectory)
+                 .map(Path::toFile)
+                 .forEach(File::delete);
+        }
+    }
+
+    private boolean shouldDeletePath(
+        Path path)
+    {
+        String filename = path.getFileName().toString();
+        return "control".equals(filename) ||
+               "routes".equals(filename) ||
+               "streams".equals(filename) ||
+               "labels".equals(filename) ||
+               DATA_FILENAME_PATTERN.matcher(filename).matches();
     }
 }
