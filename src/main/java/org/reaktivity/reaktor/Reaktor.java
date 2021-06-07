@@ -21,7 +21,6 @@ import static org.agrona.LangUtil.rethrowUnchecked;
 
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -31,14 +30,14 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.LongFunction;
 import java.util.function.ToLongFunction;
 
 import org.agrona.CloseHelper;
 import org.agrona.ErrorHandler;
-import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.concurrent.AgentRunner;
+import org.reaktivity.reaktor.internal.Info;
 import org.reaktivity.reaktor.internal.LabelManager;
+import org.reaktivity.reaktor.internal.Tuning;
 import org.reaktivity.reaktor.internal.context.ConfigureTask;
 import org.reaktivity.reaktor.internal.context.DispatchAgent;
 import org.reaktivity.reaktor.internal.stream.NamespacedId;
@@ -51,6 +50,7 @@ public final class Reaktor implements AutoCloseable
     private final Callable<Void> configure;
     private final Collection<AgentRunner> runners;
     private final ToLongFunction<String> counter;
+    private final Tuning tuning;
 
     private final AtomicInteger nextTaskId;
     private final ThreadFactory factory;
@@ -73,30 +73,32 @@ public final class Reaktor implements AutoCloseable
         {
             tasks = newFixedThreadPool(config.taskParallelism(), this::newTaskThread);
         }
+
+        Info info = new Info(config.directory(), coreCount);
+        info.reset();
+
         LabelManager labels = new LabelManager(config.directory());
+
+        Tuning tuning = new Tuning(config.directory(), coreCount);
+        tuning.reset();
+        for (ReaktorAffinity affinity : affinities)
+        {
+            int namespaceId = labels.supplyLabelId(affinity.namespace);
+            int bindingId = labels.supplyLabelId(affinity.binding);
+            long routeId = NamespacedId.id(namespaceId, bindingId);
+            tuning.affinity(routeId, affinity.mask);
+        }
+        this.tuning = tuning;
 
         Collection<DispatchAgent> dispatchers = new LinkedHashSet<>();
         for (int coreIndex = 0; coreIndex < coreCount; coreIndex++)
         {
-            BitSet defaultMask = BitSet.valueOf(new long[] { (1L << coreCount) - 1L });
-            Long2ObjectHashMap<BitSet> affinityMasks = new Long2ObjectHashMap<>();
-            for (ReaktorAffinity affinity : affinities)
-            {
-                int namespaceId = labels.supplyLabelId(affinity.namespace);
-                int bindingId = labels.supplyLabelId(affinity.binding);
-                long routeId = NamespacedId.id(namespaceId, bindingId);
-                BitSet mask = BitSet.valueOf(new long[] { affinity.mask });
-                affinityMasks.put(routeId, mask);
-            }
-            LongFunction<BitSet> defaulter = r -> defaultMask;
-            LongFunction<BitSet> affinityMask = r -> affinityMasks.computeIfAbsent(r, defaulter);
-
             DispatchAgent agent =
-                    new DispatchAgent(config, configURL, tasks, labels, errorHandler, affinityMask, nuklei, coreIndex);
+                new DispatchAgent(config, configURL, tasks, labels, errorHandler, tuning::affinity, nuklei, coreIndex);
             dispatchers.add(agent);
         }
 
-        final Callable<Void> configure = new ConfigureTask(configURL, labels::supplyLabelId, dispatchers, errorHandler);
+        final Callable<Void> configure = new ConfigureTask(configURL, labels::supplyLabelId, tuning, dispatchers, errorHandler);
 
         List<AgentRunner> runners = new ArrayList<>(dispatchers.size());
         dispatchers.forEach(d -> runners.add(d.runner()));
@@ -162,6 +164,8 @@ public final class Reaktor implements AutoCloseable
         {
             tasks.shutdownNow();
         }
+
+        tuning.close();
 
         if (!errors.isEmpty())
         {

@@ -53,6 +53,7 @@ import java.util.function.IntFunction;
 import java.util.function.LongConsumer;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
+import java.util.function.LongUnaryOperator;
 
 import org.agrona.DeadlineTimerWheel;
 import org.agrona.DeadlineTimerWheel.TimerHandler;
@@ -174,7 +175,7 @@ public class DispatchAgent implements ElektronContext, Agent
 
     private final ConfigurationContext configuration;
     private final Deque<Runnable> taskQueue;
-    private final LongFunction<BitSet> affinityMask;
+    private final LongUnaryOperator affinityMask;
     private final AgentRunner runner;
 
     private long iniitalId;
@@ -189,7 +190,7 @@ public class DispatchAgent implements ElektronContext, Agent
         ExecutorService executor,
         LabelManager labels,
         ErrorHandler errorHandler,
-        LongFunction<BitSet> affinityMask,
+        LongUnaryOperator affinityMask,
         Collection<Nukleus> nuklei,
         int index)
     {
@@ -1320,9 +1321,9 @@ public class DispatchAgent implements ElektronContext, Agent
     public Affinity resolveAffinity(
         long routeId)
     {
-        BitSet mask = affinityMask.apply(routeId);
+        long mask = affinityMask.applyAsLong(routeId);
 
-        if (mask.cardinality() == 0)
+        if (Long.bitCount(mask) == 0)
         {
             int namespaceId = NamespacedId.namespaceId(routeId);
             int bindingId = NamespacedId.localId(routeId);
@@ -1333,8 +1334,8 @@ public class DispatchAgent implements ElektronContext, Agent
         }
 
         Affinity affinity = new Affinity();
-        affinity.mask = mask;
-        affinity.nextIndex = mask.get(localIndex) ? localIndex : mask.nextSetBit(0);
+        affinity.mask = BitSet.valueOf(new long[] { mask });
+        affinity.nextIndex = affinity.mask.get(localIndex) ? localIndex : affinity.mask.nextSetBit(0);
 
         return affinity;
     }

@@ -39,6 +39,7 @@ import org.agrona.ErrorHandler;
 import org.reaktivity.reaktor.config.Binding;
 import org.reaktivity.reaktor.config.Route;
 import org.reaktivity.reaktor.config.Vault;
+import org.reaktivity.reaktor.internal.Tuning;
 import org.reaktivity.reaktor.internal.config.Configuration;
 import org.reaktivity.reaktor.internal.config.ConfigurationAdapter;
 import org.reaktivity.reaktor.internal.stream.NamespacedId;
@@ -47,17 +48,20 @@ public class ConfigureTask implements Callable<Void>
 {
     private final ToIntFunction<String> supplyId;
     private final URL configURL;
+    private final Tuning tuning;
     private final Collection<DispatchAgent> dispatchers;
     private final ErrorHandler errorHandler;
 
     public ConfigureTask(
         URL configURL,
         ToIntFunction<String> supplyId,
+        Tuning tuning,
         Collection<DispatchAgent> dispatchers,
         ErrorHandler errorHandler)
     {
         this.supplyId = supplyId;
         this.configURL = configURL;
+        this.tuning = tuning;
         this.dispatchers = dispatchers;
         this.errorHandler = errorHandler;
     }
@@ -130,6 +134,8 @@ public class ConfigureTask implements Callable<Void>
                 {
                     binding.exit.id = NamespacedId.id(configuration.id, supplyId.applyAsInt(binding.exit.exit));
                 }
+
+                tuning.affinity(binding.id, tuning.affinity(binding.id));
             }
 
             for (Vault vault : configuration.vaults)
