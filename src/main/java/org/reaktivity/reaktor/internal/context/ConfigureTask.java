@@ -43,6 +43,7 @@ import org.reaktivity.reaktor.internal.Tuning;
 import org.reaktivity.reaktor.internal.config.Configuration;
 import org.reaktivity.reaktor.internal.config.ConfigurationAdapter;
 import org.reaktivity.reaktor.internal.stream.NamespacedId;
+import org.reaktivity.reaktor.internal.util.Mustache;
 
 public class ConfigureTask implements Callable<Void>
 {
@@ -102,6 +103,8 @@ public class ConfigureTask implements Callable<Void>
                 configText = new String(input.readAllBytes(), UTF_8);
             }
         }
+
+        configText = Mustache.resolve(configText, System::getenv);
 
         try
         {
