@@ -30,6 +30,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.function.ToLongFunction;
 
 import org.agrona.CloseHelper;
@@ -98,7 +99,10 @@ public final class Reaktor implements AutoCloseable
             dispatchers.add(agent);
         }
 
-        final Callable<Void> configure = new ConfigureTask(configURL, labels::supplyLabelId, tuning, dispatchers, errorHandler);
+        final Consumer<String> logger = config.verbose() ? System.out::print : m -> {};
+
+        final Callable<Void> configure =
+                new ConfigureTask(configURL, labels::supplyLabelId, tuning, dispatchers, errorHandler, logger);
 
         List<AgentRunner> runners = new ArrayList<>(dispatchers.size());
         dispatchers.forEach(d -> runners.add(d.runner()));

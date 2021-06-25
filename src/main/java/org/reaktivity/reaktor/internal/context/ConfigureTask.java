@@ -29,6 +29,7 @@ import java.net.http.HttpResponse.BodyHandlers;
 import java.util.Collection;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import java.util.function.ToIntFunction;
 
 import javax.json.bind.Jsonb;
@@ -52,19 +53,22 @@ public class ConfigureTask implements Callable<Void>
     private final Tuning tuning;
     private final Collection<DispatchAgent> dispatchers;
     private final ErrorHandler errorHandler;
+    private final Consumer<String> logger;
 
     public ConfigureTask(
         URL configURL,
         ToIntFunction<String> supplyId,
         Tuning tuning,
         Collection<DispatchAgent> dispatchers,
-        ErrorHandler errorHandler)
+        ErrorHandler errorHandler,
+        Consumer<String> logger)
     {
         this.supplyId = supplyId;
         this.configURL = configURL;
         this.tuning = tuning;
         this.dispatchers = dispatchers;
         this.errorHandler = errorHandler;
+        this.logger = logger;
     }
 
     @Override
@@ -105,6 +109,8 @@ public class ConfigureTask implements Callable<Void>
         }
 
         configText = Mustache.resolve(configText, System::getenv);
+
+        logger.accept(configText);
 
         try
         {

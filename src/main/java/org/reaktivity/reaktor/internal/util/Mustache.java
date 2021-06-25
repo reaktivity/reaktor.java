@@ -15,6 +15,7 @@
  */
 package org.reaktivity.reaktor.internal.util;
 
+import java.util.Optional;
 import java.util.function.UnaryOperator;
 import java.util.regex.Pattern;
 
@@ -28,7 +29,7 @@ public final class Mustache
     {
         return MUSTACHE_PATTERN
                 .matcher(template)
-                .replaceAll(r -> env.apply(r.group(1)));
+                .replaceAll(r -> Optional.ofNullable(env.apply(r.group(1))).orElse(""));
     }
 
     private Mustache()
