@@ -59,7 +59,8 @@ public class ReaktorConfiguration extends Configuration
     public static final BooleanPropertyDef REAKTOR_DRAIN_ON_CLOSE;
     public static final BooleanPropertyDef REAKTOR_SYNTHETIC_ABORT;
     public static final LongPropertyDef REAKTOR_ROUTED_DELAY_MILLIS;
-    private static final LongPropertyDef REAKTOR_CREDITOR_CHILD_CLEANUP_LINGER_MILLIS;
+    public static final LongPropertyDef REAKTOR_CREDITOR_CHILD_CLEANUP_LINGER_MILLIS;
+    public static final BooleanPropertyDef REAKTOR_VERBOSE;
 
     private static final ConfigurationDef REAKTOR_CONFIG;
 
@@ -93,6 +94,7 @@ public class ReaktorConfiguration extends Configuration
         REAKTOR_SYNTHETIC_ABORT = config.property("synthetic.abort", false);
         REAKTOR_ROUTED_DELAY_MILLIS = config.property("routed.delay.millis", 0L);
         REAKTOR_CREDITOR_CHILD_CLEANUP_LINGER_MILLIS = config.property("child.cleanup.linger", SECONDS.toMillis(5L));
+        REAKTOR_VERBOSE = config.property("verbose", false);
         REAKTOR_CONFIG = config;
     }
 
@@ -244,6 +246,11 @@ public class ReaktorConfiguration extends Configuration
     public long childCleanupLingerMillis()
     {
         return REAKTOR_CREDITOR_CHILD_CLEANUP_LINGER_MILLIS.getAsLong(this);
+    }
+
+    public boolean verbose()
+    {
+        return REAKTOR_VERBOSE.getAsBoolean(this);
     }
 
     public Function<String, InetAddress[]> hostResolver()
