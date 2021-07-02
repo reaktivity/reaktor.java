@@ -30,6 +30,7 @@ import org.agrona.collections.Int2ObjectHashMap;
 import org.agrona.collections.Long2ObjectHashMap;
 import org.reaktivity.reaktor.ReaktorConfiguration;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
+import org.reaktivity.reaktor.internal.load.LoadEntry;
 import org.reaktivity.reaktor.internal.types.stream.AbortFW;
 import org.reaktivity.reaktor.internal.types.stream.BeginFW;
 import org.reaktivity.reaktor.internal.types.stream.ChallengeFW;
@@ -57,9 +58,8 @@ public final class Target implements AutoCloseable
     private final Long2ObjectHashMap<MessageConsumer> correlations;
     private final Int2ObjectHashMap<MessageConsumer>[] streams;
     private final Int2ObjectHashMap<MessageConsumer>[] throttles;
-    private final Long2ObjectHashMap<WriteCounters> countersByRouteId;
     private final MessageConsumer writeHandler;
-    private final LongFunction<WriteCounters> newWriteCounters;
+    private final LongFunction<LoadEntry> supplyLoadEntry;
 
     private MessagePredicate streamsBuffer;
 
@@ -71,7 +71,7 @@ public final class Target implements AutoCloseable
         Long2ObjectHashMap<MessageConsumer> correlations,
         Int2ObjectHashMap<MessageConsumer>[] streams,
         Int2ObjectHashMap<MessageConsumer>[] throttles,
-        LongFunction<WriteCounters> newWriteCounters)
+        LongFunction<LoadEntry> supplyLoadEntry)
     {
         this.timestamps = config.timestamps();
         this.localIndex = index;
@@ -88,13 +88,12 @@ public final class Target implements AutoCloseable
         this.streamsBuffer = streamsLayout.streamsBuffer()::write;
 
         this.writeBuffer = writeBuffer;
-        this.newWriteCounters = newWriteCounters;
+        this.supplyLoadEntry = supplyLoadEntry;
         this.correlations = correlations;
         this.streams = streams;
         this.throttles = throttles;
 
         this.writeHandler = this::handleWrite;
-        this.countersByRouteId = new Long2ObjectHashMap<>();
     }
 
     public void detach()
@@ -196,26 +195,19 @@ public final class Target implements AutoCloseable
 
         if ((msgTypeId & 0x4000_0000) == 0)
         {
-            final WriteCounters counters = countersByRouteId.computeIfAbsent(routeId, newWriteCounters);
-
             switch (msgTypeId)
             {
             case BeginFW.TYPE_ID:
-                counters.opens.increment();
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 break;
             case DataFW.TYPE_ID:
-                counters.frames.increment();
-                counters.bytes.getAndAdd(buffer.getInt(index + DataFW.FIELD_OFFSET_LENGTH));
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 break;
             case EndFW.TYPE_ID:
-                counters.closes.increment();
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 throttles[throttleIndex(streamId)].remove(instanceId(streamId));
                 break;
             case AbortFW.TYPE_ID:
-                counters.aborts.increment();
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 throttles[throttleIndex(streamId)].remove(instanceId(streamId));
                 break;
@@ -237,6 +229,7 @@ public final class Target implements AutoCloseable
             case ResetFW.TYPE_ID:
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 streams[streamIndex(streamId)].remove(instanceId(streamId));
+                supplyLoadEntry.apply(routeId).initialClosed(1L).initialErrored(1L);
                 break;
             case SignalFW.TYPE_ID:
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
@@ -268,16 +261,20 @@ public final class Target implements AutoCloseable
             switch (msgTypeId)
             {
             case BeginFW.TYPE_ID:
+                supplyLoadEntry.apply(routeId).replyOpened(1L);
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 break;
             case DataFW.TYPE_ID:
+                supplyLoadEntry.apply(routeId).replyBytesWritten(buffer.getInt(index + DataFW.FIELD_OFFSET_LENGTH));
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 break;
             case EndFW.TYPE_ID:
+                supplyLoadEntry.apply(routeId).replyClosed(1L);
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 throttles[throttleIndex(streamId)].remove(instanceId(streamId));
                 break;
             case AbortFW.TYPE_ID:
+                supplyLoadEntry.apply(routeId).replyClosed(1L).replyErrored(1L);
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 throttles[throttleIndex(streamId)].remove(instanceId(streamId));
                 break;
@@ -291,15 +288,12 @@ public final class Target implements AutoCloseable
         }
         else
         {
-            final WriteCounters counters = countersByRouteId.computeIfAbsent(routeId, newWriteCounters);
             switch (msgTypeId)
             {
             case WindowFW.TYPE_ID:
-                counters.windows.increment();
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 break;
             case ResetFW.TYPE_ID:
-                counters.resets.increment();
                 handled = streamsBuffer.test(msgTypeId, buffer, index, length);
                 streams[streamIndex(streamId)].remove(instanceId(streamId));
                 correlations.remove(streamId);

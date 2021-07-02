@@ -16,6 +16,7 @@
 package org.reaktivity.reaktor.internal.context;
 
 import java.util.function.Function;
+import java.util.function.LongConsumer;
 import java.util.function.ToIntFunction;
 
 import org.agrona.collections.Int2ObjectHashMap;
@@ -29,6 +30,7 @@ public class NamespaceContext
     private final Namespace namespace;
     private final Function<String, Elektron> lookupElektron;
     private final ToIntFunction<String> supplyLabelId;
+    private final LongConsumer supplyLoadEntry;
     private final int namespaceId;
     private final Int2ObjectHashMap<BindingContext> bindingsById;
     private final Int2ObjectHashMap<VaultContext> vaultsById;
@@ -36,11 +38,13 @@ public class NamespaceContext
     public NamespaceContext(
         Namespace namespace,
         Function<String, Elektron> lookupElektron,
-        ToIntFunction<String> supplyLabelId)
+        ToIntFunction<String> supplyLabelId,
+        LongConsumer supplyLoadEntry)
     {
         this.namespace = namespace;
         this.lookupElektron = lookupElektron;
         this.supplyLabelId = supplyLabelId;
+        this.supplyLoadEntry = supplyLoadEntry;
         this.namespaceId = supplyLabelId.applyAsInt(namespace.name);
         this.bindingsById = new Int2ObjectHashMap<>();
         this.vaultsById = new Int2ObjectHashMap<>();
@@ -73,6 +77,7 @@ public class NamespaceContext
             BindingContext context = new BindingContext(binding, elektron);
             bindingsById.put(bindingId, context);
             context.attach();
+            supplyLoadEntry.accept(binding.id);
         }
     }
 
