@@ -41,6 +41,7 @@ public class ReaktorConfiguration extends Configuration
     public static final PropertyDef<Path> REAKTOR_CACHE_DIRECTORY;
     public static final PropertyDef<HostResolver> REAKTOR_HOST_RESOLVER;
     public static final IntPropertyDef REAKTOR_BUDGETS_BUFFER_CAPACITY;
+    public static final IntPropertyDef REAKTOR_LOAD_BUFFER_CAPACITY;
     public static final IntPropertyDef REAKTOR_STREAMS_BUFFER_CAPACITY;
     public static final IntPropertyDef REAKTOR_COMMAND_BUFFER_CAPACITY;
     public static final IntPropertyDef REAKTOR_RESPONSE_BUFFER_CAPACITY;
@@ -74,6 +75,7 @@ public class ReaktorConfiguration extends Configuration
         REAKTOR_HOST_RESOLVER = config.property(HostResolver.class, "host.resolver",
                 ReaktorConfiguration::decodeHostResolver, ReaktorConfiguration::defaultHostResolver);
         REAKTOR_BUDGETS_BUFFER_CAPACITY = config.property("budgets.buffer.capacity", 1024 * 1024);
+        REAKTOR_LOAD_BUFFER_CAPACITY = config.property("load.buffer.capacity", 1024 * 8);
         REAKTOR_STREAMS_BUFFER_CAPACITY = config.property("streams.buffer.capacity", 1024 * 1024);
         REAKTOR_COMMAND_BUFFER_CAPACITY = config.property("command.buffer.capacity", 1024 * 1024);
         REAKTOR_RESPONSE_BUFFER_CAPACITY = config.property("response.buffer.capacity", 1024 * 1024);
@@ -186,6 +188,11 @@ public class ReaktorConfiguration extends Configuration
     public int responseBufferCapacity()
     {
         return REAKTOR_RESPONSE_BUFFER_CAPACITY.getAsInt(this);
+    }
+
+    public int loadBufferCapacity()
+    {
+        return REAKTOR_LOAD_BUFFER_CAPACITY.getAsInt(this);
     }
 
     public int routesBufferCapacity()

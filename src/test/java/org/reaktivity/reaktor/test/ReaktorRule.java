@@ -15,7 +15,6 @@
  */
 package org.reaktivity.reaktor.test;
 
-import static java.lang.String.format;
 import static java.nio.file.FileVisitOption.FOLLOW_LINKS;
 import static java.nio.file.Files.exists;
 import static java.util.Objects.requireNonNull;
@@ -165,88 +164,60 @@ public final class ReaktorRule implements TestRule
         return requireNonNull(reaktor.nukleus(kind));
     }
 
-    public long opensRead(
+    public long initialOpens(
         String namespace,
         String binding)
     {
-        return counter(format("%s.%s.opens.read", namespace, binding));
+        return reaktor.initialOpens(namespace, binding);
     }
 
-    public long opensWritten(
+    public long replyOpens(
         String namespace,
         String binding)
     {
-        return counter(format("%s.%s.opens.written", namespace, binding));
+        return reaktor.replyOpens(namespace, binding);
     }
 
-    public long closesRead(
+    public long initialCloses(
         String namespace,
         String binding)
     {
-        return counter(format("%s.%s.closes.read", namespace, binding));
+        return reaktor.initialCloses(namespace, binding);
     }
 
-    public long closesWritten(
+    public long replyCloses(
         String namespace,
         String binding)
     {
-        return counter(format("%s.%s.closes.written", namespace, binding));
+        return reaktor.replyCloses(namespace, binding);
     }
 
-    public long abortsRead(
+    public long initialErrors(
         String namespace,
         String binding)
     {
-        return counter(format("%s.%s.aborts.read", namespace, binding));
+        return reaktor.initialErrors(namespace, binding);
     }
 
-    public long abortsWritten(
+    public long replyErrors(
         String namespace,
         String binding)
     {
-        return counter(format("%s.%s.aborts.written", namespace, binding));
+        return reaktor.replyErrors(namespace, binding);
     }
 
-    public long resetsRead(
+    public long initialBytes(
         String namespace,
         String binding)
     {
-        return counter(format("%s.%s.resets.read", namespace, binding));
+        return reaktor.initialBytes(namespace, binding);
     }
 
-    public long resetsWritten(
-        String nukleus,
-        long routeId)
-    {
-        return counter(format("%s.%d.resets.written", nukleus, routeId));
-    }
-
-    public long bytesRead(
+    public long replyBytes(
         String namespace,
         String binding)
     {
-        return counter(format("%s.%s.bytes.read", namespace, binding));
-    }
-
-    public long bytesWritten(
-        String namespace,
-        String binding)
-    {
-        return counter(format("%s.%s.bytes.written", namespace, binding));
-    }
-
-    public long framesRead(
-        String namespace,
-        String binding)
-    {
-        return counter(format("%s.%s.frames.read", namespace, binding));
-    }
-
-    public long framesWritten(
-        String namespace,
-        String binding)
-    {
-        return counter(format("%s.%s.frames.written", namespace, binding));
+        return reaktor.replyBytes(namespace, binding);
     }
 
     public long counter(

@@ -15,14 +15,11 @@
  */
 package org.reaktivity.reaktor.internal.context;
 
-import static java.lang.String.format;
 import static java.lang.System.currentTimeMillis;
 import static java.lang.ThreadLocal.withInitial;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.agrona.CloseHelper.quietClose;
 import static org.reaktivity.reaktor.internal.stream.BudgetId.ownerIndex;
-import static org.reaktivity.reaktor.internal.stream.NamespacedId.localId;
-import static org.reaktivity.reaktor.internal.stream.NamespacedId.namespaceId;
 import static org.reaktivity.reaktor.internal.stream.StreamId.instanceId;
 import static org.reaktivity.reaktor.internal.stream.StreamId.isInitial;
 import static org.reaktivity.reaktor.internal.stream.StreamId.remoteIndex;
@@ -83,13 +80,15 @@ import org.reaktivity.reaktor.internal.budget.DefaultBudgetCreditor;
 import org.reaktivity.reaktor.internal.budget.DefaultBudgetDebitor;
 import org.reaktivity.reaktor.internal.layouts.BudgetsLayout;
 import org.reaktivity.reaktor.internal.layouts.BufferPoolLayout;
+import org.reaktivity.reaktor.internal.layouts.LoadLayout;
 import org.reaktivity.reaktor.internal.layouts.MetricsLayout;
 import org.reaktivity.reaktor.internal.layouts.StreamsLayout;
+import org.reaktivity.reaktor.internal.load.LoadEntry;
+import org.reaktivity.reaktor.internal.load.LoadManager;
 import org.reaktivity.reaktor.internal.poller.Poller;
 import org.reaktivity.reaktor.internal.stream.NamespacedId;
 import org.reaktivity.reaktor.internal.stream.StreamId;
 import org.reaktivity.reaktor.internal.stream.Target;
-import org.reaktivity.reaktor.internal.stream.WriteCounters;
 import org.reaktivity.reaktor.internal.types.stream.AbortFW;
 import org.reaktivity.reaktor.internal.types.stream.BeginFW;
 import org.reaktivity.reaktor.internal.types.stream.ChallengeFW;
@@ -132,9 +131,11 @@ public class DispatchAgent implements ElektronContext, Agent
     private final URL configURL;
     private final LabelManager labels;
     private final String agentName;
+    private final LongFunction<LoadEntry> supplyLoadEntry;
     private final Counters counters;
     private final Function<String, InetAddress[]> resolveHost;
     private final boolean timestamps;
+    private final LoadLayout loadLayout;
     private final MetricsLayout metricsLayout;
     private final StreamsLayout streamsLayout;
     private final BufferPoolLayout bufferPoolLayout;
@@ -142,7 +143,6 @@ public class DispatchAgent implements ElektronContext, Agent
     private final MutableDirectBuffer writeBuffer;
     private final Int2ObjectHashMap<MessageConsumer>[] streams;
     private final Int2ObjectHashMap<MessageConsumer>[] throttles;
-    private final Long2ObjectHashMap<ReadCounters> countersByRouteId;
     private final Int2ObjectHashMap<MessageConsumer> writersByIndex;
     private final Int2ObjectHashMap<Target> targetsByIndex;
     private final BufferPool bufferPool;
@@ -152,10 +152,8 @@ public class DispatchAgent implements ElektronContext, Agent
     private final TimerHandler expireHandler;
     private final int readLimit;
     private final int expireLimit;
-    private final LongFunction<? extends ReadCounters> newReadCounters;
     private final IntFunction<MessageConsumer> supplyWriter;
     private final IntFunction<Target> newTarget;
-    private final LongFunction<WriteCounters> newWriteCounters;
     private final LongFunction<Affinity> resolveAffinity;
 
     private final Poller poller;
@@ -206,6 +204,11 @@ public class DispatchAgent implements ElektronContext, Agent
                 config.minParkNanos(),
                 config.maxParkNanos());
 
+        final LoadLayout loadLayout = new LoadLayout.Builder()
+                .path(config.directory().resolve(String.format("load%d", index)))
+                .capacity(config.loadBufferCapacity())
+                .build();
+
         final MetricsLayout metricsLayout = new MetricsLayout.Builder()
                 .path(config.directory().resolve(String.format("metrics%d", index)))
                 .labelsBufferCapacity(config.counterLabelsBufferCapacity())
@@ -226,10 +229,13 @@ public class DispatchAgent implements ElektronContext, Agent
                 .build();
 
         this.agentName = String.format("reaktor/data#%d", index);
+        this.loadLayout = loadLayout;
         this.metricsLayout = metricsLayout;
         this.streamsLayout = streamsLayout;
         this.bufferPoolLayout = bufferPoolLayout;
         this.runner = new AgentRunner(idleStrategy, errorHandler, null, this);
+
+        this.supplyLoadEntry = new LoadManager(loadLayout.buffer())::entry;
 
         final CountersManager countersManager =
                 new CountersManager(metricsLayout.labelsBuffer(), metricsLayout.valuesBuffer());
@@ -243,13 +249,10 @@ public class DispatchAgent implements ElektronContext, Agent
         this.writeBuffer = new UnsafeBuffer(new byte[config.bufferSlotCapacity() + 1024]);
         this.streams = initDispatcher();
         this.throttles = initDispatcher();
-        this.countersByRouteId = new Long2ObjectHashMap<>();
         this.readHandler = this::handleRead;
         this.expireHandler = this::handleExpire;
-        this.newReadCounters = this::newReadCounters;
         this.supplyWriter = this::supplyWriter;
         this.newTarget = this::newTarget;
-        this.newWriteCounters = this::newWriteCounters;
         this.resolveAffinity = this::resolveAffinity;
         this.affinityByRouteId = new Long2ObjectHashMap<>();
         this.targetsByIndex = new Int2ObjectHashMap<>();
@@ -294,7 +297,7 @@ public class DispatchAgent implements ElektronContext, Agent
             elektronsByName.put(name, nukleus.supplyElektron(this));
         }
 
-        this.configuration = new ConfigurationContext(elektronsByName::get, labels::supplyLabelId);
+        this.configuration = new ConfigurationContext(elektronsByName::get, labels::supplyLabelId, supplyLoadEntry::apply);
         this.taskQueue = new ConcurrentLinkedDeque<>();
         this.correlations = new Long2ObjectHashMap<>();
     }
@@ -564,6 +567,7 @@ public class DispatchAgent implements ElektronContext, Agent
         targetsByIndex.forEach((k, v) -> quietClose(v));
 
         quietClose(streamsLayout);
+        quietClose(loadLayout);
         quietClose(metricsLayout);
         quietClose(bufferPoolLayout);
 
@@ -576,6 +580,64 @@ public class DispatchAgent implements ElektronContext, Agent
                     String.format("Some resources not released: %d buffers, %d creditors, %d debitors",
                                   acquiredBuffers, acquiredCreditors, acquiredDebitors));
         }
+    }
+
+    @Override
+    public void initialOpened(
+        long bindingId)
+    {
+        supplyLoadEntry.apply(bindingId).initialOpened(1L);
+    }
+
+    @Override
+    public void initialClosed(
+        long bindingId)
+    {
+        supplyLoadEntry.apply(bindingId).initialClosed(1L);
+    }
+
+    @Override
+    public void initialErrored(
+        long bindingId)
+    {
+        supplyLoadEntry.apply(bindingId).initialErrored(1L);
+    }
+
+    @Override
+    public void initialBytes(
+        long bindingId,
+        long bytes)
+    {
+        supplyLoadEntry.apply(bindingId).initialBytesRead(bytes);
+    }
+
+    @Override
+    public void replyOpened(
+        long bindingId)
+    {
+        supplyLoadEntry.apply(bindingId).replyOpened(1L);
+    }
+
+    @Override
+    public void replyClosed(
+        long bindingId)
+    {
+        supplyLoadEntry.apply(bindingId).replyClosed(1L);
+    }
+
+    @Override
+    public void replyErrored(
+        long bindingId)
+    {
+        supplyLoadEntry.apply(bindingId).replyErrored(1L);
+    }
+
+    @Override
+    public void replyBytes(
+        long bindingId,
+        long bytes)
+    {
+        supplyLoadEntry.apply(bindingId).replyBytesWritten(bytes);
     }
 
     @Override
@@ -605,6 +667,54 @@ public class DispatchAgent implements ElektronContext, Agent
     public AgentRunner runner()
     {
         return runner;
+    }
+
+    public long initialOpens(
+        long bindingId)
+    {
+        return supplyLoadEntry.apply(bindingId).initialOpens();
+    }
+
+    public long initialCloses(
+        long bindingId)
+    {
+        return supplyLoadEntry.apply(bindingId).initialCloses();
+    }
+
+    public long initialErrors(
+        long bindingId)
+    {
+        return supplyLoadEntry.apply(bindingId).initialErrors();
+    }
+
+    public long initialBytes(
+        long bindingId)
+    {
+        return supplyLoadEntry.apply(bindingId).initialBytes();
+    }
+
+    public long replyOpens(
+        long bindingId)
+    {
+        return supplyLoadEntry.apply(bindingId).replyOpens();
+    }
+
+    public long replyCloses(
+        long bindingId)
+    {
+        return supplyLoadEntry.apply(bindingId).replyCloses();
+    }
+
+    public long replyErrors(
+        long bindingId)
+    {
+        return supplyLoadEntry.apply(bindingId).replyErrors();
+    }
+
+    public long replyBytes(
+        long bindingId)
+    {
+        return supplyLoadEntry.apply(bindingId).replyBytes();
     }
 
     public long counter(
@@ -818,13 +928,16 @@ public class DispatchAgent implements ElektronContext, Agent
                     handler.accept(msgTypeId, buffer, index, length);
                     break;
                 case DataFW.TYPE_ID:
+                    supplyLoadEntry.apply(routeId).initialBytesRead(buffer.getInt(index + DataFW.FIELD_OFFSET_LENGTH));
                     handler.accept(msgTypeId, buffer, index, length);
                     break;
                 case EndFW.TYPE_ID:
+                    supplyLoadEntry.apply(routeId).initialClosed(1L);
                     handler.accept(msgTypeId, buffer, index, length);
                     dispatcher.remove(instanceId);
                     break;
                 case AbortFW.TYPE_ID:
+                    supplyLoadEntry.apply(routeId).initialClosed(1L).initialErrored(1L);
                     handler.accept(msgTypeId, buffer, index, length);
                     dispatcher.remove(instanceId);
                     break;
@@ -847,15 +960,12 @@ public class DispatchAgent implements ElektronContext, Agent
             final MessageConsumer throttle = dispatcher.get(instanceId);
             if (throttle != null)
             {
-                final ReadCounters counters = countersByRouteId.computeIfAbsent(routeId, newReadCounters);
                 switch (msgTypeId)
                 {
                 case WindowFW.TYPE_ID:
-                    counters.windows.increment();
                     throttle.accept(msgTypeId, buffer, index, length);
                     break;
                 case ResetFW.TYPE_ID:
-                    counters.resets.increment();
                     throttle.accept(msgTypeId, buffer, index, length);
                     dispatcher.remove(instanceId);
                     break;
@@ -984,25 +1094,19 @@ public class DispatchAgent implements ElektronContext, Agent
             final MessageConsumer handler = dispatcher.get(instanceId);
             if (handler != null)
             {
-                final ReadCounters counters = countersByRouteId.computeIfAbsent(routeId, newReadCounters);
                 switch (msgTypeId)
                 {
                 case BeginFW.TYPE_ID:
-                    counters.opens.increment();
                     handler.accept(msgTypeId, buffer, index, length);
                     break;
                 case DataFW.TYPE_ID:
-                    counters.frames.increment();
-                    counters.bytes.getAndAdd(buffer.getInt(index + DataFW.FIELD_OFFSET_LENGTH));
                     handler.accept(msgTypeId, buffer, index, length);
                     break;
                 case EndFW.TYPE_ID:
-                    counters.closes.increment();
                     handler.accept(msgTypeId, buffer, index, length);
                     dispatcher.remove(instanceId);
                     break;
                 case AbortFW.TYPE_ID:
-                    counters.aborts.increment();
                     handler.accept(msgTypeId, buffer, index, length);
                     dispatcher.remove(instanceId);
                     break;
@@ -1084,9 +1188,6 @@ public class DispatchAgent implements ElektronContext, Agent
             final MessageConsumer newHandler = handleBeginReply(msgTypeId, buffer, index, length);
             if (newHandler != null)
             {
-
-                final ReadCounters counters = countersByRouteId.computeIfAbsent(routeId, newReadCounters);
-                counters.opens.increment();
                 newHandler.accept(msgTypeId, buffer, index, length);
             }
             else
@@ -1123,6 +1224,7 @@ public class DispatchAgent implements ElektronContext, Agent
                 final long replyId = supplyReplyId(initialId);
                 streams[streamIndex(initialId)].put(instanceId(initialId), newStream);
                 throttles[throttleIndex(replyId)].put(instanceId(replyId), newStream);
+                supplyLoadEntry.apply(routeId).initialOpened(1L);
             }
         }
 
@@ -1231,52 +1333,7 @@ public class DispatchAgent implements ElektronContext, Agent
     private Target newTarget(
         int index)
     {
-        return new Target(config, index, writeBuffer, correlations, streams, throttles, newWriteCounters);
-    }
-
-    private ReadCounters newReadCounters(
-        long routeId)
-    {
-        final int namespaceId = namespaceId(routeId);
-        final int bindingId = localId(routeId);
-        final String namespace = labels.lookupLabel(namespaceId);
-        final String binding = labels.lookupLabel(bindingId);
-        return new ReadCounters(counters, namespace, binding);
-    }
-
-    private WriteCounters newWriteCounters(
-        long routeId)
-    {
-        final int namespaceId = namespaceId(routeId);
-        final int bindingId = localId(routeId);
-        final String namespace = labels.lookupLabel(namespaceId);
-        final String binding = labels.lookupLabel(bindingId);
-        return new WriteCounters(counters, namespace, binding);
-    }
-
-    private static final class ReadCounters
-    {
-        private final AtomicCounter opens;
-        private final AtomicCounter closes;
-        private final AtomicCounter aborts;
-        private final AtomicCounter windows;
-        private final AtomicCounter resets;
-        private final AtomicCounter bytes;
-        private final AtomicCounter frames;
-
-        ReadCounters(
-            Counters counters,
-            String namespace,
-            String binding)
-        {
-            this.opens = counters.counter(format("%s.%s.opens.read", namespace, binding));
-            this.closes = counters.counter(format("%s.%s.closes.read", namespace, binding));
-            this.aborts = counters.counter(format("%s.%s.aborts.read", namespace, binding));
-            this.windows = counters.counter(format("%s.%s.windows.read", namespace, binding));
-            this.resets = counters.counter(format("%s.%s.resets.read", namespace, binding));
-            this.bytes = counters.counter(format("%s.%s.bytes.read", namespace, binding));
-            this.frames = counters.counter(format("%s.%s.frames.read", namespace, binding));
-        }
+        return new Target(config, index, writeBuffer, correlations, streams, throttles, supplyLoadEntry);
     }
 
     private DefaultBudgetDebitor newBudgetDebitor(

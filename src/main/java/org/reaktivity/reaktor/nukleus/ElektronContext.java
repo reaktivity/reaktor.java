@@ -101,4 +101,30 @@ public interface ElektronContext
 
     URL resolvePath(
         String path);
+
+    void initialOpened(
+        long bindingId);
+
+    void initialClosed(
+        long bindingId);
+
+    void initialErrored(
+        long bindingId);
+
+    void initialBytes(
+        long bindingId,
+        long bytes);
+
+    void replyOpened(
+        long bindingId);
+
+    void replyClosed(
+        long bindingId);
+
+    void replyErrored(
+        long bindingId);
+
+    void replyBytes(
+        long bindingId,
+        long count);
 }

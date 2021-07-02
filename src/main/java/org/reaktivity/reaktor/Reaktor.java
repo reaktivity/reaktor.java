@@ -31,6 +31,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.function.LongUnaryOperator;
+import java.util.function.ToIntFunction;
 import java.util.function.ToLongFunction;
 
 import org.agrona.CloseHelper;
@@ -55,6 +57,16 @@ public final class Reaktor implements AutoCloseable
 
     private final AtomicInteger nextTaskId;
     private final ThreadFactory factory;
+
+    private final ToIntFunction<String> supplyLabelId;
+    private final LongUnaryOperator initialOpens;
+    private final LongUnaryOperator initialCloses;
+    private final LongUnaryOperator initialErrors;
+    private final LongUnaryOperator initialBytes;
+    private final LongUnaryOperator replyOpens;
+    private final LongUnaryOperator replyCloses;
+    private final LongUnaryOperator replyErrors;
+    private final LongUnaryOperator replyBytes;
 
     private Future<Void> configureRef;
 
@@ -110,6 +122,16 @@ public final class Reaktor implements AutoCloseable
         final ToLongFunction<String> counter =
             name -> dispatchers.stream().mapToLong(d -> d.counter(name)).sum();
 
+        this.supplyLabelId = labels::supplyLabelId;
+        this.initialOpens = id -> dispatchers.stream().mapToLong(d -> d.initialOpens(id)).sum();
+        this.initialCloses = id -> dispatchers.stream().mapToLong(d -> d.initialCloses(id)).sum();
+        this.initialErrors = id -> dispatchers.stream().mapToLong(d -> d.initialErrors(id)).sum();
+        this.initialBytes = id -> dispatchers.stream().mapToLong(d -> d.initialBytes(id)).sum();
+        this.replyOpens = id -> dispatchers.stream().mapToLong(d -> d.replyOpens(id)).sum();
+        this.replyCloses = id -> dispatchers.stream().mapToLong(d -> d.replyCloses(id)).sum();
+        this.replyErrors = id -> dispatchers.stream().mapToLong(d -> d.replyErrors(id)).sum();
+        this.replyBytes = id -> dispatchers.stream().mapToLong(d -> d.replyBytes(id)).sum();
+
         this.nuklei = nuklei;
         this.tasks = tasks;
         this.configure = configure;
@@ -125,6 +147,62 @@ public final class Reaktor implements AutoCloseable
                 .map(kind::cast)
                 .findFirst()
                 .orElse(null);
+    }
+
+    public long initialOpens(
+        String namespace,
+        String binding)
+    {
+        return lookupLoad(namespace, binding, initialOpens);
+    }
+
+    public long initialCloses(
+        String namespace,
+        String binding)
+    {
+        return lookupLoad(namespace, binding, initialCloses);
+    }
+
+    public long initialErrors(
+        String namespace,
+        String binding)
+    {
+        return lookupLoad(namespace, binding, initialErrors);
+    }
+
+    public long initialBytes(
+        String namespace,
+        String binding)
+    {
+        return lookupLoad(namespace, binding, initialBytes);
+    }
+
+    public long replyOpens(
+        String namespace,
+        String binding)
+    {
+        return lookupLoad(namespace, binding, replyOpens);
+    }
+
+    public long replyCloses(
+        String namespace,
+        String binding)
+    {
+        return lookupLoad(namespace, binding, replyCloses);
+    }
+
+    public long replyErrors(
+        String namespace,
+        String binding)
+    {
+        return lookupLoad(namespace, binding, replyErrors);
+    }
+
+    public long replyBytes(
+        String namespace,
+        String binding)
+    {
+        return lookupLoad(namespace, binding, replyBytes);
     }
 
     public long counter(
@@ -195,5 +273,16 @@ public final class Reaktor implements AutoCloseable
         }
 
         return t;
+    }
+
+    private long lookupLoad(
+        String namespace,
+        String binding,
+        LongUnaryOperator lookup)
+    {
+        int namespaceId = supplyLabelId.applyAsInt(namespace);
+        int bindingId = supplyLabelId.applyAsInt(binding);
+        long id = NamespacedId.id(namespaceId, bindingId);
+        return lookup.applyAsLong(id);
     }
 }

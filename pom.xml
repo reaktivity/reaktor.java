@@ -49,7 +49,7 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <checkstyle.config.location>src/conf/checkstyle/configuration.xml</checkstyle.config.location>
     <checkstyle.suppressions.location>src/conf/checkstyle/suppressions.xml</checkstyle.suppressions.location>
-    <jacoco.coverage.ratio>0.71</jacoco.coverage.ratio>
+    <jacoco.coverage.ratio>0.70</jacoco.coverage.ratio>
     <jacoco.missed.count>4</jacoco.missed.count>
 
     <nukleus.plugin.version>0.85</nukleus.plugin.version>

@@ -16,6 +16,7 @@
 package org.reaktivity.reaktor.internal.context;
 
 import java.util.function.Function;
+import java.util.function.LongConsumer;
 import java.util.function.ToIntFunction;
 
 import org.agrona.collections.Int2ObjectHashMap;
@@ -27,15 +28,18 @@ public class ConfigurationContext
 {
     private final Function<String, Elektron> elektronsByName;
     private final ToIntFunction<String> supplyLabelId;
+    private final LongConsumer supplyLoadEntry;
 
     private final Int2ObjectHashMap<NamespaceContext> namespacesById;
 
     public ConfigurationContext(
         Function<String, Elektron> elektronsByName,
-        ToIntFunction<String> supplyLabelId)
+        ToIntFunction<String> supplyLabelId,
+        LongConsumer supplyLoadEntry)
     {
         this.elektronsByName = elektronsByName;
         this.supplyLabelId = supplyLabelId;
+        this.supplyLoadEntry = supplyLoadEntry;
         this.namespacesById = new Int2ObjectHashMap<>();
     }
 
@@ -86,7 +90,7 @@ public class ConfigurationContext
     private void attachNamespace(
         Namespace namespace)
     {
-        NamespaceContext context = new NamespaceContext(namespace, elektronsByName, supplyLabelId);
+        NamespaceContext context = new NamespaceContext(namespace, elektronsByName, supplyLabelId, supplyLoadEntry);
         namespacesById.put(context.namespaceId(), context);
         context.attach();
     }
