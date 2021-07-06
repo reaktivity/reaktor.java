@@ -18,6 +18,7 @@ package org.reaktivity.reaktor.internal;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.not;
+import static org.junit.Assert.assertEquals;
 import static org.reaktivity.reaktor.ReaktorConfiguration.REAKTOR_DIRECTORY;
 
 import java.net.URI;
@@ -30,6 +31,9 @@ import org.junit.Before;
 import org.junit.Test;
 import org.reaktivity.reaktor.Reaktor;
 import org.reaktivity.reaktor.ReaktorConfiguration;
+import org.reaktivity.reaktor.ReaktorLoad;
+import org.reaktivity.reaktor.ext.ReaktorExtContext;
+import org.reaktivity.reaktor.ext.ReaktorExtSpi;
 
 public class ReaktorTest
 {
@@ -77,6 +81,16 @@ public class ReaktorTest
                 .build())
         {
             reaktor.start().get();
+
+            ReaktorLoad load = reaktor.load("default", "test0");
+            assertEquals(0L, load.initialOpens());
+            assertEquals(0L, load.initialCloses());
+            assertEquals(0L, load.initialErrors());
+            assertEquals(0L, load.initialBytes());
+            assertEquals(0L, load.replyOpens());
+            assertEquals(0L, load.replyCloses());
+            assertEquals(0L, load.replyErrors());
+            assertEquals(0L, load.replyBytes());
         }
         catch (Throwable ex)
         {
@@ -107,6 +121,21 @@ public class ReaktorTest
         finally
         {
             assertThat(errors, not(empty()));
+        }
+    }
+
+    public static final class TestReaktorExt implements ReaktorExtSpi
+    {
+        @Override
+        public void onConfigured(
+            ReaktorExtContext context)
+        {
+        }
+
+        @Override
+        public void onClosed(
+            ReaktorExtContext context)
+        {
         }
     }
 }

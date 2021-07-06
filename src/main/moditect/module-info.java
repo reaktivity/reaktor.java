@@ -17,6 +17,7 @@ module org.reaktivity.reaktor
 {
     exports org.reaktivity.reaktor;
     exports org.reaktivity.reaktor.config;
+    exports org.reaktivity.reaktor.ext;
     exports org.reaktivity.reaktor.nukleus;
     exports org.reaktivity.reaktor.nukleus.budget;
     exports org.reaktivity.reaktor.nukleus.buffer;
@@ -35,6 +36,7 @@ module org.reaktivity.reaktor
     uses org.reaktivity.reaktor.config.ConditionAdapterSpi;
     uses org.reaktivity.reaktor.config.OptionsAdapterSpi;
     uses org.reaktivity.reaktor.config.WithAdapterSpi;
+    uses org.reaktivity.reaktor.ext.ReaktorExtSpi;
     uses org.reaktivity.reaktor.nukleus.NukleusFactorySpi;
     uses org.reaktivity.reaktor.nukleus.vault.BindingVault;
 }
