@@ -17,6 +17,7 @@ package org.reaktivity.reaktor;
 
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.ForkJoinPool.commonPool;
+import static java.util.stream.Collectors.toList;
 import static org.agrona.LangUtil.rethrowUnchecked;
 
 import java.net.URL;
@@ -24,6 +25,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.ServiceLoader;
+import java.util.ServiceLoader.Provider;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -31,19 +34,21 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
-import java.util.function.LongUnaryOperator;
 import java.util.function.ToIntFunction;
 import java.util.function.ToLongFunction;
 
 import org.agrona.CloseHelper;
 import org.agrona.ErrorHandler;
 import org.agrona.concurrent.AgentRunner;
+import org.reaktivity.reaktor.ext.ReaktorExtContext;
+import org.reaktivity.reaktor.ext.ReaktorExtSpi;
 import org.reaktivity.reaktor.internal.Info;
 import org.reaktivity.reaktor.internal.LabelManager;
 import org.reaktivity.reaktor.internal.Tuning;
 import org.reaktivity.reaktor.internal.context.ConfigureTask;
 import org.reaktivity.reaktor.internal.context.DispatchAgent;
 import org.reaktivity.reaktor.internal.stream.NamespacedId;
+import org.reaktivity.reaktor.nukleus.Configuration;
 import org.reaktivity.reaktor.nukleus.Nukleus;
 
 public final class Reaktor implements AutoCloseable
@@ -54,19 +59,13 @@ public final class Reaktor implements AutoCloseable
     private final Collection<AgentRunner> runners;
     private final ToLongFunction<String> counter;
     private final Tuning tuning;
+    private final List<ReaktorExtSpi> extensions;
+    private final ReaktorExtContext context;
 
     private final AtomicInteger nextTaskId;
     private final ThreadFactory factory;
 
     private final ToIntFunction<String> supplyLabelId;
-    private final LongUnaryOperator initialOpens;
-    private final LongUnaryOperator initialCloses;
-    private final LongUnaryOperator initialErrors;
-    private final LongUnaryOperator initialBytes;
-    private final LongUnaryOperator replyOpens;
-    private final LongUnaryOperator replyCloses;
-    private final LongUnaryOperator replyErrors;
-    private final LongUnaryOperator replyBytes;
 
     private Future<Void> configureRef;
 
@@ -113,8 +112,14 @@ public final class Reaktor implements AutoCloseable
 
         final Consumer<String> logger = config.verbose() ? System.out::print : m -> {};
 
+        final List<ReaktorExtSpi> extensions = ServiceLoader.load(ReaktorExtSpi.class).stream()
+                .map(Provider::get)
+                .collect(toList());
+
+        final ContextImpl context = new ContextImpl(config, errorHandler, dispatchers);
         final Callable<Void> configure =
-                new ConfigureTask(configURL, labels::supplyLabelId, tuning, dispatchers, errorHandler, logger);
+                new ConfigureTask(configURL, labels::supplyLabelId, tuning, dispatchers,
+                        errorHandler, logger, context, extensions);
 
         List<AgentRunner> runners = new ArrayList<>(dispatchers.size());
         dispatchers.forEach(d -> runners.add(d.runner()));
@@ -123,18 +128,12 @@ public final class Reaktor implements AutoCloseable
             name -> dispatchers.stream().mapToLong(d -> d.counter(name)).sum();
 
         this.supplyLabelId = labels::supplyLabelId;
-        this.initialOpens = id -> dispatchers.stream().mapToLong(d -> d.initialOpens(id)).sum();
-        this.initialCloses = id -> dispatchers.stream().mapToLong(d -> d.initialCloses(id)).sum();
-        this.initialErrors = id -> dispatchers.stream().mapToLong(d -> d.initialErrors(id)).sum();
-        this.initialBytes = id -> dispatchers.stream().mapToLong(d -> d.initialBytes(id)).sum();
-        this.replyOpens = id -> dispatchers.stream().mapToLong(d -> d.replyOpens(id)).sum();
-        this.replyCloses = id -> dispatchers.stream().mapToLong(d -> d.replyCloses(id)).sum();
-        this.replyErrors = id -> dispatchers.stream().mapToLong(d -> d.replyErrors(id)).sum();
-        this.replyBytes = id -> dispatchers.stream().mapToLong(d -> d.replyBytes(id)).sum();
 
         this.nuklei = nuklei;
         this.tasks = tasks;
         this.configure = configure;
+        this.extensions = extensions;
+        this.context = context;
         this.runners = runners;
         this.counter = counter;
     }
@@ -149,60 +148,11 @@ public final class Reaktor implements AutoCloseable
                 .orElse(null);
     }
 
-    public long initialOpens(
+    public ReaktorLoad load(
         String namespace,
         String binding)
     {
-        return lookupLoad(namespace, binding, initialOpens);
-    }
-
-    public long initialCloses(
-        String namespace,
-        String binding)
-    {
-        return lookupLoad(namespace, binding, initialCloses);
-    }
-
-    public long initialErrors(
-        String namespace,
-        String binding)
-    {
-        return lookupLoad(namespace, binding, initialErrors);
-    }
-
-    public long initialBytes(
-        String namespace,
-        String binding)
-    {
-        return lookupLoad(namespace, binding, initialBytes);
-    }
-
-    public long replyOpens(
-        String namespace,
-        String binding)
-    {
-        return lookupLoad(namespace, binding, replyOpens);
-    }
-
-    public long replyCloses(
-        String namespace,
-        String binding)
-    {
-        return lookupLoad(namespace, binding, replyCloses);
-    }
-
-    public long replyErrors(
-        String namespace,
-        String binding)
-    {
-        return lookupLoad(namespace, binding, replyErrors);
-    }
-
-    public long replyBytes(
-        String namespace,
-        String binding)
-    {
-        return lookupLoad(namespace, binding, replyBytes);
+        return context.load(namespace, binding);
     }
 
     public long counter(
@@ -249,6 +199,8 @@ public final class Reaktor implements AutoCloseable
 
         tuning.close();
 
+        extensions.forEach(e -> e.onClosed(context));
+
         if (!errors.isEmpty())
         {
             final Throwable t = errors.get(0);
@@ -275,14 +227,119 @@ public final class Reaktor implements AutoCloseable
         return t;
     }
 
-    private long lookupLoad(
-        String namespace,
-        String binding,
-        LongUnaryOperator lookup)
+    private final class ContextImpl implements ReaktorExtContext
     {
-        int namespaceId = supplyLabelId.applyAsInt(namespace);
-        int bindingId = supplyLabelId.applyAsInt(binding);
-        long id = NamespacedId.id(namespaceId, bindingId);
-        return lookup.applyAsLong(id);
+        private final Configuration config;
+        private final ErrorHandler errorHandler;
+        private final Collection<DispatchAgent> dispatchers;
+
+        private ContextImpl(
+            Configuration config,
+            ErrorHandler errorHandler,
+            Collection<DispatchAgent> dispatchers)
+        {
+            this.config = config;
+            this.errorHandler = errorHandler;
+            this.dispatchers = dispatchers;
+        }
+
+        @Override
+        public Configuration config()
+        {
+            return config;
+        }
+
+        @Override
+        public ReaktorLoad load(
+            String namespace,
+            String binding)
+        {
+            int namespaceId = supplyLabelId.applyAsInt(namespace);
+            int bindingId = supplyLabelId.applyAsInt(binding);
+            long namespacedId = NamespacedId.id(namespaceId, bindingId);
+
+            return new LoadImpl(namespacedId);
+        }
+
+        @Override
+        public void onError(
+            Exception error)
+        {
+            errorHandler.onError(error);
+        }
+
+        private final class LoadImpl implements ReaktorLoad
+        {
+            private final ToLongFunction<? super DispatchAgent> initialOpens;
+            private final ToLongFunction<? super DispatchAgent> initialCloses;
+            private final ToLongFunction<? super DispatchAgent> initialErrors;
+            private final ToLongFunction<? super DispatchAgent> initialBytes;
+
+            private final ToLongFunction<? super DispatchAgent> replyOpens;
+            private final ToLongFunction<? super DispatchAgent> replyCloses;
+            private final ToLongFunction<? super DispatchAgent> replyErrors;
+            private final ToLongFunction<? super DispatchAgent> replyBytes;
+
+            private LoadImpl(
+                long id)
+            {
+                this.initialOpens = d -> d.initialOpens(id);
+                this.initialCloses = d -> d.initialCloses(id);
+                this.initialErrors = d -> d.initialErrors(id);
+                this.initialBytes = d -> d.initialBytes(id);
+                this.replyOpens = d -> d.replyOpens(id);
+                this.replyCloses = d -> d.replyCloses(id);
+                this.replyErrors = d -> d.replyErrors(id);
+                this.replyBytes = d -> d.replyBytes(id);
+            }
+
+            @Override
+            public long initialOpens()
+            {
+                return dispatchers.stream().mapToLong(initialOpens).sum();
+            }
+
+            @Override
+            public long initialCloses()
+            {
+                return dispatchers.stream().mapToLong(initialCloses).sum();
+            }
+
+            @Override
+            public long initialBytes()
+            {
+                return dispatchers.stream().mapToLong(initialBytes).sum();
+            }
+
+            @Override
+            public long initialErrors()
+            {
+                return dispatchers.stream().mapToLong(initialErrors).sum();
+            }
+
+            @Override
+            public long replyOpens()
+            {
+                return dispatchers.stream().mapToLong(replyOpens).sum();
+            }
+
+            @Override
+            public long replyCloses()
+            {
+                return dispatchers.stream().mapToLong(replyCloses).sum();
+            }
+
+            @Override
+            public long replyBytes()
+            {
+                return dispatchers.stream().mapToLong(replyBytes).sum();
+            }
+
+            @Override
+            public long replyErrors()
+            {
+                return dispatchers.stream().mapToLong(replyErrors).sum();
+            }
+        }
     }
 }

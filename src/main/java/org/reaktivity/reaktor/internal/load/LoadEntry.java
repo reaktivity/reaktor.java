@@ -20,9 +20,10 @@ import static org.agrona.BitUtil.SIZE_OF_LONG;
 
 import org.agrona.BitUtil;
 import org.agrona.concurrent.AtomicBuffer;
+import org.reaktivity.reaktor.ReaktorLoad;
 import org.reaktivity.reaktor.internal.stream.NamespacedId;
 
-public final class LoadEntry
+public final class LoadEntry implements ReaktorLoad
 {
     private static final int OFFSET_NAMESPACE_ID = 0;
     private static final int SIZE_OF_NAMESPACE_ID = SIZE_OF_INT;
@@ -83,11 +84,13 @@ public final class LoadEntry
         return buffer.getInt(offset + OFFSET_ENTRY_ID);
     }
 
+    @Override
     public long initialOpens()
     {
         return buffer.getLong(offset + OFFSET_INITIAL_OPENS);
     }
 
+    @Override
     public long initialCloses()
     {
         return buffer.getLong(offset + OFFSET_INITIAL_CLOSES);
@@ -109,6 +112,7 @@ public final class LoadEntry
         return this;
     }
 
+    @Override
     public long initialBytes()
     {
         return buffer.getLong(offset + OFFSET_INITIAL_BYTES);
@@ -122,6 +126,7 @@ public final class LoadEntry
         return this;
     }
 
+    @Override
     public long initialErrors()
     {
         return buffer.getLong(offset + OFFSET_INITIAL_ERRORS);
@@ -135,11 +140,13 @@ public final class LoadEntry
         return this;
     }
 
+    @Override
     public long replyOpens()
     {
         return buffer.getLong(offset + OFFSET_REPLY_OPENS);
     }
 
+    @Override
     public long replyCloses()
     {
         return buffer.getLong(offset + OFFSET_REPLY_CLOSES);
@@ -161,6 +168,7 @@ public final class LoadEntry
         return this;
     }
 
+    @Override
     public long replyBytes()
     {
         return buffer.getLong(offset + OFFSET_REPLY_BYTES);
@@ -174,6 +182,7 @@ public final class LoadEntry
         return this;
     }
 
+    @Override
     public long replyErrors()
     {
         return buffer.getLong(offset + OFFSET_REPLY_ERRORS);

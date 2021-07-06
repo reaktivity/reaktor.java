@@ -27,6 +27,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
@@ -40,6 +41,8 @@ import org.agrona.ErrorHandler;
 import org.reaktivity.reaktor.config.Binding;
 import org.reaktivity.reaktor.config.Route;
 import org.reaktivity.reaktor.config.Vault;
+import org.reaktivity.reaktor.ext.ReaktorExtContext;
+import org.reaktivity.reaktor.ext.ReaktorExtSpi;
 import org.reaktivity.reaktor.internal.Tuning;
 import org.reaktivity.reaktor.internal.config.Configuration;
 import org.reaktivity.reaktor.internal.config.ConfigurationAdapter;
@@ -48,12 +51,14 @@ import org.reaktivity.reaktor.internal.util.Mustache;
 
 public class ConfigureTask implements Callable<Void>
 {
-    private final ToIntFunction<String> supplyId;
     private final URL configURL;
+    private final ToIntFunction<String> supplyId;
     private final Tuning tuning;
     private final Collection<DispatchAgent> dispatchers;
     private final ErrorHandler errorHandler;
     private final Consumer<String> logger;
+    private final ReaktorExtContext context;
+    private final List<ReaktorExtSpi> extensions;
 
     public ConfigureTask(
         URL configURL,
@@ -61,14 +66,18 @@ public class ConfigureTask implements Callable<Void>
         Tuning tuning,
         Collection<DispatchAgent> dispatchers,
         ErrorHandler errorHandler,
-        Consumer<String> logger)
+        Consumer<String> logger,
+        ReaktorExtContext context,
+        List<ReaktorExtSpi> extensions)
     {
-        this.supplyId = supplyId;
         this.configURL = configURL;
+        this.supplyId = supplyId;
         this.tuning = tuning;
         this.dispatchers = dispatchers;
         this.errorHandler = errorHandler;
         this.logger = logger;
+        this.context = context;
+        this.extensions = extensions;
     }
 
     @Override
@@ -158,6 +167,8 @@ public class ConfigureTask implements Callable<Void>
                 future = CompletableFuture.allOf(future, dispatcher.attach(configuration));
             }
             future.join();
+
+            extensions.forEach(e -> e.onConfigured(context));
         }
         catch (Throwable ex)
         {

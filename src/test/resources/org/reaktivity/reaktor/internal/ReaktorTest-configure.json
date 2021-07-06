@@ -2,16 +2,16 @@
     "bindings":
     [
         {
-            "entry": "test#1",
+            "entry": "test0",
             "type" : "test",
             "kind": "SERVER",
             "routes":
             [
                 {
-                    "exit": "test#2"
+                    "exit": "test1"
                 }
             ],
-            "exit": "test#3"
+            "exit": "test2"
         }
     ]
 }

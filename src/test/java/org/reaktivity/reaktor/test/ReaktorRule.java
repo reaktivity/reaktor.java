@@ -47,6 +47,7 @@ import org.junit.runners.model.Statement;
 import org.reaktivity.reaktor.Reaktor;
 import org.reaktivity.reaktor.ReaktorBuilder;
 import org.reaktivity.reaktor.ReaktorConfiguration;
+import org.reaktivity.reaktor.ReaktorLoad;
 import org.reaktivity.reaktor.nukleus.Configuration.PropertyDef;
 import org.reaktivity.reaktor.nukleus.Nukleus;
 import org.reaktivity.reaktor.test.annotation.Configuration;
@@ -164,60 +165,11 @@ public final class ReaktorRule implements TestRule
         return requireNonNull(reaktor.nukleus(kind));
     }
 
-    public long initialOpens(
+    public ReaktorLoad load(
         String namespace,
         String binding)
     {
-        return reaktor.initialOpens(namespace, binding);
-    }
-
-    public long replyOpens(
-        String namespace,
-        String binding)
-    {
-        return reaktor.replyOpens(namespace, binding);
-    }
-
-    public long initialCloses(
-        String namespace,
-        String binding)
-    {
-        return reaktor.initialCloses(namespace, binding);
-    }
-
-    public long replyCloses(
-        String namespace,
-        String binding)
-    {
-        return reaktor.replyCloses(namespace, binding);
-    }
-
-    public long initialErrors(
-        String namespace,
-        String binding)
-    {
-        return reaktor.initialErrors(namespace, binding);
-    }
-
-    public long replyErrors(
-        String namespace,
-        String binding)
-    {
-        return reaktor.replyErrors(namespace, binding);
-    }
-
-    public long initialBytes(
-        String namespace,
-        String binding)
-    {
-        return reaktor.initialBytes(namespace, binding);
-    }
-
-    public long replyBytes(
-        String namespace,
-        String binding)
-    {
-        return reaktor.replyBytes(namespace, binding);
+        return reaktor.load(namespace, binding);
     }
 
     public long counter(
