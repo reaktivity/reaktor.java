@@ -36,7 +36,7 @@ final class TestVault implements BindingVault
     }
 
     @Override
-    public TrustedCertificateEntry trust(
+    public TrustedCertificateEntry certificate(
         String name)
     {
         return null;
