@@ -86,7 +86,10 @@ public class NamespaceContext
     {
         int bindingId = supplyLabelId.applyAsInt(binding.entry);
         BindingContext context = bindingsById.remove(bindingId);
-        context.detach();
+        if (context != null)
+        {
+            context.detach();
+        }
     }
 
     private void attachVault(
@@ -107,7 +110,10 @@ public class NamespaceContext
     {
         int vaultId = supplyLabelId.applyAsInt(vault.name);
         VaultContext context = vaultsById.remove(vaultId);
-        context.detach();
+        if (context != null)
+        {
+            context.detach();
+        }
     }
 
     BindingContext findBinding(
