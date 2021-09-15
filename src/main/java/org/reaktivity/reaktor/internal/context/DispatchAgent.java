@@ -1135,6 +1135,7 @@ public class DispatchAgent implements ElektronContext, Agent
                     throttle.accept(msgTypeId, buffer, index, length);
                     break;
                 case ResetFW.TYPE_ID:
+                    supplyLoadEntry.apply(routeId).replyClosed(1L).replyErrored(1L);
                     throttle.accept(msgTypeId, buffer, index, length);
                     dispatcher.remove(instanceId);
                     break;
